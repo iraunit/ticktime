@@ -1,0 +1,197 @@
+import pytest
+from django.urls import reverse
+from django.contrib.auth import get_user_model
+from django.core import mail
+from rest_framework import status
+from rest_framework.test import APIClient
+
+User = get_user_model()
+
+@pytest.mark.django_db
+class TestAuthViews:
+    def test_signup_success(self, api_client, mock_email_backend):
+        """Test successful user signup."""
+        url = reverse('signup')
+        data = {
+            'first_name': 'John',
+            'last_name': 'Doe',
+            'email': 'john@example.com',
+            'password': 'TestPassword123!',
+            'password_confirm': 'TestPassword123!',
+            'phone_number': '+1234567890',
+            'username': 'johndoe',
+            'industry': 'tech_gaming'
+        }
+        
+        response = api_client.post(url, data, format='json')
+        
+        assert response.status_code == status.HTTP_201_CREATED
+        assert response.data['message'] == 'User created successfully. Please verify your email.'
+        
+        # Check user was created
+        user = User.objects.get(email='john@example.com')
+        assert user.first_name == 'John'
+        assert user.last_name == 'Doe'
+        assert not user.is_active  # Should be inactive until email verification
+        
+        # Check profile was created
+        assert hasattr(user, 'profile')
+        assert user.profile.username == 'johndoe'
+        assert user.profile.industry == 'tech_gaming'
+        
+        # Check email was sent
+        assert len(mail.outbox) == 1
+        assert 'Verify your email' in mail.outbox[0].subject
+
+    def test_signup_password_mismatch(self, api_client):
+        """Test signup with password mismatch."""
+        url = reverse('signup')
+        data = {
+            'first_name': 'John',
+            'last_name': 'Doe',
+            'email': 'john@example.com',
+            'password': 'TestPassword123!',
+            'password_confirm': 'DifferentPassword123!',
+            'phone_number': '+1234567890',
+            'username': 'johndoe',
+            'industry': 'tech_gaming'
+        }
+        
+        response = api_client.post(url, data, format='json')
+        
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert 'Passwords do not match' in str(response.data)
+
+    def test_signup_duplicate_email(self, api_client, user):
+        """Test signup with duplicate email."""
+        url = reverse('signup')
+        data = {
+            'first_name': 'John',
+            'last_name': 'Doe',
+            'email': user.email,  # Use existing user's email
+            'password': 'TestPassword123!',
+            'password_confirm': 'TestPassword123!',
+            'phone_number': '+1234567890',
+            'username': 'johndoe',
+            'industry': 'tech_gaming'
+        }
+        
+        response = api_client.post(url, data, format='json')
+        
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert 'email' in response.data
+
+    def test_login_success(self, api_client, user):
+        """Test successful login."""
+        # Activate user for login
+        user.is_active = True
+        user.save()
+        
+        url = reverse('login')
+        data = {
+            'email': user.email,
+            'password': 'testpass123',
+            'remember_me': False
+        }
+        
+        response = api_client.post(url, data, format='json')
+        
+        assert response.status_code == status.HTTP_200_OK
+        assert 'access_token' in response.data
+        assert 'refresh_token' in response.data
+        assert 'user' in response.data
+        assert response.data['user']['email'] == user.email
+
+    def test_login_invalid_credentials(self, api_client, user):
+        """Test login with invalid credentials."""
+        user.is_active = True
+        user.save()
+        
+        url = reverse('login')
+        data = {
+            'email': user.email,
+            'password': 'wrongpassword',
+            'remember_me': False
+        }
+        
+        response = api_client.post(url, data, format='json')
+        
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
+        assert 'Invalid credentials' in str(response.data)
+
+    def test_login_inactive_user(self, api_client, user):
+        """Test login with inactive user."""
+        url = reverse('login')
+        data = {
+            'email': user.email,
+            'password': 'testpass123',
+            'remember_me': False
+        }
+        
+        response = api_client.post(url, data, format='json')
+        
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
+        assert 'Please verify your email' in str(response.data)
+
+    def test_logout_success(self, authenticated_client):
+        """Test successful logout."""
+        url = reverse('logout')
+        
+        response = authenticated_client.post(url)
+        
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data['message'] == 'Logged out successfully'
+
+    def test_profile_get(self, authenticated_client, influencer_profile):
+        """Test getting user profile."""
+        url = reverse('profile')
+        
+        response = authenticated_client.get(url)
+        
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data['email'] == influencer_profile.user.email
+        assert response.data['profile']['username'] == influencer_profile.username
+
+    def test_profile_update(self, authenticated_client, influencer_profile):
+        """Test updating user profile."""
+        url = reverse('profile')
+        data = {
+            'first_name': 'Updated',
+            'last_name': 'Name',
+            'profile': {
+                'bio': 'Updated bio',
+                'industry': 'fashion_beauty'
+            }
+        }
+        
+        response = authenticated_client.put(url, data, format='json')
+        
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data['first_name'] == 'Updated'
+        assert response.data['profile']['bio'] == 'Updated bio'
+        assert response.data['profile']['industry'] == 'fashion_beauty'
+
+    def test_forgot_password(self, api_client, user, mock_email_backend):
+        """Test forgot password functionality."""
+        url = reverse('forgot-password')
+        data = {'email': user.email}
+        
+        response = api_client.post(url, data, format='json')
+        
+        assert response.status_code == status.HTTP_200_OK
+        assert 'Password reset email sent' in response.data['message']
+        
+        # Check email was sent
+        assert len(mail.outbox) == 1
+        assert 'Password Reset' in mail.outbox[0].subject
+
+    def test_forgot_password_nonexistent_email(self, api_client):
+        """Test forgot password with non-existent email."""
+        url = reverse('forgot-password')
+        data = {'email': 'nonexistent@example.com'}
+        
+        response = api_client.post(url, data, format='json')
+        
+        # Should still return success for security reasons
+        assert response.status_code == status.HTTP_200_OK
+        assert len(mail.outbox) == 0
