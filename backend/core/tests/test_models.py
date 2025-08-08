@@ -2,7 +2,10 @@ import pytest
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError
-from core.models import InfluencerProfile, SocialMediaAccount, Brand, Campaign, Deal
+from core.models import Campaign
+from deals.models import Deal
+from influencers.models import InfluencerProfile, SocialMediaAccount
+from brands.models import Brand
 
 User = get_user_model()
 

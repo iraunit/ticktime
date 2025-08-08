@@ -5,8 +5,10 @@ from django.contrib.auth.models import User
 from rest_framework_simplejwt.tokens import UntypedToken
 from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
 from django.contrib.auth.models import AnonymousUser
-from .models import Deal, Conversation, Message, InfluencerProfile
+from .models import Conversation, Message
 from .serializers import MessageSerializer
+from influencers.models import InfluencerProfile
+from deals.models import Deal
 
 
 class MessagingConsumer(AsyncWebsocketConsumer):

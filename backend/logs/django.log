@@ -1,2 +1,116 @@
 INFO 2025-07-29 01:55:32,535 autoreload 11480 12028 Watching for file changes with StatReloader
 INFO 2025-07-29 02:35:21,634 autoreload 19468 20184 Watching for file changes with StatReloader
+INFO 2025-07-29 03:19:00,503 autoreload 19468 20184 D:\Projects\influ\backend\backend\settings.py changed, reloading.
+INFO 2025-07-29 03:19:04,163 autoreload 17428 20324 Watching for file changes with StatReloader
+INFO 2025-07-29 03:25:22,450 autoreload 17428 20324 D:\Projects\influ\backend\common\models.py changed, reloading.
+INFO 2025-07-29 03:25:24,364 autoreload 11852 18768 Watching for file changes with StatReloader
+INFO 2025-07-29 03:27:56,455 autoreload 11852 18768 D:\Projects\influ\backend\backend\settings.py changed, reloading.
+INFO 2025-07-29 03:27:58,407 autoreload 17720 13156 Watching for file changes with StatReloader
+INFO 2025-07-29 03:28:14,233 autoreload 17720 13156 D:\Projects\influ\backend\core\views.py changed, reloading.
+INFO 2025-07-29 03:28:16,961 autoreload 4928 11140 Watching for file changes with StatReloader
+INFO 2025-07-29 03:28:19,611 autoreload 4928 11140 D:\Projects\influ\backend\core\views.py changed, reloading.
+INFO 2025-07-29 03:28:22,820 autoreload 16664 14668 Watching for file changes with StatReloader
+INFO 2025-07-29 03:28:36,558 autoreload 16664 14668 D:\Projects\influ\backend\core\serializers.py changed, reloading.
+INFO 2025-07-29 03:28:39,533 autoreload 4552 14704 Watching for file changes with StatReloader
+INFO 2025-07-29 03:28:47,528 autoreload 4552 14704 D:\Projects\influ\backend\core\models.py changed, reloading.
+INFO 2025-07-29 03:28:50,594 autoreload 15860 4428 Watching for file changes with StatReloader
+INFO 2025-07-29 03:28:54,670 autoreload 15860 4428 D:\Projects\influ\backend\core\models.py changed, reloading.
+INFO 2025-07-29 03:28:57,160 autoreload 3776 11632 Watching for file changes with StatReloader
+INFO 2025-07-29 03:29:02,298 autoreload 3776 11632 D:\Projects\influ\backend\core\models.py changed, reloading.
+INFO 2025-07-29 03:29:04,479 autoreload 19504 18896 Watching for file changes with StatReloader
+WARNING 2025-08-03 18:06:41,512 log 21620 18744 Bad Request: /api/brands/deals/1/rate-brand/
+WARNING 2025-08-06 00:12:36,447 log 13624 8076 Bad Request: /api/auth/signup/
+WARNING 2025-08-06 00:12:36,480 log 13624 8076 Bad Request: /api/users/profile/
+WARNING 2025-08-06 00:12:36,511 log 13624 8076 Bad Request: /api/influencers/profile/
+WARNING 2025-08-06 00:12:36,548 log 13624 8076 Bad Request: /api/campaigns/
+WARNING 2025-08-06 00:12:36,587 log 13624 8076 Bad Request: /api/deals/
+WARNING 2025-08-06 00:12:36,619 log 13624 8076 Bad Request: /api/conversations/
+WARNING 2025-08-06 00:12:36,647 log 13624 8076 Bad Request: /api/dashboard/stats/
+WARNING 2025-08-06 00:12:36,675 log 13624 8076 Bad Request: /admin/
+INFO 2025-08-07 01:49:24,348 autoreload 2924 6472 Watching for file changes with StatReloader
+INFO 2025-08-07 02:33:23,473 basehttp 2924 13200 "OPTIONS /api/auth/signup/ HTTP/1.1" 200 0
+ERROR 2025-08-07 02:33:28,665 log 2924 11524 Internal Server Error: /api/auth/signup/
+Traceback (most recent call last):
+  File "D:\Projects\influ\.venv\Lib\site-packages\django_redis\cache.py", line 29, in _decorator
+    return method(self, *args, **kwargs)
+  File "D:\Projects\influ\.venv\Lib\site-packages\django_redis\cache.py", line 99, in _get
+    return self.client.get(key, default=default, version=version, client=client)
+           ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Projects\influ\.venv\Lib\site-packages\django_redis\client\default.py", line 300, in get
+    raise ConnectionInterrupted(connection=client) from e
+django_redis.exceptions.ConnectionInterrupted: Redis ConnectionError: Error 10061 connecting to localhost:6379. No connection could be made because the target machine actively refused it.
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "D:\Projects\influ\.venv\Lib\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+  File "D:\Projects\influ\backend\common\middleware.py", line 67, in __call__
+    if rate_limit and not self.is_rate_limited(client_ip, rate_limit_key, rate_limit):
+                          ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Projects\influ\backend\common\middleware.py", line 97, in is_rate_limited
+    current_requests = cache.get(cache_key, 0)
+  File "D:\Projects\influ\.venv\Lib\site-packages\django_redis\cache.py", line 92, in get
+    value = self._get(key, default, version, client)
+  File "D:\Projects\influ\.venv\Lib\site-packages\django_redis\cache.py", line 36, in _decorator
+    raise e.__cause__  # noqa: B904
+    ^^^^^^^^^^^^^^^^^
+  File "D:\Projects\influ\.venv\Lib\site-packages\django_redis\client\default.py", line 298, in get
+    value = client.get(key)
+  File "D:\Projects\influ\.venv\Lib\site-packages\redis\commands\core.py", line 1829, in get
+    return self.execute_command("GET", name)
+           ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^
+  File "D:\Projects\influ\.venv\Lib\site-packages\redis\client.py", line 533, in execute_command
+    conn = self.connection or pool.get_connection(command_name, **options)
+                              ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Projects\influ\.venv\Lib\site-packages\redis\connection.py", line 1086, in get_connection
+    connection.connect()
+    ~~~~~~~~~~~~~~~~~~^^
+  File "D:\Projects\influ\.venv\Lib\site-packages\redis\connection.py", line 270, in connect
+    raise ConnectionError(self._error_message(e))
+redis.exceptions.ConnectionError: Error 10061 connecting to localhost:6379. No connection could be made because the target machine actively refused it.
+ERROR 2025-08-07 02:33:28,682 basehttp 2924 11524 "POST /api/auth/signup/ HTTP/1.1" 500 127011
+INFO 2025-08-07 02:33:38,533 basehttp 2924 13200 "OPTIONS /api/auth/signup/ HTTP/1.1" 200 0
+ERROR 2025-08-07 02:33:42,665 log 2924 11524 Internal Server Error: /api/auth/signup/
+Traceback (most recent call last):
+  File "D:\Projects\influ\.venv\Lib\site-packages\django_redis\cache.py", line 29, in _decorator
+    return method(self, *args, **kwargs)
+  File "D:\Projects\influ\.venv\Lib\site-packages\django_redis\cache.py", line 99, in _get
+    return self.client.get(key, default=default, version=version, client=client)
+           ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Projects\influ\.venv\Lib\site-packages\django_redis\client\default.py", line 300, in get
+    raise ConnectionInterrupted(connection=client) from e
+django_redis.exceptions.ConnectionInterrupted: Redis ConnectionError: Error 10061 connecting to localhost:6379. No connection could be made because the target machine actively refused it.
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "D:\Projects\influ\.venv\Lib\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+  File "D:\Projects\influ\backend\common\middleware.py", line 67, in __call__
+    if rate_limit and not self.is_rate_limited(client_ip, rate_limit_key, rate_limit):
+                          ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Projects\influ\backend\common\middleware.py", line 97, in is_rate_limited
+    current_requests = cache.get(cache_key, 0)
+  File "D:\Projects\influ\.venv\Lib\site-packages\django_redis\cache.py", line 92, in get
+    value = self._get(key, default, version, client)
+  File "D:\Projects\influ\.venv\Lib\site-packages\django_redis\cache.py", line 36, in _decorator
+    raise e.__cause__  # noqa: B904
+    ^^^^^^^^^^^^^^^^^
+  File "D:\Projects\influ\.venv\Lib\site-packages\django_redis\client\default.py", line 298, in get
+    value = client.get(key)
+  File "D:\Projects\influ\.venv\Lib\site-packages\redis\commands\core.py", line 1829, in get
+    return self.execute_command("GET", name)
+           ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^
+  File "D:\Projects\influ\.venv\Lib\site-packages\redis\client.py", line 533, in execute_command
+    conn = self.connection or pool.get_connection(command_name, **options)
+                              ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Projects\influ\.venv\Lib\site-packages\redis\connection.py", line 1086, in get_connection
+    connection.connect()
+    ~~~~~~~~~~~~~~~~~~^^
+  File "D:\Projects\influ\.venv\Lib\site-packages\redis\connection.py", line 270, in connect
+    raise ConnectionError(self._error_message(e))
+redis.exceptions.ConnectionError: Error 10061 connecting to localhost:6379. No connection could be made because the target machine actively refused it.
+ERROR 2025-08-07 02:33:42,676 basehttp 2924 11524 "POST /api/auth/signup/ HTTP/1.1" 500 127011
+INFO 2025-08-08 22:38:20,394 autoreload 2924 6472 D:\Projects\influ\backend\backend\settings.py changed, reloading.
+INFO 2025-08-09 00:31:35,461 autoreload 15020 12128 Watching for file changes with StatReloader

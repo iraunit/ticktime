@@ -3,7 +3,10 @@ from django.contrib.auth import get_user_model
 from django.test import Client
 from rest_framework.test import APIClient
 from rest_framework_simplejwt.tokens import RefreshToken
-from core.models import InfluencerProfile, SocialMediaAccount, Brand, Campaign, Deal
+from core.models import Campaign
+from deals.models import Deal
+from influencers.models import InfluencerProfile, SocialMediaAccount
+from brands.models import Brand
 
 User = get_user_model()
 

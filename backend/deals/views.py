@@ -1,0 +1,482 @@
+from rest_framework import status, generics, filters
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from rest_framework.pagination import PageNumberPagination
+from django.contrib.auth.models import User
+from django.conf import settings
+from django.shortcuts import get_object_or_404
+from django.core.cache import cache
+from django.views.decorators.cache import cache_page
+from django.utils.decorators import method_decorator
+from django.db.models import Q, Count, Sum, Avg, F
+from django.db.models.functions import Coalesce
+from django.utils import timezone
+from datetime import datetime, timedelta
+import logging
+
+from common.decorators import (
+    upload_rate_limit, 
+    user_rate_limit, 
+    cache_response,
+    log_performance
+)
+from common.cache_utils import CacheManager
+
+from .serializers import (
+    DealListSerializer, DealDetailSerializer, DealActionSerializer,
+    DealTimelineSerializer, EarningsPaymentSerializer, CollaborationHistorySerializer
+)
+from .models import Deal
+from influencers.models import InfluencerProfile, SocialMediaAccount
+from content.models import ContentSubmission
+from messaging.models import Conversation, Message
+
+logger = logging.getLogger(__name__)
+
+
+# Deal Management Views
+
+class DealPagination(PageNumberPagination):
+    """
+    Custom pagination for deal listings.
+    """
+    page_size = 20
+    page_size_query_param = 'page_size'
+    max_page_size = 100
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def deals_list_view(request):
+    """
+    List deals for the authenticated influencer with filtering and pagination.
+    """
+    try:
+        profile = request.user.influencer_profile
+    except InfluencerProfile.DoesNotExist:
+        return Response({
+            'status': 'error',
+            'message': 'Influencer profile not found.'
+        }, status=status.HTTP_404_NOT_FOUND)
+
+    # Get base queryset
+    queryset = Deal.objects.filter(influencer=profile).select_related(
+        'campaign__brand'
+    ).order_by('-invited_at')
+
+    # Apply filters
+    status_filter = request.GET.get('status')
+    if status_filter:
+        queryset = queryset.filter(status=status_filter)
+
+    deal_type_filter = request.GET.get('deal_type')
+    if deal_type_filter:
+        queryset = queryset.filter(campaign__deal_type=deal_type_filter)
+
+    brand_filter = request.GET.get('brand')
+    if brand_filter:
+        queryset = queryset.filter(campaign__brand__name__icontains=brand_filter)
+
+    # Date range filters
+    date_from = request.GET.get('date_from')
+    date_to = request.GET.get('date_to')
+    if date_from:
+        try:
+            date_from = datetime.strptime(date_from, '%Y-%m-%d').date()
+            queryset = queryset.filter(invited_at__date__gte=date_from)
+        except ValueError:
+            pass
+
+    if date_to:
+        try:
+            date_to = datetime.strptime(date_to, '%Y-%m-%d').date()
+            queryset = queryset.filter(invited_at__date__lte=date_to)
+        except ValueError:
+            pass
+
+    # Search functionality
+    search = request.GET.get('search')
+    if search:
+        queryset = queryset.filter(
+            Q(campaign__title__icontains=search) |
+            Q(campaign__brand__name__icontains=search) |
+            Q(campaign__description__icontains=search)
+        )
+
+    # Pagination
+    paginator = DealPagination()
+    page = paginator.paginate_queryset(queryset, request)
+    
+    if page is not None:
+        serializer = DealListSerializer(page, many=True)
+        response = paginator.get_paginated_response(serializer.data)
+        response.data = {
+            'status': 'success',
+            'deals': response.data['results'],
+            'count': response.data['count'],
+            'next': response.data['next'],
+            'previous': response.data['previous']
+        }
+        return response
+
+    # Fallback without pagination
+    serializer = DealListSerializer(queryset, many=True)
+    return Response({
+        'status': 'success',
+        'deals': serializer.data,
+        'total_count': queryset.count()
+    }, status=status.HTTP_200_OK)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def deal_detail_view(request, deal_id):
+    """
+    Get detailed information about a specific deal.
+    """
+    try:
+        profile = request.user.influencer_profile
+    except InfluencerProfile.DoesNotExist:
+        return Response({
+            'status': 'error',
+            'message': 'Influencer profile not found.'
+        }, status=status.HTTP_404_NOT_FOUND)
+
+    deal = get_object_or_404(
+        Deal.objects.select_related('campaign__brand'),
+        id=deal_id,
+        influencer=profile
+    )
+
+    serializer = DealDetailSerializer(deal)
+    return Response({
+        'status': 'success',
+        'deal': serializer.data
+    }, status=status.HTTP_200_OK)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def deal_action_view(request, deal_id):
+    """
+    Accept or reject a deal invitation.
+    """
+    try:
+        profile = request.user.influencer_profile
+    except InfluencerProfile.DoesNotExist:
+        return Response({
+            'status': 'error',
+            'message': 'Influencer profile not found.'
+        }, status=status.HTTP_404_NOT_FOUND)
+
+    deal = get_object_or_404(
+        Deal.objects.select_related('campaign__brand'),
+        id=deal_id,
+        influencer=profile
+    )
+
+    # Check if deal can be acted upon
+    if deal.status not in ['invited', 'pending']:
+        return Response({
+            'status': 'error',
+            'message': 'This deal cannot be modified in its current status.'
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+    # Check if response deadline has passed
+    if deal.response_deadline_passed:
+        return Response({
+            'status': 'error',
+            'message': 'The response deadline for this deal has passed.'
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+    serializer = DealActionSerializer(data=request.data)
+    
+    if serializer.is_valid():
+        action = serializer.validated_data['action']
+        
+        if action == 'accept':
+            deal.status = 'accepted'
+            deal.accepted_at = timezone.now()
+            deal.custom_terms_agreed = serializer.validated_data.get('custom_terms', '')
+            deal.negotiation_notes = serializer.validated_data.get('negotiation_notes', '')
+            
+            # Create conversation for this deal
+            conversation, created = Conversation.objects.get_or_create(deal=deal)
+            
+            message = 'Deal accepted successfully.'
+            
+        elif action == 'reject':
+            deal.status = 'rejected'
+            deal.rejection_reason = serializer.validated_data.get('rejection_reason', '')
+            message = 'Deal rejected successfully.'
+
+        deal.responded_at = timezone.now()
+        deal.save()
+
+        # Return updated deal information
+        updated_deal = DealDetailSerializer(deal)
+        return Response({
+            'status': 'success',
+            'message': message,
+            'deal': updated_deal.data
+        }, status=status.HTTP_200_OK)
+
+    return Response({
+        'status': 'error',
+        'message': 'Invalid action data.',
+        'errors': serializer.errors
+    }, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def deal_timeline_view(request, deal_id):
+    """
+    Get timeline/status tracking for a specific deal.
+    """
+    try:
+        profile = request.user.influencer_profile
+    except InfluencerProfile.DoesNotExist:
+        return Response({
+            'status': 'error',
+            'message': 'Influencer profile not found.'
+        }, status=status.HTTP_404_NOT_FOUND)
+
+    deal = get_object_or_404(
+        Deal.objects.select_related('campaign__brand'),
+        id=deal_id,
+        influencer=profile
+    )
+
+    # Build timeline based on deal status and timestamps
+    timeline_events = []
+    
+    # Define status progression
+    status_progression = [
+        ('invited', 'Invited', 'Deal invitation sent'),
+        ('accepted', 'Accepted', 'Deal accepted by influencer'),
+        ('active', 'Active', 'Deal is now active'),
+        ('content_submitted', 'Content Submitted', 'Content submitted for review'),
+        ('under_review', 'Under Review', 'Content is being reviewed'),
+        ('revision_requested', 'Revision Requested', 'Revision requested by brand'),
+        ('approved', 'Approved', 'Content approved by brand'),
+        ('completed', 'Completed', 'Deal completed successfully'),
+    ]
+
+    current_status = deal.status
+    
+    for status_code, status_display, description in status_progression:
+        is_current = status_code == current_status
+        is_completed = False
+        timestamp = None
+        
+        # Determine if this status has been completed and get timestamp
+        if status_code == 'invited':
+            is_completed = True
+            timestamp = deal.invited_at
+        elif status_code == 'accepted' and deal.accepted_at:
+            is_completed = True
+            timestamp = deal.accepted_at
+        elif status_code == 'completed' and deal.completed_at:
+            is_completed = True
+            timestamp = deal.completed_at
+        elif status_code == current_status:
+            is_completed = True
+            timestamp = deal.responded_at or deal.invited_at
+        
+        # For statuses that come before current status
+        status_order = [s[0] for s in status_progression]
+        if status_order.index(status_code) < status_order.index(current_status):
+            is_completed = True
+            if not timestamp:
+                timestamp = deal.responded_at or deal.invited_at
+
+        timeline_events.append({
+            'status': status_code,
+            'status_display': status_display,
+            'timestamp': timestamp,
+            'description': description,
+            'is_current': is_current,
+            'is_completed': is_completed
+        })
+
+    serializer = DealTimelineSerializer(timeline_events, many=True)
+    
+    return Response({
+        'status': 'success',
+        'timeline': serializer.data,
+        'current_status': current_status,
+        'current_status_display': deal.get_status_display()
+    }, status=status.HTTP_200_OK)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+@cache_response(timeout=180, vary_on_user=True)  # 3 minute cache
+@log_performance(threshold=0.5)
+def recent_deals_view(request):
+    """
+    Get recent deal invitations for dashboard display.
+    """
+    try:
+        profile = request.user.influencer_profile
+    except InfluencerProfile.DoesNotExist:
+        return Response({
+            'status': 'error',
+            'message': 'Influencer profile not found.'
+        }, status=status.HTTP_404_NOT_FOUND)
+
+    # Get recent deals (last 30 days or latest 10)
+    recent_deals = Deal.objects.filter(
+        influencer=profile
+    ).select_related('campaign__brand').order_by('-invited_at')[:10]
+
+    serializer = DealListSerializer(recent_deals, many=True)
+    
+    return Response({
+        'status': 'success',
+        'recent_deals': serializer.data
+    }, status=status.HTTP_200_OK)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def collaboration_history_view(request):
+    """
+    Get collaboration history with performance metrics and filtering.
+    """
+    try:
+        profile = request.user.influencer_profile
+    except InfluencerProfile.DoesNotExist:
+        return Response({
+            'status': 'error',
+            'message': 'Influencer profile not found.'
+        }, status=status.HTTP_404_NOT_FOUND)
+
+    # Get base queryset for completed collaborations
+    queryset = Deal.objects.filter(
+        influencer=profile,
+        status='completed'
+    ).select_related('campaign__brand').order_by('-completed_at')
+
+    # Apply filters
+    brand_filter = request.GET.get('brand')
+    if brand_filter:
+        queryset = queryset.filter(campaign__brand__name__icontains=brand_filter)
+
+    deal_type_filter = request.GET.get('deal_type')
+    if deal_type_filter:
+        queryset = queryset.filter(campaign__deal_type=deal_type_filter)
+
+    # Date range filters
+    date_from = request.GET.get('date_from')
+    date_to = request.GET.get('date_to')
+    if date_from:
+        try:
+            date_from = datetime.strptime(date_from, '%Y-%m-%d').date()
+            queryset = queryset.filter(completed_at__date__gte=date_from)
+        except ValueError:
+            pass
+
+    if date_to:
+        try:
+            date_to = datetime.strptime(date_to, '%Y-%m-%d').date()
+            queryset = queryset.filter(completed_at__date__lte=date_to)
+        except ValueError:
+            pass
+
+    # Pagination
+    paginator = DealPagination()
+    page = paginator.paginate_queryset(queryset, request)
+    
+    if page is not None:
+        serializer = CollaborationHistorySerializer(page, many=True)
+        paginated_response = paginator.get_paginated_response(serializer.data)
+        # Add status to the paginated response
+        paginated_response.data['status'] = 'success'
+        paginated_response.data['collaborations'] = paginated_response.data.pop('results')
+        return paginated_response
+
+    serializer = CollaborationHistorySerializer(queryset, many=True)
+    return Response({
+        'status': 'success',
+        'collaborations': serializer.data,
+        'total_count': queryset.count()
+    }, status=status.HTTP_200_OK)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def earnings_tracking_view(request):
+    """
+    Get detailed earnings tracking with payment status and history.
+    """
+    try:
+        profile = request.user.influencer_profile
+    except InfluencerProfile.DoesNotExist:
+        return Response({
+            'status': 'error',
+            'message': 'Influencer profile not found.'
+        }, status=status.HTTP_404_NOT_FOUND)
+
+    # Get deals with earnings
+    deals = Deal.objects.filter(influencer=profile, status='completed')
+    
+    # Calculate earnings by status
+    from decimal import Decimal
+    paid_earnings = deals.filter(payment_status='paid').aggregate(
+        total=Coalesce(Sum('campaign__cash_amount'), Decimal('0.00'))
+    )['total'] or Decimal('0.00')
+
+    pending_earnings = deals.filter(payment_status='pending').aggregate(
+        total=Coalesce(Sum('campaign__cash_amount'), Decimal('0.00'))
+    )['total'] or Decimal('0.00')
+
+    processing_earnings = deals.filter(payment_status='processing').aggregate(
+        total=Coalesce(Sum('campaign__cash_amount'), Decimal('0.00'))
+    )['total'] or Decimal('0.00')
+
+    failed_earnings = deals.filter(payment_status='failed').aggregate(
+        total=Coalesce(Sum('campaign__cash_amount'), Decimal('0.00'))
+    )['total'] or Decimal('0.00')
+
+    # Monthly earnings breakdown (last 12 months)
+    monthly_earnings = []
+    for i in range(12):
+        month_start = (timezone.now().replace(day=1) - timedelta(days=32*i)).replace(day=1)
+        month_end = (month_start + timedelta(days=32)).replace(day=1) - timedelta(days=1)
+        
+        month_total = deals.filter(
+            payment_status='paid',
+            payment_date__gte=month_start,
+            payment_date__lte=month_end
+        ).aggregate(
+            total=Coalesce(Sum('campaign__cash_amount'), Decimal('0.00'))
+        )['total'] or Decimal('0.00')
+
+        monthly_earnings.append({
+            'month': month_start.strftime('%Y-%m'),
+            'month_name': month_start.strftime('%B %Y'),
+            'earnings': month_total
+        })
+
+    # Recent payments
+    recent_payments = deals.filter(
+        payment_status='paid',
+        payment_date__isnull=False
+    ).order_by('-payment_date')[:10]
+
+    earnings_data = {
+        'total_paid': paid_earnings,
+        'total_pending': pending_earnings,
+        'total_processing': processing_earnings,
+        'total_failed': failed_earnings,
+        'monthly_breakdown': monthly_earnings,
+        'recent_payments': EarningsPaymentSerializer(recent_payments, many=True).data
+    }
+
+    return Response({
+        'status': 'success',
+        'earnings': earnings_data
+    }, status=status.HTTP_200_OK)

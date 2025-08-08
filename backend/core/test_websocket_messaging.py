@@ -3,7 +3,8 @@ from channels.db import database_sync_to_async
 from django.test import TransactionTestCase
 from django.contrib.auth.models import User
 from rest_framework_simplejwt.tokens import RefreshToken
-from .models import InfluencerProfile, Brand, Campaign, Deal, Conversation
+from .models import InfluencerProfile, Brand, Campaign, Conversation
+from deals.models import Deal
 from .consumers import MessagingConsumer
 from django.utils import timezone
 from datetime import timedelta

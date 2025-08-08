@@ -21,7 +21,25 @@ from django.conf.urls.static import static
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('api/', include('core.urls')),
+    
+    # Authentication and user management
+    path('api/auth/', include('authentication.urls', namespace='authentication')),
+    path('api/users/', include('users.urls', namespace='users')),
+    
+    # Core business logic apps
+    path('api/influencers/', include('influencers.urls', namespace='influencers')),
+    path('api/brands/', include('brands.urls', namespace='brands')),
+    path('api/campaigns/', include('campaigns.urls', namespace='campaigns')),
+    path('api/', include('deals.urls', namespace='deals')),
+    path('api/', include('content.urls', namespace='content')),
+    
+    # Communication and analytics
+    path('api/', include('messaging.urls', namespace='messaging')),
+    path('api/', include('dashboard.urls', namespace='dashboard')),
+    
+    # Core app removed - functionality distributed to other apps
+    
+    # OAuth2 provider
     path('o/', include('oauth2_provider.urls', namespace='oauth2_provider')),
 ]
 

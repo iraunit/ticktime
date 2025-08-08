@@ -1,7 +1,8 @@
 from django.core.cache import cache
 from django.conf import settings
 from django.db.models import Count, Sum, Avg, Q
-from .models import Deal, InfluencerProfile, SocialMediaAccount, Campaign
+from .models import InfluencerProfile, SocialMediaAccount, Campaign
+from deals.models import Deal
 import logging
 
 logger = logging.getLogger(__name__)
