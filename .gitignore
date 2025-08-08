@@ -1,0 +1,86 @@
+# --- Global environment files ---
+.env
+.env.*
+*.env
+
+# --- OS files ---
+.DS_Store
+Thumbs.db
+
+# --- Editors/IDEs ---
+.vscode/
+.idea/
+*.iml
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Python tooling caches
+.pytest_cache/
+.mypy_cache/
+.tox/
+
+# Coverage
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+
+# Logs
+*.log
+
+# --- Django (backend) ---
+backend/db.sqlite3
+backend/db.sqlite3.*
+backend/db.sqlite3.backup_*
+backend/db_backup_before_migration_test.json
+backend/media/
+backend/logs/
+backend/staticfiles/
+backend/.pytest_cache/
+backend/.mypy_cache/
+backend/.env
+
+# --- Node/Next.js (frontend) ---
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+frontend/.turbo/
+frontend/.vercel/
+frontend/dist/
+frontend/build/
+frontend/.swc/
+frontend/coverage/
+frontend/test-results/
+frontend/playwright-report/
+frontend/.playwright/
+frontend/.env
+frontend/.env.*
+
+# Root fallbacks for monorepo tools
+node_modules/
+.next/
+out/
+.turbo/
+.vercel/
+.swc/
+dist/
+build/
+coverage/
+playwright-report/
+
+# Package manager logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log* 
