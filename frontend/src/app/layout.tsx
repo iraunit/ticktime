@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
-import { QueryProvider } from "@/components/providers/query-provider";
+import { AppProviders } from "@/components/providers/app-providers";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -21,9 +21,9 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={`${inter.variable} font-sans antialiased`} suppressHydrationWarning>
-        <QueryProvider>
+        <AppProviders>
           {children}
-        </QueryProvider>
+        </AppProviders>
       </body>
     </html>
   );

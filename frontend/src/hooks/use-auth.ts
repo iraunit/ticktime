@@ -12,31 +12,27 @@ export function useAuth() {
   const [isAuthLoading, setIsAuthLoading] = useState(true);
   const [isAuthenticatedState, setIsAuthenticatedState] = useState(false);
 
-  // Check authentication status by pinging profile endpoint
+  // Check authentication status by calling protected profile endpoint
   useEffect(() => {
     let cancelled = false;
-    const checkSession = async () => {
+    
+    const checkAuthStatus = async () => {
       try {
-        const res = await authApi.verifyEmail('noop'); // placeholder call to keep types; we'll not use this
-      } catch {}
-    };
-    const check = async () => {
-      try {
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/auth/profile/`, {
-          credentials: 'include',
-        });
+        await authApi.checkAuth();
         if (!cancelled) {
-          setIsAuthenticatedState(res.ok);
+          setIsAuthenticatedState(true);
           setIsAuthLoading(false);
         }
-      } catch {
+      } catch (error: any) {
         if (!cancelled) {
+          // Always set to false on any error - if session is invalid, user needs to login
           setIsAuthenticatedState(false);
           setIsAuthLoading(false);
         }
       }
     };
-    check();
+    
+    checkAuthStatus();
     return () => { cancelled = true; };
   }, []);
 

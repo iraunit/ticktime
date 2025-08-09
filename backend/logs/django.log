@@ -2535,3 +2535,86 @@ INFO 2025-08-10 01:12:01,055 basehttp 9396 5500 "GET /api/auth/profile/ HTTP/1.1
 INFO 2025-08-10 01:12:01,158 basehttp 9396 5500 "GET /api/deals/?status=accepted,active,content_submitted,under_review,revision_requested,approved HTTP/1.1" 200 69
 INFO 2025-08-10 01:12:11,797 basehttp 9396 5500 "GET /api/auth/csrf/ HTTP/1.1" 200 80
 INFO 2025-08-10 01:12:11,819 basehttp 9396 6508 "GET /api/auth/csrf/ HTTP/1.1" 200 80
+INFO 2025-08-10 01:53:57,129 basehttp 9396 12292 "GET /api/auth/csrf/ HTTP/1.1" 200 80
+WARNING 2025-08-10 01:54:14,261 log 9396 12292 Forbidden: /api/auth/profile/
+INFO 2025-08-10 01:54:14,272 basehttp 9396 14840 "GET /api/auth/csrf/ HTTP/1.1" 200 80
+WARNING 2025-08-10 01:54:14,273 basehttp 9396 12292 "GET /api/auth/profile/ HTTP/1.1" 403 58
+WARNING 2025-08-10 01:54:14,315 log 9396 12292 Forbidden: /api/auth/profile/
+INFO 2025-08-10 01:54:14,316 basehttp 9396 14840 "GET /api/auth/csrf/ HTTP/1.1" 200 80
+WARNING 2025-08-10 01:54:14,320 basehttp 9396 12292 "GET /api/auth/profile/ HTTP/1.1" 403 58
+WARNING 2025-08-10 01:54:14,347 log 9396 14840 Forbidden: /api/auth/profile/
+WARNING 2025-08-10 01:54:14,349 basehttp 9396 14840 "GET /api/auth/profile/ HTTP/1.1" 403 58
+WARNING 2025-08-10 01:54:14,376 log 9396 12292 Forbidden: /api/auth/profile/
+WARNING 2025-08-10 01:54:14,378 basehttp 9396 12292 "GET /api/auth/profile/ HTTP/1.1" 403 58
+WARNING 2025-08-10 01:54:14,400 log 9396 14840 Forbidden: /api/auth/profile/
+WARNING 2025-08-10 01:54:14,401 basehttp 9396 14840 "GET /api/auth/profile/ HTTP/1.1" 403 58
+WARNING 2025-08-10 01:54:14,429 log 9396 12292 Forbidden: /api/auth/profile/
+WARNING 2025-08-10 01:54:14,430 basehttp 9396 12292 "GET /api/auth/profile/ HTTP/1.1" 403 58
+WARNING 2025-08-10 01:54:14,454 log 9396 14840 Forbidden: /api/auth/profile/
+WARNING 2025-08-10 01:54:14,455 basehttp 9396 14840 "GET /api/auth/profile/ HTTP/1.1" 403 58
+WARNING 2025-08-10 01:54:14,483 log 9396 12292 Forbidden: /api/auth/profile/
+WARNING 2025-08-10 01:54:14,485 basehttp 9396 12292 "GET /api/auth/profile/ HTTP/1.1" 403 58
+WARNING 2025-08-10 01:54:29,157 log 9396 12292 Forbidden: /api/auth/profile/
+INFO 2025-08-10 01:54:29,180 basehttp 9396 14840 "GET /api/auth/csrf/ HTTP/1.1" 200 80
+WARNING 2025-08-10 01:54:29,181 basehttp 9396 12292 "GET /api/auth/profile/ HTTP/1.1" 403 58
+WARNING 2025-08-10 01:54:29,235 log 9396 4404 Forbidden: /api/auth/profile/
+INFO 2025-08-10 01:54:29,243 basehttp 9396 6992 "GET /api/auth/csrf/ HTTP/1.1" 200 80
+WARNING 2025-08-10 01:54:29,247 basehttp 9396 4404 "GET /api/auth/profile/ HTTP/1.1" 403 58
+INFO 2025-08-10 01:54:58,197 basehttp 9396 4404 "GET /api/auth/csrf/ HTTP/1.1" 200 80
+WARNING 2025-08-10 01:54:58,383 log 9396 4404 Forbidden: /api/auth/profile/
+WARNING 2025-08-10 01:54:58,387 basehttp 9396 4404 "GET /api/auth/profile/ HTTP/1.1" 403 58
+INFO 2025-08-10 01:55:27,246 basehttp 9396 6660 "OPTIONS /api/auth/login/ HTTP/1.1" 200 0
+INFO 2025-08-10 01:55:29,418 basehttp 9396 4404 "POST /api/auth/login/ HTTP/1.1" 200 355
+INFO 2025-08-10 01:55:30,812 basehttp 9396 4404 "GET /api/auth/profile/ HTTP/1.1" 200 326
+INFO 2025-08-10 01:55:31,003 basehttp 9396 12292 "GET /api/auth/profile/ HTTP/1.1" 200 326
+INFO 2025-08-10 01:55:31,137 basehttp 9396 14840 "GET /api/auth/profile/ HTTP/1.1" 200 326
+INFO 2025-08-10 01:55:31,153 basehttp 9396 6992 "GET /api/auth/profile/ HTTP/1.1" 200 326
+INFO 2025-08-10 01:55:31,219 basehttp 9396 15800 "GET /api/auth/profile/ HTTP/1.1" 200 326
+INFO 2025-08-10 01:55:31,299 basehttp 9396 13912 "GET /api/auth/profile/ HTTP/1.1" 200 326
+INFO 2025-08-10 01:55:31,392 basehttp 9396 14840 "GET /api/auth/csrf/ HTTP/1.1" 200 80
+INFO 2025-08-10 01:55:31,443 basehttp 9396 12292 "GET /api/auth/profile/ HTTP/1.1" 200 326
+INFO 2025-08-10 01:55:31,448 basehttp 9396 6992 "GET /api/auth/csrf/ HTTP/1.1" 200 80
+INFO 2025-08-10 01:55:31,475 basehttp 9396 4404 "GET /api/auth/profile/ HTTP/1.1" 200 326
+INFO 2025-08-10 01:55:31,717 basehttp 9396 4404 "GET /api/deals/ HTTP/1.1" 200 69
+INFO 2025-08-10 01:55:31,770 basehttp 9396 6992 "GET /api/dashboard/notifications/ HTTP/1.1" 200 113
+INFO 2025-08-10 01:55:31,962 basehttp 9396 13912 "GET /api/dashboard/recent-deals/ HTTP/1.1" 200 38
+INFO 2025-08-10 01:55:32,549 basehttp 9396 15800 "GET /api/dashboard/stats/ HTTP/1.1" 200 435
+INFO 2025-08-10 01:55:37,844 basehttp 9396 4404 "GET /api/deals/ HTTP/1.1" 200 69
+INFO 2025-08-10 01:55:37,930 basehttp 9396 6992 "GET /api/dashboard/notifications/ HTTP/1.1" 200 113
+INFO 2025-08-10 01:55:38,032 basehttp 9396 13912 "GET /api/dashboard/recent-deals/ HTTP/1.1" 200 41
+INFO 2025-08-10 01:55:38,472 basehttp 9396 15800 "GET /api/dashboard/stats/ HTTP/1.1" 200 471
+INFO 2025-08-10 01:55:54,528 basehttp 9396 4404 "GET /api/deals/ HTTP/1.1" 200 69
+INFO 2025-08-10 01:55:54,602 basehttp 9396 6992 "GET /api/dashboard/notifications/ HTTP/1.1" 200 113
+INFO 2025-08-10 01:55:54,682 basehttp 9396 13912 "GET /api/dashboard/recent-deals/ HTTP/1.1" 200 41
+INFO 2025-08-10 01:55:55,111 basehttp 9396 15800 "GET /api/dashboard/stats/ HTTP/1.1" 200 471
+INFO 2025-08-10 01:57:02,634 basehttp 9396 15800 "GET /api/auth/csrf/ HTTP/1.1" 200 80
+INFO 2025-08-10 01:57:02,791 basehttp 9396 15800 "GET /api/auth/profile/ HTTP/1.1" 200 326
+INFO 2025-08-10 01:57:09,729 basehttp 9396 4404 "GET /api/deals/ HTTP/1.1" 200 69
+INFO 2025-08-10 01:57:09,779 basehttp 9396 6992 "GET /api/dashboard/notifications/ HTTP/1.1" 200 113
+INFO 2025-08-10 01:57:09,883 basehttp 9396 13912 "GET /api/dashboard/recent-deals/ HTTP/1.1" 200 41
+INFO 2025-08-10 01:57:10,301 basehttp 9396 15800 "GET /api/dashboard/stats/ HTTP/1.1" 200 471
+INFO 2025-08-10 02:02:37,101 basehttp 9396 7676 "GET /api/auth/csrf/ HTTP/1.1" 200 80
+INFO 2025-08-10 02:02:37,108 basehttp 9396 13112 "GET /api/auth/csrf/ HTTP/1.1" 200 80
+INFO 2025-08-10 02:02:37,254 basehttp 9396 7676 "GET /api/auth/profile/ HTTP/1.1" 200 326
+INFO 2025-08-10 02:03:09,634 basehttp 9396 7100 "GET /api/deals/ HTTP/1.1" 200 69
+INFO 2025-08-10 02:03:10,002 basehttp 9396 13112 "GET /api/dashboard/recent-deals/ HTTP/1.1" 200 38
+INFO 2025-08-10 02:03:10,009 basehttp 9396 12912 "GET /api/dashboard/notifications/ HTTP/1.1" 200 113
+INFO 2025-08-10 02:03:10,923 basehttp 9396 7676 "GET /api/dashboard/stats/ HTTP/1.1" 200 435
+INFO 2025-08-10 02:03:47,093 basehttp 9396 7676 "GET /api/auth/csrf/ HTTP/1.1" 200 80
+INFO 2025-08-10 02:03:47,095 basehttp 9396 12912 "GET /api/auth/csrf/ HTTP/1.1" 200 80
+INFO 2025-08-10 02:03:47,253 basehttp 9396 12912 "GET /api/auth/profile/ HTTP/1.1" 200 326
+INFO 2025-08-10 02:04:10,011 basehttp 9396 7100 "GET /api/deals/ HTTP/1.1" 200 69
+INFO 2025-08-10 02:04:10,059 basehttp 9396 13112 "GET /api/dashboard/notifications/ HTTP/1.1" 200 113
+INFO 2025-08-10 02:04:10,077 basehttp 9396 7676 "GET /api/dashboard/recent-deals/ HTTP/1.1" 200 41
+INFO 2025-08-10 02:04:10,530 basehttp 9396 12912 "GET /api/dashboard/stats/ HTTP/1.1" 200 471
+INFO 2025-08-10 02:06:09,158 basehttp 9396 7676 "GET /api/auth/csrf/ HTTP/1.1" 200 80
+INFO 2025-08-10 02:06:09,159 basehttp 9396 12912 "GET /api/auth/csrf/ HTTP/1.1" 200 80
+INFO 2025-08-10 02:06:09,279 basehttp 9396 13112 "GET /api/auth/profile/ HTTP/1.1" 200 326
+INFO 2025-08-10 02:06:11,759 basehttp 9396 7100 "GET /api/deals/ HTTP/1.1" 200 69
+INFO 2025-08-10 02:06:11,857 basehttp 9396 12912 "GET /api/dashboard/notifications/ HTTP/1.1" 200 113
+INFO 2025-08-10 02:06:12,155 basehttp 9396 7676 "GET /api/dashboard/recent-deals/ HTTP/1.1" 200 38
+INFO 2025-08-10 02:06:12,380 basehttp 9396 13112 "GET /api/dashboard/stats/ HTTP/1.1" 200 471
+INFO 2025-08-10 02:06:58,228 basehttp 9396 7100 "GET /api/deals/ HTTP/1.1" 200 69
+INFO 2025-08-10 02:06:58,304 basehttp 9396 12912 "GET /api/dashboard/notifications/ HTTP/1.1" 200 113
+INFO 2025-08-10 02:06:58,358 basehttp 9396 7676 "GET /api/dashboard/recent-deals/ HTTP/1.1" 200 41
+INFO 2025-08-10 02:06:58,802 basehttp 9396 13112 "GET /api/dashboard/stats/ HTTP/1.1" 200 471

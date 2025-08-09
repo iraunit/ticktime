@@ -43,6 +43,9 @@ export const authApi = {
   verifyEmail: (token: string) =>
     api.get(`/auth/verify-email/${token}/`),
   
+  // Check authentication status via profile endpoint
+  checkAuth: () => api.get('/auth/profile/'),
+  
   csrf: () => api.get('/auth/csrf/'),
 };
 
