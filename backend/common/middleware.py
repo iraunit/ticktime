@@ -159,3 +159,23 @@ class CSRFExemptMiddleware(MiddlewareMixin):
         if request.path.startswith('/api/') and request.META.get('HTTP_AUTHORIZATION'):
             setattr(request, '_dont_enforce_csrf_checks', True)
         return None
+
+
+class JWTAuthCookieMiddleware:
+    """
+    Inject Authorization header from HttpOnly JWT cookies so DRF SimpleJWT can authenticate.
+    Looks for 'access_token' cookie and sets 'HTTP_AUTHORIZATION' if not already present.
+    """
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        try:
+            if not request.META.get('HTTP_AUTHORIZATION'):
+                access_token = request.COOKIES.get('access_token')
+                if access_token:
+                    request.META['HTTP_AUTHORIZATION'] = f'Bearer {access_token}'
+        except Exception:
+            # Never block the request due to middleware
+            pass
+        return self.get_response(request)

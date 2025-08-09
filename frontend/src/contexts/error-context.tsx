@@ -97,7 +97,8 @@ export function useErrorContext() {
 
 // Hook for handling API errors with automatic toast notifications
 export function useApiErrorHandler() {
-  const { addError, showToast } = useErrorContext();
+  // Try to use context if available; fall back to direct toast if not
+  const context = useContext(ErrorContext);
 
   const handleError = useCallback((error: unknown, key?: string, showToastNotification = true) => {
     const apiError: ApiError = error && typeof error === 'object' && 'message' in error
@@ -108,16 +109,20 @@ export function useApiErrorHandler() {
           code: 'UNKNOWN_ERROR',
         };
 
-    if (key) {
-      addError(key, apiError);
+    if (key && context) {
+      context.addError(key, apiError);
     }
 
     if (showToastNotification) {
-      showToast(apiError);
+      if (context) {
+        context.showToast(apiError);
+      } else {
+        toast.error(apiError.message);
+      }
     }
 
     return apiError;
-  }, [addError, showToast]);
+  }, [context]);
 
   return { handleError };
 }

@@ -12,22 +12,30 @@ import {
 } from "lucide-react";
 
 interface DashboardStatsProps {
-  stats: DashboardStats;
+  stats: any;
   isLoading?: boolean;
 }
 
 export function DashboardStatsGrid({ stats, isLoading }: DashboardStatsProps) {
-  const formatCurrency = (amount: number) => {
+  const toNumber = (v: any, fallback = 0) => {
+    if (v === null || v === undefined) return fallback;
+    const n = typeof v === 'number' ? v : parseFloat(String(v));
+    return isNaN(n) ? fallback : n;
+  };
+
+  const formatCurrency = (amount: any) => {
+    const num = toNumber(amount, 0);
     return new Intl.NumberFormat("en-IN", {
       style: "currency",
       currency: "INR",
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
-    }).format(amount);
+    }).format(num);
   };
 
-  const formatPercentage = (value: number) => {
-    return `${value.toFixed(1)}%`;
+  const formatPercentage = (value: any) => {
+    const num = toNumber(value, 0);
+    return `${num.toFixed(1)}%`;
   };
 
   if (isLoading) {
@@ -43,18 +51,26 @@ export function DashboardStatsGrid({ stats, isLoading }: DashboardStatsProps) {
     );
   }
 
+  // Map backend keys to expected display
+  const total_invitations = toNumber(stats?.total_invitations);
+  const active_deals = toNumber(stats?.active_deals);
+  const completed_deals = toNumber(stats?.completed_deals);
+  const total_earnings = stats?.total_earnings;
+  const this_month_earnings = stats?.this_month_earnings;
+  const collaboration_rate = toNumber(stats?.collaboration_rate ?? stats?.acceptance_rate);
+
   return (
     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
       <StatsCard
         title="Total Invitations"
-        value={stats.total_invitations}
+        value={total_invitations}
         description="All-time deal invitations"
         icon={Briefcase}
       />
       
       <StatsCard
         title="Active Deals"
-        value={stats.active_deals}
+        value={active_deals}
         description="Currently ongoing collaborations"
         icon={Clock}
         className="border-blue-200 bg-blue-50/50"
@@ -62,7 +78,7 @@ export function DashboardStatsGrid({ stats, isLoading }: DashboardStatsProps) {
       
       <StatsCard
         title="Completed Deals"
-        value={stats.completed_deals}
+        value={completed_deals}
         description="Successfully finished collaborations"
         icon={CheckCircle}
         className="border-green-200 bg-green-50/50"
@@ -70,7 +86,7 @@ export function DashboardStatsGrid({ stats, isLoading }: DashboardStatsProps) {
       
       <StatsCard
         title="Total Earnings"
-        value={formatCurrency(stats.total_earnings)}
+        value={formatCurrency(total_earnings)}
         description="Lifetime earnings from collaborations"
         icon={DollarSign}
         className="border-emerald-200 bg-emerald-50/50"
@@ -78,24 +94,24 @@ export function DashboardStatsGrid({ stats, isLoading }: DashboardStatsProps) {
       
       <StatsCard
         title="This Month"
-        value={formatCurrency(stats.this_month_earnings)}
+        value={formatCurrency(this_month_earnings)}
         description="Current month earnings"
         icon={TrendingUp}
         trend={{
-          value: 12.5, // This would come from API
+          value: 12.5, // placeholder; can be replaced by API growth metric
           isPositive: true,
         }}
       />
       
       <StatsCard
         title="Collaboration Rate"
-        value={formatPercentage(stats.collaboration_rate)}
+        value={formatPercentage(collaboration_rate)}
         description="Invitation to completion ratio"
         icon={AlertCircle}
         className={
-          stats.collaboration_rate >= 70
+          collaboration_rate >= 70
             ? "border-green-200 bg-green-50/50"
-            : stats.collaboration_rate >= 50
+            : collaboration_rate >= 50
             ? "border-yellow-200 bg-yellow-50/50"
             : "border-red-200 bg-red-50/50"
         }

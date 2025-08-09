@@ -94,6 +94,9 @@ def cache_response(timeout=300, key_func=None, vary_on_user=False):
     """
     Decorator to cache view responses.
     
+    Caches a minimal JSON-serializable payload instead of the DRF Response
+    object to avoid pickling/rendering issues with template responses.
+    
     Args:
         timeout: Cache timeout in seconds
         key_func: Function to generate cache key
@@ -115,16 +118,28 @@ def cache_response(timeout=300, key_func=None, vary_on_user=False):
                     cache_key += f":{':'.join(f'{k}={v}' for k, v in kwargs.items())}"
             
             # Try to get from cache
-            cached_response = cache.get(cache_key)
-            if cached_response:
-                return cached_response
+            cached = cache.get(cache_key)
+            if cached is not None:
+                # Reconstruct a JsonResponse/DRF Response-like object
+                return JsonResponse(cached['data'], status=cached['status'])
             
             # Execute view and cache result
             response = view_func(request, *args, **kwargs)
             
-            # Only cache successful responses
-            if hasattr(response, 'status_code') and response.status_code == 200:
-                cache.set(cache_key, response, timeout)
+            # Only cache successful responses with JSON data
+            try:
+                status_code = getattr(response, 'status_code', None)
+                data = getattr(response, 'data', None)
+            except Exception:
+                status_code = None
+                data = None
+            
+            if status_code == 200 and data is not None:
+                cache_payload = {
+                    'status': status_code,
+                    'data': data,
+                }
+                cache.set(cache_key, cache_payload, timeout)
             
             return response
         return wrapper

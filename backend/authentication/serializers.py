@@ -32,7 +32,7 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
     def validate_username(self, value):
         """Validate username is unique and follows proper format."""
         # Import here to avoid circular imports
-        from core.models import InfluencerProfile
+        from influencers.models import InfluencerProfile
         
         if InfluencerProfile.objects.filter(username=value).exists():
             raise serializers.ValidationError("This username is already taken.")
@@ -80,7 +80,7 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         )
         
         # Import here to avoid circular imports
-        from core.models import InfluencerProfile
+        from influencers.models import InfluencerProfile
         
         # Create influencer profile
         InfluencerProfile.objects.create(
@@ -90,6 +90,62 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
             industry=industry
         )
         
+        return user
+
+
+class BrandRegistrationSerializer(serializers.Serializer):
+    """Serializer for brand signup, creating a user and brand record."""
+    # User fields
+    first_name = serializers.CharField(max_length=150)
+    last_name = serializers.CharField(max_length=150)
+    email = serializers.EmailField()
+    password = serializers.CharField(write_only=True, validators=[validate_password])
+    password_confirm = serializers.CharField(write_only=True)
+    # Brand fields
+    name = serializers.CharField(max_length=200)
+    industry = serializers.ChoiceField(choices=INDUSTRY_CHOICES)
+    website = serializers.URLField(required=False, allow_blank=True)
+    contact_phone = serializers.CharField(max_length=15, required=False, allow_blank=True)
+    description = serializers.CharField(required=False, allow_blank=True)
+
+    def validate_email(self, value):
+        if User.objects.filter(email=value).exists():
+            raise serializers.ValidationError("A user with this email already exists.")
+        return value
+
+    def validate(self, attrs):
+        if attrs['password'] != attrs['password_confirm']:
+            raise serializers.ValidationError("Password confirmation doesn't match.")
+        return attrs
+
+    def create(self, validated_data):
+        from brands.models import Brand
+        # pop user password_confirm
+        validated_data.pop('password_confirm', None)
+        name = validated_data.pop('name')
+        industry = validated_data.pop('industry')
+        website = validated_data.pop('website', '')
+        contact_phone = validated_data.pop('contact_phone', '')
+        description = validated_data.pop('description', '')
+
+        # Create user (active for immediate access)
+        user = User.objects.create_user(
+            username=validated_data['email'],
+            email=validated_data['email'],
+            first_name=validated_data['first_name'],
+            last_name=validated_data['last_name'],
+            password=validated_data['password'],
+            is_active=True
+        )
+        # Create brand record
+        Brand.objects.create(
+            name=name,
+            industry=industry,
+            website=website,
+            contact_email=user.email,
+            contact_phone=contact_phone,
+            description=description,
+        )
         return user
 
 
@@ -202,7 +258,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
             }
         except:
             # Import here to avoid circular imports
-            from core.models import InfluencerProfile
+            from influencers.models import InfluencerProfile
             try:
                 profile = obj.influencer_profile
                 return {

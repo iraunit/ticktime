@@ -13,6 +13,9 @@ interface ExtendedAxiosRequestConfig extends InternalAxiosRequestConfig {
     ttl?: number;
     key?: string;
   };
+  metadata?: {
+    startTime?: number;
+  };
 }
 
 // API Error types
@@ -45,22 +48,16 @@ export const api = axios.create({
     'Content-Type': 'application/json',
   },
   withCredentials: true,
+  xsrfCookieName: 'csrftoken',
+  xsrfHeaderName: 'X-CSRFToken',
   timeout: 10000, // 10 second timeout
 });
 
-// Request interceptor to add auth token and handle caching
+// Request interceptor to handle caching and performance metadata
 api.interceptors.request.use(
   async (config: ExtendedAxiosRequestConfig) => {
     // Add performance monitoring
     config.metadata = { startTime: performance.now() };
-    
-    // Only access localStorage on client side
-    if (typeof window !== 'undefined') {
-      const token = localStorage.getItem('access_token');
-      if (token) {
-        config.headers.Authorization = `Bearer ${token}`;
-      }
-    }
 
     // Check cache for GET requests
     if (config.method === 'get' && config.cache?.enabled) {
@@ -87,7 +84,7 @@ api.interceptors.request.use(
   }
 );
 
-// Response interceptor to handle token refresh, caching, and errors
+// Response interceptor to handle caching and errors
 api.interceptors.response.use(
   (response: AxiosResponse) => {
     const config = response.config as ExtendedAxiosRequestConfig;
@@ -161,35 +158,6 @@ api.interceptors.response.use(
     if (error.response?.status && RETRY_CONFIG.retryableStatusCodes.includes(error.response.status)) {
       if (shouldRetryRequest(originalRequest, error)) {
         return retryRequest(originalRequest);
-      }
-    }
-
-    // Handle 401 unauthorized - token refresh
-    if (error.response?.status === 401 && originalRequest && !originalRequest._retry) {
-      originalRequest._retry = true;
-
-      if (typeof window !== 'undefined') {
-        try {
-          const refreshToken = localStorage.getItem('refresh_token');
-          if (refreshToken) {
-            const response = await axios.post(`${API_BASE_URL}/api/auth/token/refresh/`, {
-              refresh: refreshToken,
-            });
-
-            const { access } = response.data;
-            localStorage.setItem('access_token', access);
-
-            // Retry the original request with new token
-            originalRequest.headers.Authorization = `Bearer ${access}`;
-            return api(originalRequest);
-          }
-        } catch {
-          // Refresh failed, clear tokens and redirect to login
-          clearAuthTokens();
-          if (typeof window !== 'undefined') {
-            window.location.href = '/login';
-          }
-        }
       }
     }
 
@@ -302,13 +270,9 @@ function getNetworkErrorMessage(): string {
   return 'Network error. Please check your connection and try again.';
 }
 
-// Auth token management
+// Auth token management (no-op for session auth)
 function clearAuthTokens(): void {
-  if (typeof window !== 'undefined') {
-    localStorage.removeItem('access_token');
-    localStorage.removeItem('refresh_token');
-    localStorage.removeItem('user');
-  }
+  // Sessions handled by cookies; nothing to clear client-side
 }
 
 // File upload progress tracking
@@ -368,15 +332,15 @@ if (typeof window !== 'undefined') {
 export default api;
 // Enhanced API functions with caching support
 export const cachedApi = {
-  get: (url: string, config?: ExtendedAxiosRequestConfig & { cache?: { ttl?: number; key?: string } }) => {
+  get: (url: string, config?: Partial<ExtendedAxiosRequestConfig> & { cache?: { ttl?: number; key?: string } }) => {
     return api.get(url, {
-      ...config,
+      ...(config as any),
       cache: {
         enabled: true,
         ttl: 5 * 60 * 1000, // 5 minutes default
         ...config?.cache
       }
-    });
+    } as any);
   },
 
   // Dashboard data with longer cache
@@ -415,7 +379,7 @@ export const cacheUtils = {
     CacheManager.delete('user_profile');
     CacheManager.delete('social_accounts');
     // Clear dashboard stats for current user
-    const keys = Array.from((CacheManager as any).cache.keys());
+    const keys = Array.from((CacheManager as any).cache.keys()) as string[];
     keys.forEach(key => {
       if (key.startsWith('dashboard_stats_')) {
         CacheManager.delete(key);
@@ -424,7 +388,7 @@ export const cacheUtils = {
   },
 
   invalidateDeals: () => {
-    const keys = Array.from((CacheManager as any).cache.keys());
+    const keys = Array.from((CacheManager as any).cache.keys()) as string[];
     keys.forEach(key => {
       if (key.startsWith('deals_')) {
         CacheManager.delete(key);

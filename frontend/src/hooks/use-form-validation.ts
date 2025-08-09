@@ -5,7 +5,6 @@ import { useForm, UseFormReturn, FieldValues, Path } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { debounce } from '@/lib/validation';
-import { useErrorContext } from '@/contexts/error-context';
 import { useLoadingContext } from '@/contexts/loading-context';
 import type { ApiError } from '@/lib/api';
 
@@ -36,12 +35,11 @@ export function useFormValidation<T extends FieldValues>({
     Record<string, 'idle' | 'validating' | 'valid' | 'invalid'>
   >({});
   
-  const { addError, showToast } = useErrorContext();
   const { setLoading } = useLoadingContext();
   const validationTimeouts = useRef<Record<string, NodeJS.Timeout>>({});
 
   const form = useForm<T>({
-    resolver: zodResolver(schema) as any,
+    resolver: zodResolver(schema as any) as any,
     mode,
     reValidateMode,
     defaultValues: defaultValues as any,
@@ -126,7 +124,6 @@ export function useFormValidation<T extends FieldValues>({
             code: 'UNKNOWN_ERROR',
           };
 
-      addError('form-submit', apiError);
       setSubmitError(apiError.message);
       
       // Handle field-specific errors
@@ -147,7 +144,7 @@ export function useFormValidation<T extends FieldValues>({
       setIsSubmitting(false);
       setLoading('form-submit', false);
     }
-  }, [onSubmit, addError, setLoading, form, onError]);
+  }, [onSubmit, setLoading, form, onError]);
 
   // Watch for field changes and trigger validation
   useEffect(() => {

@@ -2,8 +2,7 @@ from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
-from rest_framework_simplejwt.tokens import RefreshToken
-from rest_framework_simplejwt.views import TokenObtainPairView
+from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.models import User
 from django.contrib.auth.tokens import default_token_generator
 from django.contrib.sites.shortcuts import get_current_site
@@ -11,6 +10,7 @@ from django.core.mail import send_mail
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from django.utils.encoding import force_bytes, force_str
 from django.conf import settings
+from django.middleware.csrf import get_token
 from google.oauth2 import id_token
 from google.auth.transport import requests
 import logging
@@ -28,38 +28,93 @@ from .serializers import (
     PasswordResetConfirmSerializer,
     GoogleOAuthSerializer,
     UserProfileSerializer,
+    BrandRegistrationSerializer,
 )
 
 logger = logging.getLogger(__name__)
 
 
-class CustomTokenObtainPairView(TokenObtainPairView):
-    """
-    Custom JWT token view that includes user profile information.
-    """
-    def post(self, request, *args, **kwargs):
-        response = super().post(request, *args, **kwargs)
-        
-        if response.status_code == 200:
-            # Get user from the validated data
-            serializer = self.get_serializer(data=request.data)
-            serializer.is_valid(raise_exception=True)
-            user = serializer.user
-            
-            # Add user profile information to response
-            profile_serializer = UserProfileSerializer(user)
-            response.data['user'] = profile_serializer.data
-            
-        return response
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def csrf_token_view(request):
+  """Return CSRF token for client to include in subsequent requests."""
+  return Response({'csrfToken': get_token(request)})
 
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
-@auth_rate_limit(requests_per_minute=3)  # Strict rate limiting for signup
+@auth_rate_limit(requests_per_minute=10)
 @log_performance(threshold=2.0)
+def login_view(request):
+    """
+    Session-based login endpoint.
+    """
+    serializer = UserLoginSerializer(data=request.data)
+    if serializer.is_valid():
+        email = serializer.validated_data.get('email')
+        password = serializer.validated_data.get('password')
+        remember_me = serializer.validated_data.get('remember_me', False)
+
+        # Allow login via email (map to username)
+        try:
+            user_obj = User.objects.get(email=email)
+            username = user_obj.username
+        except User.DoesNotExist:
+            username = email  # fallback if username is email
+
+        user = authenticate(request, username=username, password=password)
+        if user is None:
+            return Response({
+                'status': 'error',
+                'message': 'Invalid credentials'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        if not user.is_active:
+            return Response({
+                'status': 'error',
+                'message': 'Account is inactive. Please verify your email.'
+            }, status=status.HTTP_403_FORBIDDEN)
+
+        login(request, user)
+        if remember_me:
+            request.session.set_expiry(60 * 60 * 24 * 30)  # 30 days
+        else:
+            request.session.set_expiry(0)  # Session cookie
+
+        profile_serializer = UserProfileSerializer(user)
+        return Response({
+            'status': 'success',
+            'message': 'Login successful',
+            'user': profile_serializer.data,
+        }, status=status.HTTP_200_OK)
+
+    return Response({
+        'status': 'error',
+        'message': 'Invalid credentials',
+        'errors': serializer.errors
+    }, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def logout_view(request):
+    """
+    Session-based logout endpoint.
+    """
+    try:
+        logout(request)
+        return Response({'status': 'success', 'message': 'Logout successful'}, status=status.HTTP_200_OK)
+    except Exception as e:
+        logger.error(f"Logout failed: {str(e)}")
+        return Response({'status': 'error', 'message': 'Logout failed'}, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
 def signup_view(request):
     """
-    User registration endpoint with email verification.
+    User registration endpoint with email verification for influencers.
+    Returns JWT tokens for immediate login and includes a verification email.
     """
     serializer = UserRegistrationSerializer(data=request.data)
     
@@ -67,13 +122,10 @@ def signup_view(request):
         try:
             user = serializer.save()
             
-            # Generate email verification token
+            # Send verification email (user remains inactive until verified)
             token = generate_email_verification_token(user)
-            
-            # Send verification email
             current_site = get_current_site(request)
             verification_url = f"http://{current_site.domain}/api/auth/verify-email/{token}/"
-            
             subject = 'Verify your InfluencerConnect account'
             message = f"""
             Hi {user.first_name},
@@ -87,7 +139,6 @@ def signup_view(request):
             Best regards,
             The InfluencerConnect Team
             """
-            
             try:
                 send_mail(
                     subject,
@@ -96,22 +147,25 @@ def signup_view(request):
                     [user.email],
                     fail_silently=False,
                 )
-                
-                return Response({
-                    'status': 'success',
-                    'message': 'Account created successfully. Please check your email to verify your account.',
-                    'user_id': user.id
-                }, status=status.HTTP_201_CREATED)
-                
             except Exception as e:
-                logger.error(f"Failed to send verification email: {str(e)}")
-                # Delete the user if email sending fails
-                user.delete()
-                return Response({
-                    'status': 'error',
-                    'message': 'Failed to send verification email. Please try again.'
-                }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-                
+                logger.warning(f"Verification email send failed: {str(e)}")
+
+            # Issue tokens but mark user as pending verification in response
+            # refresh = RefreshToken.for_user(user)
+            # access_token = refresh.access_token
+
+            profile_serializer = UserProfileSerializer(user)
+
+            return Response({
+                'status': 'success',
+                'message': 'Account created successfully. Please check your email to verify your account.',
+                'user_id': user.id,
+                # 'access': str(access_token),
+                # 'refresh': str(refresh),
+                'user': profile_serializer.data,
+                'requires_email_verification': True,
+            }, status=status.HTTP_201_CREATED)
+            
         except Exception as e:
             logger.error(f"User registration failed: {str(e)}")
             return Response({
@@ -128,66 +182,37 @@ def signup_view(request):
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
-def login_view(request):
-    """
-    User login endpoint with JWT token generation.
-    """
-    serializer = UserLoginSerializer(data=request.data)
-    
+@auth_rate_limit(requests_per_minute=3)
+@log_performance(threshold=2.0)
+def brand_signup_view(request):
+    """Brand registration endpoint which creates a brand user and logs them in."""
+    serializer = BrandRegistrationSerializer(data=request.data)
     if serializer.is_valid():
-        user = serializer.validated_data['user']
-        remember_me = serializer.validated_data.get('remember_me', False)
-        
-        # Generate JWT tokens
-        refresh = RefreshToken.for_user(user)
-        access_token = refresh.access_token
-        
-        # Adjust token lifetime based on remember_me
-        if remember_me:
-            # Extend refresh token lifetime for "remember me"
-            refresh.set_exp(lifetime=settings.SIMPLE_JWT['REFRESH_TOKEN_LIFETIME'] * 4)
-        
-        # Get user profile information
-        profile_serializer = UserProfileSerializer(user)
-        
-        return Response({
-            'status': 'success',
-            'message': 'Login successful',
-            'access_token': str(access_token),
-            'refresh_token': str(refresh),
-            'user': profile_serializer.data
-        }, status=status.HTTP_200_OK)
-    
+        try:
+            user = serializer.save()
+            # Issue tokens and return
+            # refresh = RefreshToken.for_user(user)
+            # access_token = refresh.access_token
+            profile_serializer = UserProfileSerializer(user)
+            return Response({
+                'status': 'success',
+                'message': 'Brand account created successfully.',
+                'user_id': user.id,
+                # 'access': str(access_token),
+                # 'refresh': str(refresh),
+                'user': profile_serializer.data,
+            }, status=status.HTTP_201_CREATED)
+        except Exception as e:
+            logger.error(f"Brand registration failed: {str(e)}")
+            return Response({
+                'status': 'error',
+                'message': 'Brand registration failed. Please try again.'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     return Response({
         'status': 'error',
-        'message': 'Invalid credentials',
+        'message': 'Invalid data provided.',
         'errors': serializer.errors
     }, status=status.HTTP_400_BAD_REQUEST)
-
-
-@api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def logout_view(request):
-    """
-    User logout endpoint that blacklists the refresh token.
-    """
-    try:
-        refresh_token = request.data.get('refresh_token')
-        if refresh_token:
-            token = RefreshToken(refresh_token)
-            token.blacklist()
-        
-        return Response({
-            'status': 'success',
-            'message': 'Logout successful'
-        }, status=status.HTTP_200_OK)
-        
-    except Exception as e:
-        logger.error(f"Logout failed: {str(e)}")
-        return Response({
-            'status': 'error',
-            'message': 'Logout failed'
-        }, status=status.HTTP_400_BAD_REQUEST)
 
 
 @api_view(['GET'])
@@ -367,7 +392,7 @@ def google_oauth_view(request):
                 )
                 
                 # Import InfluencerProfile here to avoid circular imports
-                from core.models import InfluencerProfile
+                from influencers.models import InfluencerProfile
                 
                 # Create influencer profile with default values
                 # User will need to complete their profile later
@@ -379,8 +404,8 @@ def google_oauth_view(request):
                 )
             
             # Generate JWT tokens
-            refresh = RefreshToken.for_user(user)
-            access_token = refresh.access_token
+            # refresh = RefreshToken.for_user(user)
+            # access_token = refresh.access_token
             
             # Get user profile information
             profile_serializer = UserProfileSerializer(user)
@@ -388,8 +413,8 @@ def google_oauth_view(request):
             return Response({
                 'status': 'success',
                 'message': 'Google OAuth login successful',
-                'access_token': str(access_token),
-                'refresh_token': str(refresh),
+                # 'access_token': str(access_token),
+                # 'refresh_token': str(refresh),
                 'user': profile_serializer.data,
                 'is_new_user': not hasattr(user, 'influencer_profile') or not user.influencer_profile.phone_number
             }, status=status.HTTP_200_OK)

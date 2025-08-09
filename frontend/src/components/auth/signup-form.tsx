@@ -19,7 +19,7 @@ const signupSchema = z.object({
   password: z.string()
     .min(8, "Password must be at least 8 characters")
     .regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/, "Password must contain at least one uppercase letter, one lowercase letter, and one number"),
-  confirm_password: z.string(),
+  password_confirm: z.string(),
   first_name: z.string().min(2, "First name must be at least 2 characters"),
   last_name: z.string().min(2, "Last name must be at least 2 characters"),
   phone_number: z.string().min(10, "Please enter a valid phone number"),
@@ -27,9 +27,9 @@ const signupSchema = z.object({
     .min(3, "Username must be at least 3 characters")
     .regex(/^[a-zA-Z0-9_]+$/, "Username can only contain letters, numbers, and underscores"),
   industry: z.string().min(1, "Please select an industry"),
-}).refine((data) => data.password === data.confirm_password, {
+}).refine((data) => data.password === data.password_confirm, {
   message: "Passwords don't match",
-  path: ["confirm_password"],
+  path: ["password_confirm"],
 });
 
 type SignupFormData = z.infer<typeof signupSchema>;
@@ -39,7 +39,7 @@ const steps = [
     id: 1,
     title: "Account Details",
     description: "Create your account credentials",
-    fields: ["email", "password", "confirm_password"] as const,
+    fields: ["email", "password", "password_confirm"] as const,
   },
   {
     id: 2,
@@ -66,7 +66,7 @@ export function SignupForm() {
     defaultValues: {
       email: "",
       password: "",
-      confirm_password: "",
+      password_confirm: "",
       first_name: "",
       last_name: "",
       phone_number: "",
@@ -102,6 +102,7 @@ export function SignupForm() {
       await signup.mutateAsync({
         email: data.email,
         password: data.password,
+        password_confirm: data.password_confirm,
         first_name: data.first_name,
         last_name: data.last_name,
         phone_number: data.phone_number,
@@ -189,7 +190,7 @@ export function SignupForm() {
 
             <FormField
               control={form.control}
-              name="confirm_password"
+              name="password_confirm"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Confirm Password</FormLabel>
@@ -198,7 +199,7 @@ export function SignupForm() {
                       <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                       <Input
                         {...field}
-                        id="confirm_password"
+                        id="password_confirm"
                         autoComplete="new-password"
                         type={showConfirmPassword ? "text" : "password"}
                         placeholder="Confirm your password"

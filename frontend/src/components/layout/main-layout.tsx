@@ -13,6 +13,7 @@ import { GlobalLoadingOverlay } from '@/components/ui/loading-overlay';
 import { PerformanceMonitor } from '@/lib/performance-monitor';
 import { ServiceWorkerCache } from '@/lib/cache-manager';
 import { ClientOnly } from '@/components/providers/client-only';
+import { authApi } from '@/lib/api-client';
 
 interface MainLayoutProps {
   children: React.ReactNode;
@@ -28,6 +29,9 @@ export function MainLayout({
   useEffect(() => {
     // Only run on client side
     if (typeof window === 'undefined') return;
+    
+    // Prime CSRF cookie for session-auth POST/PUT/PATCH/DELETE
+    authApi.csrf().catch(() => {});
     
     // Initialize performance monitoring
     PerformanceMonitor.init();

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { MainLayout } from "@/components/layout/main-layout";
 import { DashboardStatsGrid } from "@/components/dashboard/dashboard-stats";
 import { RecentDeals } from "@/components/dashboard/recent-deals";
@@ -8,17 +9,30 @@ import { NotificationCenter } from "@/components/dashboard/notification-center";
 import { QuickActions } from "@/components/dashboard/quick-actions";
 import { useDashboard, useNotifications } from "@/hooks/use-dashboard";
 import { useDeals } from "@/hooks/use-deals";
+import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { RefreshCw } from "lucide-react";
 import { toast } from "@/lib/toast";
 
 export default function DashboardPage() {
+  const router = useRouter();
+  const { isAuthenticated, isAuthLoading, isAuthenticatedState } = useAuth();
   const { stats, recentDeals } = useDashboard();
   const { notifications, markAsRead } = useNotifications();
   const { acceptDeal, rejectDeal } = useDeals();
 
+  // Authentication guard - redirect to login if not authenticated
+  useEffect(() => {
+    if (!isAuthLoading && !isAuthenticatedState) {
+      router.push('/login');
+    }
+  }, [isAuthLoading, isAuthenticatedState, router]);
+
   // Auto-refresh functionality
   useEffect(() => {
+    // Only set up auto-refresh if authenticated
+    if (!isAuthenticatedState) return;
+    
     const interval = setInterval(() => {
       stats.refetch();
       recentDeals.refetch();
@@ -26,7 +40,26 @@ export default function DashboardPage() {
     }, 30000); // Refresh every 30 seconds
 
     return () => clearInterval(interval);
-  }, [stats, recentDeals, notifications]);
+  }, [stats, recentDeals, notifications, isAuthenticatedState]);
+
+  // Show loading while checking authentication
+  if (isAuthLoading) {
+    return (
+      <MainLayout>
+        <div className="container mx-auto px-4 py-8 flex items-center justify-center min-h-[400px]">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto mb-4"></div>
+            <p className="text-muted-foreground">Loading...</p>
+          </div>
+        </div>
+      </MainLayout>
+    );
+  }
+
+  // Don't render anything if not authenticated (will redirect)
+  if (!isAuthenticatedState) {
+    return null;
+  }
 
   const handleRefresh = () => {
     stats.refetch();

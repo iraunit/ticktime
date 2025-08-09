@@ -3,12 +3,10 @@
 import { useEffect } from 'react';
 import { toast } from 'sonner';
 import { useNetworkStatus } from '@/hooks/use-network-status';
-import { useErrorContext } from '@/contexts/error-context';
 import { logError } from '@/lib/api';
 
 export function GlobalErrorHandler() {
   const { isOnline, isSlowConnection } = useNetworkStatus();
-  const { showToast } = useErrorContext();
 
   // Handle network status changes
   useEffect(() => {
@@ -46,25 +44,13 @@ export function GlobalErrorHandler() {
 
     const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
       logError(event.reason, 'Unhandled Promise Rejection');
-      
-      // Show user-friendly error message
-      showToast({
-        status: 'error',
-        message: 'Something went wrong. Please try again.',
-        code: 'UNHANDLED_REJECTION',
-      });
+      toast.error('Something went wrong. Please try again.', { id: 'unhandled-rejection' });
     };
 
     const handleError = (event: ErrorEvent) => {
       logError(event.error, 'Global Error Handler');
-      
-      // Show user-friendly error message for critical errors
       if (event.error?.name !== 'ChunkLoadError') {
-        showToast({
-          status: 'error',
-          message: 'An unexpected error occurred. Please refresh the page.',
-          code: 'GLOBAL_ERROR',
-        });
+        toast.error('An unexpected error occurred. Please refresh the page.', { id: 'global-error' });
       }
     };
 
@@ -75,7 +61,7 @@ export function GlobalErrorHandler() {
       window.removeEventListener('unhandledrejection', handleUnhandledRejection);
       window.removeEventListener('error', handleError);
     };
-  }, [showToast]);
+  }, []);
 
   // Handle chunk load errors (common in SPAs)
   useEffect(() => {

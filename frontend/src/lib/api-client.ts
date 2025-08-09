@@ -1,6 +1,6 @@
 import api from './api';
 
-// Auth API functions
+// Auth API functions (session-based)
 export const authApi = {
   login: (email: string, password: string) =>
     api.post('/auth/login/', { email, password }),
@@ -8,12 +8,26 @@ export const authApi = {
   signup: (data: {
     email: string;
     password: string;
+    password_confirm: string;
     first_name: string;
     last_name: string;
     phone_number: string;
     username: string;
     industry: string;
   }) => api.post('/auth/signup/', data),
+
+  brandSignup: (data: {
+    email: string;
+    password: string;
+    password_confirm: string;
+    first_name: string;
+    last_name: string;
+    name: string;
+    industry: string;
+    website?: string;
+    contact_phone?: string;
+    description?: string;
+  }) => api.post('/auth/signup/brand/', data),
   
   logout: () => api.post('/auth/logout/'),
   
@@ -29,8 +43,7 @@ export const authApi = {
   verifyEmail: (token: string) =>
     api.get(`/auth/verify-email/${token}/`),
   
-  refreshToken: (refresh: string) =>
-    api.post('/auth/token/refresh/', { refresh }),
+  csrf: () => api.get('/auth/csrf/'),
 };
 
 // Profile API functions

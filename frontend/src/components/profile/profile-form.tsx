@@ -13,16 +13,12 @@ import { InfluencerProfile } from '@/types';
 import { ImageUpload } from './image-upload';
 import { ErrorDisplay, FieldErrors } from '@/components/ui/error-display';
 import { EnhancedInput, EnhancedTextarea, AutoSaveForm } from '@/components/ui/enhanced-form';
-import { useFormValidation, useFormAutoSave } from '@/hooks/use-form-validation';
-import { useApiErrorHandler } from '@/contexts/error-context';
 import { useLoadingState } from '@/contexts/loading-context';
 import { nameSchema, phoneSchema } from '@/lib/validation';
 import { CheckCircle, Loader2, AlertCircle, Save } from 'lucide-react';
-import { error } from 'console';
-import { error } from 'console';
-import { isError } from 'util';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
+import { useErrorHandling } from '@/hooks/use-error-handling';
 
 const profileSchema = z.object({
   first_name: nameSchema,
@@ -43,11 +39,10 @@ export function ProfileForm({ profile }: ProfileFormProps) {
   const [profileImage, setProfileImage] = useState<File | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [submitError, setSubmitError] = useState<string | null>(null);
   
   const { updateProfile } = useProfile();
-  const { handleError } = useApiErrorHandler();
   const { isLoading, startLoading, stopLoading } = useLoadingState('profile-update');
+  const { error, fieldErrors, isError, setError, clearError } = useErrorHandling();
 
   const form = useForm<ProfileFormData>({
     resolver: zodResolver(profileSchema),
@@ -66,6 +61,7 @@ export function ProfileForm({ profile }: ProfileFormProps) {
     setIsSubmitting(true);
     clearError();
     setSuccess(null);
+    startLoading('Updating profile...');
 
     try {
       const formData = new FormData();
@@ -88,6 +84,7 @@ export function ProfileForm({ profile }: ProfileFormProps) {
       setError(err);
     } finally {
       setIsSubmitting(false);
+      stopLoading();
     }
   };
 

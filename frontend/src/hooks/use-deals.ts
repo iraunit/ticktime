@@ -2,6 +2,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { dealsApi } from '@/lib/api-client';
+import { useAuth } from '@/hooks/use-auth';
 
 export function useDeals(params?: {
   status?: string;
@@ -9,12 +10,14 @@ export function useDeals(params?: {
   limit?: number;
 }) {
   const queryClient = useQueryClient();
+  const { isAuthenticatedState, isAuthLoading } = useAuth();
 
   // Get deals list
   const dealsQuery = useQuery({
     queryKey: ['deals', params],
     queryFn: () => dealsApi.getDeals(params),
-    select: (response) => response.data,
+    select: (response) => response.data.deals as any[] || [],
+    enabled: !isAuthLoading && isAuthenticatedState,
   });
 
   // Accept deal mutation
@@ -45,21 +48,22 @@ export function useDeals(params?: {
 
 export function useDeal(id: number) {
   const queryClient = useQueryClient();
+  const { isAuthenticatedState, isAuthLoading } = useAuth();
 
   // Get single deal
   const dealQuery = useQuery({
     queryKey: ['deal', id],
     queryFn: () => dealsApi.getDeal(id),
-    select: (response) => response.data,
-    enabled: !!id,
+    select: (response) => response.data.deal,
+    enabled: !!id && !isAuthLoading && isAuthenticatedState,
   });
 
   // Get content submissions
   const contentSubmissionsQuery = useQuery({
     queryKey: ['contentSubmissions', id],
     queryFn: () => dealsApi.getContentSubmissions(id),
-    select: (response) => response.data,
-    enabled: !!id,
+    select: (response) => response.data || [],
+    enabled: !!id && !isAuthLoading && isAuthenticatedState,
   });
 
   // Submit content mutation
@@ -89,11 +93,10 @@ export function useDeal(id: number) {
 export function useDealMessages(dealId: number) {
   const queryClient = useQueryClient();
 
-  // Get messages for a deal
+  // Get messages for a deal (still mock-based, no auth needed)
   const messagesQuery = useQuery({
     queryKey: ['dealMessages', dealId],
     queryFn: async () => {
-      // Use mock data for now
       const { mockMessages } = await import('@/lib/demo-data');
       return { data: mockMessages[dealId] || [] };
     },
@@ -103,7 +106,6 @@ export function useDealMessages(dealId: number) {
   // Send message mutation
   const sendMessageMutation = useMutation({
     mutationFn: async (data: { message: string; file?: File }) => {
-      // Simulate API call with mock response
       await new Promise(resolve => setTimeout(resolve, 1000));
       
       const newMessage = {
@@ -119,7 +121,6 @@ export function useDealMessages(dealId: number) {
       return { data: newMessage };
     },
     onSuccess: (response) => {
-      // Update the cache with the new message
       queryClient.setQueryData(['dealMessages', dealId], (oldData: any) => {
         const currentMessages = oldData?.data || [];
         return { data: [...currentMessages, response.data] };

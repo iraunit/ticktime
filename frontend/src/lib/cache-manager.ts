@@ -274,7 +274,7 @@ export class ServiceWorkerCache {
    * Initialize service worker caching
    */
   static async init(): Promise<void> {
-    if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+    if (typeof window !== 'undefined' && process.env.NODE_ENV === 'production' && 'serviceWorker' in navigator) {
       try {
         await navigator.serviceWorker.register('/sw.js');
         console.log('Service Worker registered successfully');
