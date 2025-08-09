@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
-import { ProgressiveImage, useLazyImage } from '@/lib/image-optimization';
+import React from 'react';
+import { useLazyImage } from '@/lib/image-optimization';
 
 interface OptimizedImageProps {
   src: string;
@@ -11,124 +11,11 @@ interface OptimizedImageProps {
   className?: string;
   placeholder?: string;
   priority?: boolean;
-  onLoad?: () => void;
-  onError?: () => void;
 }
 
-export function OptimizedImage({
-  src,
-  alt,
-  width,
-  height,
-  className = '',
-  placeholder,
-  priority = false,
-  onLoad,
-  onError
-}: OptimizedImageProps) {
-  const [isLoaded, setIsLoaded] = useState(false);
-  const [hasError, setHasError] = useState(false);
-  const [imageSrc, setImageSrc] = useState<string>('');
-  const imgRef = useRef<HTMLImageElement>(null);
-
-  // Use lazy loading unless priority is set
-  const { isInView } = useLazyImage(src, {
-    threshold: 0.1,
-    rootMargin: priority ? '0px' : '50px'
-  });
-
-  useEffect(() => {
-    if (priority || isInView) {
-      // Generate responsive image URL based on container size
-      const generateResponsiveUrl = () => {
-        if (!imgRef.current) return src;
-        
-        const containerWidth = imgRef.current.offsetWidth || width || 400;
-        const devicePixelRatio = window.devicePixelRatio || 1;
-        const targetWidth = Math.ceil(containerWidth * devicePixelRatio);
-        
-        // If the source already has query parameters, append to them
-        const separator = src.includes('?') ? '&' : '?';
-        return `${src}${separator}w=${targetWidth}&q=80&f=webp`;
-      };
-
-      setImageSrc(generateResponsiveUrl());
-    }
-  }, [src, width, priority, isInView]);
-
-  const handleLoad = () => {
-    setIsLoaded(true);
-    onLoad?.();
-  };
-
-  const handleError = () => {
-    setHasError(true);
-    onError?.();
-  };
-
-  // Generate placeholder if not provided
-  const placeholderSrc = placeholder || (width && height ? 
-    `data:image/svg+xml;base64,${btoa(`
-      <svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
-        <rect width="100%" height="100%" fill="#f3f4f6"/>
-        <text x="50%" y="50%" text-anchor="middle" dy=".3em" fill="#9ca3af" font-family="Arial, sans-serif" font-size="14">
-          Loading...
-        </text>
-      </svg>
-    `)}` : undefined
-  );
-
-  return (
-    <div 
-      className={`relative overflow-hidden ${className}`}
-      style={{ width, height }}
-    >
-      {/* Placeholder */}
-      {!isLoaded && !hasError && (
-        <div className="absolute inset-0 bg-gray-200 animate-pulse flex items-center justify-center">
-          {placeholderSrc ? (
-            <img
-              src={placeholderSrc}
-              alt=""
-              className="w-full h-full object-cover opacity-50"
-            />
-          ) : (
-            <div className="text-gray-400 text-sm">Loading...</div>
-          )}
-        </div>
-      )}
-
-      {/* Main image */}
-      {(priority || isInView) && imageSrc && (
-        <img
-          ref={imgRef}
-          src={imageSrc}
-          alt={alt}
-          width={width}
-          height={height}
-          className={`w-full h-full object-cover transition-opacity duration-300 ${
-            isLoaded ? 'opacity-100' : 'opacity-0'
-          }`}
-          onLoad={handleLoad}
-          onError={handleError}
-          loading={priority ? 'eager' : 'lazy'}
-          decoding="async"
-        />
-      )}
-
-      {/* Error state */}
-      {hasError && (
-        <div className="absolute inset-0 bg-gray-100 flex items-center justify-center">
-          <div className="text-gray-400 text-center">
-            <svg className="w-8 h-8 mx-auto mb-2" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clipRule="evenodd" />
-            </svg>
-            <p className="text-sm">Failed to load image</p>
-          </div>
-        </div>
-      )}
-    </div>
-  );
+export default function OptimizedImage({ src, alt, className }: OptimizedImageProps) {
+  const { imgRef } = useLazyImage(src);
+  return <img ref={imgRef} src={src} alt={alt} className={className} />;
 }
 
 // Avatar component with optimized image loading
@@ -219,7 +106,7 @@ export function OptimizedGallery({
             src={image.src}
             alt={image.alt}
             className="w-full h-full rounded-lg"
-            priority={index < 6} // Prioritize first 6 images
+            priority={index < 6}
           />
           {image.caption && (
             <p className="text-sm text-gray-600 mt-2">{image.caption}</p>

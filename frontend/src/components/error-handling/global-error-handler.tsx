@@ -1,16 +1,18 @@
 "use client";
 
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { toast } from 'sonner';
 import { useNetworkStatus } from '@/hooks/use-network-status';
 import { logError } from '@/lib/api';
 
 export function GlobalErrorHandler() {
   const { isOnline, isSlowConnection } = useNetworkStatus();
+  const wasOfflineRef = useRef(false);
 
   // Handle network status changes
   useEffect(() => {
     if (!isOnline) {
+      wasOfflineRef.current = true;
       toast.error('You are offline', {
         description: 'Please check your internet connection',
         duration: Infinity,
@@ -18,9 +20,10 @@ export function GlobalErrorHandler() {
       });
     } else {
       toast.dismiss('offline-toast');
-      toast.success('Connection restored', {
-        duration: 3000,
-      });
+      if (wasOfflineRef.current) {
+        toast.success('Connection restored', { duration: 3000 });
+        wasOfflineRef.current = false;
+      }
     }
   }, [isOnline]);
 
@@ -39,7 +42,6 @@ export function GlobalErrorHandler() {
 
   // Handle unhandled promise rejections
   useEffect(() => {
-    // Only run on client side
     if (typeof window === 'undefined') return;
 
     const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
@@ -65,28 +67,22 @@ export function GlobalErrorHandler() {
 
   // Handle chunk load errors (common in SPAs)
   useEffect(() => {
-    // Only run on client side
     if (typeof window === 'undefined') return;
 
     const handleChunkError = () => {
       toast.error('Application update available', {
         description: 'Please refresh the page to get the latest version',
         duration: Infinity,
-        action: {
-          label: 'Refresh',
-          onClick: () => window.location.reload(),
-        },
+        action: { label: 'Refresh', onClick: () => window.location.reload() },
       });
     };
 
-    // Listen for chunk load errors
     const originalOnError = window.onerror;
     window.onerror = (message, source, lineno, colno, error) => {
       if (error?.name === 'ChunkLoadError' || (typeof message === 'string' && message.includes('Loading chunk'))) {
         handleChunkError();
         return true;
       }
-      
       if (originalOnError) {
         return originalOnError(message, source, lineno, colno, error);
       }

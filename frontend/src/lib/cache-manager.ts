@@ -122,7 +122,7 @@ export class CacheManager {
  * Local Storage cache with expiration
  */
 export class LocalStorageCache {
-  private static readonly PREFIX = 'influencer_cache_';
+  private static readonly PREFIX = 'ticktime_cache_';
 
   /**
    * Set an item in localStorage with expiration
@@ -268,7 +268,7 @@ export function useCachedApi<T>(
  * Service Worker cache management
  */
 export class ServiceWorkerCache {
-  private static readonly CACHE_NAME = 'influencer-platform-v1';
+  private static readonly CACHE_NAME = 'ticktime-platform-v1';
 
   /**
    * Initialize service worker caching

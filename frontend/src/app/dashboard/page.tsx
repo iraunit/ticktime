@@ -46,10 +46,10 @@ export default function DashboardPage() {
   if (isAuthLoading) {
     return (
       <MainLayout>
-        <div className="container mx-auto px-4 py-8 flex items-center justify-center min-h-[400px]">
+        <div className="container mx-auto px-4 py-12 flex items-center justify-center min-h-[400px]">
           <div className="text-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto mb-4"></div>
-            <p className="text-muted-foreground">Loading...</p>
+            <div className="w-8 h-8 border-2 border-gray-200 border-t-blue-600 rounded-full animate-spin mx-auto mb-4"></div>
+            <p className="text-sm text-gray-500">Loading dashboard...</p>
           </div>
         </div>
       </MainLayout>
@@ -74,15 +74,18 @@ export default function DashboardPage() {
   if (hasError) {
     return (
       <MainLayout>
-        <div className="container mx-auto px-4 py-8">
-          <div className="text-center py-12">
-            <h2 className="text-2xl font-bold text-gray-900 mb-4">
-              Something went wrong
+        <div className="container mx-auto px-4 py-12">
+          <div className="text-center py-16">
+            <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-4">
+              <RefreshCw className="w-8 h-8 text-red-600" />
+            </div>
+            <h2 className="text-xl font-semibold text-gray-900 mb-2">
+              Unable to load dashboard
             </h2>
-            <p className="text-muted-foreground mb-6">
-              We're having trouble loading your dashboard. Please try again.
+            <p className="text-gray-600 mb-6 max-w-md mx-auto">
+              We're experiencing some technical difficulties. Please try refreshing the page.
             </p>
-            <Button onClick={handleRefresh}>
+            <Button onClick={handleRefresh} size="sm">
               <RefreshCw className="h-4 w-4 mr-2" />
               Try Again
             </Button>
@@ -120,13 +123,13 @@ export default function DashboardPage() {
 
   return (
     <MainLayout>
-      <div className="container mx-auto px-4 py-8">
+      <div className="container mx-auto px-4 py-6 max-w-7xl">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-8 gap-4">
           <div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Dashboard</h1>
-            <p className="text-muted-foreground mt-1 text-sm sm:text-base">
-              Welcome back! Here's what's happening with your collaborations.
+            <h1 className="text-2xl font-semibold text-gray-900">Dashboard</h1>
+            <p className="text-gray-600 mt-1 text-sm">
+              Monitor your collaborations and track your performance
             </p>
           </div>
           <Button

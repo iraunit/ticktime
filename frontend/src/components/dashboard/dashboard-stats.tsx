@@ -40,82 +40,67 @@ export function DashboardStatsGrid({ stats, isLoading }: DashboardStatsProps) {
 
   if (isLoading) {
     return (
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         {Array.from({ length: 6 }).map((_, i) => (
           <div
             key={i}
-            className="h-32 bg-gray-100 animate-pulse rounded-lg border"
+            className="h-32 bg-gray-100 animate-pulse rounded-lg"
           />
         ))}
       </div>
     );
   }
 
-  // Map backend keys to expected display
-  const total_invitations = toNumber(stats?.total_invitations);
-  const active_deals = toNumber(stats?.active_deals);
-  const completed_deals = toNumber(stats?.completed_deals);
-  const total_earnings = stats?.total_earnings;
-  const this_month_earnings = stats?.this_month_earnings;
-  const collaboration_rate = toNumber(stats?.collaboration_rate ?? stats?.acceptance_rate);
+  const statsData = [
+    {
+      title: "Total Invitations",
+      value: toNumber(stats?.total_invitations),
+      icon: Briefcase,
+      description: "All-time invitations received",
+    },
+    {
+      title: "Active Deals",
+      value: toNumber(stats?.active_deals),
+      icon: Clock,
+      description: "Currently ongoing collaborations",
+    },
+    {
+      title: "Completed Deals",
+      value: toNumber(stats?.completed_deals),
+      icon: CheckCircle,
+      description: "Successfully finished projects",
+    },
+    {
+      title: "Total Earnings",
+      value: formatCurrency(stats?.total_earnings),
+      icon: DollarSign,
+      description: "Lifetime earnings from deals",
+    },
+    {
+      title: "This Month",
+      value: formatCurrency(stats?.this_month_earnings),
+      icon: TrendingUp,
+      description: "Current month earnings",
+    },
+    {
+      title: "Success Rate",
+      value: formatPercentage(stats?.collaboration_rate),
+      icon: AlertCircle,
+      description: "Deal completion rate",
+    },
+  ];
 
   return (
-    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-      <StatsCard
-        title="Total Invitations"
-        value={total_invitations}
-        description="All-time deal invitations"
-        icon={Briefcase}
-      />
-      
-      <StatsCard
-        title="Active Deals"
-        value={active_deals}
-        description="Currently ongoing collaborations"
-        icon={Clock}
-        className="border-blue-200 bg-blue-50/50"
-      />
-      
-      <StatsCard
-        title="Completed Deals"
-        value={completed_deals}
-        description="Successfully finished collaborations"
-        icon={CheckCircle}
-        className="border-green-200 bg-green-50/50"
-      />
-      
-      <StatsCard
-        title="Total Earnings"
-        value={formatCurrency(total_earnings)}
-        description="Lifetime earnings from collaborations"
-        icon={DollarSign}
-        className="border-emerald-200 bg-emerald-50/50"
-      />
-      
-      <StatsCard
-        title="This Month"
-        value={formatCurrency(this_month_earnings)}
-        description="Current month earnings"
-        icon={TrendingUp}
-        trend={{
-          value: 12.5, // placeholder; can be replaced by API growth metric
-          isPositive: true,
-        }}
-      />
-      
-      <StatsCard
-        title="Collaboration Rate"
-        value={formatPercentage(collaboration_rate)}
-        description="Invitation to completion ratio"
-        icon={AlertCircle}
-        className={
-          collaboration_rate >= 70
-            ? "border-green-200 bg-green-50/50"
-            : collaboration_rate >= 50
-            ? "border-yellow-200 bg-yellow-50/50"
-            : "border-red-200 bg-red-50/50"
-        }
-      />
+    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+      {statsData.map((stat, index) => (
+        <StatsCard
+          key={index}
+          title={stat.title}
+          value={stat.value}
+          description={stat.description}
+          icon={stat.icon}
+        />
+      ))}
     </div>
   );
 }

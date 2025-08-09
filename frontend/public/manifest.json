@@ -1,11 +1,11 @@
 {
-    "name": "InfluencerConnect Platform",
-    "short_name": "InfluencerConnect",
+    "name": "TickTime Platform",
+    "short_name": "TickTime",
     "description": "Connect with brands and manage your influencer collaborations",
     "start_url": "/",
     "display": "standalone",
     "background_color": "#ffffff",
-    "theme_color": "#3b82f6",
+    "theme_color": "#dc2626",
     "orientation": "portrait-primary",
     "icons": [{
             "src": "/icon-192x192.png",

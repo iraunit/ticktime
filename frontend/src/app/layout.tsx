@@ -9,7 +9,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "TickTime - Influencer Marketing Platform",
+  title: "TickTime | Influencer Marketing Platform",
   description: "Connect with brands and manage your influencer collaborations",
 };
 

@@ -64,9 +64,9 @@ export function MainLayout({
             <NetworkStatusIndicator />
           </ClientOnly>
           
-          <div className="min-h-screen flex flex-col">
+          <div className="min-h-screen flex flex-col bg-gray-50/30">
             {showHeader && <Header />}
-            <main className="flex-1">
+            <main className="flex-1 pt-4">
               {children}
             </main>
             {showFooter && <Footer />}
@@ -80,11 +80,13 @@ export function MainLayout({
               richColors={true}
               closeButton={true}
               toastOptions={{
-                duration: 4000,
+                duration: 3000,
                 style: {
                   background: 'white',
                   border: '1px solid #e5e7eb',
                   color: '#374151',
+                  borderRadius: '8px',
+                  fontSize: '14px',
                 },
               }}
             />

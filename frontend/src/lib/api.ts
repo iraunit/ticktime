@@ -18,6 +18,13 @@ interface ExtendedAxiosRequestConfig extends InternalAxiosRequestConfig {
   };
 }
 
+// Utility to read cookies in browser
+function getCookie(name: string): string | null {
+  if (typeof document === 'undefined') return null;
+  const match = document.cookie.match(new RegExp('(^|; )' + name.replace(/([.$?*|{}()\[\]\\\/\+^])/g, '\\$1') + '=([^;]*)'));
+  return match ? decodeURIComponent(match[2]) : null;
+}
+
 // API Error types
 export interface ApiError {
   status: string;
@@ -53,11 +60,31 @@ export const api = axios.create({
   timeout: 10000, // 10 second timeout
 });
 
-// Request interceptor to handle caching and performance metadata
+// Request interceptor to handle caching, CSRF, and performance metadata
 api.interceptors.request.use(
   async (config: ExtendedAxiosRequestConfig) => {
     // Add performance monitoring
     config.metadata = { startTime: performance.now() };
+
+    // Ensure CSRF token for unsafe methods
+    const method = (config.method || 'get').toLowerCase();
+    const isUnsafe = ['post', 'put', 'patch', 'delete'].includes(method);
+    if (isUnsafe) {
+      let token = getCookie('csrftoken');
+      if (!token) {
+        try {
+          // Prime CSRF cookie from server if missing
+          await api.get('/auth/csrf/');
+          token = getCookie('csrftoken');
+        } catch {
+          // Ignore; backend may still accept without token for some endpoints
+        }
+      }
+      if (token) {
+        config.headers = config.headers || {};
+        (config.headers as any)['X-CSRFToken'] = token;
+      }
+    }
 
     // Check cache for GET requests
     if (config.method === 'get' && config.cache?.enabled) {
@@ -140,6 +167,22 @@ api.interceptors.response.use(
       return Promise.reject(networkError);
     }
 
+    // If we failed with 403 CSRF, try once to refresh token and replay
+    if (error.response.status === 403 && isCsrfMissing(error.response.data)) {
+      try {
+        await api.get('/auth/csrf/');
+        const token = getCookie('csrftoken');
+        if (token && originalRequest && !originalRequest._retry) {
+          originalRequest._retry = true;
+          originalRequest.headers = originalRequest.headers || {};
+          (originalRequest.headers as any)['X-CSRFToken'] = token;
+          return api(originalRequest);
+        }
+      } catch {
+        // fall through to normal error handling
+      }
+    }
+
     // Handle timeout errors with retry logic
     if (error.code === 'ECONNABORTED') {
       if (shouldRetryRequest(originalRequest, error)) {
@@ -173,6 +216,12 @@ api.interceptors.response.use(
     return Promise.reject(apiError);
   }
 );
+
+function isCsrfMissing(data: any): boolean {
+  if (!data) return false;
+  const text = typeof data === 'string' ? data : JSON.stringify(data);
+  return /csrf token missing|csrf failed/i.test(text);
+}
 
 // Helper function to get default error messages
 function getDefaultErrorMessage(status?: number): string {

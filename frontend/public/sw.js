@@ -1,5 +1,5 @@
 // Service Worker for caching static assets and API responses
-const CACHE_NAME = 'influencer-platform-v1';
+const CACHE_NAME = 'ticktime-platform-v1';
 const STATIC_CACHE = 'static-v1';
 const API_CACHE = 'api-v1';
 
