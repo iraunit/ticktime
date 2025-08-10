@@ -9,7 +9,7 @@ import {
   Clock,
   CheckCircle,
   AlertCircle
-} from "lucide-react";
+} from "@/lib/icons";
 
 interface DashboardStatsProps {
   stats: any;

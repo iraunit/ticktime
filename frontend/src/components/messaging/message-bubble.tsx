@@ -2,7 +2,7 @@
 
 import { Message } from "@/types";
 import { formatDistanceToNow } from "date-fns";
-import { Check, CheckCheck, Download, FileText, Image as ImageIcon } from "lucide-react";
+import { Check, CheckCheck, Download, FileText, Image as ImageIcon } from "@/lib/icons";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import Image from "next/image";

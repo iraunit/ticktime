@@ -7,7 +7,7 @@ import { RecentDeals } from "@/components/dashboard/recent-deals";
 import { NotificationCenter } from "@/components/dashboard/notification-center";
 import { QuickActions } from "@/components/dashboard/quick-actions";
 import { Button } from "@/components/ui/button";
-import { RefreshCw } from "lucide-react";
+import { RefreshCw } from "@/lib/icons";
 import { toast } from "@/lib/toast";
 import { mockDashboardStats, mockDeals, mockNotifications } from "@/lib/demo-data";
 

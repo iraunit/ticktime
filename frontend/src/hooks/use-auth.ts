@@ -4,11 +4,13 @@ import { useState, useEffect } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { authApi } from '@/lib/api-client';
 import { useRouter } from 'next/navigation';
+import { useUserContext } from '@/components/providers/app-providers';
 
 // Auth state management (session-based)
 export function useAuth() {
   const queryClient = useQueryClient();
   const router = useRouter();
+  const { refresh: refreshUserContext } = useUserContext();
   const [isAuthLoading, setIsAuthLoading] = useState(true);
   const [isAuthenticatedState, setIsAuthenticatedState] = useState(false);
 
@@ -38,14 +40,24 @@ export function useAuth() {
 
   const isAuthenticated = () => isAuthenticatedState;
 
+  // Helper to extract 'next' parameter
+  const getNextPath = (): string | null => {
+    if (typeof window === 'undefined') return null;
+    const url = new URL(window.location.href);
+    const next = url.searchParams.get('next');
+    return next && next.startsWith('/') ? next : null;
+  };
+
   // Login mutation (creates session)
   const loginMutation = useMutation({
-    mutationFn: ({ email, password }: { email: string; password: string }) =>
-      authApi.login(email, password),
-    onSuccess: () => {
+    mutationFn: ({ email, password, remember_me }: { email: string; password: string; remember_me?: boolean }) =>
+      authApi.login(email, password, remember_me),
+    onSuccess: async () => {
       setIsAuthenticatedState(true);
       queryClient.invalidateQueries({ queryKey: ['user'] });
-      router.push('/dashboard');
+      await refreshUserContext();
+      const next = getNextPath();
+      router.push(next || '/dashboard');
     },
   });
 
@@ -89,14 +101,16 @@ export function useAuth() {
   // Logout mutation (destroys session)
   const logoutMutation = useMutation({
     mutationFn: authApi.logout,
-    onSuccess: () => {
+    onSuccess: async () => {
       setIsAuthenticatedState(false);
       queryClient.clear();
+      await refreshUserContext();
       router.push('/');
     },
-    onError: () => {
+    onError: async () => {
       setIsAuthenticatedState(false);
       queryClient.clear();
+      await refreshUserContext();
       router.push('/');
     },
   });
@@ -104,10 +118,12 @@ export function useAuth() {
   // Google auth mutation — should create session server-side
   const googleAuthMutation = useMutation({
     mutationFn: (token: string) => authApi.googleAuth(token),
-    onSuccess: () => {
+    onSuccess: async () => {
       setIsAuthenticatedState(true);
       queryClient.invalidateQueries({ queryKey: ['user'] });
-      router.push('/dashboard');
+      await refreshUserContext();
+      const next = getNextPath();
+      router.push(next || '/dashboard');
     },
   });
 

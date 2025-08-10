@@ -11,7 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Search, Filter, X } from "lucide-react";
+import { Search, Filter, X } from "@/lib/icons";
 import { DealStatus } from "@/types";
 
 interface DealFiltersProps {

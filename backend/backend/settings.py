@@ -235,7 +235,7 @@ SECURE_HSTS_PRELOAD = True
 
 # CSRF Settings
 CSRF_COOKIE_SECURE = not DEBUG
-CSRF_COOKIE_HTTPONLY = True
+CSRF_COOKIE_HTTPONLY = False
 CSRF_COOKIE_SAMESITE = 'Lax'
 CSRF_TRUSTED_ORIGINS = [
     "http://localhost:3000",
@@ -246,7 +246,8 @@ CSRF_TRUSTED_ORIGINS = [
 SESSION_COOKIE_SECURE = not DEBUG
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SAMESITE = 'Lax'
-SESSION_COOKIE_AGE = 3600  # 1 hour
+# Default session age (seconds). Extended from 1 hour to 2 weeks for better UX; login can still set custom expiry when remember_me is false
+SESSION_COOKIE_AGE = 60 * 60 * 24 * 14  # 14 days
 
 # Cache Configuration
 CACHES = {

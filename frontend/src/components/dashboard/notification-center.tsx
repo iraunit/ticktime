@@ -17,7 +17,7 @@ import {
   X,
   ChevronDown,
   ChevronUp,
-} from "lucide-react";
+} from "@/lib/icons";
 import Link from "next/link";
 
 interface NotificationCenterProps {

@@ -85,10 +85,10 @@ export const API_ENDPOINTS = {
     REFRESH_TOKEN: '/auth/token/refresh/',
   },
   PROFILE: {
-    GET: '/profile/',
-    UPDATE: '/profile/',
-    UPLOAD_DOCUMENT: '/profile/upload-document/',
-    SOCIAL_ACCOUNTS: '/profile/social-accounts/',
+    GET: '/influencers/profile/',
+    UPDATE: '/influencers/profile/',
+    UPLOAD_DOCUMENT: '/influencers/profile/upload-document/',
+    SOCIAL_ACCOUNTS: '/influencers/profile/social-accounts/',
   },
   DEALS: {
     LIST: '/deals/',

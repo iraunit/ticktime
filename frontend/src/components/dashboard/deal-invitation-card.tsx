@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Deal } from "@/types";
 import { cn } from "@/lib/utils";
-import { Calendar, Clock, DollarSign, Eye } from "lucide-react";
+import { Calendar, Clock, DollarSign, Eye } from "@/lib/icons";
 import Link from "next/link";
 import Image from "next/image";
 

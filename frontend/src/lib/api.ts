@@ -389,7 +389,13 @@ export const cachedApi = {
         ttl: 5 * 60 * 1000, // 5 minutes default
         ...config?.cache
       }
-    } as any);
+    } as any).catch((err) => {
+      // Soft-handle 404s for profile-related endpoints to avoid breaking UI
+      if ((err as any)?.code === 'HTTP_404' && typeof url === 'string' && url.includes('/influencers/profile')) {
+        return { data: null } as any;
+      }
+      throw err;
+    });
   },
 
   // Dashboard data with longer cache
@@ -401,7 +407,7 @@ export const cachedApi = {
 
   // Profile data with medium cache
   getProfile: () => {
-    return cachedApi.get('/profile/', {
+    return cachedApi.get('/influencers/profile/', {
       cache: { ttl: 10 * 60 * 1000, key: 'user_profile' } // 10 minutes
     });
   },
@@ -416,7 +422,7 @@ export const cachedApi = {
 
   // Social accounts with longer cache
   getSocialAccounts: () => {
-    return cachedApi.get('/profile/social-accounts/', {
+    return cachedApi.get('/influencers/profile/social-accounts/', {
       cache: { ttl: 15 * 60 * 1000, key: 'social_accounts' } // 15 minutes
     });
   }

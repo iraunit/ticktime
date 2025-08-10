@@ -5,7 +5,7 @@ import { useDeal } from "@/hooks/use-deals";
 import { mockDeals } from "@/lib/demo-data";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Loader2 } from "lucide-react";
+import { Loader2 } from "@/lib/icons";
 
 interface DealDetailsContentProps {
   dealId: number;

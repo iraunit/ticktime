@@ -5,7 +5,7 @@ import { Deal } from "@/types";
 import { DealCard } from "./deal-card";
 import { DealFilters } from "./deal-filters";
 import { Button } from "@/components/ui/button";
-import { Loader2, RefreshCw } from "lucide-react";
+import { Loader2, RefreshCw } from "@/lib/icons";
 import { cn } from "@/lib/utils";
 
 interface DealListProps {

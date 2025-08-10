@@ -23,7 +23,7 @@ import {
   Target,
   Star,
   Activity
-} from "lucide-react";
+} from "@/lib/icons";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export function PerformanceMetrics() {

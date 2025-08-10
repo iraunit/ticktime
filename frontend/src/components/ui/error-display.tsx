@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertTriangle, RefreshCw, Wifi, WifiOff, Clock } from 'lucide-react';
+import { AlertTriangle, RefreshCw, Wifi, WifiOff, Clock } from '@/lib/icons';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -241,6 +241,15 @@ function getErrorInfo(error: unknown) {
     return {
       title: 'Error',
       description: error.message || 'An unexpected error occurred.',
+      icon: <AlertTriangle className="w-5 h-5 text-red-600" />,
+    };
+  }
+
+  // Handle simple string errors
+  if (typeof error === 'string') {
+    return {
+      title: 'Error',
+      description: error,
       icon: <AlertTriangle className="w-5 h-5 text-red-600" />,
     };
   }

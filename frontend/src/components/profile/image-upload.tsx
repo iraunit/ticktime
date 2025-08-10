@@ -9,13 +9,15 @@ interface ImageUploadProps {
   onImageSelect: (file: File) => void;
   maxSize?: number;
   className?: string;
+  onImageRemove?: () => void;
 }
 
 export function ImageUpload({ 
   currentImage, 
   onImageSelect, 
   maxSize = FILE_UPLOAD_CONFIG.maxSize,
-  className = ""
+  className = "",
+  onImageRemove
 }: ImageUploadProps) {
   const [preview, setPreview] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -94,6 +96,7 @@ export function ImageUpload({
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
+    onImageRemove && onImageRemove();
   };
 
   const displayImage = preview || currentImage;

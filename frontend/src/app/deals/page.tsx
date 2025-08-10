@@ -6,6 +6,7 @@ import { useDeals } from "@/hooks/use-deals";
 import { mockDeals } from "@/lib/demo-data";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { RequireAuth } from "@/components/auth/require-auth";
 
 export default function DealsPage() {
   const router = useRouter();
@@ -41,25 +42,25 @@ export default function DealsPage() {
     router.push(`/messages?deal=${dealId}`);
   };
 
-
-
   const handleRefresh = () => {
     deals.refetch();
   };
 
   return (
-    <MainLayout>
-      <div className="container mx-auto px-4 py-8">
-        <DealList
-          deals={dealsData}
-          isLoading={isLoading}
-          onAccept={handleAccept}
-          onReject={handleReject}
-          onViewDetails={handleViewDetails}
-          onMessage={handleMessage}
-          onRefresh={handleRefresh}
-        />
-      </div>
-    </MainLayout>
+    <RequireAuth>
+      <MainLayout>
+        <div className="container mx-auto px-4 py-8">
+          <DealList
+            deals={dealsData}
+            isLoading={isLoading}
+            onAccept={handleAccept}
+            onReject={handleReject}
+            onViewDetails={handleViewDetails}
+            onMessage={handleMessage}
+            onRefresh={handleRefresh}
+          />
+        </div>
+      </MainLayout>
+    </RequireAuth>
   );
 }

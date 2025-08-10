@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { MainLayout } from "@/components/layout/main-layout";
 import { ResetPasswordForm } from "@/components/auth/reset-password-form";
-import { Loader2 } from "lucide-react";
+import { Loader2 } from "@/lib/icons";
 
 interface ResetPasswordPageProps {
   searchParams: Promise<{ token?: string }>;

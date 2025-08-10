@@ -11,7 +11,7 @@ import {
   Eye,
   MessageSquare,
   DollarSign
-} from "lucide-react";
+} from "@/lib/icons";
 
 interface DealTimelineProps {
   deal: Deal;

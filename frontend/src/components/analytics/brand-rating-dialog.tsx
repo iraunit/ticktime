@@ -7,7 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { useAnalytics } from "@/hooks/use-analytics";
 import { CollaborationHistory } from "@/types";
-import { Star } from "lucide-react";
+import { Star } from "@/lib/icons";
 import { toast } from "sonner";
 
 interface BrandRatingDialogProps {

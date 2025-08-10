@@ -11,7 +11,7 @@ import { ScrollToBottom } from "./scroll-to-bottom";
 import { Message, Deal } from "@/types";
 import { Card } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { AlertCircle } from "lucide-react";
+import { AlertCircle } from "@/lib/icons";
 
 interface MessagingInterfaceProps {
   deal: Deal;

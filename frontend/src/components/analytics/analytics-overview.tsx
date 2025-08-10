@@ -10,7 +10,7 @@ import {
   Award,
   Calendar,
   Star
-} from "lucide-react";
+} from "@/lib/icons";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CollaborationHistory } from "@/types";
 
@@ -114,7 +114,7 @@ export function AnalyticsOverview() {
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
-              {historyData?.results?.slice(0, 3).map((collaboration: CollaborationHistory) => (
+              {(historyData as any[] | undefined)?.slice(0, 3).map((collaboration: CollaborationHistory) => (
                 <div key={collaboration.id} className="flex items-center justify-between">
                   <div>
                     <p className="font-medium">{collaboration.brand.name}</p>

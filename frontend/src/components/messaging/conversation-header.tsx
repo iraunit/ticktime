@@ -3,7 +3,7 @@
 import { Deal } from "@/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { MoreVertical, Phone, Video } from "lucide-react";
+import { MoreVertical, Phone, Video } from "@/lib/icons";
 import Image from "next/image";
 
 interface ConversationHeaderProps {

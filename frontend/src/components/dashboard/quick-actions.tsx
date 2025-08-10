@@ -7,7 +7,7 @@ import {
   Search, 
   MessageSquare, 
   BarChart3
-} from "lucide-react";
+} from "@/lib/icons";
 import Link from "next/link";
 
 interface QuickAction {

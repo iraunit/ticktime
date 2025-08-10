@@ -21,7 +21,7 @@ import {
   Eye,
   Clock,
   AlertTriangle
-} from "lucide-react";
+} from "@/lib/icons";
 import { cn } from "@/lib/utils";
 
 interface DealActionsProps {

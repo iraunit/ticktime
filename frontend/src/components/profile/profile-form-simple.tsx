@@ -18,7 +18,7 @@ import { EnhancedInput, EnhancedTextarea } from '@/components/ui/enhanced-form';
 import { useApiErrorHandler } from '@/contexts/error-context';
 import { useLoadingState } from '@/contexts/loading-context';
 import { nameSchema, phoneSchema } from '@/lib/validation';
-import { CheckCircle, Loader2, AlertCircle, Save } from 'lucide-react';
+import { CheckCircle, Loader2, AlertCircle, Save } from '@/lib/icons';
 
 const profileSchema = z.object({
   first_name: nameSchema,
@@ -41,7 +41,7 @@ export function ProfileForm({ profile }: ProfileFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   
-  const { updateProfile } = useProfile();
+  const { updateProfile, uploadProfileImage } = useProfile();
   const { handleError } = useApiErrorHandler();
   const { isLoading, startLoading, stopLoading } = useLoadingState('profile-update');
 
@@ -65,21 +65,14 @@ export function ProfileForm({ profile }: ProfileFormProps) {
     startLoading('Updating profile...');
 
     try {
-      const formData = new FormData();
-      
-      // Add form fields
-      Object.entries(data).forEach(([key, value]) => {
-        if (value) {
-          formData.append(key, value);
-        }
-      });
+      // Update text fields via JSON
+      await updateProfile.mutateAsync({ ...data } as any);
 
-      // Add profile image if selected
+      // Upload profile image separately if selected
       if (profileImage) {
-        formData.append('profile_image', profileImage);
+        await uploadProfileImage.mutateAsync(profileImage);
       }
 
-      await updateProfile.mutateAsync(formData as any);
       setSuccess('Profile updated successfully!');
       setTimeout(() => setSuccess(null), 3000);
     } catch (err) {

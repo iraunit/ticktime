@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { MainLayout } from "@/components/layout/main-layout";
 import { EmailVerificationForm } from "@/components/auth/email-verification-form";
-import { Loader2 } from "lucide-react";
+import { Loader2 } from "@/lib/icons";
 
 interface VerifyEmailPageProps {
   searchParams: Promise<{ token?: string }>;

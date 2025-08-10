@@ -33,7 +33,7 @@ import {
   Eye,
   Download,
   Loader2
-} from "lucide-react";
+} from "@/lib/icons";
 import { cn } from "@/lib/utils";
 import Image from "next/image";
 import { FileUpload, ImageUpload, VideoUpload } from "@/components/ui/file-upload";

@@ -15,7 +15,7 @@ import { ErrorDisplay, FieldErrors } from '@/components/ui/error-display';
 import { EnhancedInput, EnhancedTextarea, AutoSaveForm } from '@/components/ui/enhanced-form';
 import { useLoadingState } from '@/contexts/loading-context';
 import { nameSchema, phoneSchema } from '@/lib/validation';
-import { CheckCircle, Loader2, AlertCircle, Save } from 'lucide-react';
+import { CheckCircle, Loader2, AlertCircle, Save } from '@/lib/icons';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import { useErrorHandling } from '@/hooks/use-error-handling';
@@ -40,7 +40,7 @@ export function ProfileForm({ profile }: ProfileFormProps) {
   const [success, setSuccess] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   
-  const { updateProfile } = useProfile();
+  const { updateProfile, uploadProfileImage } = useProfile();
   const { isLoading, startLoading, stopLoading } = useLoadingState('profile-update');
   const { error, fieldErrors, isError, setError, clearError } = useErrorHandling();
 
@@ -64,21 +64,14 @@ export function ProfileForm({ profile }: ProfileFormProps) {
     startLoading('Updating profile...');
 
     try {
-      const formData = new FormData();
-      
-      // Add form fields
-      Object.entries(data).forEach(([key, value]) => {
-        if (value) {
-          formData.append(key, value);
-        }
-      });
+      // Update text fields via JSON
+      await updateProfile.mutateAsync({ ...data } as any);
 
-      // Add profile image if selected
+      // Upload image separately if provided
       if (profileImage) {
-        formData.append('profile_image', profileImage);
+        await uploadProfileImage.mutateAsync(profileImage);
       }
 
-      await updateProfile.mutateAsync(formData as any);
       setSuccess('Profile updated successfully!');
     } catch (err) {
       setError(err);
@@ -90,14 +83,7 @@ export function ProfileForm({ profile }: ProfileFormProps) {
 
   const handleAutoSave = async (data: ProfileFormData) => {
     try {
-      const formData = new FormData();
-      Object.entries(data).forEach(([key, value]) => {
-        if (value) {
-          formData.append(key, value);
-        }
-      });
-
-      await updateProfile.mutateAsync(formData as any);
+      await updateProfile.mutateAsync({ ...data } as any);
     } catch (err) {
       console.error('Auto-save failed:', err);
     }

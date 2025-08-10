@@ -6,7 +6,7 @@ import Link from "next/link";
 import { MainLayout } from "@/components/layout/main-layout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Loader2 } from "lucide-react";
+import { Loader2 } from "@/lib/icons";
 import { useAuth } from "@/hooks/use-auth";
 
 export default function SignupPage() {

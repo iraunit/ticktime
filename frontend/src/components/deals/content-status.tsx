@@ -15,7 +15,7 @@ import {
   Download,
   Eye,
   Upload
-} from "lucide-react";
+} from "@/lib/icons";
 import { cn } from "@/lib/utils";
 import Image from "next/image";
 

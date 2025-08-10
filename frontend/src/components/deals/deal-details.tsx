@@ -29,7 +29,7 @@ import {
   Target,
   Zap,
   ArrowLeft,
-} from "lucide-react";
+} from "@/lib/icons";
 import Image from "next/image";
 import Link from "next/link";
 

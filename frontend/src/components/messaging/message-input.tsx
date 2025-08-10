@@ -3,7 +3,7 @@
 import { useState, useRef, KeyboardEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Send, Paperclip, X, FileText, Image as ImageIcon } from "lucide-react";
+import { Send, Paperclip, X, FileText, Image as ImageIcon } from "@/lib/icons";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface MessageInputProps {

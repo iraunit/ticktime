@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { MainLayout } from "@/components/layout/main-layout";
 import { BrandSignupForm } from "@/components/auth/brand-signup-form";
-import { Loader2 } from "lucide-react";
+import { Loader2 } from "@/lib/icons";
 
 export default function BrandSignupPage() {
   return (

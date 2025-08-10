@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { DealInvitationCard } from "./deal-invitation-card";
 import { Deal } from "@/types";
-import { Briefcase, ArrowRight } from "lucide-react";
+import { Briefcase, ArrowRight } from "@/lib/icons";
 import Link from "next/link";
 
 interface RecentDealsProps {

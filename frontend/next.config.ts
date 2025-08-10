@@ -14,12 +14,7 @@ const nextConfig: NextConfig = {
       };
     }
 
-    // Alias lucide-react to our Lineicons shim for compatibility
-    config.resolve = config.resolve || {};
-    config.resolve.alias = {
-      ...(config.resolve.alias || {}),
-      'lucide-react': require('path').resolve(__dirname, 'src/lib/icons.tsx'),
-    };
+
 
     return config;
   },

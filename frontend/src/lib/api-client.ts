@@ -2,8 +2,8 @@ import api from './api';
 
 // Auth API functions (session-based)
 export const authApi = {
-  login: (email: string, password: string) =>
-    api.post('/auth/login/', { email, password }),
+  login: (email: string, password: string, remember_me?: boolean) =>
+    api.post('/auth/login/', { email, password, remember_me: !!remember_me }),
   
   signup: (data: {
     email: string;
@@ -51,9 +51,17 @@ export const authApi = {
 
 // Profile API functions
 export const profileApi = {
-  getProfile: () => api.get('/profile/'),
+  getProfile: () => api.get('/influencers/profile/'),
   
-  updateProfile: (data: Record<string, unknown>) => api.put('/profile/', data),
+  updateProfile: (data: Record<string, unknown>) => api.put('/influencers/profile/', data),
+  
+  uploadProfileImage: (file: File) => {
+    const formData = new FormData();
+    formData.append('profile_image', file);
+    return api.post('/influencers/profile/upload-image/', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+  },
   
   uploadDocument: (
     file: File, 
@@ -65,7 +73,7 @@ export const profileApi = {
     formData.append('file', file);
     formData.append('document_type', documentType);
     
-    return api.post('/profile/upload-document/', formData, {
+    return api.post('/influencers/profile/upload-document/', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
       signal,
       onUploadProgress: (progressEvent: any) => {
@@ -81,16 +89,16 @@ export const profileApi = {
     });
   },
   
-  getSocialAccounts: () => api.get('/profile/social-accounts/'),
+  getSocialAccounts: () => api.get('/influencers/profile/social-accounts/'),
   
   createSocialAccount: (data: Record<string, unknown>) =>
-    api.post('/profile/social-accounts/', data),
+    api.post('/influencers/profile/social-accounts/', data),
   
   updateSocialAccount: (id: number, data: Record<string, unknown>) =>
-    api.put(`/profile/social-accounts/${id}/`, data),
+    api.put(`/influencers/profile/social-accounts/${id}/`, data),
   
   deleteSocialAccount: (id: number) =>
-    api.delete(`/profile/social-accounts/${id}/`),
+    api.delete(`/influencers/profile/social-accounts/${id}/`),
 };
 
 // Deals API functions
@@ -171,7 +179,7 @@ export const dealsApi = {
       },
     });
   },
-
+  
   getContentSubmissions: (id: number) => api.get(`/deals/${id}/content-submissions/`),
 };
 

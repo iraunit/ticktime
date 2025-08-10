@@ -2,14 +2,18 @@
 
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { User, Bell, Menu, X, LogOut, Settings, ChevronDown } from "lucide-react";
+import { User, Bell, Menu, X, LogOut, Settings, ChevronDown } from "@/lib/icons";
 import { useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
+import { useUserContext } from "@/components/providers/app-providers";
 
 export function Header() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
-  const { isAuthenticated, logout, isAuthLoading } = useAuth();
+  const { logout } = useAuth();
+  const { user, isLoading } = useUserContext();
+
+  const isAuthenticated = !!user;
 
   const handleLogout = () => {
     logout.mutate();
@@ -29,7 +33,7 @@ export function Header() {
           </Link>
 
           {/* Desktop Navigation - Only show if authenticated */}
-          {isAuthenticated() && (
+          {isAuthenticated && (
             <nav className="hidden md:flex items-center space-x-6">
               <Link href="/dashboard" className="text-sm text-gray-600 hover:text-gray-900 transition-colors font-medium">
                 Dashboard
@@ -51,9 +55,9 @@ export function Header() {
 
           {/* Desktop Actions */}
           <div className="hidden md:flex items-center space-x-2">
-            {isAuthLoading ? (
+            {isLoading ? (
               <div className="w-8 h-8 rounded-full bg-gray-100 animate-pulse"></div>
-            ) : isAuthenticated() ? (
+            ) : isAuthenticated ? (
               <>
                 <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
                   <Bell className="w-4 h-4" />
@@ -120,7 +124,7 @@ export function Header() {
         {/* Mobile Navigation */}
         {isMobileMenuOpen && (
           <div className="md:hidden py-3 border-t border-gray-100">
-            {isAuthenticated() ? (
+            {isAuthenticated ? (
               <nav className="flex flex-col space-y-2">
                 <Link 
                   href="/dashboard" 

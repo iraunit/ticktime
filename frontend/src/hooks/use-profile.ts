@@ -21,6 +21,14 @@ export function useProfile() {
     },
   });
 
+  // Upload profile image mutation
+  const uploadProfileImageMutation = useMutation({
+    mutationFn: (file: File) => profileApi.uploadProfileImage(file),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['profile'] });
+    },
+  });
+
   // Upload document mutation
   const uploadDocumentMutation = useMutation({
     mutationFn: ({ file, documentType }: { file: File; documentType: string }) =>
@@ -33,6 +41,7 @@ export function useProfile() {
   return {
     profile: profileQuery,
     updateProfile: updateProfileMutation,
+    uploadProfileImage: uploadProfileImageMutation,
     uploadDocument: uploadDocumentMutation,
   };
 }

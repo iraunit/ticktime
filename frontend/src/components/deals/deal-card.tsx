@@ -17,7 +17,7 @@ import {
   Youtube,
   Twitter,
   Facebook
-} from "lucide-react";
+} from "@/lib/icons";
 import Image from "next/image";
 import { DealActions } from "./deal-actions";
 import { ContentSubmissionModal } from "./content-submission";

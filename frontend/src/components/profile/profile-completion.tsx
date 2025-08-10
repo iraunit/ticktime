@@ -33,8 +33,8 @@ export function ProfileCompletion({
         id: 'basic_info',
         label: 'Basic Information',
         completed: !!(
-          profile.user.first_name &&
-          profile.user.last_name &&
+          profile.user?.first_name &&
+          profile.user?.last_name &&
           profile.phone_number &&
           profile.industry
         ),

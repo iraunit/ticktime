@@ -1,7 +1,7 @@
 // Service Worker for caching static assets and API responses
-const CACHE_NAME = 'ticktime-platform-v1';
-const STATIC_CACHE = 'static-v1';
-const API_CACHE = 'api-v1';
+const CACHE_NAME = 'ticktime-platform-v3';
+const STATIC_CACHE = 'static-v3';
+const API_CACHE = 'api-v3';
 
 // Assets to cache on install
 const STATIC_ASSETS = [
@@ -40,10 +40,13 @@ self.addEventListener('activate', (event) => {
 
 // Fetch event - implement caching strategies
 self.addEventListener('fetch', (event) => {
-    const {
-        request
-    } = event;
+    const { request } = event;
     const url = new URL(request.url);
+
+    // Do not intercept any requests when running on localhost (dev)
+    if (self.location.hostname === 'localhost' || self.location.hostname === '127.0.0.1') {
+        return; // allow the network to handle it normally
+    }
 
     // Handle API requests
     if (url.pathname.startsWith('/api/')) {
@@ -131,33 +134,28 @@ async function handleApiRequest(request) {
     }
 }
 
-// Cache-first strategy for navigation with network fallback
+// Network-first strategy for navigation with cache fallback
 async function handleNavigation(request) {
     try {
+        const networkResponse = await fetch(request);
+        if (networkResponse && networkResponse.ok) {
+            try {
+                const cache = await caches.open(STATIC_CACHE);
+                cache.put(request, networkResponse.clone());
+            } catch (_) {}
+            return networkResponse;
+        }
         const cachedResponse = await caches.match(request);
         if (cachedResponse) {
             return cachedResponse;
         }
-
-        const networkResponse = await fetch(request);
-        if (networkResponse.ok) {
-            const cache = await caches.open(STATIC_CACHE);
-            cache.put(request, networkResponse.clone());
-        }
-
         return networkResponse;
     } catch (error) {
-        console.error('Navigation fetch failed:', error);
-
-        // Return cached index.html as fallback for SPA
-        const cachedIndex = await caches.match('/');
-        if (cachedIndex) {
-            return cachedIndex;
+        const cachedResponse = await caches.match(request);
+        if (cachedResponse) {
+            return cachedResponse;
         }
-
-        return new Response('Page not available offline', {
-            status: 404
-        });
+        return new Response('Page not available offline', { status: 404 });
     }
 }
 

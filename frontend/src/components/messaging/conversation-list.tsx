@@ -6,7 +6,7 @@ import { Deal } from "@/types";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Search, MessageCircle } from "lucide-react";
+import { Search, MessageCircle } from "@/lib/icons";
 import { formatDistanceToNow } from "date-fns";
 import Image from "next/image";
 import { LoadingSpinner } from "./loading-spinner";
@@ -23,7 +23,7 @@ export function ConversationList({ selectedDealId, onSelectDeal }: ConversationL
     status: 'accepted,active,content_submitted,under_review,revision_requested,approved' 
   });
 
-  const filteredDeals = deals.data?.results?.filter((deal: Deal) => {
+  const filteredDeals = (deals.data as Deal[] | undefined)?.filter((deal: Deal) => {
     if (!searchQuery) return true;
     return (
       deal.campaign.brand.name.toLowerCase().includes(searchQuery.toLowerCase()) ||

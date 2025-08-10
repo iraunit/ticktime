@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Eye, EyeOff, Mail, Lock, Loader2, AlertCircle } from "lucide-react";
+import { Eye, EyeOff, Mail, Lock, Loader2, AlertCircle } from "@/lib/icons";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -53,9 +53,10 @@ export function LoginForm() {
         await login.mutateAsync({
           email: data.email,
           password: data.password,
-        });
+          remember_me: data.remember_me,
+        } as any);
         
-        // Handle remember me functionality
+        // Handle remember me functionality (optional local hint)
         if (data.remember_me) {
           localStorage.setItem('remember_me', 'true');
         } else {

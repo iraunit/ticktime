@@ -14,7 +14,7 @@ import {
   DollarSign,
   Building2,
   Filter
-} from "lucide-react";
+} from "@/lib/icons";
 import { Skeleton } from "@/components/ui/skeleton";
 import { BrandRatingDialog } from "./brand-rating-dialog";
 
@@ -80,14 +80,14 @@ export function CollaborationHistory() {
     }
   };
 
-  const filteredCollaborations = collaborationHistory.data?.results?.filter((collaboration: CollaborationHistoryType) => {
+  const filteredCollaborations = (collaborationHistory.data as CollaborationHistoryType[] | undefined)?.filter((collaboration: CollaborationHistoryType) => {
     const statusMatch = statusFilter === "all" || collaboration.status === statusFilter;
     const brandMatch = brandFilter === "all" || collaboration.brand.name === brandFilter;
     return statusMatch && brandMatch;
   }) || [];
 
   const uniqueBrands: string[] = Array.from(
-    new Set(collaborationHistory.data?.results?.map((c: CollaborationHistoryType) => c.brand.name) || [])
+    new Set(((collaborationHistory.data as CollaborationHistoryType[] | undefined) || []).map((c: CollaborationHistoryType) => c.brand.name))
   );
 
   if (collaborationHistory.isLoading) {
