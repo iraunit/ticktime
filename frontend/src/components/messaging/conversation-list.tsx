@@ -26,15 +26,15 @@ export function ConversationList({ selectedDealId, onSelectDeal }: ConversationL
   const filteredDeals = (deals.data as Deal[] | undefined)?.filter((deal: Deal) => {
     if (!searchQuery) return true;
     return (
-      deal.campaign.brand.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      deal.campaign.title.toLowerCase().includes(searchQuery.toLowerCase())
+      (deal?.campaign?.brand?.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (deal?.campaign?.title || '').toLowerCase().includes(searchQuery.toLowerCase())
     );
   }) || [];
 
   const getLastMessageTime = (deal: Deal) => {
     // This would typically come from the conversation/message data
     // For now, we'll use the deal's updated time as a placeholder
-    return formatDistanceToNow(new Date(deal.invited_at), { addSuffix: true });
+    return formatDistanceToNow(new Date(deal?.invited_at || new Date().toISOString()), { addSuffix: true });
   };
 
   const getUnreadCount = (deal: Deal) => {
@@ -119,10 +119,10 @@ export function ConversationList({ selectedDealId, onSelectDeal }: ConversationL
                   <div className="flex items-start space-x-3">
                     {/* Brand Avatar */}
                     <div className="relative flex-shrink-0">
-                      {deal.campaign.brand.logo ? (
+                      {deal?.campaign?.brand?.logo ? (
                         <Image
                           src={deal.campaign.brand.logo}
-                          alt={deal.campaign.brand.name}
+                          alt={deal?.campaign?.brand?.name || 'Brand'}
                           width={40}
                           height={40}
                           className="rounded-full object-cover"
@@ -130,7 +130,7 @@ export function ConversationList({ selectedDealId, onSelectDeal }: ConversationL
                       ) : (
                         <div className="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center">
                           <span className="text-sm font-medium text-gray-600">
-                            {deal.campaign.brand.name.charAt(0).toUpperCase()}
+                            {(deal?.campaign?.brand?.name || '?').charAt(0).toUpperCase()}
                           </span>
                         </div>
                       )}
@@ -143,7 +143,7 @@ export function ConversationList({ selectedDealId, onSelectDeal }: ConversationL
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between">
                         <h3 className="text-sm font-semibold text-gray-900 truncate">
-                          {deal.campaign.brand.name}
+                          {deal?.campaign?.brand?.name || 'Brand'}
                         </h3>
                         <div className="flex items-center space-x-2">
                           {unreadCount > 0 && (
@@ -158,7 +158,7 @@ export function ConversationList({ selectedDealId, onSelectDeal }: ConversationL
                       </div>
                       
                       <p className="text-sm text-gray-600 truncate mt-1">
-                        {deal.campaign.title}
+                        {deal?.campaign?.title || '—'}
                       </p>
                       
                       <div className="flex items-center justify-between mt-2">
@@ -170,7 +170,7 @@ export function ConversationList({ selectedDealId, onSelectDeal }: ConversationL
                         </Badge>
                         
                         <span className="text-xs text-gray-500">
-                          ${deal.total_value.toLocaleString()}
+                          ${Number(deal?.total_value || 0).toLocaleString()}
                         </span>
                       </div>
                     </div>

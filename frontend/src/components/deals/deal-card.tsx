@@ -88,7 +88,8 @@ export function DealCard({
 
   const { getDaysRemaining } = useClientTime();
 
-  const daysRemaining = getDaysRemaining(deal.campaign.application_deadline);
+  const applicationDeadline = deal?.campaign?.application_deadline || new Date().toISOString();
+  const daysRemaining = getDaysRemaining(applicationDeadline);
   const isUrgent = daysRemaining <= 2 && daysRemaining > 0;
   const isExpired = daysRemaining < 0;
 
@@ -109,11 +110,11 @@ export function DealCard({
       <CardHeader className="pb-4">
         <div className="flex items-start justify-between">
           <div className="flex items-center space-x-3 flex-1 min-w-0">
-            {deal.campaign.brand.logo && (
+            {deal?.campaign?.brand?.logo && (
               <div className="flex-shrink-0">
                 <Image
                   src={deal.campaign.brand.logo}
-                  alt={deal.campaign.brand.name}
+                  alt={deal?.campaign?.brand?.name || 'Brand'}
                   width={48}
                   height={48}
                   className="w-12 h-12 rounded-full object-cover border-2 border-gray-100"
@@ -122,13 +123,13 @@ export function DealCard({
             )}
             <div className="flex-1 min-w-0">
               <CardTitle className="text-lg truncate">
-                {deal.campaign.title}
+                {deal?.campaign?.title || 'Campaign'}
               </CardTitle>
               <div className="flex items-center space-x-2 mt-1">
                 <p className="text-sm text-muted-foreground truncate">
-                  {deal.campaign.brand.name}
+                  {deal?.campaign?.brand?.name || 'Brand'}
                 </p>
-                {deal.campaign.brand.rating && (
+                {deal?.campaign?.brand?.rating && (
                   <div className="flex items-center space-x-1">
                     <Star className="h-3 w-3 text-yellow-500 fill-current" />
                     <span className="text-xs text-muted-foreground">
@@ -151,10 +152,10 @@ export function DealCard({
             <Badge
               className={cn(
                 "text-xs",
-                dealTypeColors[deal.campaign.deal_type]
+                deal?.campaign?.deal_type ? dealTypeColors[deal.campaign.deal_type] : 'bg-gray-100 text-gray-800'
               )}
             >
-              {deal.campaign.deal_type.toUpperCase()}
+              {(deal?.campaign?.deal_type || 'N/A').toUpperCase()}
             </Badge>
           </div>
         </div>
@@ -169,12 +170,12 @@ export function DealCard({
               <span className="text-sm font-medium">Total Value</span>
             </div>
             <p className="text-lg font-bold text-green-600">
-              {formatCurrency(deal.total_value)}
+              {formatCurrency(deal?.total_value || 0)}
             </p>
-            {deal.campaign.deal_type === "hybrid" && (
+            {deal?.campaign?.deal_type === "hybrid" && (
               <div className="text-xs text-muted-foreground space-y-1">
-                <div>Cash: {formatCurrency(deal.campaign.cash_amount)}</div>
-                <div>Products: {formatCurrency(deal.campaign.product_value)}</div>
+                <div>Cash: {formatCurrency(deal?.campaign?.cash_amount || 0)}</div>
+                <div>Products: {formatCurrency(deal?.campaign?.product_value || 0)}</div>
               </div>
             )}
           </div>
@@ -185,7 +186,7 @@ export function DealCard({
               <span className="text-sm font-medium">Deadline</span>
             </div>
             <p className="text-sm">
-              {formatDate(deal.campaign.application_deadline)}
+              {formatDate(applicationDeadline)}
             </p>
             {!isExpired && (
               <p className={cn("text-xs", {
@@ -214,7 +215,7 @@ export function DealCard({
             <div className="flex items-center space-x-2">
               <span className="text-xs font-medium text-muted-foreground">PLATFORMS:</span>
               <div className="flex items-center space-x-1">
-                {deal.campaign.content_requirements.platforms.map((platform) => {
+                {(deal?.campaign?.content_requirements?.platforms || []).map((platform) => {
                   const Icon = platformIcons[platform as keyof typeof platformIcons];
                   return (
                     <div key={platform} className="flex items-center space-x-1">
@@ -227,18 +228,18 @@ export function DealCard({
             </div>
 
             <div className="flex items-center space-x-4 text-xs text-muted-foreground">
-              <span>Posts: {deal.campaign.content_requirements.post_count}</span>
-              {deal.campaign.content_requirements.story_count && (
+              <span>Posts: {deal?.campaign?.content_requirements?.post_count ?? 0}</span>
+              {deal?.campaign?.content_requirements?.story_count && (
                 <span>Stories: {deal.campaign.content_requirements.story_count}</span>
               )}
-              {deal.campaign.content_requirements.reel_count && (
+              {deal?.campaign?.content_requirements?.reel_count && (
                 <span>Reels: {deal.campaign.content_requirements.reel_count}</span>
               )}
             </div>
           </div>
 
           {/* Brand Info */}
-          {deal.campaign.brand.total_collaborations && (
+          {deal?.campaign?.brand?.total_collaborations && (
             <div className="flex items-center space-x-2 text-xs text-muted-foreground">
               <Users className="h-3 w-3" />
               <span>{deal.campaign.brand.total_collaborations} collaborations</span>

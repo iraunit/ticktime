@@ -37,16 +37,19 @@ export function DealList({
   const filteredDeals = useMemo(() => {
     return deals.filter((deal) => {
       // Search filter
+      const title = (deal?.campaign?.title || '').toLowerCase();
+      const brandName = (deal?.campaign?.brand?.name || '').toLowerCase();
+      const desc = (deal?.campaign?.description || '').toLowerCase();
       const matchesSearch = searchQuery === "" || 
-        deal.campaign.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        deal.campaign.brand.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        deal.campaign.description.toLowerCase().includes(searchQuery.toLowerCase());
+        title.includes(searchQuery.toLowerCase()) ||
+        brandName.includes(searchQuery.toLowerCase()) ||
+        desc.includes(searchQuery.toLowerCase());
 
       // Status filter
       const matchesStatus = statusFilter === "all" || deal.status === statusFilter;
 
       // Deal type filter
-      const matchesType = dealTypeFilter === "all" || deal.campaign.deal_type === dealTypeFilter;
+      const matchesType = dealTypeFilter === "all" || deal?.campaign?.deal_type === dealTypeFilter;
 
       return matchesSearch && matchesStatus && matchesType;
     });
@@ -57,8 +60,9 @@ export function DealList({
     return [...filteredDeals].sort((a, b) => {
       // Priority order: invited (urgent) > invited > active > others
       const getPriority = (deal: Deal) => {
+        const deadline = deal?.campaign?.application_deadline || new Date().toISOString();
         const daysRemaining = Math.ceil(
-          (new Date(deal.campaign.application_deadline).getTime() - new Date().getTime()) / 
+          (new Date(deadline).getTime() - new Date().getTime()) / 
           (1000 * 60 * 60 * 24)
         );
         
@@ -79,7 +83,7 @@ export function DealList({
       }
 
       // If same priority, sort by date (newest first)
-      return new Date(b.invited_at).getTime() - new Date(a.invited_at).getTime();
+      return new Date(b?.invited_at || 0).getTime() - new Date(a?.invited_at || 0).getTime();
     });
   }, [filteredDeals]);
 

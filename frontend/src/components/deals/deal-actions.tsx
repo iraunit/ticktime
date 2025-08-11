@@ -68,7 +68,7 @@ export function DealActions({
     return diffDays;
   };
 
-  const daysRemaining = getDaysRemaining(deal.campaign.application_deadline);
+  const daysRemaining = getDaysRemaining(deal?.campaign?.application_deadline || new Date().toISOString());
   const isUrgent = daysRemaining <= 2 && daysRemaining > 0;
   const isExpired = daysRemaining < 0;
 
@@ -247,13 +247,13 @@ export function DealActions({
             <DialogTitle>Accept Deal</DialogTitle>
             <DialogDescription>
               Are you sure you want to accept this collaboration deal with{" "}
-              <span className="font-semibold">{deal.campaign.brand.name}</span>?
+              <span className="font-semibold">{deal?.campaign?.brand?.name || 'Brand'}</span>?
               <br />
               <br />
               <span className="text-sm text-gray-600">
-                Deal Value: ₹{deal.total_value.toLocaleString()}
+                Deal Value: ₹{Number(deal?.total_value || 0).toLocaleString()}
                 <br />
-                Campaign: {deal.campaign.title}
+                Campaign: {deal?.campaign?.title || '—'}
               </span>
             </DialogDescription>
           </DialogHeader>
@@ -283,7 +283,7 @@ export function DealActions({
             <DialogTitle>Decline Deal</DialogTitle>
             <DialogDescription>
               Are you sure you want to decline this collaboration deal with{" "}
-              <span className="font-semibold">{deal.campaign.brand.name}</span>?
+              <span className="font-semibold">{deal?.campaign?.brand?.name || 'Brand'}</span>?
             </DialogDescription>
           </DialogHeader>
           <div className="py-4">

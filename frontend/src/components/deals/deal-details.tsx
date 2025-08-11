@@ -113,10 +113,10 @@ export function DealDetails({
         </Link>
         <div className="flex-1">
           <h1 className="text-3xl font-bold text-gray-900">
-            {deal.campaign.title}
+            {deal?.campaign?.title || 'Campaign'}
           </h1>
           <p className="text-muted-foreground">
-            Collaboration with {deal.campaign.brand.name}
+            Collaboration with {deal?.campaign?.brand?.name || 'Brand'}
           </p>
         </div>
         <Badge
@@ -136,10 +136,10 @@ export function DealDetails({
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center space-x-3">
-                {deal.campaign.brand.logo && (
+                {deal?.campaign?.brand?.logo && (
                   <Image
                     src={deal.campaign.brand.logo}
-                    alt={deal.campaign.brand.name}
+                    alt={deal?.campaign?.brand?.name || 'Brand'}
                     width={48}
                     height={48}
                     className="w-12 h-12 rounded-full object-cover"
@@ -147,22 +147,22 @@ export function DealDetails({
                 )}
                 <div>
                   <h3 className="text-xl font-semibold">
-                    {deal.campaign.brand.name}
+                    {deal?.campaign?.brand?.name || 'Brand'}
                   </h3>
                   <div className="flex items-center space-x-4 text-sm text-muted-foreground">
-                    {deal.campaign.brand.rating && (
+                    {deal?.campaign?.brand?.rating && (
                       <div className="flex items-center space-x-1">
                         <Star className="h-4 w-4 text-yellow-500 fill-current" />
                         <span>{deal.campaign.brand.rating} rating</span>
                       </div>
                     )}
-                    {deal.campaign.brand.total_collaborations && (
+                    {deal?.campaign?.brand?.total_collaborations && (
                       <div className="flex items-center space-x-1">
                         <Users className="h-4 w-4" />
                         <span>{deal.campaign.brand.total_collaborations} collaborations</span>
                       </div>
                     )}
-                    {deal.campaign.brand.website && (
+                    {deal?.campaign?.brand?.website && (
                       <div className="flex items-center space-x-1">
                         <Globe className="h-4 w-4" />
                         <a
@@ -181,7 +181,7 @@ export function DealDetails({
             </CardHeader>
             <CardContent>
               <p className="text-muted-foreground">
-                {deal.campaign.brand.description}
+                {deal?.campaign?.brand?.description || '—'}
               </p>
             </CardContent>
           </Card>
@@ -196,10 +196,10 @@ export function DealDetails({
             </CardHeader>
             <CardContent className="space-y-4">
               <p className="text-gray-700 leading-relaxed">
-                {deal.campaign.description}
+                {deal?.campaign?.description || '—'}
               </p>
               
-              {deal.campaign.content_requirements.special_instructions && (
+              {deal?.campaign?.content_requirements?.special_instructions && (
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                   <h4 className="font-medium text-blue-900 mb-2">Special Instructions</h4>
                   <p className="text-blue-800 text-sm">
@@ -223,7 +223,7 @@ export function DealDetails({
               <div>
                 <h4 className="font-medium text-gray-900 mb-2">Platforms</h4>
                 <div className="flex flex-wrap gap-2">
-                  {deal.campaign.content_requirements.platforms.map((platform) => {
+                  {(deal?.campaign?.content_requirements?.platforms || []).map((platform) => {
                     const Icon = platformIcons[platform as keyof typeof platformIcons];
                     return (
                       <Badge key={platform} variant="outline" className="flex items-center space-x-1">
@@ -239,7 +239,7 @@ export function DealDetails({
               <div>
                 <h4 className="font-medium text-gray-900 mb-2">Content Types</h4>
                 <div className="flex flex-wrap gap-2">
-                  {deal.campaign.content_requirements.content_types.map((type) => (
+                  {(deal?.campaign?.content_requirements?.content_types || []).map((type) => (
                     <Badge key={type} variant="secondary">
                       {type}
                     </Badge>
@@ -253,15 +253,15 @@ export function DealDetails({
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 text-sm">
                   <div className="flex items-center space-x-2">
                     <span className="font-medium">Posts:</span>
-                    <span>{deal.campaign.content_requirements.post_count}</span>
+                    <span>{deal?.campaign?.content_requirements?.post_count ?? 0}</span>
                   </div>
-                  {deal.campaign.content_requirements.story_count && (
+                  {deal?.campaign?.content_requirements?.story_count && (
                     <div className="flex items-center space-x-2">
                       <span className="font-medium">Stories:</span>
                       <span>{deal.campaign.content_requirements.story_count}</span>
                     </div>
                   )}
-                  {deal.campaign.content_requirements.reel_count && (
+                  {deal?.campaign?.content_requirements?.reel_count && (
                     <div className="flex items-center space-x-2">
                       <span className="font-medium">Reels:</span>
                       <span>{deal.campaign.content_requirements.reel_count}</span>
@@ -285,25 +285,25 @@ export function DealDetails({
                 <div>
                   <h4 className="font-medium text-gray-900 mb-1">Application Deadline</h4>
                   <p className="text-sm text-muted-foreground">
-                    {formatDate(deal.campaign.application_deadline)}
+                    {formatDate(deal?.campaign?.application_deadline || new Date().toISOString())}
                   </p>
                 </div>
                 <div>
                   <h4 className="font-medium text-gray-900 mb-1">Campaign Start</h4>
                   <p className="text-sm text-muted-foreground">
-                    {formatDate(deal.campaign.campaign_start_date)}
+                    {formatDate(deal?.campaign?.campaign_start_date || new Date().toISOString())}
                   </p>
                 </div>
                 <div>
                   <h4 className="font-medium text-gray-900 mb-1">Campaign End</h4>
                   <p className="text-sm text-muted-foreground">
-                    {formatDate(deal.campaign.campaign_end_date)}
+                    {formatDate(deal?.campaign?.campaign_end_date || new Date().toISOString())}
                   </p>
                 </div>
                 <div>
                   <h4 className="font-medium text-gray-900 mb-1">Invited On</h4>
                   <p className="text-sm text-muted-foreground">
-                    {formatDateTime(deal.invited_at)}
+                    {formatDateTime(deal?.invited_at || new Date().toISOString())}
                   </p>
                 </div>
               </div>
@@ -324,7 +324,7 @@ export function DealDetails({
             <CardContent className="space-y-4">
               <div className="text-center">
                 <p className="text-3xl font-bold text-green-600">
-                  {formatCurrency(deal.total_value)}
+                  {formatCurrency(deal?.total_value || 0)}
                 </p>
                 <p className="text-sm text-muted-foreground">Total Value</p>
               </div>
@@ -335,29 +335,29 @@ export function DealDetails({
                 <div className="flex justify-between items-center">
                   <span className="text-sm font-medium">Deal Type</span>
                   <Badge variant="outline">
-                    {deal.campaign.deal_type.toUpperCase()}
+                    {(deal?.campaign?.deal_type || 'N/A').toUpperCase()}
                   </Badge>
                 </div>
 
-                {deal.campaign.cash_amount > 0 && (
+                {Number(deal?.campaign?.cash_amount || 0) > 0 && (
                   <div className="flex justify-between items-center">
                     <span className="text-sm">Cash Payment</span>
                     <span className="text-sm font-medium">
-                      {formatCurrency(deal.campaign.cash_amount)}
+                      {formatCurrency(deal?.campaign?.cash_amount || 0)}
                     </span>
                   </div>
                 )}
 
-                {deal.campaign.product_value > 0 && (
+                {Number(deal?.campaign?.product_value || 0) > 0 && (
                   <div className="flex justify-between items-center">
                     <span className="text-sm">Product Value</span>
                     <span className="text-sm font-medium">
-                      {formatCurrency(deal.campaign.product_value)}
+                      {formatCurrency(deal?.campaign?.product_value || 0)}
                     </span>
                   </div>
                 )}
 
-                {deal.payment_status && (
+                {deal?.payment_status && (
                   <div className="flex justify-between items-center">
                     <span className="text-sm">Payment Status</span>
                     <Badge

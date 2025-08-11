@@ -7,16 +7,18 @@ import { CheckCircle, Users, TrendingUp, Shield, Star, ArrowRight } from "@/lib/
 export default function Home() {
   return (
     <MainLayout>
-      <div className="min-h-screen bg-gradient-to-br from-red-50 to-pink-100">
+      <div className="min-h-screen bg-white">
         {/* Hero Section */}
-        <div className="container mx-auto px-4 py-16">
-          <div className="text-center mb-16">
-            <h1 className="text-6xl font-bold text-gray-900 mb-6 leading-tight">
-              Connect. Create. <span className="text-red-600">Collaborate.</span>
+        <div className="container mx-auto px-4 pt-20 pb-12">
+          <div className="text-center max-w-4xl mx-auto mb-12">
+            <div className="inline-flex items-center px-3 py-1 rounded-full border border-gray-200 text-xs text-gray-600 mb-4 bg-gray-50">
+              Built for modern influencer marketing ops
+            </div>
+            <h1 className="text-5xl md:text-6xl font-extrabold tracking-tight text-gray-900 mb-6">
+              Plan. Execute. <span className="text-red-600">Scale.</span>
             </h1>
-            <p className="text-xl text-gray-600 mb-8 max-w-3xl mx-auto leading-relaxed">
-              Join thousands of influencers who trust TickTime to manage their brand partnerships, 
-              streamline content creation, and maximize their earning potential.
+            <p className="text-lg md:text-xl text-gray-600 mb-8 leading-relaxed">
+              TickTime is your end‑to‑end workspace for collaborations—from discovery and deal flow to content approvals and performance.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-8">
               <Button size="lg" className="bg-red-600 hover:bg-red-700 text-lg px-8 py-3" asChild>
@@ -29,17 +31,32 @@ export default function Home() {
                 <Link href="/login">Sign In</Link>
               </Button>
             </div>
-            <p className="text-sm text-gray-500">
-              ✨ Free to join • No setup fees • Start earning today
-            </p>
+            <p className="text-sm text-gray-500">No setup fees • Cancel anytime • SOC2-inspired controls</p>
+          </div>
+
+          {/* Trusted by strip with Lineicons logos */}
+          <div className="grid grid-cols-3 md:grid-cols-6 gap-8 items-center justify-items-center mb-16">
+            {[
+              { icon: 'lni-apple', label: 'Apple' },
+              { icon: 'lni-aws', label: 'AWS' },
+              { icon: 'lni-slack', label: 'Slack' },
+              { icon: 'lni-dropbox', label: 'Dropbox' },
+              { icon: 'lni-figma', label: 'Figma' },
+              { icon: 'lni-spotify', label: 'Spotify' },
+            ].map(({ icon, label }) => (
+              <div key={icon} className="flex flex-col items-center gap-2 text-gray-500">
+                <i className={`lni ${icon} text-3xl md:text-4xl`} aria-hidden="true" />
+                <span className="text-xs md:text-sm">{label}</span>
+              </div>
+            ))}
           </div>
 
           {/* Features Grid */}
-          <div className="grid md:grid-cols-3 gap-8 mb-16">
+          <div className="grid md:grid-cols-3 gap-8 mb-20">
             <Card className="border-0 shadow-lg hover:shadow-xl transition-shadow">
               <CardHeader className="text-center pb-4">
                 <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <Users className="h-8 w-8 text-red-600" />
+                  <i className="lni lni-briefcase text-red-600 text-3xl" aria-hidden="true" />
                 </div>
                 <CardTitle className="text-red-600 text-xl">Smart Deal Management</CardTitle>
                 <CardDescription className="text-gray-600">
@@ -66,7 +83,7 @@ export default function Home() {
             <Card className="border-0 shadow-lg hover:shadow-xl transition-shadow">
               <CardHeader className="text-center pb-4">
                 <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <Shield className="h-8 w-8 text-red-600" />
+                  <i className="lni lni-cloud-upload text-red-600 text-3xl" aria-hidden="true" />
                 </div>
                 <CardTitle className="text-red-600 text-xl">Secure Content Hub</CardTitle>
                 <CardDescription className="text-gray-600">
@@ -93,7 +110,7 @@ export default function Home() {
             <Card className="border-0 shadow-lg hover:shadow-xl transition-shadow">
               <CardHeader className="text-center pb-4">
                 <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <TrendingUp className="h-8 w-8 text-red-600" />
+                  <i className="lni lni-stats-up text-red-600 text-3xl" aria-hidden="true" />
                 </div>
                 <CardTitle className="text-red-600 text-xl">Growth Analytics</CardTitle>
                 <CardDescription className="text-gray-600">
@@ -119,7 +136,7 @@ export default function Home() {
           </div>
 
           {/* Social Proof */}
-          <div className="text-center mb-16">
+          <div className="text-center mb-20">
             <h2 className="text-3xl font-bold text-gray-900 mb-8">Trusted by Creators Worldwide</h2>
             <div className="grid md:grid-cols-3 gap-8 max-w-4xl mx-auto">
               <div className="text-center">
@@ -138,7 +155,7 @@ export default function Home() {
           </div>
 
           {/* Testimonial */}
-          <div className="bg-white rounded-2xl shadow-lg p-8 max-w-4xl mx-auto mb-16">
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 max-w-4xl mx-auto mb-20">
             <div className="text-center">
               <div className="flex justify-center mb-4">
                 {[...Array(5)].map((_, i) => (

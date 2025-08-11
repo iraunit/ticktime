@@ -60,7 +60,7 @@ export function DealInvitationCard({
     return diffDays;
   };
 
-  const daysRemaining = getDaysRemaining(deal.campaign.application_deadline);
+  const daysRemaining = getDaysRemaining(deal?.campaign?.application_deadline || new Date().toISOString());
   const isUrgent = daysRemaining <= 2 && daysRemaining > 0;
   const isExpired = daysRemaining < 0;
 
@@ -72,19 +72,19 @@ export function DealInvitationCard({
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between">
           <div className="flex items-center space-x-3">
-            {deal.campaign.brand.logo && (
+            {deal?.campaign?.brand?.logo && (
               <Image
                 src={deal.campaign.brand.logo}
-                alt={deal.campaign.brand.name}
+                alt={deal?.campaign?.brand?.name || 'Brand'}
                 width={40}
                 height={40}
                 className="w-10 h-10 rounded-full object-cover"
               />
             )}
             <div>
-              <CardTitle className="text-lg">{deal.campaign.title}</CardTitle>
+              <CardTitle className="text-lg">{deal?.campaign?.title || 'Campaign'}</CardTitle>
               <p className="text-sm text-muted-foreground">
-                {deal.campaign.brand.name}
+                {deal?.campaign?.brand?.name || 'Brand'}
               </p>
             </div>
           </div>
@@ -105,15 +105,15 @@ export function DealInvitationCard({
             <DollarSign className="h-4 w-4 text-muted-foreground flex-shrink-0" />
             <span className="truncate">
               <span className="font-medium">Value:</span>{" "}
-              {formatCurrency(deal.total_value)}
+              {formatCurrency(deal?.total_value || 0)}
             </span>
           </div>
           <div className="flex items-center space-x-2">
             <Calendar className="h-4 w-4 text-muted-foreground flex-shrink-0" />
             <span className="truncate">
               <span className="font-medium">Type:</span>{" "}
-              {deal.campaign.deal_type.charAt(0).toUpperCase() +
-                deal.campaign.deal_type.slice(1)}
+              {(deal?.campaign?.deal_type || 'n/a').charAt(0).toUpperCase() +
+                (deal?.campaign?.deal_type || 'n/a').slice(1)}
             </span>
           </div>
         </div>
@@ -122,7 +122,7 @@ export function DealInvitationCard({
           <Clock className="h-4 w-4 text-muted-foreground" />
           <span>
             <span className="font-medium">Deadline:</span>{" "}
-            {formatDate(deal.campaign.application_deadline)}
+            {formatDate(deal?.campaign?.application_deadline || new Date().toISOString())}
           </span>
           {!isExpired && (
             <span
@@ -142,7 +142,7 @@ export function DealInvitationCard({
         </div>
 
         <p className="text-sm text-muted-foreground line-clamp-2">
-          {deal.campaign.description}
+          {deal?.campaign?.description || '—'}
         </p>
 
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between pt-2 gap-3">

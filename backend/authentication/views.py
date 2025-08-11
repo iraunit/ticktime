@@ -77,9 +77,11 @@ def login_view(request):
 
         login(request, user)
         if remember_me:
+            # Extend to 30 days when user explicitly chooses to be remembered
             request.session.set_expiry(60 * 60 * 24 * 30)  # 30 days
         else:
-            request.session.set_expiry(0)  # Session cookie
+            # Use default project settings for expiry (rolling 15 days)
+            request.session.set_expiry(settings.SESSION_COOKIE_AGE)
 
         profile_serializer = UserProfileSerializer(user)
         return Response({

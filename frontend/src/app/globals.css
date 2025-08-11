@@ -1,4 +1,5 @@
 @import 'lineicons/dist/lineicons.css';
+@import 'remixicon/fonts/remixicon.css';
 @tailwind base;
 @tailwind components;
 @tailwind utilities;

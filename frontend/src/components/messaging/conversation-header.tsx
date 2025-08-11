@@ -37,10 +37,10 @@ export function ConversationHeader({ deal }: ConversationHeaderProps) {
       <div className="flex items-center space-x-3">
         {/* Brand Logo */}
         <div className="relative">
-          {deal.campaign.brand.logo ? (
+          {deal?.campaign?.brand?.logo ? (
             <Image
               src={deal.campaign.brand.logo}
-              alt={deal.campaign.brand.name}
+              alt={deal?.campaign?.brand?.name || 'Brand'}
               width={40}
               height={40}
               className="rounded-full object-cover"
@@ -48,7 +48,7 @@ export function ConversationHeader({ deal }: ConversationHeaderProps) {
           ) : (
             <div className="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center">
               <span className="text-sm font-medium text-gray-600">
-                {deal.campaign.brand.name.charAt(0).toUpperCase()}
+                {(deal?.campaign?.brand?.name || '?').charAt(0).toUpperCase()}
               </span>
             </div>
           )}
@@ -60,11 +60,11 @@ export function ConversationHeader({ deal }: ConversationHeaderProps) {
         {/* Brand Info */}
         <div className="flex-1 min-w-0">
           <h3 className="text-sm font-semibold text-gray-900 truncate">
-            {deal.campaign.brand.name}
+            {deal?.campaign?.brand?.name || 'Brand'}
           </h3>
           <div className="flex items-center space-x-2">
             <p className="text-xs text-gray-500 truncate">
-              {deal.campaign.title}
+              {deal?.campaign?.title || '—'}
             </p>
             <Badge 
               variant="secondary" 

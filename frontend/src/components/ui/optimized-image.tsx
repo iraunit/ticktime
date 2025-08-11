@@ -48,7 +48,8 @@ export function OptimizedAvatar({
     xl: 96
   };
 
-  const initials = fallback || alt.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+  const safeAlt = (alt || '').trim();
+  const initials = fallback || (safeAlt ? safeAlt.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) : 'TT');
 
   return (
     <div className={`${sizeClasses[size]} rounded-full overflow-hidden ${className}`}>
