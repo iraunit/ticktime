@@ -4,9 +4,13 @@ FROM node:18-alpine
 WORKDIR /app
 
 # Copy package files
-COPY . .
+COPY package.json package-lock.json ./
+
 # Install dependencies
-RUN npm ci
+RUN npm install
+
+# Copy application code
+COPY . .
 
 # Set environment variables
 ARG NEXT_PUBLIC_API_URL=http://localhost:8000
