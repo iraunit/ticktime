@@ -7,6 +7,7 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y \
     gcc \
     libpq-dev \
+    netcat-traditional \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements and install Python dependencies
@@ -59,6 +60,9 @@ ENV CELERY_RESULT_BACKEND=${CELERY_RESULT_BACKEND}
 
 # Expose port
 EXPOSE 8000
+
+# Set entrypoint
+RUN ./entrypoint.sh
 
 # Run the application
 CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]
