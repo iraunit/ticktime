@@ -3,18 +3,17 @@ FROM node:23.5-alpine
 # Set working directory
 WORKDIR /app
 
+# Copy package files
+COPY . .
+
 RUN ls
 
 RUN pwd
 
-# Copy package files
-COPY package.json package-lock.json ./
+RUN printenv
 
 # Install dependencies
 RUN npm install
-
-# Copy application code
-COPY . .
 
 # Set environment variables
 ARG NEXT_PUBLIC_API_URL=http://localhost:8000
