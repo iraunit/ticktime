@@ -13,11 +13,8 @@ fi
 echo "Running migrations..."
 python manage.py migrate --noinput
 
-# Collect static files (for production)
-if [ "$DEBUG" = "false" ] || [ "$DEBUG" = "False" ]; then
-    echo "Collecting static files..."
-    python manage.py collectstatic --noinput
-fi
+echo "Collecting static files..."
+python manage.py collectstatic --noinput
 
 # Start the server
 exec "$@"
