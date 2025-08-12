@@ -6,10 +6,6 @@ WORKDIR /app
 # Copy package files
 COPY . .
 
-RUN ls
-
-RUN pwd
-
 RUN printenv
 
 # Install dependencies
