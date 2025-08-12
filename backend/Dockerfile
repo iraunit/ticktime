@@ -62,6 +62,7 @@ ENV CELERY_RESULT_BACKEND=${CELERY_RESULT_BACKEND}
 EXPOSE 8000
 
 # Set entrypoint
+RUN chmod +x ./entrypoint.sh
 RUN ./entrypoint.sh
 
 # Run the application
