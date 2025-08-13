@@ -33,7 +33,7 @@ SECRET_KEY = os.environ.get(
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.environ.get("DEBUG", "True").lower() == "true"
 
-ALLOWED_HOSTS = os.environ.get("ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
+ALLOWED_HOSTS = os.environ.get("ALLOWED_HOSTS", "localhost,127.0.0.1,api.ticktime.media,ticktime.media,www.ticktime.media,ticktimemedia.com,www.ticktimemedia.com").split(",")
 
 
 # Application definition
@@ -265,7 +265,12 @@ CSRF_TRUSTED_ORIGINS = [
     "https://www.ticktime.media",
     "https://ticktimemedia.com",
     "https://www.ticktimemedia.com",
+    "https://api.ticktime.media",
 ]
+
+# Honor X-Forwarded-Proto when behind a proxy/ELB
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+USE_X_FORWARDED_HOST = True
 
 # Session Security
 SESSION_COOKIE_SECURE = not DEBUG
