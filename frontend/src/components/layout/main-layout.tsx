@@ -30,9 +30,6 @@ export function MainLayout({
     // Only run on client side
     if (typeof window === 'undefined') return;
     
-    // Prime CSRF cookie for session-auth POST/PUT/PATCH/DELETE
-    authApi.csrf().catch(() => {});
-    
     // Initialize performance monitoring
     PerformanceMonitor.init();
     

@@ -175,9 +175,16 @@ REST_FRAMEWORK = {
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
+    "https://ticktime.media",
+    "https://www.ticktime.media",
+    "https://ticktimemedia.com",
+    "https://www.ticktimemedia.com",
 ]
 
 CORS_ALLOW_CREDENTIALS = True
+CORS_ALLOW_HEADERS = [
+    'accept', 'accept-encoding', 'authorization', 'content-type', 'dnt', 'origin', 'user-agent', 'x-csrftoken', 'x-requested-with'
+]
 
 # OAuth2 Configuration
 OAUTH2_PROVIDER = {
@@ -254,12 +261,16 @@ CSRF_COOKIE_SAMESITE = "Lax"
 CSRF_TRUSTED_ORIGINS = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
+    "https://ticktime.media",
+    "https://www.ticktime.media",
+    "https://ticktimemedia.com",
+    "https://www.ticktimemedia.com",
 ]
 
 # Session Security
 SESSION_COOKIE_SECURE = not DEBUG
 SESSION_COOKIE_HTTPONLY = True
-SESSION_COOKIE_SAMESITE = "Lax"
+SESSION_COOKIE_SAMESITE = 'None'
 # Default session age (seconds). Extended to 15 days minimum for better UX; login can still set custom expiry when remember_me is true
 SESSION_COOKIE_AGE = 60 * 60 * 24 * 15  # 15 days
 # Keep sessions alive with activity
