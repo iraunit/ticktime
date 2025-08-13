@@ -10,6 +10,7 @@ import { useProfile } from '@/hooks/use-profile';
 import { FILE_UPLOAD_CONFIG } from '@/lib/constants';
 import { handleApiError } from '@/lib/api';
 import { InfluencerProfile } from '@/types';
+import { getMediaUrl } from '@/lib/utils';
 
 interface DocumentUploadProps {
   profile?: InfluencerProfile;
@@ -135,7 +136,7 @@ export function DocumentUpload({ profile }: DocumentUploadProps) {
       if (selectedFile) {
         await uploadDocument.mutateAsync({
           file: selectedFile,
-          documentType: 'aadhar'
+          aadharNumber: aadharNumber.replace(/\s/g, ''),
         });
       }
 
@@ -196,11 +197,20 @@ export function DocumentUpload({ profile }: DocumentUploadProps) {
       <CardHeader>
         <div className="flex items-center justify-between">
           <CardTitle>Verification Documents</CardTitle>
-          {profile?.is_verified && (
-            <Badge variant="secondary" className="bg-green-100 text-green-800">
-              Verified
-            </Badge>
-          )}
+          {(() => {
+            const hasNum = !!profile?.aadhar_number;
+            const hasDoc = !!profile?.aadhar_document;
+            const isVerified = profile?.is_verified === true && hasNum && hasDoc;
+            const statusLabel = isVerified ? 'Verified' : (hasNum || hasDoc ? 'Under Review' : 'Unverified');
+            const className = isVerified
+              ? 'bg-green-100 text-green-800'
+              : (hasNum || hasDoc) ? 'bg-yellow-100 text-yellow-800' : 'bg-gray-100 text-gray-700';
+            return (
+              <Badge variant="secondary" className={className}>
+                {statusLabel}
+              </Badge>
+            );
+          })()}
         </div>
       </CardHeader>
       <CardContent>
@@ -233,11 +243,28 @@ export function DocumentUpload({ profile }: DocumentUploadProps) {
                     <p className="text-sm text-gray-600">
                       Uploaded on {new Date(profile.updated_at).toLocaleDateString()}
                     </p>
+                    <p className="text-sm mt-1">
+                      <a
+                        href={getMediaUrl(profile.aadhar_document)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-600 hover:underline"
+                      >
+                        Preview document
+                      </a>
+                    </p>
                   </div>
                 </div>
-                <Badge variant={profile.is_verified ? "secondary" : "outline"}>
-                  {profile.is_verified ? 'Verified' : 'Under Review'}
-                </Badge>
+                {(() => {
+                  const hasNum = !!profile?.aadhar_number;
+                  const hasDoc = !!profile?.aadhar_document;
+                  const isVerified = profile?.is_verified === true && hasNum && hasDoc;
+                  return (
+                    <Badge variant={isVerified ? 'secondary' : 'outline'}>
+                      {isVerified ? 'Verified' : 'Under Review'}
+                    </Badge>
+                  );
+                })()}
               </div>
             </div>
           )}

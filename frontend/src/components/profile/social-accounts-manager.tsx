@@ -76,7 +76,11 @@ export function SocialAccountsManager() {
 
   const watchedPlatform = watch('platform');
   const watchedHandle = watch('handle');
-  const accounts = socialAccounts.data || [];
+  const accountsRaw = socialAccounts.data as any;
+  const accounts: SocialMediaAccount[] = Array.isArray(accountsRaw) ? accountsRaw : (accountsRaw?.accounts || []);
+
+  // Hide metrics for influencers; keep defaults in form so backend gets valid numbers
+  const SHOW_METRICS = false;
 
   // Auto-generate profile URL when platform or handle changes
   React.useEffect(() => {
@@ -99,7 +103,7 @@ export function SocialAccountsManager() {
   };
 
   const getAvailablePlatforms = () => {
-    const usedPlatforms = accounts
+    const usedPlatforms = (accounts || [])
       .filter((account: SocialMediaAccount) => account.is_active)
       .map((account: SocialMediaAccount) => account.platform);
     return SOCIAL_PLATFORMS.filter(platform => 
@@ -378,130 +382,74 @@ export function SocialAccountsManager() {
             </div>
 
             {/* Follower Stats */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="followers_count">Followers *</Label>
-                <Input
-                  id="followers_count"
-                  type="number"
-                  {...register('followers_count', { valueAsNumber: true })}
-                  placeholder="0"
-                  className={errors.followers_count ? 'border-red-500' : ''}
-                />
-                {errors.followers_count && (
-                  <p className="text-sm text-red-600">{errors.followers_count.message}</p>
-                )}
+            {SHOW_METRICS && (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="followers_count">Followers *</Label>
+                  <Input id="followers_count" type="number" {...register('followers_count', { valueAsNumber: true })} placeholder="0" className={errors.followers_count ? 'border-red-500' : ''} />
+                  {errors.followers_count && (<p className="text-sm text-red-600">{errors.followers_count.message}</p>)}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="following_count">Following</Label>
+                  <Input id="following_count" type="number" {...register('following_count', { valueAsNumber: true })} placeholder="0" />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="posts_count">Posts</Label>
+                  <Input id="posts_count" type="number" {...register('posts_count', { valueAsNumber: true })} placeholder="0" />
+                </div>
               </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="following_count">Following</Label>
-                <Input
-                  id="following_count"
-                  type="number"
-                  {...register('following_count', { valueAsNumber: true })}
-                  placeholder="0"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="posts_count">Posts</Label>
-                <Input
-                  id="posts_count"
-                  type="number"
-                  {...register('posts_count', { valueAsNumber: true })}
-                  placeholder="0"
-                />
-              </div>
-            </div>
+            )}
 
             {/* Engagement Metrics */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="engagement_rate">Engagement Rate (%) *</Label>
-                <Input
-                  id="engagement_rate"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  max="100"
-                  {...register('engagement_rate', { valueAsNumber: true })}
-                  placeholder="0.00"
-                  className={errors.engagement_rate ? 'border-red-500' : ''}
-                />
-                {errors.engagement_rate && (
-                  <p className="text-sm text-red-600">{errors.engagement_rate.message}</p>
-                )}
-                <p className="text-sm text-gray-500">
-                  Calculate as: (Likes + Comments + Shares) / Followers × 100
-                </p>
+            {SHOW_METRICS && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="engagement_rate">Engagement Rate (%) *</Label>
+                  <Input id="engagement_rate" type="number" step="0.01" min="0" max="100" {...register('engagement_rate', { valueAsNumber: true })} placeholder="0.00" className={errors.engagement_rate ? 'border-red-500' : ''} />
+                  {errors.engagement_rate && (<p className="text-sm text-red-600">{errors.engagement_rate.message}</p>)}
+                  <p className="text-sm text-gray-500">Calculate as: (Likes + Comments + Shares) / Followers × 100</p>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="average_likes">Average Likes</Label>
+                  <Input id="average_likes" type="number" min="0" {...register('average_likes', { valueAsNumber: true })} placeholder="0" />
+                </div>
               </div>
+            )}
 
-              <div className="space-y-2">
-                <Label htmlFor="average_likes">Average Likes</Label>
-                <Input
-                  id="average_likes"
-                  type="number"
-                  min="0"
-                  {...register('average_likes', { valueAsNumber: true })}
-                  placeholder="0"
-                />
+            {SHOW_METRICS && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="average_comments">Average Comments</Label>
+                  <Input id="average_comments" type="number" min="0" {...register('average_comments', { valueAsNumber: true })} placeholder="0" />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="average_shares">Average Shares</Label>
+                  <Input id="average_shares" type="number" min="0" {...register('average_shares', { valueAsNumber: true })} placeholder="0" />
+                </div>
               </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="average_comments">Average Comments</Label>
-                <Input
-                  id="average_comments"
-                  type="number"
-                  min="0"
-                  {...register('average_comments', { valueAsNumber: true })}
-                  placeholder="0"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="average_shares">Average Shares</Label>
-                <Input
-                  id="average_shares"
-                  type="number"
-                  min="0"
-                  {...register('average_shares', { valueAsNumber: true })}
-                  placeholder="0"
-                />
-              </div>
-            </div>
+            )}
 
             {/* Engagement Rate Calculator */}
-            <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h4 className="font-medium text-blue-900">Auto-Calculate Engagement Rate</h4>
-                  <p className="text-sm text-blue-700">
-                    Calculate based on your average engagement metrics
-                  </p>
-                </div>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
+            {SHOW_METRICS && (
+              <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="font-medium text-blue-900">Auto-Calculate Engagement Rate</h4>
+                    <p className="text-sm text-blue-700">Calculate based on your average engagement metrics</p>
+                  </div>
+                  <Button type="button" variant="outline" size="sm" onClick={() => {
                     const followers = watch('followers_count');
                     const likes = watch('average_likes') || 0;
                     const comments = watch('average_comments') || 0;
                     const shares = watch('average_shares') || 0;
-                    
                     if (followers > 0) {
                       const engagement = ((likes + comments + shares) / followers) * 100;
                       setValue('engagement_rate', Math.round(engagement * 100) / 100);
                     }
-                  }}
-                  disabled={!watch('followers_count') || watch('followers_count') === 0}
-                >
-                  Calculate
-                </Button>
+                  }} disabled={!watch('followers_count') || watch('followers_count') === 0}>Calculate</Button>
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Verified Status */}
             <div className="flex items-center space-x-2">

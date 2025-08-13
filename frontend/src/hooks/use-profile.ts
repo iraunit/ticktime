@@ -10,7 +10,20 @@ export function useProfile() {
   const profileQuery = useQuery({
     queryKey: ['profile'],
     queryFn: () => profileApi.getProfile(),
-    select: (response) => response.data,
+    select: (response) => {
+      const raw = (response?.data as any) || {};
+      const profilePayload = raw.profile ?? raw; // backend may wrap under { profile }
+      // Normalize to expected shape { user: { first_name, last_name, email }, ... }
+      const normalized = {
+        ...profilePayload,
+        user: {
+          first_name: profilePayload?.user?.first_name ?? profilePayload?.user_first_name ?? '',
+          last_name: profilePayload?.user?.last_name ?? profilePayload?.user_last_name ?? '',
+          email: profilePayload?.user?.email ?? profilePayload?.user_email ?? '',
+        },
+      };
+      return normalized;
+    },
   });
 
   // Update profile mutation
@@ -31,8 +44,8 @@ export function useProfile() {
 
   // Upload document mutation
   const uploadDocumentMutation = useMutation({
-    mutationFn: ({ file, documentType }: { file: File; documentType: string }) =>
-      profileApi.uploadDocument(file, documentType),
+    mutationFn: ({ file, aadharNumber }: { file: File; aadharNumber?: string }) =>
+      profileApi.uploadDocument(file, aadharNumber),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['profile'] });
     },

@@ -284,6 +284,15 @@ class DocumentUploadSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError("Aadhar number must be exactly 12 digits.")
         return value
 
+    def update(self, instance, validated_data):
+        """Reset verification status when Aadhar details are updated."""
+        instance = super().update(instance, validated_data)
+        if 'aadhar_document' in validated_data or 'aadhar_number' in validated_data:
+            if instance.is_verified:
+                instance.is_verified = False
+                instance.save(update_fields=['is_verified'])
+        return instance
+
 
 class BankDetailsSerializer(serializers.ModelSerializer):
     """

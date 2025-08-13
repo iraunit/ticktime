@@ -53,7 +53,7 @@ export const authApi = {
 export const profileApi = {
   getProfile: () => api.get('/influencers/profile/'),
   
-  updateProfile: (data: Record<string, unknown>) => api.put('/influencers/profile/', data),
+  updateProfile: (data: Record<string, unknown>) => api.patch('/influencers/profile/', data),
   
   uploadProfileImage: (file: File) => {
     const formData = new FormData();
@@ -64,14 +64,16 @@ export const profileApi = {
   },
   
   uploadDocument: (
-    file: File, 
-    documentType: string,
+    file: File,
+    aadharNumber?: string,
     onProgress?: (progress: { loaded: number; total: number; percentage: number }) => void,
     signal?: AbortSignal
   ) => {
     const formData = new FormData();
-    formData.append('file', file);
-    formData.append('document_type', documentType);
+    formData.append('aadhar_document', file);
+    if (aadharNumber) {
+      formData.append('aadhar_number', aadharNumber);
+    }
     
     return api.post('/influencers/profile/upload-document/', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },

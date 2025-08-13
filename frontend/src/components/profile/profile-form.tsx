@@ -19,6 +19,7 @@ import { CheckCircle, Loader2, AlertCircle, Save } from '@/lib/icons';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import { useErrorHandling } from '@/hooks/use-error-handling';
+import { getMediaUrl } from '@/lib/utils';
 
 const profileSchema = z.object({
   first_name: nameSchema,
@@ -93,6 +94,23 @@ export function ProfileForm({ profile }: ProfileFormProps) {
     setProfileImage(file);
   };
 
+  const handleImageUpload = async () => {
+    if (!profileImage) return;
+    setIsSubmitting(true);
+    startLoading('Uploading image...');
+    try {
+      await uploadProfileImage.mutateAsync(profileImage);
+      setProfileImage(null);
+      setSuccess('Profile image updated successfully!');
+      await updateProfile.mutateAsync({}); // invalidate via onSuccess
+    } catch (err) {
+      setError(err);
+    } finally {
+      setIsSubmitting(false);
+      stopLoading();
+    }
+  };
+
   return (
     <Card>
       <CardHeader>
@@ -129,10 +147,18 @@ export function ProfileForm({ profile }: ProfileFormProps) {
               <div className="space-y-2">
                 <label className="text-sm font-medium">Profile Image</label>
                 <ImageUpload
-                  currentImage={profile?.profile_image}
+                  currentImage={getMediaUrl(profile?.profile_image)}
                   onImageSelect={handleImageSelect}
                   maxSize={5 * 1024 * 1024} // 5MB
                 />
+                {profileImage && (
+                  <div className="flex items-center gap-3">
+                    <Button type="button" size="sm" onClick={handleImageUpload} disabled={isSubmitting}>
+                      {isSubmitting ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Uploading...</> : 'Upload Image'}
+                    </Button>
+                    <span className="text-xs text-gray-500">Image will be stored on the backend server under /media/profiles/</span>
+                  </div>
+                )}
               </div>
 
               {/* Name Fields */}

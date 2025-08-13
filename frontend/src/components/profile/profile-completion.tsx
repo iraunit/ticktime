@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { InfluencerProfile, SocialMediaAccount } from '@/types';
@@ -16,7 +16,7 @@ interface CompletionItem {
   id: string;
   label: string;
   completed: boolean;
-  weight: number;
+  icon: string;
   description: string;
 }
 
@@ -31,83 +31,58 @@ export function ProfileCompletion({
     return [
       {
         id: 'basic_info',
-        label: 'Basic Information',
+        label: 'Personal Details',
         completed: !!(
           profile.user?.first_name &&
           profile.user?.last_name &&
           profile.phone_number &&
           profile.industry
         ),
-        weight: 20,
-        description: 'Name, phone, and industry'
+        icon: '👤',
+        description: 'Basic information and contact details'
       },
       {
         id: 'profile_image',
-        label: 'Profile Image',
+        label: 'Profile Photo',
         completed: !!profile.profile_image,
-        weight: 10,
-        description: 'Upload your profile picture'
+        icon: '📸',
+        description: 'Upload your professional photo'
       },
       {
         id: 'bio',
-        label: 'Bio',
+        label: 'About',
         completed: !!(profile.bio && profile.bio.length > 20),
-        weight: 15,
-        description: 'Write a compelling bio (20+ characters)'
+        icon: '📝',
+        description: 'Write about yourself and experience'
       },
       {
         id: 'address',
-        label: 'Address',
+        label: 'Location',
         completed: !!(profile.address && profile.address.length > 10),
-        weight: 10,
-        description: 'Complete address for product delivery'
+        icon: '📍',
+        description: 'Your current address'
       },
       {
         id: 'social_accounts',
-        label: 'Social Media Accounts',
+        label: 'Social Media',
         completed: socialAccounts.length >= 1,
-        weight: 25,
-        description: `Add at least 1 social media account (${socialAccounts.length} added)`
+        icon: '🔗',
+        description: 'Connect your social platforms'
       },
       {
         id: 'verification',
-        label: 'Identity Verification',
+        label: 'Verification',
         completed: !!(profile.aadhar_number && profile.aadhar_document),
-        weight: 20,
-        description: 'Upload Aadhar document for verification'
+        icon: '✅',
+        description: 'Identity verification documents'
       }
     ];
   }, [profile, socialAccounts]);
 
   const completionPercentage = useMemo(() => {
-    const totalWeight = completionItems.reduce((sum, item) => sum + item.weight, 0);
-    const completedWeight = completionItems
-      .filter(item => item.completed)
-      .reduce((sum, item) => sum + item.weight, 0);
-    
-    return Math.round((completedWeight / totalWeight) * 100);
+    const completedCount = completionItems.filter(item => item.completed).length;
+    return Math.round((completedCount / completionItems.length) * 100);
   }, [completionItems]);
-
-  const completedCount = completionItems.filter(item => item.completed).length;
-  const totalCount = completionItems.length;
-
-  const getCompletionColor = (percentage: number) => {
-    if (percentage >= 80) return 'text-green-600';
-    if (percentage >= 60) return 'text-yellow-600';
-    return 'text-red-600';
-  };
-
-  const getCompletionBgColor = (percentage: number) => {
-    if (percentage >= 80) return 'bg-green-100';
-    if (percentage >= 60) return 'bg-yellow-100';
-    return 'bg-red-100';
-  };
-
-  const getProgressBarColor = (percentage: number) => {
-    if (percentage >= 80) return 'bg-green-500';
-    if (percentage >= 60) return 'bg-yellow-500';
-    return 'bg-red-500';
-  };
 
   const handleSectionClick = (sectionId: string) => {
     if (onSectionClick) {
@@ -120,150 +95,118 @@ export function ProfileCompletion({
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <CardTitle>Profile Completion</CardTitle>
-          <Badge 
-            variant="secondary" 
-            className={`${getCompletionBgColor(completionPercentage)} ${getCompletionColor(completionPercentage)}`}
-          >
-            {completionPercentage}%
-          </Badge>
-        </div>
-      </CardHeader>
-      <CardContent>
-        {/* Progress Bar */}
-        <div className="mb-6">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-medium text-gray-700">
-              {completedCount} of {totalCount} completed
-            </span>
-            <span className={`text-sm font-medium ${getCompletionColor(completionPercentage)}`}>
-              {completionPercentage}%
-            </span>
-          </div>
-          <div className="w-full bg-gray-200 rounded-full h-3 relative overflow-hidden">
-            <div
-              className={`h-3 rounded-full transition-all duration-500 ease-out ${getProgressBarColor(completionPercentage)} relative`}
-              style={{ width: `${completionPercentage}%` }}
-            >
-              {/* Animated shine effect */}
-              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white to-transparent opacity-30 animate-pulse" />
-            </div>
-          </div>
-          {/* Progress milestones */}
-          <div className="flex justify-between mt-1 text-xs text-gray-400">
-            <span>0%</span>
-            <span>25%</span>
-            <span>50%</span>
-            <span>75%</span>
-            <span>100%</span>
-          </div>
-        </div>
-
-        {/* Completion Message */}
-        {completionPercentage === 100 ? (
-          <div className="p-4 bg-green-50 border border-green-200 rounded-lg mb-6">
-            <div className="flex items-center space-x-2">
-              <span className="text-green-500">✅</span>
-              <div>
-                <p className="font-medium text-green-800">Profile Complete!</p>
-                <p className="text-sm text-green-600">
-                  Your profile is fully set up and ready to receive brand collaborations.
-                </p>
+    <div className="grid grid-cols-12 gap-6 h-full">
+      {/* Left Sidebar - Sections */}
+      <div className="col-span-4">
+        <Card className="h-full">
+          <CardContent className="p-0">
+            <div className="p-4 border-b border-gray-100">
+              <h3 className="font-semibold text-gray-900">Profile Sections</h3>
+              <div className="flex items-center gap-2 mt-1">
+                <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                <span className="text-sm text-gray-600">{completionPercentage}% completed</span>
               </div>
             </div>
-          </div>
-        ) : (
-          <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg mb-6">
-            <div className="flex items-center space-x-2">
-              <span className="text-blue-500">ℹ️</span>
-              <div>
-                <p className="font-medium text-blue-800">Complete Your Profile</p>
-                <p className="text-sm text-blue-600">
-                  A complete profile increases your chances of getting brand collaborations by up to 80%.
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Completion Items */}
-        <div className="space-y-3">
-          {completionItems.map((item) => (
-            <div
-              key={item.id}
-              className={`flex items-center justify-between p-3 rounded-lg border transition-colors ${
-                item.completed
-                  ? 'bg-green-50 border-green-200'
-                  : 'bg-gray-50 border-gray-200 hover:bg-gray-100'
-              }`}
-            >
-              <div className="flex items-center space-x-3">
-                <div className={`w-5 h-5 rounded-full flex items-center justify-center ${
-                  item.completed
-                    ? 'bg-green-500 text-white'
-                    : 'bg-gray-300 text-gray-600'
-                }`}>
-                  {item.completed ? (
-                    <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                      <path
-                        fillRule="evenodd"
-                        d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                        clipRule="evenodd"
-                      />
-                    </svg>
-                  ) : (
-                    <span className="text-xs font-medium">{item.weight}</span>
-                  )}
-                </div>
-                <div>
-                  <p className={`font-medium ${
-                    item.completed ? 'text-green-800' : 'text-gray-900'
-                  }`}>
-                    {item.label}
-                  </p>
-                  <p className={`text-sm ${
-                    item.completed ? 'text-green-600' : 'text-gray-600'
-                  }`}>
-                    {item.description}
-                  </p>
-                </div>
-              </div>
-              
-              {!item.completed && onSectionClick && (
-                <Button
-                  variant="outline"
-                  size="sm"
+            <nav className="p-2">
+              {completionItems.map((item) => (
+                <button
+                  key={item.id}
                   onClick={() => handleSectionClick(item.id)}
-                  className="text-blue-600 hover:text-blue-700"
+                  className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50 transition-colors text-left group"
                 >
-                  Complete
-                </Button>
+                  <div className="flex-shrink-0">
+                    <span className="text-lg">{item.icon}</span>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium text-gray-900 text-sm">{item.label}</span>
+                      {item.completed && (
+                        <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                      )}
+                    </div>
+                    <p className="text-xs text-gray-500 mt-0.5 truncate">{item.description}</p>
+                  </div>
+                  <div className="flex-shrink-0">
+                    <svg 
+                      className="w-4 h-4 text-gray-400 group-hover:text-gray-600 transition-colors" 
+                      fill="none" 
+                      stroke="currentColor" 
+                      viewBox="0 0 24 24"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </div>
+                </button>
+              ))}
+            </nav>
+            
+            {/* Progress Summary */}
+            <div className="p-4 border-t border-gray-100 bg-gray-50">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-medium text-gray-700">Profile Strength</span>
+                <span className="text-sm font-bold text-blue-600">{completionPercentage}%</span>
+              </div>
+              <div className="w-full bg-gray-200 rounded-full h-2">
+                <div 
+                  className="bg-gradient-to-r from-blue-500 to-green-500 h-2 rounded-full transition-all duration-300"
+                  style={{ width: `${completionPercentage}%` }}
+                ></div>
+              </div>
+              {completionPercentage < 100 && (
+                <p className="text-xs text-gray-600 mt-2">
+                  Complete your profile to get more opportunities
+                </p>
               )}
             </div>
-          ))}
-        </div>
+          </CardContent>
+        </Card>
+      </div>
 
-        {/* Next Steps */}
-        {completionPercentage < 100 && (
-          <div className="mt-6 p-4 bg-gray-50 rounded-lg">
-            <h4 className="font-medium text-gray-900 mb-2">Next Steps:</h4>
-            <ul className="text-sm text-gray-600 space-y-1">
-              {completionItems
-                .filter(item => !item.completed)
-                .slice(0, 2)
-                .map((item) => (
-                  <li key={item.id} className="flex items-center space-x-2">
-                    <span className="w-1.5 h-1.5 bg-gray-400 rounded-full" />
-                    <span>{item.label}: {item.description}</span>
-                  </li>
+      {/* Right Content Area */}
+      <div className="col-span-8">
+        <Card className="h-full">
+          <CardContent className="p-6">
+            <div className="text-center py-12">
+              <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 100 4m0-4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 100 4m0-4v2m0-6V4" />
+                </svg>
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">Select a Section</h3>
+              <p className="text-gray-600 mb-6">
+                Choose a section from the left to edit your profile information
+              </p>
+              
+              <div className="grid grid-cols-2 gap-3 max-w-md mx-auto">
+                {completionItems.filter(item => !item.completed).slice(0, 4).map((item) => (
+                  <Button
+                    key={item.id}
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleSectionClick(item.id)}
+                    className="justify-start gap-2"
+                  >
+                    <span>{item.icon}</span>
+                    <span className="text-xs">{item.label}</span>
+                  </Button>
                 ))}
-            </ul>
-          </div>
-        )}
-      </CardContent>
-    </Card>
+              </div>
+              
+              {completionPercentage === 100 && (
+                <div className="mt-6 p-4 bg-green-50 rounded-lg border border-green-200">
+                  <div className="flex items-center justify-center gap-2">
+                    <span className="text-green-500">🎉</span>
+                    <span className="font-medium text-green-800">Profile Complete!</span>
+                  </div>
+                  <p className="text-sm text-green-600 mt-1">
+                    Your profile is ready to attract brand collaborations
+                  </p>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
   );
 }
