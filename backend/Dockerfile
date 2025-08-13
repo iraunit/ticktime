@@ -65,5 +65,5 @@ EXPOSE 8000
 RUN chmod +x ./entrypoint.sh
 RUN ./entrypoint.sh
 
-# Run the application
-CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]
+# Run the application (Gunicorn)
+CMD ["gunicorn", "backend.wsgi:application", "--workers=2", "--threads=2", "--bind=0.0.0.0:8000", "--timeout=90", "--log-level=info"]
