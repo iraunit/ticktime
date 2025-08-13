@@ -112,10 +112,10 @@ export default function ProfilePage() {
   return (
     <RequireAuth>
       <MainLayout>
-        <div className="max-w-7xl mx-auto px-4 py-6">
+        <div className="max-w-7xl mx-auto px-4 py-4">
           {/* Header */}
-          <div className="mb-6">
-            <h1 className="text-2xl font-semibold text-gray-900">Profile</h1>
+          <div className="mb-2">
+            <h1 className="text-xl font-semibold text-gray-900">Profile</h1>
           </div>
 
           <div className="grid grid-cols-12 gap-6">
@@ -139,7 +139,13 @@ export default function ProfilePage() {
                           : 'text-gray-700 hover:bg-gray-50'
                       }`}
                     >
-                      <span className="font-medium">{section.label}</span>
+                      <span className="font-medium flex items-center gap-2">
+                        {/* Lineicons marker per section */}
+                        <i className={`lni ${
+                          section.id === 'personal' ? 'lni-user' : section.id === 'social' ? 'lni-share' : 'lni-shield'
+                        } text-gray-500`}></i>
+                        {section.label}
+                      </span>
                       {section.completed && (
                         <div className="w-2 h-2 bg-green-500 rounded-full"></div>
                       )}

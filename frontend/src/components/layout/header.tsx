@@ -6,14 +6,22 @@ import { User, Bell, Menu, X, LogOut, Settings, ChevronDown } from "@/lib/icons"
 import { useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useUserContext } from "@/components/providers/app-providers";
+import { usePathname } from "next/navigation";
 
 export function Header() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const { logout } = useAuth();
   const { user, isLoading } = useUserContext();
+  const pathname = usePathname();
 
   const isAuthenticated = !!user;
+
+  const isActive = (href: string) => pathname === href || pathname?.startsWith(href + "/");
+
+  const linkBase = "text-sm transition-colors font-medium";
+  const linkInactive = "text-gray-600 hover:text-gray-900";
+  const linkActive = "text-blue-600";
 
   const handleLogout = () => {
     logout.mutate();
@@ -35,19 +43,19 @@ export function Header() {
           {/* Desktop Navigation - Only show if authenticated */}
           {isAuthenticated && (
             <nav className="hidden md:flex items-center space-x-6">
-              <Link href="/dashboard" className="text-sm text-gray-600 hover:text-gray-900 transition-colors font-medium">
+              <Link href="/dashboard" className={`${linkBase} ${isActive("/dashboard") ? linkActive : linkInactive}`}>
                 Dashboard
               </Link>
-              <Link href="/deals" className="text-sm text-gray-600 hover:text-gray-900 transition-colors font-medium">
+              <Link href="/deals" className={`${linkBase} ${isActive("/deals") ? linkActive : linkInactive}`}>
                 Deals
               </Link>
-              <Link href="/profile" className="text-sm text-gray-600 hover:text-gray-900 transition-colors font-medium">
+              <Link href="/profile" className={`${linkBase} ${isActive("/profile") ? linkActive : linkInactive}`}>
                 Profile
               </Link>
-              <Link href="/messages" className="text-sm text-gray-600 hover:text-gray-900 transition-colors font-medium">
+              <Link href="/messages" className={`${linkBase} ${isActive("/messages") ? linkActive : linkInactive}`}>
                 Messages
               </Link>
-              <Link href="/analytics" className="text-sm text-gray-600 hover:text-gray-900 transition-colors font-medium">
+              <Link href="/analytics" className={`${linkBase} ${isActive("/analytics") ? linkActive : linkInactive}`}>
                 Analytics
               </Link>
             </nav>
@@ -128,35 +136,35 @@ export function Header() {
               <nav className="flex flex-col space-y-2">
                 <Link 
                   href="/dashboard" 
-                  className="text-sm text-gray-600 hover:text-gray-900 transition-colors py-2"
+                  className={`${linkBase} ${isActive("/dashboard") ? linkActive : linkInactive} py-2`}
                   onClick={() => setIsMobileMenuOpen(false)}
                 >
                   Dashboard
                 </Link>
                 <Link 
                   href="/deals" 
-                  className="text-sm text-gray-600 hover:text-gray-900 transition-colors py-2"
+                  className={`${linkBase} ${isActive("/deals") ? linkActive : linkInactive} py-2`}
                   onClick={() => setIsMobileMenuOpen(false)}
                 >
                   Deals
                 </Link>
                 <Link 
                   href="/profile" 
-                  className="text-sm text-gray-600 hover:text-gray-900 transition-colors py-2"
+                  className={`${linkBase} ${isActive("/profile") ? linkActive : linkInactive} py-2`}
                   onClick={() => setIsMobileMenuOpen(false)}
                 >
                   Profile
                 </Link>
                 <Link 
                   href="/messages" 
-                  className="text-sm text-gray-600 hover:text-gray-900 transition-colors py-2"
+                  className={`${linkBase} ${isActive("/messages") ? linkActive : linkInactive} py-2`}
                   onClick={() => setIsMobileMenuOpen(false)}
                 >
                   Messages
                 </Link>
                 <Link 
                   href="/analytics" 
-                  className="text-sm text-gray-600 hover:text-gray-900 transition-colors py-2"
+                  className={`${linkBase} ${isActive("/analytics") ? linkActive : linkInactive} py-2`}
                   onClick={() => setIsMobileMenuOpen(false)}
                 >
                   Analytics
