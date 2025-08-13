@@ -2,10 +2,7 @@ import axios, { AxiosError, AxiosResponse, InternalAxiosRequestConfig } from 'ax
 import { CacheManager } from './cache-manager';
 import { PerformanceMonitor } from './performance-monitor';
 
-const ENV_API = process.env.NEXT_PUBLIC_API_URL;
-const API_BASE_URL = ENV_API || (typeof window !== 'undefined' && window.location.hostname.endsWith('ticktime.media') || window.location.hostname.endsWith('ticktimemedia.com')
-  ? 'https://api.ticktime.media'
-  : 'http://localhost:8000');
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
 // Extend the request config to include retry flag and cache config
 interface ExtendedAxiosRequestConfig extends InternalAxiosRequestConfig {

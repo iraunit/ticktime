@@ -270,7 +270,7 @@ CSRF_TRUSTED_ORIGINS = [
 # Session Security
 SESSION_COOKIE_SECURE = not DEBUG
 SESSION_COOKIE_HTTPONLY = True
-SESSION_COOKIE_SAMESITE = 'None'
+SESSION_COOKIE_SAMESITE = 'Lax' if DEBUG else 'None'
 # Default session age (seconds). Extended to 15 days minimum for better UX; login can still set custom expiry when remember_me is true
 SESSION_COOKIE_AGE = 60 * 60 * 24 * 15  # 15 days
 # Keep sessions alive with activity
