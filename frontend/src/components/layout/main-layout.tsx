@@ -30,6 +30,9 @@ export function MainLayout({
     // Only run on client side
     if (typeof window === 'undefined') return;
     
+    // Prime CSRF cookie once so first unsafe request doesn't incur extra roundtrip
+    authApi.csrf().catch(() => {});
+    
     // Initialize performance monitoring
     PerformanceMonitor.init();
     

@@ -55,6 +55,8 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
   };
 
   useEffect(() => {
+    // Prime CSRF cookie for session-authenticated requests (noop if already set)
+    authApi.csrf().catch(() => {});
     // Fetch current user once on app mount
     fetchUser().then(r => console.log(r));
   }, []);
