@@ -140,13 +140,9 @@ export default function ProfilePage() {
                       }`}
                     >
                       <span className="font-medium">{section.label}</span>
-                      <span className={`text-xs px-2 py-1 rounded ${
-                        section.completed 
-                          ? 'text-green-600 bg-green-50' 
-                          : 'text-blue-600 bg-blue-50'
-                      }`}>
-                        {section.actionText}
-                      </span>
+                      {section.completed && (
+                        <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                      )}
                     </button>
                   ))}
                 </div>

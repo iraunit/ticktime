@@ -1,32 +1,32 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '@/components/ui/form';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { AutoSaveForm } from '@/components/ui/enhanced-form';
+import { ErrorDisplay } from '@/components/ui/error-display';
+import { LoadingOverlay } from '@/components/ui/loading-overlay';
 import { useProfile } from '@/hooks/use-profile';
-import { INDUSTRY_OPTIONS } from '@/lib/constants';
-import { InfluencerProfile } from '@/types';
-import { ImageUpload } from './image-upload';
-import { ErrorDisplay, FieldErrors } from '@/components/ui/error-display';
-import { EnhancedInput, EnhancedTextarea, AutoSaveForm } from '@/components/ui/enhanced-form';
-import { useLoadingState } from '@/contexts/loading-context';
-import { nameSchema, phoneSchema } from '@/lib/validation';
-import { CheckCircle, Loader2, AlertCircle, Save } from '@/lib/icons';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { useForm } from 'react-hook-form';
 import { useErrorHandling } from '@/hooks/use-error-handling';
+import { InfluencerProfile } from '@/types';
 import { getMediaUrl } from '@/lib/utils';
 
+// Import icons from our icon system
+import { AlertCircle, CheckCircle, Loader2, Save, Settings, X } from '@/lib/icons';
+
 const profileSchema = z.object({
-  first_name: nameSchema,
-  last_name: nameSchema,
-  phone_number: phoneSchema,
-  bio: z.string().max(500, 'Bio must be less than 500 characters').optional(),
-  address: z.string().min(10, 'Address must be at least 10 characters').max(200, 'Address must be less than 200 characters'),
+  first_name: z.string().min(1, 'First name is required'),
+  last_name: z.string().min(1, 'Last name is required'),
+  phone_number: z.string().min(1, 'Phone number is required'),
+  bio: z.string().optional(),
+  address: z.string().optional(),
   industry: z.string().min(1, 'Industry is required'),
 });
 
@@ -40,9 +40,10 @@ export function ProfileForm({ profile }: ProfileFormProps) {
   const [profileImage, setProfileImage] = useState<File | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   
   const { updateProfile, uploadProfileImage } = useProfile();
-  const { isLoading, startLoading, stopLoading } = useLoadingState('profile-update');
   const { error, fieldErrors, isError, setError, clearError } = useErrorHandling();
 
   const form = useForm<ProfileFormData>({
@@ -60,9 +61,9 @@ export function ProfileForm({ profile }: ProfileFormProps) {
 
   const onSubmit = async (data: ProfileFormData) => {
     setIsSubmitting(true);
+    setIsLoading(true);
     clearError();
     setSuccess(null);
-    startLoading('Updating profile...');
 
     try {
       // Update text fields via JSON
@@ -74,11 +75,12 @@ export function ProfileForm({ profile }: ProfileFormProps) {
       }
 
       setSuccess('Profile updated successfully!');
+      setIsEditing(false); // Exit edit mode after successful save
     } catch (err) {
       setError(err);
     } finally {
       setIsSubmitting(false);
-      stopLoading();
+      setIsLoading(false);
     }
   };
 
@@ -96,250 +98,364 @@ export function ProfileForm({ profile }: ProfileFormProps) {
 
   const handleImageUpload = async () => {
     if (!profileImage) return;
+    
     setIsSubmitting(true);
-    startLoading('Uploading image...');
     try {
       await uploadProfileImage.mutateAsync(profileImage);
       setProfileImage(null);
       setSuccess('Profile image updated successfully!');
-      await updateProfile.mutateAsync({}); // invalidate via onSuccess
     } catch (err) {
       setError(err);
     } finally {
       setIsSubmitting(false);
-      stopLoading();
     }
   };
 
+  const handleEditToggle = () => {
+    if (isEditing) {
+      // Cancel editing - reset form to original values
+      form.reset({
+        first_name: profile?.user?.first_name || '',
+        last_name: profile?.user?.last_name || '',
+        phone_number: profile?.phone_number || '',
+        bio: profile?.bio || '',
+        address: profile?.address || '',
+        industry: profile?.industry || '',
+      });
+      setProfileImage(null);
+      clearError();
+      setSuccess(null);
+    }
+    setIsEditing(!isEditing);
+  };
+
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Personal Information</CardTitle>
-      </CardHeader>
-      <CardContent>
-        {/* Display field errors */}
-        {Object.keys(fieldErrors).length > 0 && (
-          <FieldErrors errors={fieldErrors} />
-        )}
+    <div className="space-y-6">
+      <LoadingOverlay 
+        isVisible={isLoading} 
+        message="Updating your profile..." 
+      />
 
-        {/* Display general error */}
-        {isError && error && (
-          <ErrorDisplay 
-            error={error} 
-            onRetry={() => form.handleSubmit(onSubmit)()} 
-            variant="inline"
-            className="mb-4"
-          />
-        )}
+      {/* Header with Edit/Cancel Button */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="text-lg font-medium text-gray-900">Personal Information</h3>
+          <p className="text-sm text-gray-500 mt-1">
+            {isEditing ? 'Edit your personal details below' : 'Your personal information and contact details'}
+          </p>
+        </div>
+        <Button
+          type="button"
+          variant={isEditing ? "outline" : "default"}
+          size="sm"
+          onClick={handleEditToggle}
+          disabled={isSubmitting}
+        >
+          {isEditing ? (
+            <>
+              <X className="w-4 h-4 mr-2" />
+              Cancel
+            </>
+          ) : (
+            <>
+              <Settings className="w-4 h-4 mr-2" />
+              Edit
+            </>
+          )}
+        </Button>
+      </div>
 
-        {/* Success message */}
-        {success && (
-          <div className="flex items-center p-3 bg-green-50 border border-green-200 rounded-md mb-4">
-            <CheckCircle className="w-4 h-4 text-green-600 mr-2" />
-            <p className="text-sm text-green-600">{success}</p>
-          </div>
-        )}
+      {/* Display general error */}
+      {isError && error && (
+        <ErrorDisplay 
+          error={error} 
+          onRetry={() => form.handleSubmit(onSubmit)()} 
+          variant="inline"
+          className="mb-4"
+        />
+      )}
 
-        <AutoSaveForm form={form} onSave={handleAutoSave}>
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-              {/* Profile Image Upload */}
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Profile Image</label>
-                <ImageUpload
-                  currentImage={getMediaUrl(profile?.profile_image)}
-                  onImageSelect={handleImageSelect}
-                  maxSize={5 * 1024 * 1024} // 5MB
-                />
-                {profileImage && (
-                  <div className="flex items-center gap-3">
-                    <Button type="button" size="sm" onClick={handleImageUpload} disabled={isSubmitting}>
-                      {isSubmitting ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Uploading...</> : 'Upload Image'}
-                    </Button>
-                    <span className="text-xs text-gray-500">Image will be stored on the backend server under /media/profiles/</span>
+      {/* Success message */}
+      {success && (
+        <div className="flex items-center p-3 bg-green-50 border border-green-200 rounded-md mb-4">
+          <CheckCircle className="w-4 h-4 text-green-600 mr-2" />
+          <p className="text-sm text-green-600">{success}</p>
+        </div>
+      )}
+
+      <AutoSaveForm form={form} onSave={handleAutoSave}>
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+            {/* Profile Image Upload */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Profile Image</label>
+              <div className="flex items-center gap-4">
+                {/* Clickable Profile Image */}
+                <div className="relative group">
+                  <div 
+                    className={`relative w-24 h-24 rounded-full overflow-hidden border-2 border-gray-200 transition-all duration-200 ${
+                      isEditing ? 'cursor-pointer hover:border-blue-400' : 'cursor-default'
+                    }`}
+                    onClick={isEditing ? () => document.getElementById('profile-image-input')?.click() : undefined}
+                  >
+                    {profile?.profile_image || profileImage ? (
+                      <>
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={profileImage ? URL.createObjectURL(profileImage) : getMediaUrl(profile?.profile_image)}
+                          alt="Profile"
+                          className="w-full h-full object-cover"
+                        />
+                        {/* Hover Overlay - only show when editing */}
+                        {isEditing && (
+                          <div className="absolute inset-0 bg-black bg-opacity-40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                            <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                            </svg>
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      // Empty state with upload icon
+                      <div className={`w-full h-full bg-gray-100 flex items-center justify-center transition-colors duration-200 ${
+                        isEditing ? 'group-hover:bg-gray-200' : ''
+                      }`}>
+                        <svg className={`w-8 h-8 text-gray-400 ${isEditing ? 'group-hover:text-gray-600' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                        </svg>
+                      </div>
+                    )}
                   </div>
-                )}
+
+                  {/* Remove button - only show if image exists and editing */}
+                  {(profile?.profile_image || profileImage) && isEditing && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setProfileImage(null);
+                        // TODO: Also remove from backend if needed
+                      }}
+                      className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm hover:bg-red-600 transition-colors shadow-sm"
+                    >
+                      ×
+                    </button>
+                  )}
+                </div>
+
+                {/* Upload Instructions */}
+                <div className="flex-1">
+                  <p className="text-sm text-gray-600 mb-1">
+                    {isEditing 
+                      ? `Click on the image to ${profile?.profile_image ? 'change' : 'upload'} your profile photo`
+                      : 'Your profile photo'
+                    }
+                  </p>
+                  {isEditing && (
+                    <p className="text-xs text-gray-500">
+                      PNG, JPG, WebP or GIF up to 5MB<br/>
+                      Recommended: Square image, at least 400×400 pixels
+                    </p>
+                  )}
+                </div>
               </div>
 
-              {/* Name Fields */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <FormField
-                  control={form.control}
-                  name="first_name"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>
-                        First Name <span className="text-red-500">*</span>
-                      </FormLabel>
-                      <FormControl>
-                        <EnhancedInput
-                          {...field}
-                          placeholder="Enter your first name"
-                          validationState={
-                            form.formState.errors.first_name ? 'invalid' :
-                            field.value && !form.formState.errors.first_name ? 'valid' : 'idle'
-                          }
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
+              {/* Hidden File Input */}
+              {isEditing && (
+                <input
+                  id="profile-image-input"
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      // Validate file
+                      if (file.size > 5 * 1024 * 1024) {
+                        alert('File size must be less than 5MB');
+                        return;
+                      }
+                      if (!['image/jpeg', 'image/png', 'image/webp', 'image/gif'].includes(file.type)) {
+                        alert('Please select a valid image file (JPEG, PNG, WebP, or GIF)');
+                        return;
+                      }
+                      handleImageSelect(file);
+                    }
+                  }}
                 />
+              )}
 
-                <FormField
-                  control={form.control}
-                  name="last_name"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>
-                        Last Name <span className="text-red-500">*</span>
-                      </FormLabel>
-                      <FormControl>
-                        <EnhancedInput
-                          {...field}
-                          placeholder="Enter your last name"
-                          validationState={
-                            form.formState.errors.last_name ? 'invalid' :
-                            field.value && !form.formState.errors.last_name ? 'valid' : 'idle'
-                          }
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
+              {/* Upload Button - only show when image is selected */}
+              {profileImage && isEditing && (
+                <div className="flex items-center gap-3 pt-2">
+                  <Button type="button" size="sm" onClick={handleImageUpload} disabled={isSubmitting}>
+                    {isSubmitting ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Uploading...</> : 'Save Image'}
+                  </Button>
+                  <span className="text-xs text-gray-500">Click to save your new profile image</span>
+                </div>
+              )}
+            </div>
 
-              {/* Phone Number */}
+            {/* Name Fields */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <FormField
                 control={form.control}
-                name="phone_number"
+                name="first_name"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>
-                      Phone Number <span className="text-red-500">*</span>
-                    </FormLabel>
+                    <FormLabel>First Name *</FormLabel>
                     <FormControl>
-                      <EnhancedInput
-                        {...field}
-                        type="tel"
-                        placeholder="+91 XXXXX XXXXX"
-                        validationState={
-                          form.formState.errors.phone_number ? 'invalid' :
-                          field.value && !form.formState.errors.phone_number ? 'valid' : 'idle'
-                        }
+                      <Input 
+                        {...field} 
+                        disabled={!isEditing}
+                        className={!isEditing ? 'bg-gray-50' : ''}
                       />
                     </FormControl>
-                    <FormDescription>
-                      Enter your phone number with country code
-                    </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
               />
 
-              {/* Industry */}
               <FormField
                 control={form.control}
-                name="industry"
+                name="last_name"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>
-                      Industry <span className="text-red-500">*</span>
-                    </FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select your industry" />
-                        </SelectTrigger>
-                      </FormControl>
+                    <FormLabel>Last Name *</FormLabel>
+                    <FormControl>
+                      <Input 
+                        {...field} 
+                        disabled={!isEditing}
+                        className={!isEditing ? 'bg-gray-50' : ''}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            {/* Contact Fields */}
+            <FormField
+              control={form.control}
+              name="phone_number"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Phone Number *</FormLabel>
+                  <FormControl>
+                    <Input 
+                      {...field} 
+                      disabled={!isEditing}
+                      className={!isEditing ? 'bg-gray-50' : ''}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            {/* Industry Field */}
+            <FormField
+              control={form.control}
+              name="industry"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Industry *</FormLabel>
+                  <FormControl>
+                    <Select 
+                      onValueChange={field.onChange} 
+                      value={field.value}
+                      disabled={!isEditing}
+                    >
+                      <SelectTrigger className={!isEditing ? 'bg-gray-50' : ''}>
+                        <SelectValue placeholder="Select your industry" />
+                      </SelectTrigger>
                       <SelectContent>
-                        {INDUSTRY_OPTIONS.map((option) => (
-                          <SelectItem key={option.value} value={option.value}>
-                            {option.label}
-                          </SelectItem>
-                        ))}
+                        <SelectItem value="food_lifestyle">Food & Lifestyle</SelectItem>
+                        <SelectItem value="fashion_beauty">Fashion & Beauty</SelectItem>
+                        <SelectItem value="fitness_wellness">Fitness & Wellness</SelectItem>
+                        <SelectItem value="travel_adventure">Travel & Adventure</SelectItem>
+                        <SelectItem value="technology">Technology</SelectItem>
+                        <SelectItem value="business_finance">Business & Finance</SelectItem>
+                        <SelectItem value="entertainment">Entertainment</SelectItem>
+                        <SelectItem value="education">Education</SelectItem>
+                        <SelectItem value="parenting_family">Parenting & Family</SelectItem>
+                        <SelectItem value="other">Other</SelectItem>
                       </SelectContent>
                     </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
-              {/* Bio */}
-              <FormField
-                control={form.control}
-                name="bio"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Bio</FormLabel>
-                    <FormControl>
-                      <EnhancedTextarea
-                        {...field}
-                        placeholder="Tell us about yourself..."
-                        rows={4}
-                        maxLength={500}
-                        showCharCount={true}
-                        validationState={
-                          form.formState.errors.bio ? 'invalid' :
-                          field.value && !form.formState.errors.bio ? 'valid' : 'idle'
-                        }
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+            {/* Bio Field */}
+            <FormField
+              control={form.control}
+              name="bio"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>About</FormLabel>
+                  <FormControl>
+                    <Textarea 
+                      {...field} 
+                      placeholder="Tell us about yourself, your content style, and what makes you unique..."
+                      rows={4}
+                      disabled={!isEditing}
+                      className={!isEditing ? 'bg-gray-50' : ''}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
-              {/* Address */}
-              <FormField
-                control={form.control}
-                name="address"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>
-                      Address <span className="text-red-500">*</span>
-                    </FormLabel>
-                    <FormControl>
-                      <EnhancedTextarea
-                        {...field}
-                        placeholder="Enter your complete address for product delivery"
-                        rows={3}
-                        validationState={
-                          form.formState.errors.address ? 'invalid' :
-                          field.value && !form.formState.errors.address ? 'valid' : 'idle'
-                        }
-                      />
-                    </FormControl>
-                    <FormDescription>
-                      This address will be used for product delivery in barter deals
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+            {/* Address Field */}
+            <FormField
+              control={form.control}
+              name="address"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Address</FormLabel>
+                  <FormControl>
+                    <Textarea 
+                      {...field} 
+                      placeholder="Your current address..."
+                      rows={2}
+                      disabled={!isEditing}
+                      className={!isEditing ? 'bg-gray-50' : ''}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
-              {/* Submit Button */}
-              <div className="flex justify-end">
-                <Button
-                  type="submit"
-                  disabled={isSubmitting || !form.formState.isDirty}
-                  className="min-w-[120px]"
-                >
+            {/* Save Button - only show when editing */}
+            {isEditing && (
+              <div className="flex items-center gap-3 pt-4 border-t border-gray-100">
+                <Button type="submit" disabled={isSubmitting || !form.formState.isValid}>
                   {isSubmitting ? (
                     <>
                       <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                       Saving...
                     </>
                   ) : (
-                    'Save Changes'
+                    <>
+                      <Save className="w-4 h-4 mr-2" />
+                      Save Changes
+                    </>
                   )}
                 </Button>
+                <Button type="button" variant="outline" onClick={handleEditToggle}>
+                  Cancel
+                </Button>
               </div>
-            </form>
-          </Form>
-        </AutoSaveForm>
-      </CardContent>
-    </Card>
+            )}
+          </form>
+        </Form>
+      </AutoSaveForm>
+    </div>
   );
 }
