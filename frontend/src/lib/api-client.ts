@@ -68,10 +68,8 @@ export const profileApi = {
     }
     
     return api.post('/influencers/profile/upload-image/', formData, {
-      headers: { 
-        'Content-Type': 'multipart/form-data',
-        // Don't set X-CSRFToken here - let the interceptor handle it
-      },
+      // Let axios set Content-Type automatically for multipart/form-data
+      // This ensures proper boundary setting
     });
   },
   
@@ -95,10 +93,7 @@ export const profileApi = {
     }
     
     return api.post('/influencers/profile/upload-document/', formData, {
-      headers: { 
-        'Content-Type': 'multipart/form-data',
-        // Don't set X-CSRFToken here - let the interceptor handle it
-      },
+      // Let axios set Content-Type automatically for multipart/form-data
       signal,
       onUploadProgress: (progressEvent: any) => {
         if (onProgress && progressEvent.total) {
@@ -165,10 +160,7 @@ export const dealsApi = {
     }
     
     return api.post(`/deals/${id}/submit-content/`, formData, {
-      headers: { 
-        'Content-Type': 'multipart/form-data',
-        // Don't set X-CSRFToken here - let the interceptor handle it
-      },
+      // Let axios set Content-Type automatically for multipart/form-data
       signal,
       onUploadProgress: (progressEvent: any) => {
         if (onProgress && progressEvent.total) {
@@ -206,10 +198,7 @@ export const dealsApi = {
     }
     
     return api.post(`/deals/${id}/messages/`, formData, {
-      headers: { 
-        'Content-Type': 'multipart/form-data',
-        // Don't set X-CSRFToken here - let the interceptor handle it
-      },
+      // Let axios set Content-Type automatically for multipart/form-data
       signal,
       onUploadProgress: (progressEvent: any) => {
         if (onProgress && progressEvent.total) {

@@ -86,7 +86,8 @@ api.interceptors.request.use(
       }
       if (token) {
         config.headers = config.headers || {};
-        (config.headers as any)['X-CSRFToken'] = token;
+        // Always set X-CSRFToken header for unsafe methods
+        config.headers['X-CSRFToken'] = token;
       }
     }
 
