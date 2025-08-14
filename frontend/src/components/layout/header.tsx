@@ -7,6 +7,8 @@ import { useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useUserContext } from "@/components/providers/app-providers";
 import { usePathname } from "next/navigation";
+import { OptimizedAvatar } from "@/components/ui/optimized-image";
+import { getMediaUrl } from "@/lib/utils";
 
 export function Header() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -26,6 +28,20 @@ export function Header() {
   const handleLogout = () => {
     logout.mutate();
     setIsUserMenuOpen(false);
+  };
+
+  // Get user initials for fallback
+  const getUserInitials = () => {
+    if (!user) return 'U';
+    const firstName = user.first_name || '';
+    const lastName = user.last_name || '';
+    return `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase() || 'U';
+  };
+
+  // Get profile image URL with fallback
+  const getProfileImageUrl = () => {
+    const profileImage = user?.influencer_profile?.profile_image;
+    return getMediaUrl(profileImage);
   };
 
   return (
@@ -79,9 +95,13 @@ export function Header() {
                     className="h-8 px-2 gap-1"
                     onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
                   >
-                    <div className="w-6 h-6 bg-gray-200 rounded-full flex items-center justify-center">
-                      <User className="w-3 h-3" />
-                    </div>
+                    <OptimizedAvatar
+                      src={getProfileImageUrl()}
+                      alt={`${user?.first_name} ${user?.last_name}`}
+                      size="sm"
+                      fallback={getUserInitials()}
+                      className="w-6 h-6"
+                    />
                     <ChevronDown className="w-3 h-3" />
                   </Button>
                   

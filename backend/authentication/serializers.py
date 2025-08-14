@@ -247,6 +247,17 @@ class UserProfileSerializer(serializers.ModelSerializer):
         """Get influencer profile data."""
         try:
             profile = obj.influencer_profile
+            request = self.context.get('request')
+            
+            # Build full URL for profile image
+            profile_image_url = None
+            if profile.profile_image:
+                if request:
+                    profile_image_url = request.build_absolute_uri(profile.profile_image.url)
+                else:
+                    # Fallback to relative URL if no request context
+                    profile_image_url = profile.profile_image.url
+            
             return {
                 'username': profile.username,
                 'industry': profile.industry,
@@ -255,12 +266,24 @@ class UserProfileSerializer(serializers.ModelSerializer):
                 'is_verified': profile.is_verified,
                 'total_followers': profile.total_followers,
                 'average_engagement_rate': float(profile.average_engagement_rate),
+                'profile_image': profile_image_url,
             }
         except:
             # Import here to avoid circular imports
             from influencers.models import InfluencerProfile
             try:
                 profile = obj.influencer_profile
+                request = self.context.get('request')
+                
+                # Build full URL for profile image
+                profile_image_url = None
+                if profile.profile_image:
+                    if request:
+                        profile_image_url = request.build_absolute_uri(profile.profile_image.url)
+                    else:
+                        # Fallback to relative URL if no request context
+                        profile_image_url = profile.profile_image.url
+                
                 return {
                     'username': profile.username,
                     'industry': profile.industry,
@@ -269,6 +292,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
                     'is_verified': profile.is_verified,
                     'total_followers': profile.total_followers,
                     'average_engagement_rate': float(profile.average_engagement_rate),
+                    'profile_image': profile_image_url,
                 }
             except:
                 return None

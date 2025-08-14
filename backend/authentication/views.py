@@ -83,7 +83,7 @@ def login_view(request):
             # Use default project settings for expiry (rolling 15 days)
             request.session.set_expiry(settings.SESSION_COOKIE_AGE)
 
-        profile_serializer = UserProfileSerializer(user)
+        profile_serializer = UserProfileSerializer(user, context={'request': request})
         return Response({
             'status': 'success',
             'message': 'Login successful',
@@ -156,7 +156,7 @@ def signup_view(request):
             # refresh = RefreshToken.for_user(user)
             # access_token = refresh.access_token
 
-            profile_serializer = UserProfileSerializer(user)
+            profile_serializer = UserProfileSerializer(user, context={'request': request})
 
             return Response({
                 'status': 'success',
@@ -195,7 +195,7 @@ def brand_signup_view(request):
             # Issue tokens and return
             # refresh = RefreshToken.for_user(user)
             # access_token = refresh.access_token
-            profile_serializer = UserProfileSerializer(user)
+            profile_serializer = UserProfileSerializer(user, context={'request': request})
             return Response({
                 'status': 'success',
                 'message': 'Brand account created successfully.',
@@ -410,7 +410,7 @@ def google_oauth_view(request):
             # access_token = refresh.access_token
             
             # Get user profile information
-            profile_serializer = UserProfileSerializer(user)
+            profile_serializer = UserProfileSerializer(user, context={'request': request})
             
             return Response({
                 'status': 'success',
@@ -448,7 +448,7 @@ def user_profile_view(request):
     """
     Get current user profile information.
     """
-    serializer = UserProfileSerializer(request.user)
+    serializer = UserProfileSerializer(request.user, context={'request': request})
     return Response({
         'status': 'success',
         'user': serializer.data

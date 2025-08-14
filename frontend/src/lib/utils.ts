@@ -1,16 +1,109 @@
-import { clsx, type ClassValue } from "clsx"
+import { type ClassValue, clsx } from "clsx"
 import { twMerge } from "tailwind-merge"
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
-export function getMediaUrl(path?: string | null): string | undefined {
-  if (!path) return undefined
-  // If already absolute
-  if (/^https?:\/\//i.test(path)) return path
-  const base = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
-  // Ensure no double slashes
-  const normalized = path.startsWith('/') ? path : `/${path}`
-  return `${base}${normalized}`
+/**
+ * Utility function to get the full URL for media files
+ * @param mediaUrl - The media URL from the backend (can be relative or absolute)
+ * @returns The full URL for the media file
+ */
+export function getMediaUrl(mediaUrl: string | null | undefined): string | null {
+  if (!mediaUrl) return null;
+  
+  // If it's already a full URL, return as is
+  if (mediaUrl.startsWith('http://') || mediaUrl.startsWith('https://')) {
+    return mediaUrl;
+  }
+  
+  // If it's a relative URL, prepend the backend base URL
+  const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+  return `${apiBaseUrl}${mediaUrl}`;
+}
+
+/**
+ * Utility function to format file size in human readable format
+ */
+export function formatFileSize(bytes: number): string {
+  if (bytes === 0) return '0 Bytes';
+  const k = 1024;
+  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+}
+
+/**
+ * Utility function to format date in a readable format
+ */
+export function formatDate(date: string | Date): string {
+  const d = new Date(date);
+  return d.toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric'
+  });
+}
+
+/**
+ * Utility function to format date and time
+ */
+export function formatDateTime(date: string | Date): string {
+  const d = new Date(date);
+  return d.toLocaleString('en-US', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+}
+
+/**
+ * Utility function to truncate text
+ */
+export function truncateText(text: string, maxLength: number): string {
+  if (text.length <= maxLength) return text;
+  return text.slice(0, maxLength) + '...';
+}
+
+/**
+ * Utility function to generate initials from name
+ */
+export function getInitials(firstName: string, lastName: string): string {
+  const first = firstName?.charAt(0) || '';
+  const last = lastName?.charAt(0) || '';
+  return `${first}${last}`.toUpperCase();
+}
+
+/**
+ * Utility function to debounce function calls
+ */
+export function debounce<T extends (...args: any[]) => any>(
+  func: T,
+  wait: number
+): (...args: Parameters<T>) => void {
+  let timeout: NodeJS.Timeout;
+  return (...args: Parameters<T>) => {
+    clearTimeout(timeout);
+    timeout = setTimeout(() => func(...args), wait);
+  };
+}
+
+/**
+ * Utility function to throttle function calls
+ */
+export function throttle<T extends (...args: any[]) => any>(
+  func: T,
+  limit: number
+): (...args: Parameters<T>) => void {
+  let inThrottle: boolean;
+  return (...args: Parameters<T>) => {
+    if (!inThrottle) {
+      func(...args);
+      inThrottle = true;
+      setTimeout(() => inThrottle = false, limit);
+    }
+  };
 }

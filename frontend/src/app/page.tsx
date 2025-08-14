@@ -1,10 +1,49 @@
+"use client";
+
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { MainLayout } from "@/components/layout/main-layout";
 import { CheckCircle, Users, TrendingUp, Shield, Star, ArrowRight } from "@/lib/icons";
+import { useUserContext } from "@/components/providers/app-providers";
+import { useEffect } from "react";
 
 export default function Home() {
+  const { user, isLoading, refresh } = useUserContext();
+
+  // Ensure user context is properly loaded on home page
+  useEffect(() => {
+    if (!isLoading && !user) {
+      refresh();
+    }
+  }, [isLoading, user, refresh]);
+
+  // Redirect authenticated users to dashboard
+  useEffect(() => {
+    if (!isLoading && user) {
+      window.location.href = '/dashboard';
+    }
+  }, [isLoading, user]);
+
+  // Show loading while checking authentication
+  if (isLoading) {
+    return (
+      <MainLayout>
+        <div className="min-h-screen bg-white flex items-center justify-center">
+          <div className="text-center">
+            <div className="w-8 h-8 border-2 border-gray-200 border-t-red-600 rounded-full animate-spin mx-auto mb-3" />
+            <p className="text-sm text-gray-500">Loading...</p>
+          </div>
+        </div>
+      </MainLayout>
+    );
+  }
+
+  // Don't render landing page if user is authenticated (will redirect)
+  if (user) {
+    return null;
+  }
+
   return (
     <MainLayout>
       <div className="min-h-screen bg-white">

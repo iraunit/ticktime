@@ -19,6 +19,7 @@ export type CurrentUser = {
     is_verified?: boolean;
     total_followers?: number;
     average_engagement_rate?: number;
+    profile_image?: string;
   } | null;
 } | null;
 
