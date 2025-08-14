@@ -5,7 +5,8 @@ export type LucideIcon = React.FC<React.SVGProps<SVGSVGElement> & { className?: 
 
 type IconProps = React.SVGProps<SVGSVGElement> & { className?: string; title?: string };
 
-type AnyIcon = React.FC<React.SVGProps<SVGSVGElement>> | ((p: any) => JSX.Element);
+// Use a generic React component type for icons
+type AnyIcon = React.ComponentType<React.SVGProps<SVGSVGElement>>;
 
 function IconFont({ className = "", title, lni, ri, bx, ...rest }: IconProps & { lni?: string; ri?: string; bx?: string }) {
 	const cls = bx ? `bx ${bx}` : ri ? `ri ${ri}` : lni ? `lni ${lni}` : '';
@@ -79,8 +80,8 @@ export const TrendingDown = make("ArrowTrendingDownIcon", "lni-stats-down", "ri-
 export const Shield = make("ShieldCheckIcon", "lni-shield", "ri-shield-check-line", "bx-shield");
 export const Wifi = make(null, "lni-signal", "ri-wifi-line", "bx-wifi");
 export const WifiOff = make(null, "lni-network", "ri-wifi-off-line", "bx-wifi-off");
-export const Target = make("TargetIcon", "lni-bullseye", "ri-bullseye-line", "bx-bullseye");
-export const Activity = make("Activity", "lni-pulse", "ri-activity-line", "bx-pulse");
+export const Target = make(null, "lni-bullseye", "ri-bullseye-line", "bx-bullseye");
+export const Activity = make(null, "lni-pulse", "ri-activity-line", "bx-pulse");
 export const Award = make(null, "lni-trophy", "ri-award-line", "bx-award");
 export const Building2 = make(null, "lni-apartment", "ri-building-2-line", "bx-buildings");
 export const BarChart3 = make("ChartBarIcon", "lni-bar-chart", "ri-bar-chart-2-line", "bx-bar-chart");
