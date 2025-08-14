@@ -41,7 +41,7 @@ export function Header() {
   // Get profile image URL with fallback
   const getProfileImageUrl = () => {
     const profileImage = user?.influencer_profile?.profile_image;
-    return getMediaUrl(profileImage);
+    return getMediaUrl(profileImage) || undefined;
   };
 
   return (

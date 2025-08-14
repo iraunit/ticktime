@@ -41,8 +41,8 @@ export function getApiUrl(): string {
  * @param mediaUrl - The media URL from the backend (can be relative or absolute)
  * @returns The full URL for the media file
  */
-export function getMediaUrl(mediaUrl: string | null | undefined): string | null {
-  if (!mediaUrl) return null;
+export function getMediaUrl(mediaUrl: string | null | undefined): string | undefined {
+  if (!mediaUrl) return undefined;
   
   // If it's already a full URL, return as is
   if (mediaUrl.startsWith('http://') || mediaUrl.startsWith('https://')) {
