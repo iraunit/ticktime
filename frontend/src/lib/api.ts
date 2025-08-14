@@ -73,10 +73,15 @@ api.interceptors.request.use(
       let token = getCookie('csrftoken');
       if (!token) {
         try {
-          await api.get('/auth/csrf/');
+          // Use direct axios call to avoid interceptor loop
+          await axios.get(`${API_BASE_URL}/api/auth/csrf/`, {
+            withCredentials: true,
+            xsrfCookieName: 'csrftoken',
+            xsrfHeaderName: 'X-CSRFToken',
+          });
           token = getCookie('csrftoken');
         } catch (error) {
-          console.log(error)
+          // Silently handle CSRF token fetch errors
         }
       }
       if (token) {
@@ -137,7 +142,12 @@ api.interceptors.response.use(
     // If we failed with 403 CSRF on unsafe method, try once to get token then replay
     if (error.response.status === 403 && originalRequest && !originalRequest._retry) {
       try {
-        await api.get('/auth/csrf/');
+        // Use direct axios call to avoid interceptor loop
+        await axios.get(`${API_BASE_URL}/api/auth/csrf/`, {
+          withCredentials: true,
+          xsrfCookieName: 'csrftoken',
+          xsrfHeaderName: 'X-CSRFToken',
+        });
         const token = getCookie('csrftoken');
         if (token) {
           originalRequest._retry = true;
@@ -160,11 +170,7 @@ api.interceptors.response.use(
   }
 );
 
-function isCsrfMissing(data: any): boolean {
-  if (!data) return false;
-  const text = typeof data === 'string' ? data : JSON.stringify(data);
-  return /csrf token missing|csrf failed/i.test(text);
-}
+
 
 function getDefaultErrorMessage(status?: number): string {
   switch (status) {
