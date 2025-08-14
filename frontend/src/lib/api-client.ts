@@ -46,6 +46,7 @@ export const authApi = {
   // Check authentication status via profile endpoint
   checkAuth: () => api.get('/auth/profile/'),
   
+  // Get CSRF token - Django handles domain automatically
   csrf: () => api.get('/auth/csrf/'),
 };
 
@@ -55,15 +56,26 @@ export const profileApi = {
   
   updateProfile: (data: Record<string, unknown>) => api.patch('/influencers/profile/', data),
   
-  uploadProfileImage: (file: File) => {
+  uploadProfileImage: async (file: File) => {
     const formData = new FormData();
     formData.append('profile_image', file);
+    
+    // Ensure CSRF token is available before upload
+    try {
+      await authApi.csrf();
+    } catch (error) {
+      // Silently handle CSRF token fetch errors
+    }
+    
     return api.post('/influencers/profile/upload-image/', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
+      headers: { 
+        'Content-Type': 'multipart/form-data',
+        // Don't set X-CSRFToken here - let the interceptor handle it
+      },
     });
   },
   
-  uploadDocument: (
+  uploadDocument: async (
     file: File,
     aadharNumber?: string,
     onProgress?: (progress: { loaded: number; total: number; percentage: number }) => void,
@@ -75,8 +87,18 @@ export const profileApi = {
       formData.append('aadhar_number', aadharNumber);
     }
     
+    // Ensure CSRF token is available before upload
+    try {
+      await authApi.csrf();
+    } catch (error) {
+      // Silently handle CSRF token fetch errors
+    }
+    
     return api.post('/influencers/profile/upload-document/', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
+      headers: { 
+        'Content-Type': 'multipart/form-data',
+        // Don't set X-CSRFToken here - let the interceptor handle it
+      },
       signal,
       onUploadProgress: (progressEvent: any) => {
         if (onProgress && progressEvent.total) {
@@ -118,7 +140,7 @@ export const dealsApi = {
   rejectDeal: (id: number, reason?: string) =>
     api.post(`/deals/${id}/reject/`, { reason }),
   
-  submitContent: (
+  submitContent: async (
     id: number, 
     data: {
       platform: string;
@@ -135,8 +157,18 @@ export const dealsApi = {
     if (data.file) formData.append('file', data.file);
     if (data.caption) formData.append('caption', data.caption);
     
+    // Ensure CSRF token is available before upload
+    try {
+      await authApi.csrf();
+    } catch (error) {
+      // Silently handle CSRF token fetch errors
+    }
+    
     return api.post(`/deals/${id}/submit-content/`, formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
+      headers: { 
+        'Content-Type': 'multipart/form-data',
+        // Don't set X-CSRFToken here - let the interceptor handle it
+      },
       signal,
       onUploadProgress: (progressEvent: any) => {
         if (onProgress && progressEvent.total) {
@@ -153,7 +185,7 @@ export const dealsApi = {
   
   getMessages: (id: number) => api.get(`/deals/${id}/messages/`),
   
-  sendMessage: (
+  sendMessage: async (
     id: number, 
     data: {
       message: string;
@@ -166,8 +198,18 @@ export const dealsApi = {
     formData.append('message', data.message);
     if (data.file) formData.append('file', data.file);
     
+    // Ensure CSRF token is available before upload
+    try {
+      await authApi.csrf();
+    } catch (error) {
+      // Silently handle CSRF token fetch errors
+    }
+    
     return api.post(`/deals/${id}/messages/`, formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
+      headers: { 
+        'Content-Type': 'multipart/form-data',
+        // Don't set X-CSRFToken here - let the interceptor handle it
+      },
       signal,
       onUploadProgress: (progressEvent: any) => {
         if (onProgress && progressEvent.total) {

@@ -257,7 +257,10 @@ SECURE_HSTS_PRELOAD = True
 # CSRF Settings
 CSRF_COOKIE_SECURE = not DEBUG
 CSRF_COOKIE_HTTPONLY = False
-CSRF_COOKIE_SAMESITE = "Lax"
+CSRF_COOKIE_SAMESITE = "None" if not DEBUG else "Lax"
+# Let Django handle CSRF cookies automatically - no domain restriction needed
+CSRF_COOKIE_DOMAIN = None
+
 CSRF_TRUSTED_ORIGINS = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
@@ -266,6 +269,7 @@ CSRF_TRUSTED_ORIGINS = [
     "https://ticktimemedia.com",
     "https://www.ticktimemedia.com",
     "https://api.ticktime.media",
+    "https://api.ticktimemedia.com",
 ]
 
 # Honor X-Forwarded-Proto when behind a proxy/ELB
@@ -275,7 +279,10 @@ USE_X_FORWARDED_HOST = True
 # Session Security
 SESSION_COOKIE_SECURE = not DEBUG
 SESSION_COOKIE_HTTPONLY = True
-SESSION_COOKIE_SAMESITE = 'Lax' if DEBUG else 'None'
+SESSION_COOKIE_SAMESITE = 'None' if not DEBUG else 'Lax'
+# Let Django handle session cookies automatically - no domain restriction needed
+SESSION_COOKIE_DOMAIN = None
+
 # Default session age (seconds). Extended to 15 days minimum for better UX; login can still set custom expiry when remember_me is true
 SESSION_COOKIE_AGE = 60 * 60 * 24 * 15  # 15 days
 # Keep sessions alive with activity

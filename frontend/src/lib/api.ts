@@ -75,7 +75,9 @@ api.interceptors.request.use(
         try {
           await api.get('/auth/csrf/');
           token = getCookie('csrftoken');
-        } catch {}
+        } catch (error) {
+          console.log(error)
+        }
       }
       if (token) {
         config.headers = config.headers || {};

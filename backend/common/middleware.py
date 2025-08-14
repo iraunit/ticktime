@@ -8,7 +8,7 @@ from django.utils.deprecation import MiddlewareMixin
 from django.db import connection
 
 logger = logging.getLogger(__name__)
-security_logger = logging.getLogger('django.security')
+security_logger = logging.getLogger('security')
 
 
 class SecurityHeadersMiddleware:

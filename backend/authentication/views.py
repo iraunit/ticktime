@@ -37,8 +37,11 @@ logger = logging.getLogger(__name__)
 @api_view(['GET'])
 @permission_classes([AllowAny])
 def csrf_token_view(request):
-  """Return CSRF token for client to include in subsequent requests."""
-  return Response({'csrfToken': get_token(request)})
+    """
+    Get CSRF token for cross-domain requests.
+    Django will automatically handle the appropriate domain based on CSRF_TRUSTED_ORIGINS.
+    """
+    return Response({'csrfToken': get_token(request)})
 
 
 @api_view(['POST'])

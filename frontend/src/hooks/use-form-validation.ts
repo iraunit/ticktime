@@ -291,7 +291,7 @@ export function useFormAutoSave<T extends FieldValues>(
       setLastSaved(new Date());
     } catch (error) {
       setSaveError('Failed to auto-save');
-      console.error('Auto-save error:', error);
+      // Silently handle auto-save errors
     } finally {
       setIsSaving(false);
       setLoading('auto-save', false);

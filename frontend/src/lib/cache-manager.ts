@@ -160,7 +160,7 @@ export class LocalStorageCache {
 
       return item.data;
     } catch (error) {
-      console.warn('Failed to get localStorage cache:', error);
+      // Silently handle localStorage errors
       return null;
     }
   }
@@ -277,9 +277,8 @@ export class ServiceWorkerCache {
     if (typeof window !== 'undefined' && process.env.NODE_ENV === 'production' && 'serviceWorker' in navigator) {
       try {
         await navigator.serviceWorker.register('/sw.js');
-        console.log('Service Worker registered successfully');
       } catch (error) {
-        console.warn('Service Worker registration failed:', error);
+        // Silently handle service worker registration errors
       }
     }
   }
@@ -293,7 +292,7 @@ export class ServiceWorkerCache {
         const cache = await caches.open(this.CACHE_NAME);
         await cache.addAll(urls);
       } catch (error) {
-        console.warn('Failed to cache assets:', error);
+        // Silently handle cache errors
       }
     }
   }
@@ -311,7 +310,7 @@ export class ServiceWorkerCache {
             .map(name => caches.delete(name))
         );
       } catch (error) {
-        console.warn('Failed to clear old caches:', error);
+        // Silently handle cache clearing errors
       }
     }
   }
@@ -332,6 +331,8 @@ if (typeof window !== 'undefined') {
 
   // Initialize service worker after hydration
   setTimeout(() => {
-    ServiceWorkerCache.init().catch(console.warn);
+    ServiceWorkerCache.init().catch(() => {
+      // Silently handle service worker initialization errors
+    });
   }, 100);
 }

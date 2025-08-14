@@ -6,6 +6,37 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 /**
+ * Utility function to get the current domain type
+ */
+export function getCurrentDomainType(): 'ticktime.media' | 'ticktimemedia.com' | 'development' {
+  if (typeof window === 'undefined') return 'development';
+  
+  const hostname = window.location.hostname;
+  if (hostname.includes('ticktime.media')) {
+    return 'ticktime.media';
+  } else if (hostname.includes('ticktimemedia.com')) {
+    return 'ticktimemedia.com';
+  }
+  return 'development';
+}
+
+/**
+ * Utility function to get the appropriate API URL for the current domain
+ */
+export function getApiUrl(): string {
+  const domainType = getCurrentDomainType();
+  
+  switch (domainType) {
+    case 'ticktime.media':
+      return 'https://api.ticktime.media';
+    case 'ticktimemedia.com':
+      return 'https://api.ticktimemedia.com';
+    default:
+      return process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+  }
+}
+
+/**
  * Utility function to get the full URL for media files
  * @param mediaUrl - The media URL from the backend (can be relative or absolute)
  * @returns The full URL for the media file
@@ -18,8 +49,8 @@ export function getMediaUrl(mediaUrl: string | null | undefined): string | null 
     return mediaUrl;
   }
   
-  // If it's a relative URL, prepend the backend base URL
-  const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+  // Get the appropriate API URL for the current domain
+  const apiBaseUrl = getApiUrl();
   return `${apiBaseUrl}${mediaUrl}`;
 }
 
@@ -106,4 +137,18 @@ export function throttle<T extends (...args: any[]) => any>(
       setTimeout(() => inThrottle = false, limit);
     }
   };
+}
+
+/**
+ * Utility function to check if CSRF token is properly set
+ */
+export function isCSRFTokenSet(): boolean {
+  if (typeof window === 'undefined') return false;
+  
+  const token = document.cookie
+    .split('; ')
+    .find(row => row.startsWith('csrftoken='))
+    ?.split('=')[1];
+  
+  return !!token && token.length > 0;
 }
