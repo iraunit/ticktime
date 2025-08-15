@@ -2,13 +2,14 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-import { LucideIcon, TrendingUp, TrendingDown } from "@/lib/icons";
+import { HiArrowTrendingUp, HiArrowTrendingDown } from "react-icons/hi2";
+import { IconType } from "react-icons";
 
 interface StatsCardProps {
   title: string;
   value: string | number;
   description?: string;
-  icon: LucideIcon;
+  icon: IconType;
   trend?: {
     value: number;
     isPositive: boolean;
@@ -24,42 +25,48 @@ const getCardStyle = (index: number) => {
       iconBg: "bg-gradient-to-br from-blue-500 to-indigo-600",
       iconColor: "text-white",
       borderColor: "border-blue-200",
-      accentColor: "text-blue-600"
+      accentColor: "text-blue-600",
+      bottomBorder: "border-b-blue-500"
     },
     {
       cardBg: "bg-gradient-to-br from-orange-50 via-orange-50 to-red-100",
       iconBg: "bg-gradient-to-br from-orange-500 to-red-600",
       iconColor: "text-white",
       borderColor: "border-orange-200",
-      accentColor: "text-orange-600"
+      accentColor: "text-orange-600",
+      bottomBorder: "border-b-orange-500"
     },
     {
       cardBg: "bg-gradient-to-br from-green-50 via-emerald-50 to-green-100",
       iconBg: "bg-gradient-to-br from-emerald-500 to-green-600",
       iconColor: "text-white",
       borderColor: "border-emerald-200",
-      accentColor: "text-emerald-600"
+      accentColor: "text-emerald-600",
+      bottomBorder: "border-b-emerald-500"
     },
     {
       cardBg: "bg-gradient-to-br from-purple-50 via-purple-50 to-pink-100",
       iconBg: "bg-gradient-to-br from-purple-500 to-pink-600",
       iconColor: "text-white",
       borderColor: "border-purple-200",
-      accentColor: "text-purple-600"
+      accentColor: "text-purple-600",
+      bottomBorder: "border-b-purple-500"
     },
     {
       cardBg: "bg-gradient-to-br from-yellow-50 via-amber-50 to-orange-100",
       iconBg: "bg-gradient-to-br from-amber-500 to-orange-600",
       iconColor: "text-white",
       borderColor: "border-amber-200",
-      accentColor: "text-amber-600"
+      accentColor: "text-amber-600",
+      bottomBorder: "border-b-amber-500"
     },
     {
       cardBg: "bg-gradient-to-br from-rose-50 via-pink-50 to-rose-100",
       iconBg: "bg-gradient-to-br from-rose-500 to-pink-600",
       iconColor: "text-white",
       borderColor: "border-rose-200",
-      accentColor: "text-rose-600"
+      accentColor: "text-rose-600",
+      bottomBorder: "border-b-rose-500"
     }
   ];
   
@@ -80,9 +87,11 @@ export function StatsCard({
 
   return (
     <Card className={cn(
-      "relative overflow-hidden border shadow-md hover:shadow-lg transition-all duration-200 transform hover:-translate-y-0.5",
+      "relative overflow-hidden border shadow-md hover:shadow-lg transition-all duration-200 transform hover:-translate-y-0.5 h-[120px]",
       style.cardBg,
       style.borderColor,
+      style.bottomBorder,
+      "border-b-2",
       className
     )}>
       {/* Subtle background pattern */}
@@ -97,34 +106,36 @@ export function StatsCard({
           {title}
         </CardTitle>
         <div className={cn(
-          "w-8 h-8 rounded-lg flex items-center justify-center shadow-md",
+          "w-8 h-8 rounded-lg flex items-center justify-center shadow-md flex-shrink-0",
           style.iconBg
         )}>
           <Icon className={cn("h-4 w-4", style.iconColor)} />
         </div>
       </CardHeader>
       
-      <CardContent className="relative pt-0 pb-3 px-3">
-        <div className={cn("text-2xl font-bold mb-1", style.accentColor)}>
-          {value}
+      <CardContent className="relative pt-0 pb-3 px-3 flex flex-col justify-between h-[calc(100%-60px)]">
+        <div>
+          <div className={cn("text-2xl font-bold mb-1", style.accentColor)}>
+            {value}
+          </div>
+          
+          {description && (
+            <p className="text-xs text-gray-500 mb-2 leading-tight">
+              {description}
+            </p>
+          )}
         </div>
         
-        {description && (
-          <p className="text-xs text-gray-500 mb-2 leading-tight">
-            {description}
-          </p>
-        )}
-        
         {trend && (
-          <div className="flex items-center justify-between pt-2 border-t border-white/50">
+          <div className="flex items-center justify-between pt-2 border-t border-white/50 mt-auto">
             <div className={cn(
               "flex items-center text-xs font-medium",
               trend.isPositive ? "text-emerald-600" : "text-red-600"
             )}>
               {trend.isPositive ? (
-                <TrendingUp className="w-3 h-3 mr-1" />
+                <HiArrowTrendingUp className="w-3 h-3 mr-1" />
               ) : (
-                <TrendingDown className="w-3 h-3 mr-1" />
+                <HiArrowTrendingDown className="w-3 h-3 mr-1" />
               )}
               {Math.abs(trend.value)}%
             </div>
@@ -133,12 +144,6 @@ export function StatsCard({
             </span>
           </div>
         )}
-
-        {/* Bottom accent line */}
-        <div className={cn(
-          "absolute bottom-0 left-0 right-0 h-0.5",
-          style.iconBg
-        )}></div>
       </CardContent>
     </Card>
   );

@@ -9,7 +9,7 @@ import { QuickActions } from "@/components/dashboard/quick-actions";
 import { useDashboard, useNotifications } from "@/hooks/use-dashboard";
 import { useDeals } from "@/hooks/use-deals";
 import { Button } from "@/components/ui/button";
-import { RefreshCw } from "@/lib/icons";
+import { HiArrowPath } from "react-icons/hi2";
 import { toast } from "@/lib/toast";
 import { RequireAuth } from "@/components/auth/require-auth";
 import { useUserContext } from "@/components/providers/app-providers";
@@ -49,7 +49,7 @@ export default function DashboardPage() {
         <div className="container mx-auto px-4 py-8">
           <div className="text-center py-12">
             <div className="w-16 h-16 bg-gradient-to-br from-red-50 to-red-100 rounded-xl flex items-center justify-center mx-auto mb-4 shadow-md">
-              <RefreshCw className="w-8 h-8 text-red-600" />
+              <HiArrowPath className="w-8 h-8 text-red-600" />
             </div>
             <h2 className="text-xl font-bold text-gray-900 mb-2">
               Unable to load dashboard
@@ -58,7 +58,7 @@ export default function DashboardPage() {
               We're experiencing some technical difficulties. Please try refreshing the page.
             </p>
             <Button onClick={handleRefresh} size="lg" className="bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded-lg shadow-md hover:shadow-lg transition-all duration-200">
-              <RefreshCw className="h-4 w-4 mr-2" />
+              <HiArrowPath className="h-4 w-4 mr-2" />
               Try Again
             </Button>
           </div>
@@ -131,7 +131,7 @@ export default function DashboardPage() {
                     disabled={stats.isLoading || recentDeals.isLoading}
                     className="border border-gray-200 hover:border-red-300 hover:bg-red-50 transition-all duration-200 rounded-lg px-4 py-2"
                   >
-                    <RefreshCw className="h-4 w-4 mr-1" />
+                    <HiArrowPath className="h-4 w-4 mr-1" />
                     Refresh
                   </Button>
                 </div>
@@ -159,10 +159,10 @@ export default function DashboardPage() {
               />
             </div>
 
-            {/* Compact Main Content Grid */}
-            <div className="grid gap-6 lg:grid-cols-3">
-              {/* Left Column - Recent Deals */}
-              <div className="lg:col-span-2 order-2 lg:order-1">
+            {/* Adjusted Main Content Grid - Less space for sidebar */}
+            <div className="grid gap-6 lg:grid-cols-4">
+              {/* Left Column - Recent Deals - More space */}
+              <div className="lg:col-span-3 order-2 lg:order-1">
                 <div className="flex items-center mb-3">
                   <div className="w-1 h-6 bg-gradient-to-b from-blue-500 to-indigo-500 rounded-full mr-3"></div>
                   <h2 className="text-lg font-bold text-gray-900">Recent Activity</h2>
@@ -179,12 +179,12 @@ export default function DashboardPage() {
                 />
               </div>
 
-              {/* Right Column - Notifications and Quick Actions */}
-              <div className="space-y-6 order-1 lg:order-2">
+              {/* Right Column - Notifications and Quick Actions - Less space */}
+              <div className="space-y-4 order-1 lg:order-2">
                 <div>
                   <div className="flex items-center mb-3">
                     <div className="w-1 h-6 bg-gradient-to-b from-purple-500 to-pink-500 rounded-full mr-3"></div>
-                    <h2 className="text-base font-bold text-gray-900">Updates</h2>
+                    <h2 className="text-sm font-bold text-gray-900">Updates</h2>
                   </div>
                   <NotificationCenter
                     notifications={notifications.data || []}
@@ -196,7 +196,7 @@ export default function DashboardPage() {
                 <div>
                   <div className="flex items-center mb-3">
                     <div className="w-1 h-6 bg-gradient-to-b from-emerald-500 to-green-500 rounded-full mr-3"></div>
-                    <h2 className="text-base font-bold text-gray-900">Quick Actions</h2>
+                    <h2 className="text-sm font-bold text-gray-900">Quick Actions</h2>
                   </div>
                   <QuickActions />
                 </div>

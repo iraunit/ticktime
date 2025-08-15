@@ -3,13 +3,13 @@
 import { StatsCard } from "./stats-card";
 import { DashboardStats } from "@/types";
 import { 
-  Briefcase, 
-  DollarSign, 
-  TrendingUp, 
-  Clock,
-  CheckCircle,
-  AlertCircle
-} from "@/lib/icons";
+  HiBriefcase, 
+  HiBanknotes, 
+  HiArrowTrendingUp, 
+  HiClock,
+  HiCheckBadge,
+  HiExclamationTriangle
+} from "react-icons/hi2";
 
 interface DashboardStatsProps {
   stats: any;
@@ -57,37 +57,37 @@ export function DashboardStatsGrid({ stats, isLoading }: DashboardStatsProps) {
     {
       title: "Total Invitations",
       value: toNumber(stats?.total_invitations),
-      icon: Briefcase,
+      icon: HiBriefcase,
       description: "All-time invitations received",
     },
     {
       title: "Active Deals",
       value: toNumber(stats?.active_deals),
-      icon: Clock,
+      icon: HiClock,
       description: "Currently ongoing collaborations",
     },
     {
       title: "Completed Deals",
       value: toNumber(stats?.completed_deals),
-      icon: CheckCircle,
+      icon: HiCheckBadge,
       description: "Successfully finished projects",
     },
     {
       title: "Total Earnings",
       value: formatCurrency(stats?.total_earnings),
-      icon: DollarSign,
+      icon: HiBanknotes,
       description: "Lifetime earnings from deals",
     },
     {
       title: "This Month",
       value: formatCurrency(stats?.this_month_earnings),
-      icon: TrendingUp,
+      icon: HiArrowTrendingUp,
       description: "Current month earnings",
     },
     {
       title: "Success Rate",
       value: formatPercentage(stats?.collaboration_rate),
-      icon: AlertCircle,
+      icon: HiExclamationTriangle,
       description: "Deal completion rate",
     },
   ];

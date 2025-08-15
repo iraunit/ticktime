@@ -8,16 +8,16 @@ import { Badge } from "@/components/ui/badge";
 import { Notification } from "@/types";
 import { cn } from "@/lib/utils";
 import {
-  Bell,
-  BellRing,
-  MessageSquare,
-  DollarSign,
-  Briefcase,
-  Settings,
-  X,
-  ChevronDown,
-  ChevronUp,
-} from "@/lib/icons";
+  HiBell,
+  HiChatBubbleLeftRight,
+  HiBanknotes,
+  HiBriefcase,
+  HiCog6Tooth,
+  HiXMark,
+  HiChevronDown,
+  HiChevronUp,
+} from "react-icons/hi2";
+import { IconType } from "react-icons";
 import Link from "next/link";
 
 interface NotificationCenterProps {
@@ -27,11 +27,11 @@ interface NotificationCenterProps {
 }
 
 const notificationIcons = {
-  deal_invitation: Briefcase,
-  deal_update: Briefcase,
-  message: MessageSquare,
-  payment: DollarSign,
-  system: Settings,
+  deal_invitation: HiBriefcase,
+  deal_update: HiBriefcase,
+  message: HiChatBubbleLeftRight,
+  payment: HiBanknotes,
+  system: HiCog6Tooth,
 };
 
 const notificationStyles = {
@@ -145,12 +145,12 @@ export function NotificationCenter({
             >
               {isExpanded ? (
                 <>
-                  <ChevronUp className="h-3 w-3 mr-1" />
+                  <HiChevronUp className="h-3 w-3 mr-1" />
                   Less
                 </>
               ) : (
                 <>
-                  <ChevronDown className="h-3 w-3 mr-1" />
+                  <HiChevronDown className="h-3 w-3 mr-1" />
                   All ({visibleNotifications.length})
                 </>
               )}
@@ -163,7 +163,7 @@ export function NotificationCenter({
         {displayedNotifications.length === 0 ? (
           <div className="text-center py-8">
             <div className="w-12 h-12 bg-gradient-to-br from-gray-100 to-gray-200 rounded-xl flex items-center justify-center mx-auto mb-3">
-              <Bell className="h-6 w-6 text-gray-400" />
+              <HiBell className="h-6 w-6 text-gray-400" />
             </div>
             <h3 className="text-sm font-medium text-gray-900 mb-1">
               No notifications yet
@@ -175,7 +175,7 @@ export function NotificationCenter({
         ) : (
           <div className="space-y-2">
             {displayedNotifications.map((notification) => {
-              const Icon = notificationIcons[notification.type] || Bell;
+              const Icon = notificationIcons[notification.type] || HiBell;
               const style = notificationStyles[notification.type] || notificationStyles.system;
 
               return (
@@ -222,7 +222,7 @@ export function NotificationCenter({
                             onClick={() => handleDismiss(notification.id)}
                             className="h-5 w-5 p-0 hover:bg-gray-200 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
                           >
-                            <X className="h-3 w-3" />
+                            <HiXMark className="h-3 w-3" />
                           </Button>
                         </div>
                       </div>

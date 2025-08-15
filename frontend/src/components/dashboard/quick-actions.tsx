@@ -3,18 +3,19 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { 
-  User, 
-  Search, 
-  MessageSquare, 
-  BarChart3
-} from "@/lib/icons";
+  HiUser, 
+  HiMagnifyingGlass, 
+  HiChatBubbleLeftRight, 
+  HiChartBar
+} from "react-icons/hi2";
+import { IconType } from "react-icons";
 import Link from "next/link";
 
 interface QuickAction {
   title: string;
   description: string;
   href: string;
-  icon: React.ComponentType<{ className?: string }>;
+  icon: IconType;
   variant?: "default" | "outline";
   colorScheme: {
     bg: string;
@@ -29,7 +30,7 @@ const quickActions: QuickAction[] = [
     title: "Complete Profile",
     description: "Update your profile to get better deals",
     href: "/profile",
-    icon: User,
+    icon: HiUser,
     variant: "default",
     colorScheme: {
       bg: "bg-gradient-to-br from-red-50 to-pink-100",
@@ -42,7 +43,7 @@ const quickActions: QuickAction[] = [
     title: "Browse Deals",
     description: "Find new collaboration opportunities",
     href: "/deals",
-    icon: Search,
+    icon: HiMagnifyingGlass,
     variant: "outline",
     colorScheme: {
       bg: "bg-gradient-to-br from-blue-50 to-indigo-100",
@@ -55,7 +56,7 @@ const quickActions: QuickAction[] = [
     title: "Messages",
     description: "Check your brand conversations",
     href: "/messages",
-    icon: MessageSquare,
+    icon: HiChatBubbleLeftRight,
     variant: "outline",
     colorScheme: {
       bg: "bg-gradient-to-br from-emerald-50 to-green-100",
@@ -68,7 +69,7 @@ const quickActions: QuickAction[] = [
     title: "Analytics",
     description: "View your performance metrics",
     href: "/analytics",
-    icon: BarChart3,
+    icon: HiChartBar,
     variant: "outline",
     colorScheme: {
       bg: "bg-gradient-to-br from-purple-50 to-violet-100",
