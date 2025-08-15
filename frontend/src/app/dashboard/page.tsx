@@ -46,19 +46,19 @@ export default function DashboardPage() {
   if (hasError) {
     return (
       <MainLayout>
-        <div className="container mx-auto px-4 py-12">
-          <div className="text-center py-16">
-            <div className="w-20 h-20 bg-gradient-to-br from-red-50 to-red-100 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-lg">
-              <RefreshCw className="w-10 h-10 text-red-600" />
+        <div className="container mx-auto px-4 py-8">
+          <div className="text-center py-12">
+            <div className="w-16 h-16 bg-gradient-to-br from-red-50 to-red-100 rounded-xl flex items-center justify-center mx-auto mb-4 shadow-md">
+              <RefreshCw className="w-8 h-8 text-red-600" />
             </div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-3">
+            <h2 className="text-xl font-bold text-gray-900 mb-2">
               Unable to load dashboard
             </h2>
-            <p className="text-gray-600 mb-8 max-w-md mx-auto text-lg">
+            <p className="text-gray-600 mb-6 max-w-md mx-auto">
               We're experiencing some technical difficulties. Please try refreshing the page.
             </p>
-            <Button onClick={handleRefresh} size="lg" className="bg-red-600 hover:bg-red-700 text-white px-8 py-3 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300">
-              <RefreshCw className="h-5 w-5 mr-2" />
+            <Button onClick={handleRefresh} size="lg" className="bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded-lg shadow-md hover:shadow-lg transition-all duration-200">
+              <RefreshCw className="h-4 w-4 mr-2" />
               Try Again
             </Button>
           </div>
@@ -101,48 +101,48 @@ export default function DashboardPage() {
     <RequireAuth>
       <MainLayout>
         <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100">
-          <div className="container mx-auto px-4 py-8 max-w-7xl">
-            {/* Enhanced Header */}
-            <div className="relative mb-8">
+          <div className="container mx-auto px-4 py-4 max-w-7xl">
+            {/* Compact Header */}
+            <div className="relative mb-6">
               {/* Background decoration */}
-              <div className="absolute inset-0 bg-gradient-to-r from-red-500/5 via-orange-500/5 to-pink-500/5 rounded-2xl -m-4"></div>
+              <div className="absolute inset-0 bg-gradient-to-r from-red-500/5 via-orange-500/5 to-pink-500/5 rounded-xl -m-2"></div>
               
-              <div className="relative flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6 p-6">
+              <div className="relative flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 p-4">
                 <div>
-                  <h1 className="text-4xl font-bold bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 bg-clip-text text-transparent mb-2">
+                  <h1 className="text-2xl font-bold bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 bg-clip-text text-transparent mb-1">
                     {greeting}, {userName}! 👋
                   </h1>
-                  <p className="text-lg text-gray-600 max-w-2xl">
+                  <p className="text-sm text-gray-600 max-w-2xl">
                     Monitor your collaborations and track your performance with our comprehensive dashboard.
                   </p>
                 </div>
                 
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-3">
                   <div className="text-right hidden sm:block">
-                    <p className="text-sm text-gray-500">Last updated</p>
-                    <p className="text-sm font-semibold text-gray-700">
+                    <p className="text-xs text-gray-500">Last updated</p>
+                    <p className="text-xs font-medium text-gray-700">
                       {new Date().toLocaleTimeString()}
                     </p>
                   </div>
                   <Button
                     variant="outline"
-                    size="lg"
+                    size="sm"
                     onClick={handleRefresh}
                     disabled={stats.isLoading || recentDeals.isLoading}
-                    className="border-2 border-gray-200 hover:border-red-300 hover:bg-red-50 transition-all duration-300 rounded-xl px-6 py-3"
+                    className="border border-gray-200 hover:border-red-300 hover:bg-red-50 transition-all duration-200 rounded-lg px-4 py-2"
                   >
-                    <RefreshCw className="h-5 w-5 mr-2" />
+                    <RefreshCw className="h-4 w-4 mr-1" />
                     Refresh
                   </Button>
                 </div>
               </div>
             </div>
 
-            {/* Enhanced Stats Grid */}
-            <div className="mb-10">
-              <div className="flex items-center mb-6">
-                <div className="w-1 h-8 bg-gradient-to-b from-red-500 to-orange-500 rounded-full mr-4"></div>
-                <h2 className="text-2xl font-bold text-gray-900">Performance Overview</h2>
+            {/* Compact Stats Grid */}
+            <div className="mb-6">
+              <div className="flex items-center mb-3">
+                <div className="w-1 h-6 bg-gradient-to-b from-red-500 to-orange-500 rounded-full mr-3"></div>
+                <h2 className="text-lg font-bold text-gray-900">Performance Overview</h2>
               </div>
               <DashboardStatsGrid
                 stats={stats.data || {
@@ -159,13 +159,13 @@ export default function DashboardPage() {
               />
             </div>
 
-            {/* Enhanced Main Content Grid */}
-            <div className="grid gap-8 lg:grid-cols-3">
+            {/* Compact Main Content Grid */}
+            <div className="grid gap-6 lg:grid-cols-3">
               {/* Left Column - Recent Deals */}
               <div className="lg:col-span-2 order-2 lg:order-1">
-                <div className="flex items-center mb-6">
-                  <div className="w-1 h-8 bg-gradient-to-b from-blue-500 to-indigo-500 rounded-full mr-4"></div>
-                  <h2 className="text-2xl font-bold text-gray-900">Recent Activity</h2>
+                <div className="flex items-center mb-3">
+                  <div className="w-1 h-6 bg-gradient-to-b from-blue-500 to-indigo-500 rounded-full mr-3"></div>
+                  <h2 className="text-lg font-bold text-gray-900">Recent Activity</h2>
                 </div>
                 <RecentDeals
                   deals={recentDeals.data || []}
@@ -180,11 +180,11 @@ export default function DashboardPage() {
               </div>
 
               {/* Right Column - Notifications and Quick Actions */}
-              <div className="space-y-8 order-1 lg:order-2">
+              <div className="space-y-6 order-1 lg:order-2">
                 <div>
-                  <div className="flex items-center mb-6">
-                    <div className="w-1 h-8 bg-gradient-to-b from-purple-500 to-pink-500 rounded-full mr-4"></div>
-                    <h2 className="text-xl font-bold text-gray-900">Updates</h2>
+                  <div className="flex items-center mb-3">
+                    <div className="w-1 h-6 bg-gradient-to-b from-purple-500 to-pink-500 rounded-full mr-3"></div>
+                    <h2 className="text-base font-bold text-gray-900">Updates</h2>
                   </div>
                   <NotificationCenter
                     notifications={notifications.data || []}
@@ -194,9 +194,9 @@ export default function DashboardPage() {
                 </div>
                 
                 <div>
-                  <div className="flex items-center mb-6">
-                    <div className="w-1 h-8 bg-gradient-to-b from-emerald-500 to-green-500 rounded-full mr-4"></div>
-                    <h2 className="text-xl font-bold text-gray-900">Quick Actions</h2>
+                  <div className="flex items-center mb-3">
+                    <div className="w-1 h-6 bg-gradient-to-b from-emerald-500 to-green-500 rounded-full mr-3"></div>
+                    <h2 className="text-base font-bold text-gray-900">Quick Actions</h2>
                   </div>
                   <QuickActions />
                 </div>

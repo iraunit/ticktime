@@ -40,12 +40,14 @@ export function DashboardStatsGrid({ stats, isLoading }: DashboardStatsProps) {
 
   if (isLoading) {
     return (
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         {Array.from({ length: 6 }).map((_, i) => (
           <div
             key={i}
-            className="h-32 bg-gray-100 animate-pulse rounded-lg"
-          />
+            className="h-24 bg-gradient-to-r from-gray-100 via-gray-50 to-gray-100 animate-pulse rounded-lg relative overflow-hidden"
+          >
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/60 to-transparent -skew-x-12 animate-shimmer"></div>
+          </div>
         ))}
       </div>
     );
@@ -91,7 +93,7 @@ export function DashboardStatsGrid({ stats, isLoading }: DashboardStatsProps) {
   ];
 
   return (
-    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
       {statsData.map((stat, index) => (
         <StatsCard
           key={index}

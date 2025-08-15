@@ -104,18 +104,18 @@ export function NotificationCenter({
 
   if (isLoading) {
     return (
-      <Card className="border-2 border-gray-200 shadow-lg">
-        <CardHeader className="pb-4">
-          <CardTitle className="text-lg font-bold text-gray-900 flex items-center">
-            <div className="w-2 h-2 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full mr-3"></div>
+      <Card className="border shadow-md">
+        <CardHeader className="pb-2 pt-3 px-3">
+          <CardTitle className="text-sm font-semibold text-gray-900 flex items-center">
+            <div className="w-1.5 h-1.5 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full mr-2"></div>
             Notifications
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-2 px-3 pb-3">
           {Array.from({ length: 3 }).map((_, i) => (
             <div
               key={i}
-              className="h-20 bg-gradient-to-r from-gray-100 to-gray-200 animate-pulse rounded-xl"
+              className="h-16 bg-gradient-to-r from-gray-100 to-gray-200 animate-pulse rounded-lg"
             />
           ))}
         </CardContent>
@@ -124,14 +124,14 @@ export function NotificationCenter({
   }
 
   return (
-    <Card className="border-2 border-gray-200 shadow-lg hover:shadow-xl transition-all duration-300 bg-white">
-      <CardHeader className="pb-4">
+    <Card className="border shadow-md hover:shadow-lg transition-all duration-200 bg-white">
+      <CardHeader className="pb-2 pt-3 px-3">
         <div className="flex items-center justify-between">
-          <CardTitle className="text-lg font-bold text-gray-900 flex items-center">
-            <div className="w-2 h-2 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full mr-3"></div>
+          <CardTitle className="text-sm font-semibold text-gray-900 flex items-center">
+            <div className="w-1.5 h-1.5 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full mr-2"></div>
             Notifications
             {unreadCount > 0 && (
-              <Badge className="ml-3 bg-red-500 text-white px-2 py-1 text-xs font-bold rounded-full">
+              <Badge className="ml-2 bg-red-500 text-white px-1.5 py-0.5 text-xs font-bold rounded-full">
                 {unreadCount}
               </Badge>
             )}
@@ -141,17 +141,17 @@ export function NotificationCenter({
               variant="ghost"
               size="sm"
               onClick={() => setIsExpanded(!isExpanded)}
-              className="text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg px-3 py-2"
+              className="text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md px-2 py-1 text-xs"
             >
               {isExpanded ? (
                 <>
-                  <ChevronUp className="h-4 w-4 mr-1" />
-                  Show Less
+                  <ChevronUp className="h-3 w-3 mr-1" />
+                  Less
                 </>
               ) : (
                 <>
-                  <ChevronDown className="h-4 w-4 mr-1" />
-                  Show All ({visibleNotifications.length})
+                  <ChevronDown className="h-3 w-3 mr-1" />
+                  All ({visibleNotifications.length})
                 </>
               )}
             </Button>
@@ -159,21 +159,21 @@ export function NotificationCenter({
         </div>
       </CardHeader>
 
-      <CardContent>
+      <CardContent className="px-3 pb-3">
         {displayedNotifications.length === 0 ? (
-          <div className="text-center py-12">
-            <div className="w-16 h-16 bg-gradient-to-br from-gray-100 to-gray-200 rounded-2xl flex items-center justify-center mx-auto mb-4">
-              <Bell className="h-8 w-8 text-gray-400" />
+          <div className="text-center py-8">
+            <div className="w-12 h-12 bg-gradient-to-br from-gray-100 to-gray-200 rounded-xl flex items-center justify-center mx-auto mb-3">
+              <Bell className="h-6 w-6 text-gray-400" />
             </div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">
+            <h3 className="text-sm font-medium text-gray-900 mb-1">
               No notifications yet
             </h3>
-            <p className="text-gray-600 text-sm">
+            <p className="text-xs text-gray-600">
               We'll notify you when something important happens.
             </p>
           </div>
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-2">
             {displayedNotifications.map((notification) => {
               const Icon = notificationIcons[notification.type] || Bell;
               const style = notificationStyles[notification.type] || notificationStyles.system;
@@ -182,57 +182,57 @@ export function NotificationCenter({
                 <div
                   key={notification.id}
                   className={cn(
-                    "group relative overflow-hidden rounded-xl border-2 p-4 transition-all duration-300",
+                    "group relative overflow-hidden rounded-lg border p-3 transition-all duration-200",
                     style.cardBg,
                     style.border,
                     notification.read 
                       ? "opacity-75 hover:opacity-90" 
-                      : "shadow-md hover:shadow-lg transform hover:-translate-y-0.5"
+                      : "shadow-sm hover:shadow-md transform hover:-translate-y-0.5"
                   )}
                 >
                   {/* Background pattern for unread notifications */}
                   {!notification.read && (
                     <div className="absolute inset-0 opacity-5">
                       <div className="absolute inset-0" style={{
-                        backgroundImage: `url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23000000' fill-opacity='0.1'%3E%3Ccircle cx='6' cy='6' r='1'/%3E%3Ccircle cx='14' cy='14' r='1'/%3E%3Ccircle cx='22' cy='22' r='1'/%3E%3Ccircle cx='30' cy='30' r='1'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`
+                        backgroundImage: `url("data:image/svg+xml,%3Csvg width='30' height='30' viewBox='0 0 30 30' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23000000' fill-opacity='0.1'%3E%3Ccircle cx='5' cy='5' r='1'/%3E%3Ccircle cx='15' cy='15' r='1'/%3E%3Ccircle cx='25' cy='25' r='1'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`
                       }}></div>
                     </div>
                   )}
 
-                  <div className="relative flex items-start space-x-4">
+                  <div className="relative flex items-start space-x-3">
                     <div className={cn(
-                      "w-10 h-10 rounded-xl flex items-center justify-center shadow-md flex-shrink-0",
+                      "w-7 h-7 rounded-lg flex items-center justify-center shadow-sm flex-shrink-0",
                       style.iconBg
                     )}>
-                      <Icon className="h-5 w-5 text-white" />
+                      <Icon className="h-4 w-4 text-white" />
                     </div>
 
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-start justify-between mb-2">
-                        <h4 className="font-semibold text-gray-900 text-sm leading-tight">
+                      <div className="flex items-start justify-between mb-1">
+                        <h4 className="font-medium text-gray-900 text-sm leading-tight">
                           {notification.title}
                         </h4>
-                        <div className="flex items-center space-x-2 flex-shrink-0 ml-3">
-                          <span className="text-xs text-gray-500 font-medium">
+                        <div className="flex items-center space-x-1 flex-shrink-0 ml-2">
+                          <span className="text-xs text-gray-500">
                             {formatTime(notification.created_at)}
                           </span>
                           <Button
                             variant="ghost"
                             size="sm"
                             onClick={() => handleDismiss(notification.id)}
-                            className="h-6 w-6 p-0 hover:bg-gray-200 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                            className="h-5 w-5 p-0 hover:bg-gray-200 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
                           >
                             <X className="h-3 w-3" />
                           </Button>
                         </div>
                       </div>
 
-                      <p className="text-sm text-gray-600 mb-3 leading-relaxed">
+                      <p className="text-xs text-gray-600 mb-2 leading-tight">
                         {notification.message}
                       </p>
 
                       <div className="flex items-center justify-between">
-                        <Badge className={cn("text-xs font-medium px-2 py-1", style.badge)}>
+                        <Badge className={cn("text-xs px-1.5 py-0.5", style.badge)}>
                           {notification.type.replace('_', ' ').toUpperCase()}
                         </Badge>
 
@@ -241,7 +241,7 @@ export function NotificationCenter({
                             variant="ghost"
                             size="sm"
                             onClick={() => handleMarkAsRead(notification.id)}
-                            className="text-xs text-gray-500 hover:text-gray-700 hover:bg-gray-100 px-3 py-1 rounded-lg"
+                            className="text-xs text-gray-500 hover:text-gray-700 hover:bg-gray-100 px-2 py-1 rounded-md"
                           >
                             Mark as read
                           </Button>
@@ -253,7 +253,7 @@ export function NotificationCenter({
                   {/* Unread indicator */}
                   {!notification.read && (
                     <div className={cn(
-                      "absolute left-0 top-0 bottom-0 w-1",
+                      "absolute left-0 top-0 bottom-0 w-0.5",
                       style.iconBg
                     )}></div>
                   )}

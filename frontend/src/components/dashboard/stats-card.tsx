@@ -80,7 +80,7 @@ export function StatsCard({
 
   return (
     <Card className={cn(
-      "relative overflow-hidden border-2 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1",
+      "relative overflow-hidden border shadow-md hover:shadow-lg transition-all duration-200 transform hover:-translate-y-0.5",
       style.cardBg,
       style.borderColor,
       className
@@ -88,47 +88,47 @@ export function StatsCard({
       {/* Subtle background pattern */}
       <div className="absolute inset-0 opacity-5">
         <div className="absolute inset-0" style={{
-          backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23000000' fill-opacity='0.1'%3E%3Ccircle cx='9' cy='9' r='1'/%3E%3Ccircle cx='19' cy='19' r='1'/%3E%3Ccircle cx='29' cy='29' r='1'/%3E%3Ccircle cx='39' cy='39' r='1'/%3E%3Ccircle cx='49' cy='49' r='1'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`
+          backgroundImage: `url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23000000' fill-opacity='0.1'%3E%3Ccircle cx='6' cy='6' r='1'/%3E%3Ccircle cx='14' cy='14' r='1'/%3E%3Ccircle cx='22' cy='22' r='1'/%3E%3Ccircle cx='30' cy='30' r='1'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`
         }}></div>
       </div>
 
-      <CardHeader className="relative flex flex-row items-center justify-between space-y-0 pb-3">
-        <CardTitle className="text-sm font-semibold text-gray-700">
+      <CardHeader className="relative flex flex-row items-center justify-between space-y-0 pb-2 pt-3 px-3">
+        <CardTitle className="text-xs font-medium text-gray-600 leading-tight">
           {title}
         </CardTitle>
         <div className={cn(
-          "w-12 h-12 rounded-xl flex items-center justify-center shadow-lg",
+          "w-8 h-8 rounded-lg flex items-center justify-center shadow-md",
           style.iconBg
         )}>
-          <Icon className={cn("h-6 w-6", style.iconColor)} />
+          <Icon className={cn("h-4 w-4", style.iconColor)} />
         </div>
       </CardHeader>
       
-      <CardContent className="relative pt-0">
-        <div className={cn("text-3xl font-bold mb-2", style.accentColor)}>
+      <CardContent className="relative pt-0 pb-3 px-3">
+        <div className={cn("text-2xl font-bold mb-1", style.accentColor)}>
           {value}
         </div>
         
         {description && (
-          <p className="text-sm text-gray-600 mb-3 leading-relaxed">
+          <p className="text-xs text-gray-500 mb-2 leading-tight">
             {description}
           </p>
         )}
         
         {trend && (
-          <div className="flex items-center justify-between pt-3 border-t border-white/50">
+          <div className="flex items-center justify-between pt-2 border-t border-white/50">
             <div className={cn(
-              "flex items-center text-sm font-semibold",
+              "flex items-center text-xs font-medium",
               trend.isPositive ? "text-emerald-600" : "text-red-600"
             )}>
               {trend.isPositive ? (
-                <TrendingUp className="w-4 h-4 mr-1.5" />
+                <TrendingUp className="w-3 h-3 mr-1" />
               ) : (
-                <TrendingDown className="w-4 h-4 mr-1.5" />
+                <TrendingDown className="w-3 h-3 mr-1" />
               )}
               {Math.abs(trend.value)}%
             </div>
-            <span className="text-xs text-gray-500 font-medium">
+            <span className="text-xs text-gray-400">
               vs last month
             </span>
           </div>
@@ -136,7 +136,7 @@ export function StatsCard({
 
         {/* Bottom accent line */}
         <div className={cn(
-          "absolute bottom-0 left-0 right-0 h-1",
+          "absolute bottom-0 left-0 right-0 h-0.5",
           style.iconBg
         )}></div>
       </CardContent>
