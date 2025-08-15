@@ -93,8 +93,8 @@ export function CollaborationHistory() {
     );
   }
 
-  const collaborations = collaborationHistory.data?.results || [];
-  const brands = Array.from(new Set(collaborations.map((c: CollaborationHistoryType) => c.brand.name)));
+  const collaborations = (collaborationHistory.data?.results as CollaborationHistoryType[]) || [];
+  const brands: string[] = Array.from(new Set(collaborations.map((c: CollaborationHistoryType) => c.brand.name)));
 
   // Filter collaborations
   const filteredCollaborations = collaborations.filter((collaboration: CollaborationHistoryType) => {

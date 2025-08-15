@@ -183,7 +183,7 @@ export function DealCard({
                 <span className="text-xs font-medium">Compensation</span>
               </div>
               <div className="text-sm font-bold text-green-800">
-                {deal?.campaign?.compensation ? formatCurrency(deal.campaign.compensation) : "TBD"}
+                {deal?.campaign?.cash_amount ? formatCurrency(deal.campaign.cash_amount) : "TBD"}
               </div>
             </div>
 
@@ -216,7 +216,7 @@ export function DealCard({
                 <span className="text-xs font-medium">Content</span>
               </div>
               <div className="text-sm font-bold text-purple-800">
-                {deal?.campaign?.deliverables_count || 0} pieces
+                {deal?.campaign?.content_requirements?.post_count || 0} pieces
               </div>
             </div>
 
@@ -227,7 +227,7 @@ export function DealCard({
                 <span className="text-xs font-medium">Platform</span>
               </div>
               <div className="text-sm font-bold text-indigo-800">
-                {deal?.campaign?.platform || "Multi"}
+                {deal?.campaign?.content_requirements?.platforms?.join(", ") || "Multi"}
               </div>
             </div>
           </div>
@@ -248,7 +248,8 @@ export function DealCard({
       {/* Content Submission Modal */}
       {showContentSubmission && (
         <ContentSubmissionModal
-          dealId={deal.id}
+          deal={deal}
+          isOpen={showContentSubmission}
           onClose={() => setShowContentSubmission(false)}
         />
       )}

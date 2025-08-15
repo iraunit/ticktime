@@ -213,12 +213,12 @@ export function AnalyticsOverview() {
                       <HiUsers className="w-4 h-4 text-white" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-900 truncate">{item.brand_name}</p>
+                      <p className="text-sm font-medium text-gray-900 truncate">{item.brand.name}</p>
                       <p className="text-xs text-gray-600 truncate">{item.campaign_title}</p>
                     </div>
                     <div className="text-right">
-                      <p className="text-sm font-bold text-green-600">₹{item.amount.toLocaleString()}</p>
-                      <p className="text-xs text-gray-500">{new Date(item.completion_date).toLocaleDateString()}</p>
+                      <p className="text-sm font-bold text-green-600">₹{item.total_value.toLocaleString()}</p>
+                      <p className="text-xs text-gray-500">{item.completed_at ? new Date(item.completed_at).toLocaleDateString() : 'N/A'}</p>
                     </div>
                   </div>
                 ))}

@@ -386,7 +386,7 @@ export function DealDetails({
                 onAccept={onAccept}
                 onReject={onReject}
                 onMessage={onMessage}
-                onSubmitContent={() => setShowContentSubmission(true)}
+                onContentSubmission={() => setShowContentSubmission(true)}
                 isLoading={isLoading}
               />
             </CardContent>
