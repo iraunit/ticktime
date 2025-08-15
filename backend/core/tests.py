@@ -473,17 +473,17 @@ class AuthenticationTestCase(APITestCase):
         self.login_url = reverse('core:login')
         self.logout_url = reverse('core:logout')
         self.forgot_password_url = reverse('core:forgot_password')
-        self.google_oauth_url = reverse('core:google_oauth')
         self.profile_url = reverse('core:user_profile')
         
         # Test user data
         self.user_data = {
             'first_name': 'John',
             'last_name': 'Doe',
-            'email': 'john.doe@example.com',
+            'email': 'john@example.com',
             'password': 'TestPassword123!',
             'password_confirm': 'TestPassword123!',
-            'phone_number': '+1234567890',
+            'phone_number': '1234567890',
+            'country_code': '+1',
             'username': 'johndoe',
             'industry': 'tech_gaming'
         }
@@ -518,17 +518,20 @@ class AuthenticationTestCase(APITestCase):
         user = User.objects.get(email=self.user_data['email'])
         self.assertEqual(user.first_name, self.user_data['first_name'])
         self.assertEqual(user.last_name, self.user_data['last_name'])
-        self.assertFalse(user.is_active)  # Should be inactive until email verification
+        self.assertTrue(user.is_active)  # Should be active by default for influencers
         
         # Check influencer profile was created
         profile = InfluencerProfile.objects.get(user=user)
         self.assertEqual(profile.username, self.user_data['username'])
         self.assertEqual(profile.industry, self.user_data['industry'])
         self.assertEqual(profile.phone_number, self.user_data['phone_number'])
+        self.assertEqual(profile.country_code, self.user_data['country_code'])
+        self.assertTrue(profile.is_verified)  # Should be verified by default
+        self.assertTrue(profile.email_verified)  # Should be email verified by default
+        self.assertTrue(profile.phone_number_verified)  # Should be phone verified by default
         
-        # Check verification email was sent
-        self.assertEqual(len(mail.outbox), 1)
-        self.assertIn('Verify your InfluencerConnect account', mail.outbox[0].subject)
+        # No verification email should be sent since account is active by default
+        self.assertEqual(len(mail.outbox), 0)
 
     def test_user_signup_duplicate_email(self):
         """Test signup with duplicate email."""
@@ -747,81 +750,6 @@ class AuthenticationTestCase(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertEqual(response.data['status'], 'error')
         self.assertIn('Invalid or expired', response.data['message'])
-
-    @patch('google.oauth2.id_token.verify_oauth2_token')
-    def test_google_oauth_success_existing_user(self, mock_verify):
-        """Test successful Google OAuth with existing user."""
-        # Mock Google token verification
-        mock_verify.return_value = {
-            'iss': 'accounts.google.com',
-            'email': 'testuser@example.com',
-            'given_name': 'Test',
-            'family_name': 'User'
-        }
-        
-        oauth_data = {
-            'access_token': 'mock_google_token'
-        }
-        
-        response = self.client.post(self.google_oauth_url, oauth_data, format='json')
-        
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data['status'], 'success')
-        self.assertIn('access_token', response.data)
-        self.assertIn('refresh_token', response.data)
-        self.assertIn('user', response.data)
-        self.assertFalse(response.data['is_new_user'])
-
-    @patch('google.oauth2.id_token.verify_oauth2_token')
-    def test_google_oauth_success_new_user(self, mock_verify):
-        """Test successful Google OAuth with new user."""
-        # Mock Google token verification
-        mock_verify.return_value = {
-            'iss': 'accounts.google.com',
-            'email': 'newuser@example.com',
-            'given_name': 'New',
-            'family_name': 'User'
-        }
-        
-        oauth_data = {
-            'access_token': 'mock_google_token'
-        }
-        
-        response = self.client.post(self.google_oauth_url, oauth_data, format='json')
-        
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data['status'], 'success')
-        self.assertIn('access_token', response.data)
-        self.assertIn('refresh_token', response.data)
-        self.assertIn('user', response.data)
-        self.assertTrue(response.data['is_new_user'])
-        
-        # Check user was created
-        user = User.objects.get(email='newuser@example.com')
-        self.assertEqual(user.first_name, 'New')
-        self.assertEqual(user.last_name, 'User')
-        self.assertTrue(user.is_active)
-        
-        # Check influencer profile was created
-        profile = InfluencerProfile.objects.get(user=user)
-        self.assertEqual(profile.username, 'newuser')
-        self.assertEqual(profile.industry, 'other')
-
-    @patch('google.oauth2.id_token.verify_oauth2_token')
-    def test_google_oauth_invalid_token(self, mock_verify):
-        """Test Google OAuth with invalid token."""
-        # Mock Google token verification to raise ValueError
-        mock_verify.side_effect = ValueError('Invalid token')
-        
-        oauth_data = {
-            'access_token': 'invalid_google_token'
-        }
-        
-        response = self.client.post(self.google_oauth_url, oauth_data, format='json')
-        
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertEqual(response.data['status'], 'error')
-        self.assertIn('Invalid Google access token', response.data['message'])
 
     def test_user_profile_authenticated(self):
         """Test getting user profile when authenticated."""

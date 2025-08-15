@@ -10,6 +10,7 @@ class InfluencerProfile(models.Model):
     """
     user = models.OneToOneField('auth.User', on_delete=models.CASCADE, related_name='influencer_profile')
     phone_number = models.CharField(max_length=15, blank=True)
+    country_code = models.CharField(max_length=5, default='+91', help_text='Country code for phone number (e.g., +1, +44, +91)')
     username = models.CharField(max_length=50, unique=True)
     industry = models.CharField(max_length=50, choices=INDUSTRY_CHOICES)
     bio = models.TextField(blank=True)
@@ -18,6 +19,8 @@ class InfluencerProfile(models.Model):
     aadhar_number = models.CharField(max_length=12, blank=True)
     aadhar_document = models.FileField(upload_to='documents/', blank=True, null=True)
     is_verified = models.BooleanField(default=False)
+    email_verified = models.BooleanField(default=False)
+    phone_number_verified = models.BooleanField(default=False)
     bank_account_number = models.CharField(max_length=20, blank=True)
     bank_ifsc_code = models.CharField(max_length=11, blank=True)
     bank_account_holder_name = models.CharField(max_length=100, blank=True)

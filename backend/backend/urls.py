@@ -38,9 +38,6 @@ urlpatterns = [
     path('api/', include('dashboard.urls', namespace='dashboard')),
     
     # Core app removed - functionality distributed to other apps
-    
-    # OAuth2 provider
-    path('o/', include('oauth2_provider.urls', namespace='oauth2_provider')),
 ]
 
 # Serve media and static files during development

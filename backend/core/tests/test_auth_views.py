@@ -9,8 +9,8 @@ User = get_user_model()
 
 @pytest.mark.django_db
 class TestAuthViews:
-    def test_signup_success(self, api_client, mock_email_backend):
-        """Test successful user signup."""
+    def test_signup_success(self, api_client):
+        """Test successful user registration."""
         url = reverse('signup')
         data = {
             'first_name': 'John',
@@ -18,7 +18,8 @@ class TestAuthViews:
             'email': 'john@example.com',
             'password': 'TestPassword123!',
             'password_confirm': 'TestPassword123!',
-            'phone_number': '+1234567890',
+            'phone_number': '1234567890',
+            'country_code': '+1',
             'username': 'johndoe',
             'industry': 'tech_gaming'
         }
@@ -26,22 +27,25 @@ class TestAuthViews:
         response = api_client.post(url, data, format='json')
         
         assert response.status_code == status.HTTP_201_CREATED
-        assert response.data['message'] == 'User created successfully. Please verify your email.'
+        assert response.data['message'] == 'Account created successfully! You can now log in.'
         
         # Check user was created
         user = User.objects.get(email='john@example.com')
         assert user.first_name == 'John'
         assert user.last_name == 'Doe'
-        assert not user.is_active  # Should be inactive until email verification
+        assert user.is_active  # Should be active by default for influencers
         
         # Check profile was created
-        assert hasattr(user, 'profile')
-        assert user.profile.username == 'johndoe'
-        assert user.profile.industry == 'tech_gaming'
+        assert hasattr(user, 'influencer_profile')
+        assert user.influencer_profile.username == 'johndoe'
+        assert user.influencer_profile.industry == 'tech_gaming'
+        assert user.influencer_profile.country_code == '+1'
+        assert user.influencer_profile.is_verified  # Should be verified by default
+        assert user.influencer_profile.email_verified  # Should be email verified by default
+        assert user.influencer_profile.phone_number_verified  # Should be phone verified by default
         
-        # Check email was sent
-        assert len(mail.outbox) == 1
-        assert 'Verify your email' in mail.outbox[0].subject
+        # No verification email should be sent since account is active by default
+        assert len(mail.outbox) == 0
 
     def test_signup_password_mismatch(self, api_client):
         """Test signup with password mismatch."""

@@ -15,13 +15,14 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, validators=[validate_password])
     password_confirm = serializers.CharField(write_only=True)
     phone_number = serializers.CharField(max_length=15)
+    country_code = serializers.CharField(max_length=5, default='+91')
     username = serializers.CharField(max_length=50)
     industry = serializers.ChoiceField(choices=INDUSTRY_CHOICES)
 
     class Meta:
         model = User
         fields = ('first_name', 'last_name', 'email', 'password', 'password_confirm', 
-                 'phone_number', 'username', 'industry')
+                 'phone_number', 'country_code', 'username', 'industry')
 
     def validate_email(self, value):
         """Validate email is unique and properly formatted."""
@@ -66,6 +67,7 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         
         # Extract influencer profile data
         phone_number = validated_data.pop('phone_number')
+        country_code = validated_data.pop('country_code', '+91')
         username = validated_data.pop('username')
         industry = validated_data.pop('industry')
         
@@ -76,18 +78,22 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
             first_name=validated_data['first_name'],
             last_name=validated_data['last_name'],
             password=validated_data['password'],
-            is_active=False  # User needs to verify email first
+            is_active=True  # Make user active by default for influencers
         )
         
         # Import here to avoid circular imports
         from influencers.models import InfluencerProfile
         
-        # Create influencer profile
+        # Create influencer profile with verified status
         InfluencerProfile.objects.create(
             user=user,
             phone_number=phone_number,
+            country_code=country_code,
             username=username,
-            industry=industry
+            industry=industry,
+            is_verified=True,  # Make influencer verified by default
+            email_verified=True,  # Email verified by default
+            phone_number_verified=True  # Phone verified by default
         )
         
         return user
@@ -215,21 +221,6 @@ class PasswordResetConfirmSerializer(serializers.Serializer):
         if attrs['password'] != attrs['password_confirm']:
             raise serializers.ValidationError("Password confirmation doesn't match.")
         return attrs
-
-
-class GoogleOAuthSerializer(serializers.Serializer):
-    """
-    Serializer for Google OAuth authentication.
-    """
-    access_token = serializers.CharField()
-    
-    def validate_access_token(self, value):
-        """Validate Google access token and extract user info."""
-        # This will be implemented with Google OAuth verification
-        # For now, we'll add a placeholder
-        if not value:
-            raise serializers.ValidationError("Access token is required.")
-        return value
 
 
 class UserProfileSerializer(serializers.ModelSerializer):

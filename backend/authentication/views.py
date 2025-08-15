@@ -11,8 +11,6 @@ from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from django.utils.encoding import force_bytes, force_str
 from django.conf import settings
 from django.middleware.csrf import get_token
-from google.oauth2 import id_token
-from google.auth.transport import requests
 import logging
 
 from common.decorators import (
@@ -26,7 +24,6 @@ from .serializers import (
     UserLoginSerializer,
     PasswordResetRequestSerializer,
     PasswordResetConfirmSerializer,
-    GoogleOAuthSerializer,
     UserProfileSerializer,
     BrandRegistrationSerializer,
 )
@@ -166,8 +163,8 @@ def logout_view(request):
 @permission_classes([AllowAny])
 def signup_view(request):
     """
-    User registration endpoint with email verification for influencers.
-    Returns JWT tokens for immediate login and includes a verification email.
+    User registration endpoint for influencers.
+    Creates verified and active accounts for immediate login.
     """
     serializer = UserRegistrationSerializer(data=request.data)
     
@@ -175,48 +172,14 @@ def signup_view(request):
         try:
             user = serializer.save()
             
-            # Send verification email (user remains inactive until verified)
-            token = generate_email_verification_token(user)
-            current_site = get_current_site(request)
-            verification_url = f"http://{current_site.domain}/api/auth/verify-email/{token}/"
-            subject = 'Verify your InfluencerConnect account'
-            message = f"""
-            Hi {user.first_name},
-            
-            Welcome to InfluencerConnect! Please click the link below to verify your email address:
-            
-            {verification_url}
-            
-            If you didn't create this account, please ignore this email.
-            
-            Best regards,
-            The InfluencerConnect Team
-            """
-            try:
-                send_mail(
-                    subject,
-                    message,
-                    settings.EMAIL_HOST_USER,
-                    [user.email],
-                    fail_silently=False,
-                )
-            except Exception as e:
-                logger.warning(f"Verification email send failed: {str(e)}")
-
-            # Issue tokens but mark user as pending verification in response
-            # refresh = RefreshToken.for_user(user)
-            # access_token = refresh.access_token
-
             profile_serializer = UserProfileSerializer(user, context={'request': request})
 
             return Response({
                 'status': 'success',
-                'message': 'Account created successfully. Please check your email to verify your account.',
+                'message': 'Account created successfully! You can now log in.',
                 'user_id': user.id,
-                # 'access': str(access_token),
-                # 'refresh': str(refresh),
                 'user': profile_serializer.data,
-                'requires_email_verification': True,
+                'requires_email_verification': False,
             }, status=status.HTTP_201_CREATED)
             
         except Exception as e:
@@ -394,101 +357,6 @@ def reset_password_view(request, uid, token):
     return Response({
         'status': 'error',
         'message': 'Invalid password data.',
-        'errors': serializer.errors
-    }, status=status.HTTP_400_BAD_REQUEST)
-
-
-@api_view(['POST'])
-@permission_classes([AllowAny])
-def google_oauth_view(request):
-    """
-    Google OAuth authentication endpoint.
-    """
-    serializer = GoogleOAuthSerializer(data=request.data)
-    
-    if serializer.is_valid():
-        access_token = serializer.validated_data['access_token']
-        
-        try:
-            # Verify the Google access token
-            idinfo = id_token.verify_oauth2_token(
-                access_token, 
-                requests.Request(), 
-                settings.GOOGLE_OAUTH2_CLIENT_ID
-            )
-            
-            if idinfo['iss'] not in ['accounts.google.com', 'https://accounts.google.com']:
-                raise ValueError('Wrong issuer.')
-            
-            # Extract user information
-            email = idinfo['email']
-            first_name = idinfo.get('given_name', '')
-            last_name = idinfo.get('family_name', '')
-            
-            # Check if user exists
-            try:
-                user = User.objects.get(email=email)
-                # User exists, log them in
-                if not user.is_active:
-                    user.is_active = True
-                    user.save()
-                    
-            except User.DoesNotExist:
-                # Create new user
-                username = email  # Use email as username
-                user = User.objects.create_user(
-                    username=username,
-                    email=email,
-                    first_name=first_name,
-                    last_name=last_name,
-                    is_active=True  # Google users are pre-verified
-                )
-                
-                # Import InfluencerProfile here to avoid circular imports
-                from influencers.models import InfluencerProfile
-                
-                # Create influencer profile with default values
-                # User will need to complete their profile later
-                InfluencerProfile.objects.create(
-                    user=user,
-                    username=email.split('@')[0],  # Use email prefix as default username
-                    industry='other',  # Default industry, user can change later
-                    phone_number='',  # Will be filled later
-                )
-            
-            # Generate JWT tokens
-            # refresh = RefreshToken.for_user(user)
-            # access_token = refresh.access_token
-            
-            # Get user profile information
-            profile_serializer = UserProfileSerializer(user, context={'request': request})
-            
-            return Response({
-                'status': 'success',
-                'message': 'Google OAuth login successful',
-                # 'access_token': str(access_token),
-                # 'refresh_token': str(refresh),
-                'user': profile_serializer.data,
-                'is_new_user': not hasattr(user, 'influencer_profile') or not user.influencer_profile.phone_number
-            }, status=status.HTTP_200_OK)
-            
-        except ValueError as e:
-            logger.error(f"Google OAuth verification failed: {str(e)}")
-            return Response({
-                'status': 'error',
-                'message': 'Invalid Google access token.'
-            }, status=status.HTTP_400_BAD_REQUEST)
-            
-        except Exception as e:
-            logger.error(f"Google OAuth failed: {str(e)}")
-            return Response({
-                'status': 'error',
-                'message': 'Google OAuth authentication failed.'
-            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-    
-    return Response({
-        'status': 'error',
-        'message': 'Invalid access token.',
         'errors': serializer.errors
     }, status=status.HTTP_400_BAD_REQUEST)
 

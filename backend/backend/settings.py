@@ -48,7 +48,6 @@ INSTALLED_APPS = [
     "channels",
     "rest_framework",
     "corsheaders",
-    "oauth2_provider",
     "core",
     "common",
     "authentication",
@@ -66,7 +65,6 @@ MIDDLEWARE = [
     "corsheaders.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
-    "oauth2_provider.middleware.OAuth2TokenMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "common.middleware.DynamicCSRFDomainMiddleware",  # Add before CSRF middleware
     "django.middleware.common.CommonMiddleware",
@@ -163,7 +161,6 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (
         "rest_framework.authentication.SessionAuthentication",
-        "oauth2_provider.contrib.rest_framework.OAuth2Authentication",
     ),
     "DEFAULT_PERMISSION_CLASSES": [
         "rest_framework.permissions.IsAuthenticated",
@@ -192,16 +189,6 @@ CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOW_HEADERS = [
     'accept', 'accept-encoding', 'authorization', 'content-type', 'dnt', 'origin', 'user-agent', 'x-csrftoken', 'x-requested-with'
 ]
-
-# OAuth2 Configuration
-OAUTH2_PROVIDER = {
-    "SCOPES": {
-        "read": "Read scope",
-        "write": "Write scope",
-    },
-    "ACCESS_TOKEN_EXPIRE_SECONDS": 3600,
-    "REFRESH_TOKEN_EXPIRE_SECONDS": 3600 * 24 * 7,
-}
 
 # Media files
 MEDIA_URL = "/media/"

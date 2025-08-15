@@ -70,12 +70,13 @@ export function useAuth() {
       first_name: string;
       last_name: string;
       phone_number: string;
+      country_code: string;
       username: string;
       industry: string;
     }) => authApi.signup(data),
     onSuccess: () => {
-      // After signup, user may need to verify email; redirect accordingly
-      router.push('/login?message=Please check your email to verify your account');
+      // After signup, redirect to login with success message since account is verified
+      router.push('/login?message=Account created successfully! You can now log in.');
     },
   });
 
@@ -115,18 +116,6 @@ export function useAuth() {
     },
   });
 
-  // Google auth mutation — should create session server-side
-  const googleAuthMutation = useMutation({
-    mutationFn: (token: string) => authApi.googleAuth(token),
-    onSuccess: async () => {
-      setIsAuthenticatedState(true);
-      queryClient.invalidateQueries({ queryKey: ['user'] });
-      await refreshUserContext();
-      const next = getNextPath();
-      router.push(next || '/dashboard');
-    },
-  });
-
   // Forgot/reset password unchanged
   const forgotPasswordMutation = useMutation({
     mutationFn: (email: string) => authApi.forgotPassword(email),
@@ -148,7 +137,6 @@ export function useAuth() {
     signup: signupMutation,
     brandSignup: brandSignupMutation,
     logout: logoutMutation,
-    googleAuth: googleAuthMutation,
     forgotPassword: forgotPasswordMutation,
     resetPassword: resetPasswordMutation,
   };
