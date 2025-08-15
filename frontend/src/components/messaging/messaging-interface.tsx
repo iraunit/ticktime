@@ -11,7 +11,7 @@ import { ScrollToBottom } from "./scroll-to-bottom";
 import { Message, Deal } from "@/types";
 import { Card } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { AlertCircle } from "@/lib/icons";
+import { HiExclamationTriangle } from "react-icons/hi2";
 
 interface MessagingInterfaceProps {
   deal: Deal;
@@ -142,9 +142,9 @@ export function MessagingInterface({ deal, className = "" }: MessagingInterfaceP
   if (messages.isError) {
     return (
       <Card className={`p-6 ${className}`}>
-        <Alert variant="destructive">
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription>
+        <Alert className="border-red-200 bg-red-50">
+          <HiExclamationTriangle className="h-4 w-4 text-red-600" />
+          <AlertDescription className="text-red-800">
             Failed to load messages. Please try again.
           </AlertDescription>
         </Alert>

@@ -19,11 +19,11 @@ import {
   Bar
 } from "recharts";
 import { 
-  DollarSign, 
-  TrendingUp, 
-  Calendar,
-  Award
-} from "@/lib/icons";
+  HiBanknotes, 
+  HiArrowTrendingUp, 
+  HiCalendarDays,
+  HiTrophy
+} from "react-icons/hi2";
 import { Skeleton } from "@/components/ui/skeleton";
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8'];
@@ -74,7 +74,7 @@ export function EarningsDashboard() {
           <div className="grid gap-4 md:grid-cols-4">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-green-100 rounded-lg">
-                <DollarSign className="h-5 w-5 text-green-600" />
+                <HiBanknotes className="h-5 w-5 text-green-600" />
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Total Earnings</p>
@@ -84,7 +84,7 @@ export function EarningsDashboard() {
             
             <div className="flex items-center gap-3">
               <div className="p-2 bg-blue-100 rounded-lg">
-                <TrendingUp className="h-5 w-5 text-blue-600" />
+                <HiArrowTrendingUp className="h-5 w-5 text-blue-600" />
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">This Month</p>
@@ -96,7 +96,7 @@ export function EarningsDashboard() {
 
             <div className="flex items-center gap-3">
               <div className="p-2 bg-purple-100 rounded-lg">
-                <Calendar className="h-5 w-5 text-purple-600" />
+                <HiCalendarDays className="h-5 w-5 text-purple-600" />
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Avg Monthly</p>
@@ -110,7 +110,7 @@ export function EarningsDashboard() {
 
             <div className="flex items-center gap-3">
               <div className="p-2 bg-orange-100 rounded-lg">
-                <Award className="h-5 w-5 text-orange-600" />
+                <HiTrophy className="h-5 w-5 text-orange-600" />
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Top Brand</p>

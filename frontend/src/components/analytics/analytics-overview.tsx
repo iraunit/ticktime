@@ -4,13 +4,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatsCard } from "@/components/dashboard/stats-card";
 import { useAnalytics } from "@/hooks/use-analytics";
 import { 
-  TrendingUp, 
-  Users, 
-  DollarSign, 
-  Award,
-  Calendar,
-  Star
-} from "@/lib/icons";
+  HiArrowTrendingUp, 
+  HiUsers, 
+  HiBanknotes, 
+  HiTrophy,
+  HiCalendarDays,
+  HiStar,
+  HiChartBar
+} from "react-icons/hi2";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CollaborationHistory } from "@/types";
 
@@ -19,18 +20,31 @@ export function AnalyticsOverview() {
 
   if (performance.isLoading || earnings.isLoading || collaborationHistory.isLoading) {
     return (
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        {Array.from({ length: 6 }).map((_, i) => (
-          <Card key={i}>
-            <CardHeader>
-              <Skeleton className="h-4 w-24" />
-            </CardHeader>
-            <CardContent>
-              <Skeleton className="h-8 w-16 mb-2" />
-              <Skeleton className="h-3 w-32" />
-            </CardContent>
-          </Card>
-        ))}
+      <div className="space-y-6">
+        {/* Loading Header */}
+        <div className="bg-white rounded-xl border shadow-lg p-6">
+          <Skeleton className="h-6 w-48 mb-2" />
+          <Skeleton className="h-4 w-96" />
+        </div>
+        
+        {/* Loading Stats Grid */}
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <Card key={i} className="rounded-xl border shadow-lg">
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <Skeleton className="h-4 w-24" />
+                  <Skeleton className="h-8 w-8 rounded-lg" />
+                </div>
+              </CardHeader>
+              <CardContent>
+                <Skeleton className="h-8 w-16 mb-3" />
+                <Skeleton className="h-3 w-32 mb-2" />
+                <Skeleton className="h-2 w-full" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
       </div>
     );
   }
@@ -41,12 +55,26 @@ export function AnalyticsOverview() {
 
   return (
     <div className="space-y-6">
+      {/* Enhanced Section Header */}
+      <div className="bg-white rounded-xl border shadow-lg p-6">
+        <div className="flex items-center mb-4">
+          <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-xl flex items-center justify-center shadow-lg mr-4">
+            <HiChartBar className="w-5 h-5 text-white" />
+          </div>
+          <div>
+            <h2 className="text-xl font-bold text-gray-900">Performance Overview</h2>
+            <p className="text-gray-600">Your collaboration analytics at a glance</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Enhanced Stats Grid */}
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         <StatsCard
           title="Total Collaborations"
           value={performanceData?.total_collaborations || 0}
           description="All time collaborations"
-          icon={Calendar}
+          icon={HiCalendarDays}
           trend={performanceData?.growth_metrics?.deals_growth ? {
             value: performanceData.growth_metrics.deals_growth,
             isPositive: performanceData.growth_metrics.deals_growth > 0
@@ -57,84 +85,93 @@ export function AnalyticsOverview() {
           title="Total Brands"
           value={performanceData?.total_brands || 0}
           description="Unique brand partnerships"
-          icon={Users}
-        />
-
-        <StatsCard
-          title="Total Earnings"
-          value={`₹${earningsData?.total_earnings?.toLocaleString() || 0}`}
-          description="Lifetime earnings"
-          icon={DollarSign}
-          trend={performanceData?.growth_metrics?.earnings_growth ? {
-            value: performanceData.growth_metrics.earnings_growth,
-            isPositive: performanceData.growth_metrics.earnings_growth > 0
+          icon={HiUsers}
+          trend={performanceData?.growth_metrics?.brands_growth ? {
+            value: performanceData.growth_metrics.brands_growth,
+            isPositive: performanceData.growth_metrics.brands_growth > 0
           } : undefined}
         />
 
         <StatsCard
-          title="Average Deal Value"
-          value={`₹${performanceData?.average_deal_value?.toLocaleString() || 0}`}
-          description="Per collaboration"
-          icon={TrendingUp}
+          title="Total Earnings"
+          value={`₹${(earningsData?.total_earnings || 0).toLocaleString()}`}
+          description="All time earnings"
+          icon={HiBanknotes}
+          trend={earningsData?.growth_metrics?.earnings_growth ? {
+            value: earningsData.growth_metrics.earnings_growth,
+            isPositive: earningsData.growth_metrics.earnings_growth > 0
+          } : undefined}
         />
 
         <StatsCard
-          title="Completion Rate"
-          value={`${performanceData?.collaboration_completion_rate || 0}%`}
-          description="Successfully completed deals"
-          icon={Award}
+          title="Avg. Rating"
+          value={(performanceData?.average_rating || 0).toFixed(1)}
+          description="Brand satisfaction score"
+          icon={HiStar}
+          trend={performanceData?.growth_metrics?.rating_trend ? {
+            value: performanceData.growth_metrics.rating_trend,
+            isPositive: performanceData.growth_metrics.rating_trend > 0
+          } : undefined}
         />
 
         <StatsCard
-          title="Average Rating"
-          value={performanceData?.average_rating?.toFixed(1) || "0.0"}
-          description="Brand satisfaction rating"
-          icon={Star}
+          title="Success Rate"
+          value={`${(performanceData?.success_rate || 0)}%`}
+          description="Completed collaborations"
+          icon={HiTrophy}
+          trend={performanceData?.growth_metrics?.success_rate_trend ? {
+            value: performanceData.growth_metrics.success_rate_trend,
+            isPositive: performanceData.growth_metrics.success_rate_trend > 0
+          } : undefined}
+        />
+
+        <StatsCard
+          title="Growth Rate"
+          value={`${(performanceData?.growth_metrics?.overall_growth || 0)}%`}
+          description="Month over month"
+          icon={HiArrowTrendingUp}
+          trend={performanceData?.growth_metrics?.overall_growth ? {
+            value: performanceData.growth_metrics.overall_growth,
+            isPositive: performanceData.growth_metrics.overall_growth > 0
+          } : undefined}
         />
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>Top Performing Platform</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold mb-2">
-              {performanceData?.top_performing_platform || "N/A"}
-            </div>
-            <p className="text-sm text-muted-foreground">
-              Your most successful collaboration platform
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Recent Activity</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              {(historyData as any[] | undefined)?.slice(0, 3).map((collaboration: CollaborationHistory) => (
-                <div key={collaboration.id} className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium">{collaboration.brand.name}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {collaboration.campaign_title}
-                    </p>
+      {/* Enhanced Recent Activity */}
+      <div className="bg-white rounded-xl border shadow-lg">
+        <div className="p-6 border-b border-gray-200">
+          <h3 className="text-lg font-semibold text-gray-900">Recent Performance Highlights</h3>
+          <p className="text-gray-600 text-sm mt-1">Key achievements from your latest collaborations</p>
+        </div>
+        <div className="p-6">
+          {historyData && historyData.length > 0 ? (
+            <div className="space-y-4">
+              {historyData.slice(0, 3).map((collaboration: CollaborationHistory, index: number) => (
+                <div key={index} className="flex items-center p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-200">
+                  <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-lg flex items-center justify-center mr-4 shadow-md">
+                    <HiTrophy className="w-5 h-5 text-white" />
+                  </div>
+                  <div className="flex-1">
+                    <h4 className="font-medium text-blue-900">{collaboration.brand_name}</h4>
+                    <p className="text-sm text-blue-700">{collaboration.campaign_title}</p>
                   </div>
                   <div className="text-right">
-                    <p className="font-medium">₹{collaboration.total_value.toLocaleString()}</p>
-                    <p className="text-sm text-muted-foreground capitalize">
-                      {collaboration.status.replace('_', ' ')}
-                    </p>
+                    <div className="text-sm font-bold text-blue-800">₹{collaboration.earnings?.toLocaleString()}</div>
+                    <div className="text-xs text-blue-600">{collaboration.completion_date}</div>
                   </div>
                 </div>
-              )) || (
-                <p className="text-sm text-muted-foreground">No recent activity</p>
-              )}
+              ))}
             </div>
-          </CardContent>
-        </Card>
+          ) : (
+            <div className="text-center py-8">
+              <div className="w-16 h-16 bg-gradient-to-br from-gray-100 to-gray-200 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                <HiChartBar className="w-8 h-8 text-gray-400" />
+              </div>
+              <h4 className="text-lg font-medium text-gray-900 mb-2">No data yet</h4>
+              <p className="text-gray-600">Complete your first collaboration to see analytics here.</p>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

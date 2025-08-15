@@ -8,13 +8,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useAnalytics } from "@/hooks/use-analytics";
 import { CollaborationHistory as CollaborationHistoryType } from "@/types";
 import { 
-  Download, 
-  Star, 
-  Calendar,
-  DollarSign,
-  Building2,
-  Filter
-} from "@/lib/icons";
+  HiArrowDownTray, 
+  HiStar, 
+  HiCalendarDays,
+  HiBanknotes,
+  HiBuildingOffice2,
+  HiFunnel
+} from "react-icons/hi2";
 import { Skeleton } from "@/components/ui/skeleton";
 import { BrandRatingDialog } from "./brand-rating-dialog";
 
@@ -117,11 +117,11 @@ export function CollaborationHistory() {
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle className="flex items-center gap-2">
-              <Filter className="h-5 w-5" />
+              <HiFunnel className="h-5 w-5" />
               Filters & Export
             </CardTitle>
             <Button onClick={handleExport} variant="outline" size="sm">
-              <Download className="h-4 w-4 mr-2" />
+                              <HiArrowDownTray className="h-4 w-4 mr-2" />
               Export CSV
             </Button>
           </div>
@@ -175,7 +175,7 @@ export function CollaborationHistory() {
                   <div className="flex-1">
                     <div className="flex items-center gap-3 mb-2">
                       <div className="flex items-center gap-2">
-                        <Building2 className="h-4 w-4 text-muted-foreground" />
+                        <HiBuildingOffice2 className="h-4 w-4 text-muted-foreground" />
                         <h3 className="font-semibold">{collaboration.brand.name}</h3>
                       </div>
                       <Badge className={getDealTypeColor(collaboration.deal_type)}>
@@ -192,7 +192,7 @@ export function CollaborationHistory() {
 
                     <div className="flex items-center gap-6 text-sm">
                       <div className="flex items-center gap-1">
-                        <DollarSign className="h-4 w-4 text-muted-foreground" />
+                        <HiBanknotes className="h-4 w-4 text-muted-foreground" />
                         <span>₹{collaboration.total_value.toLocaleString()}</span>
                       </div>
                       
@@ -203,7 +203,7 @@ export function CollaborationHistory() {
 
                       {collaboration.completed_at && (
                         <div className="flex items-center gap-1">
-                          <Calendar className="h-4 w-4 text-muted-foreground" />
+                          <HiCalendarDays className="h-4 w-4 text-muted-foreground" />
                           <span>{new Date(collaboration.completed_at).toLocaleDateString()}</span>
                         </div>
                       )}
@@ -213,7 +213,7 @@ export function CollaborationHistory() {
                   <div className="flex items-center gap-2">
                     {collaboration.rating ? (
                       <div className="flex items-center gap-1">
-                        <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+                        <HiStar className="h-4 w-4 fill-yellow-400 text-yellow-400" />
                         <span className="text-sm font-medium">{collaboration.rating}</span>
                       </div>
                     ) : collaboration.status === 'completed' ? (
@@ -225,7 +225,7 @@ export function CollaborationHistory() {
                           setShowRatingDialog(true);
                         }}
                       >
-                        <Star className="h-4 w-4 mr-1" />
+                        <HiStar className="h-4 w-4 mr-1" />
                         Rate
                       </Button>
                     ) : null}

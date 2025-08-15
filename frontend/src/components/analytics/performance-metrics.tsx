@@ -16,14 +16,14 @@ import {
   Legend
 } from "recharts";
 import { 
-  TrendingUp, 
-  TrendingDown,
-  Users,
-  Award,
-  Target,
-  Star,
-  Activity
-} from "@/lib/icons";
+  HiArrowTrendingUp, 
+  HiArrowTrendingDown,
+  HiUsers,
+  HiTrophy,
+  HiCursorArrowRays,
+  HiStar,
+  HiChartBar
+} from "react-icons/hi2";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export function PerformanceMetrics() {
@@ -31,9 +31,21 @@ export function PerformanceMetrics() {
 
   if (performance.isLoading) {
     return (
-      <div className="grid gap-6 md:grid-cols-2">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <Card key={i}>
+      <div className="space-y-6">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Card key={i}>
+              <CardHeader>
+                <Skeleton className="h-4 w-24" />
+              </CardHeader>
+              <CardContent>
+                <Skeleton className="h-8 w-16" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+        <div className="grid gap-6 md:grid-cols-2">
+          <Card>
             <CardHeader>
               <Skeleton className="h-4 w-32" />
             </CardHeader>
@@ -41,43 +53,58 @@ export function PerformanceMetrics() {
               <Skeleton className="h-64 w-full" />
             </CardContent>
           </Card>
-        ))}
+          <Card>
+            <CardHeader>
+              <Skeleton className="h-4 w-32" />
+            </CardHeader>
+            <CardContent>
+              <Skeleton className="h-64 w-full" />
+            </CardContent>
+          </Card>
+        </div>
       </div>
+    );
+  }
+
+  if (performance.isError) {
+    return (
+      <Card>
+        <CardContent className="p-6">
+          <p className="text-center text-muted-foreground">
+            Unable to load performance metrics. Please try again later.
+          </p>
+        </CardContent>
+      </Card>
     );
   }
 
   const performanceData = performance.data;
 
-  const growthData = [
+  const metrics = [
     {
-      metric: 'Deals',
-      growth: performanceData?.growth_metrics?.deals_growth || 0,
-      color: '#8884d8'
+      name: 'Engagement Rate',
+      value: performanceData?.engagement_rate || 0,
+      change: performanceData?.growth_metrics?.engagement_growth || 0,
+      target: 75
     },
-    {
-      metric: 'Earnings',
-      growth: performanceData?.growth_metrics?.earnings_growth || 0,
-      color: '#82ca9d'
-    },
-    {
-      metric: 'Followers',
-      growth: performanceData?.growth_metrics?.follower_growth || 0,
-      color: '#ffc658'
-    }
-  ];
-
-  const completionRateData = [
     {
       name: 'Completion Rate',
-      value: performanceData?.collaboration_completion_rate || 0,
-      fill: '#8884d8'
+      value: performanceData?.completion_rate || 0,
+      change: performanceData?.growth_metrics?.completion_growth || 0,
+      target: 85
+    },
+    {
+      name: 'Brand Satisfaction',
+      value: (performanceData?.average_rating || 0) * 20, // Convert 5-star to percentage
+      change: performanceData?.growth_metrics?.rating_trend || 0,
+      target: 90
     }
   ];
 
   return (
     <div className="space-y-6">
-      {/* Key Performance Indicators */}
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+      {/* Key Metrics Overview */}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
@@ -85,7 +112,7 @@ export function PerformanceMetrics() {
                 <p className="text-sm text-muted-foreground">Total Collaborations</p>
                 <p className="text-2xl font-bold">{performanceData?.total_collaborations || 0}</p>
               </div>
-              <Activity className="h-8 w-8 text-blue-500" />
+              <HiChartBar className="h-8 w-8 text-blue-500" />
             </div>
           </CardContent>
         </Card>
@@ -97,7 +124,7 @@ export function PerformanceMetrics() {
                 <p className="text-sm text-muted-foreground">Brand Partners</p>
                 <p className="text-2xl font-bold">{performanceData?.total_brands || 0}</p>
               </div>
-              <Users className="h-8 w-8 text-green-500" />
+              <HiUsers className="h-8 w-8 text-green-500" />
             </div>
           </CardContent>
         </Card>
@@ -106,10 +133,10 @@ export function PerformanceMetrics() {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Avg Deal Value</p>
-                <p className="text-2xl font-bold">₹{performanceData?.average_deal_value?.toLocaleString() || 0}</p>
+                <p className="text-sm text-muted-foreground">Success Rate</p>
+                <p className="text-2xl font-bold">{performanceData?.success_rate || 0}%</p>
               </div>
-              <Target className="h-8 w-8 text-purple-500" />
+              <HiCursorArrowRays className="h-8 w-8 text-purple-500" />
             </div>
           </CardContent>
         </Card>
@@ -118,164 +145,124 @@ export function PerformanceMetrics() {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Average Rating</p>
-                <p className="text-2xl font-bold">{performanceData?.average_rating?.toFixed(1) || "0.0"}</p>
+                <p className="text-sm text-muted-foreground">Avg. Rating</p>
+                <p className="text-2xl font-bold">{(performanceData?.average_rating || 0).toFixed(1)}</p>
               </div>
-              <Star className="h-8 w-8 text-yellow-500" />
+              <HiStar className="h-8 w-8 text-yellow-500" />
             </div>
           </CardContent>
         </Card>
       </div>
 
+      {/* Performance Trends */}
       <div className="grid gap-6 md:grid-cols-2">
-        {/* Growth Metrics */}
         <Card>
           <CardHeader>
-            <CardTitle>Growth Metrics</CardTitle>
+            <CardTitle>Performance Trends</CardTitle>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={growthData}>
+              <BarChart data={performanceData?.monthly_performance || []}>
                 <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="metric" />
+                <XAxis dataKey="month" />
                 <YAxis />
-                <Tooltip 
-                  formatter={(value) => [`${Number(value).toFixed(1)}%`, 'Growth']}
-                />
-                <Bar dataKey="growth" fill="#8884d8" />
+                <Tooltip />
+                <Bar dataKey="collaborations" fill="#8884d8" />
+                <Bar dataKey="completion_rate" fill="#82ca9d" />
               </BarChart>
             </ResponsiveContainer>
           </CardContent>
         </Card>
 
-        {/* Completion Rate */}
         <Card>
           <CardHeader>
-            <CardTitle>Collaboration Completion Rate</CardTitle>
+            <CardTitle>Rating Distribution</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="flex items-center justify-center h-64">
-              <ResponsiveContainer width="100%" height="100%">
-                <RadialBarChart cx="50%" cy="50%" innerRadius="60%" outerRadius="90%" data={completionRateData}>
-                  <RadialBar
-                    dataKey="value"
-                    fill="#8884d8"
-                  />
-                  <Legend iconSize={18} layout="vertical" verticalAlign="middle" />
-                </RadialBarChart>
-              </ResponsiveContainer>
-            </div>
-            <div className="text-center mt-4">
-              <p className="text-3xl font-bold">{performanceData?.collaboration_completion_rate || 0}%</p>
-              <p className="text-sm text-muted-foreground">Successfully completed deals</p>
-            </div>
+            <ResponsiveContainer width="100%" height={300}>
+                             <RadialBarChart cx="50%" cy="50%" innerRadius="10%" outerRadius="80%" barSize={10} 
+                             data={performanceData?.rating_distribution || []}>
+                 <RadialBar 
+                   label={{ position: 'insideStart', fill: '#fff' }} 
+                   background 
+                   dataKey="value" 
+                 />
+                <Legend iconSize={18} layout="vertical" verticalAlign="middle" wrapperStyle={{ fontSize: '12px' }} />
+              </RadialBarChart>
+            </ResponsiveContainer>
           </CardContent>
         </Card>
       </div>
 
-      {/* Detailed Performance Breakdown */}
+      {/* Detailed Metrics */}
       <Card>
         <CardHeader>
-          <CardTitle>Performance Breakdown</CardTitle>
+          <CardTitle>Performance Goals</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {metrics.map((metric, index) => (
+            <div key={index} className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium">{metric.name}</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-bold">{metric.value}%</span>
+                  {metric.change > 0 ? (
+                    <HiArrowTrendingUp className="h-4 w-4 text-green-500" />
+                  ) : (
+                    <HiArrowTrendingDown className="h-4 w-4 text-red-500" />
+                  )}
+                  <span className={`text-xs ${metric.change > 0 ? 'text-green-500' : 'text-red-500'}`}>
+                    {Math.abs(metric.change)}%
+                  </span>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <Progress value={metric.value} className="flex-1" />
+                <span className="text-xs text-muted-foreground">Goal: {metric.target}%</span>
+              </div>
+            </div>
+          ))}
+        </CardContent>
+      </Card>
+
+      {/* Recent Performance Highlights */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Recent Achievements</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="space-y-6">
-            {/* Growth Indicators */}
-            <div className="space-y-4">
-              <h3 className="font-semibold">Growth Indicators</h3>
-              
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    {(performanceData?.growth_metrics?.deals_growth || 0) >= 0 ? (
-                      <TrendingUp className="h-4 w-4 text-green-500" />
+          <div className="space-y-4">
+            {performanceData?.recent_achievements?.map((achievement: any, index: number) => (
+              <div key={index} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                <div className="flex items-center gap-2">
+                  {achievement.type === 'rating' && <HiStar className="h-4 w-4 text-yellow-500" />}
+                  {achievement.type === 'completion' && (
+                    achievement.change > 0 ? (
+                      <HiArrowTrendingUp className="h-4 w-4 text-green-500" />
                     ) : (
-                      <TrendingDown className="h-4 w-4 text-red-500" />
-                    )}
-                    <span>Deal Growth</span>
-                  </div>
-                  <span className={`font-semibold ${
-                    (performanceData?.growth_metrics?.deals_growth || 0) >= 0 ? 'text-green-600' : 'text-red-600'
-                  }`}>
-                    {(performanceData?.growth_metrics?.deals_growth || 0) >= 0 ? '+' : ''}
-                    {performanceData?.growth_metrics?.deals_growth?.toFixed(1) || 0}%
-                  </span>
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    {(performanceData?.growth_metrics?.earnings_growth || 0) >= 0 ? (
-                      <TrendingUp className="h-4 w-4 text-green-500" />
+                      <HiArrowTrendingDown className="h-4 w-4 text-red-500" />
+                    )
+                  )}
+                  {achievement.type === 'engagement' && (
+                    achievement.change > 0 ? (
+                      <HiArrowTrendingUp className="h-4 w-4 text-green-500" />
                     ) : (
-                      <TrendingDown className="h-4 w-4 text-red-500" />
-                    )}
-                    <span>Earnings Growth</span>
-                  </div>
-                  <span className={`font-semibold ${
-                    (performanceData?.growth_metrics?.earnings_growth || 0) >= 0 ? 'text-green-600' : 'text-red-600'
-                  }`}>
-                    {(performanceData?.growth_metrics?.earnings_growth || 0) >= 0 ? '+' : ''}
-                    {performanceData?.growth_metrics?.earnings_growth?.toFixed(1) || 0}%
-                  </span>
+                      <HiArrowTrendingDown className="h-4 w-4 text-red-500" />
+                    )
+                  )}
                 </div>
-
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    {(performanceData?.growth_metrics?.follower_growth || 0) >= 0 ? (
-                      <TrendingUp className="h-4 w-4 text-green-500" />
-                    ) : (
-                      <TrendingDown className="h-4 w-4 text-red-500" />
-                    )}
-                    <span>Follower Growth</span>
-                  </div>
-                  <span className={`font-semibold ${
-                    (performanceData?.growth_metrics?.follower_growth || 0) >= 0 ? 'text-green-600' : 'text-red-600'
-                  }`}>
-                    {(performanceData?.growth_metrics?.follower_growth || 0) >= 0 ? '+' : ''}
-                    {performanceData?.growth_metrics?.follower_growth?.toFixed(1) || 0}%
-                  </span>
+                <div className="flex-1">
+                  <p className="text-sm font-medium">{achievement.title}</p>
+                  <p className="text-xs text-muted-foreground">{achievement.description}</p>
                 </div>
+                <span className="text-xs text-muted-foreground">{achievement.date}</span>
               </div>
-            </div>
-
-            {/* Performance Scores */}
-            <div className="space-y-4">
-              <h3 className="font-semibold">Performance Scores</h3>
-              
-              <div className="space-y-3">
-                <div>
-                  <div className="flex justify-between mb-2">
-                    <span>Completion Rate</span>
-                    <span className="font-semibold">{performanceData?.collaboration_completion_rate || 0}%</span>
-                  </div>
-                  <Progress value={performanceData?.collaboration_completion_rate || 0} className="h-2" />
-                </div>
-
-                <div>
-                  <div className="flex justify-between mb-2">
-                    <span>Average Rating</span>
-                    <span className="font-semibold">{performanceData?.average_rating?.toFixed(1) || "0.0"}/5.0</span>
-                  </div>
-                  <Progress value={(performanceData?.average_rating || 0) * 20} className="h-2" />
-                </div>
+            )) || (
+              <div className="text-center py-8">
+                <HiTrophy className="h-12 w-12 text-gray-400 mx-auto mb-3" />
+                <p className="text-sm text-muted-foreground">No recent achievements to display</p>
               </div>
-            </div>
-
-            {/* Top Platform */}
-            <div className="space-y-2">
-              <h3 className="font-semibold">Top Performing Platform</h3>
-              <div className="p-4 bg-muted rounded-lg">
-                <div className="flex items-center justify-between">
-                  <span className="text-lg font-medium">
-                    {performanceData?.top_performing_platform || "N/A"}
-                  </span>
-                  <Award className="h-5 w-5 text-yellow-500" />
-                </div>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Your most successful collaboration platform
-                </p>
-              </div>
-            </div>
+            )}
           </div>
         </CardContent>
       </Card>
