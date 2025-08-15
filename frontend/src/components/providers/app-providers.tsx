@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState, createContext, useContext } from "react";
+import React, { useEffect, useMemo, useState, createContext, useContext, useCallback } from "react";
 import { QueryProvider } from "@/components/providers/query-provider";
 import { ErrorProvider } from "@/contexts/error-context";
 import { LoadingProvider } from "@/contexts/loading-context";
@@ -43,7 +43,7 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<CurrentUser>(null);
   const [loadingUser, setLoadingUser] = useState<boolean>(true);
 
-  const fetchUser = async () => {
+  const fetchUser = useCallback(async () => {
     setLoadingUser(true);
     try {
       const res = await authApi.checkAuth();
@@ -53,13 +53,13 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
     } finally {
       setLoadingUser(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     // Prime CSRF cookie for session-authenticated requests (noop if already set)
     authApi.csrf().catch(() => {});
     // Fetch current user once on app mount
-    fetchUser().then(r => console.log(r));
+    fetchUser();
   }, []);
 
   // In development, proactively unregister any existing service workers and clear caches

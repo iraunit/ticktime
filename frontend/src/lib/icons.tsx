@@ -93,6 +93,8 @@ export const Zap = make("BoltIcon", "lni-bolt", "ri-flashlight-line", "bx-bolt")
 export const Save = make("BookmarkSquareIcon", "lni-save", "ri-save-3-line", "bx-save");
 export const PhoneIcon = Phone;
 export const Mail = make("EnvelopeIcon", "lni-envelope", "ri-mail-line", "bx-envelope");
+export const Play = make("PlayIcon", "lni-play", "ri-play-line", "bx-play");
+export const Camera = make("CameraIcon", "lni-camera", "ri-camera-line", "bx-camera");
 
 export const LineiconsShim = {};
 export default LineiconsShim; 
