@@ -2,8 +2,11 @@ from rest_framework import status, generics
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+import logging
 from django.contrib.auth.models import User
 from django.conf import settings
+
+logger = logging.getLogger(__name__)
 from django.shortcuts import get_object_or_404
 from django.core.cache import cache
 from django.views.decorators.cache import cache_page

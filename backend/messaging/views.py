@@ -179,9 +179,7 @@ def deal_messages_view(request, deal_id):
 
     elif request.method == 'POST':
         # Create new message
-        data = request.data.copy()
-        
-        serializer = MessageSerializer(data=data)
+        serializer = MessageSerializer(data=request.data)
         
         if serializer.is_valid():
             # Save with additional fields

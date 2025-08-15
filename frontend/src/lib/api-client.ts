@@ -57,13 +57,18 @@ export const profileApi = {
   updateProfile: (data: Record<string, unknown>) => api.patch('/influencers/profile/', data),
   
   uploadProfileImage: async (file: File) => {
+    if (!file || !(file instanceof File)) {
+      throw new Error('Invalid file object');
+    }
+    
     const formData = new FormData();
     formData.append('profile_image', file);
     
-    // Axios will automatically handle CSRF tokens from HTTP-only cookies
     return api.post('/influencers/profile/upload-image/', formData, {
-      // Let axios set Content-Type automatically for multipart/form-data
-      // This ensures proper boundary setting
+      headers: {
+        'Content-Type': undefined, // Let browser set the Content-Type with boundary
+      },
+      transformRequest: [(data) => data], // Don't transform FormData
     });
   },
   

@@ -67,11 +67,12 @@ export function ProfileForm({ profile }: ProfileFormProps) {
 
     try {
       // Update text fields via JSON
-      await updateProfile.mutateAsync({ ...data } as any);
+      await updateProfile.mutateAsync(data);
 
       // Upload image separately if provided
       if (profileImage) {
         await uploadProfileImage.mutateAsync(profileImage);
+        setProfileImage(null); // Clear after successful upload
       }
 
       setSuccess('Profile updated successfully!');
@@ -183,6 +184,31 @@ export function ProfileForm({ profile }: ProfileFormProps) {
         </div>
       )}
 
+      {/* Hidden File Input - Outside form to prevent React Hook Form from including it */}
+      {isEditing && (
+        <input
+          id="profile-image-input"
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (file) {
+              // Validate file
+              if (file.size > 5 * 1024 * 1024) {
+                alert('File size must be less than 5MB');
+                return;
+              }
+              if (!['image/jpeg', 'image/png', 'image/webp', 'image/gif'].includes(file.type)) {
+                alert('Please select a valid image file (JPEG, PNG, WebP, or GIF)');
+                return;
+              }
+              handleImageSelect(file);
+            }
+          }}
+        />
+      )}
+
       <AutoSaveForm form={form} onSave={handleAutoSave}>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
@@ -260,31 +286,6 @@ export function ProfileForm({ profile }: ProfileFormProps) {
                   )}
                 </div>
               </div>
-
-              {/* Hidden File Input */}
-              {isEditing && (
-                <input
-                  id="profile-image-input"
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) {
-                      // Validate file
-                      if (file.size > 5 * 1024 * 1024) {
-                        alert('File size must be less than 5MB');
-                        return;
-                      }
-                      if (!['image/jpeg', 'image/png', 'image/webp', 'image/gif'].includes(file.type)) {
-                        alert('Please select a valid image file (JPEG, PNG, WebP, or GIF)');
-                        return;
-                      }
-                      handleImageSelect(file);
-                    }
-                  }}
-                />
-              )}
 
               {/* Upload Button - only show when image is selected */}
               {profileImage && isEditing && (
