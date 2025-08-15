@@ -18,6 +18,13 @@ interface ExtendedAxiosRequestConfig extends InternalAxiosRequestConfig {
   };
 }
 
+// Utility to read cookies in browser
+function getCookie(name: string): string | null {
+  if (typeof document === 'undefined') return null;
+  const match = document.cookie.match(new RegExp('(^|; )' + name.replace(/([.$?*|{}()\[\]\\\/\+^])/g, '\\$1') + '=([^;]*)'));
+  return match ? decodeURIComponent(match[2]) : null;
+}
+
 // API Error types
 export interface ApiError {
   status: string;
@@ -53,14 +60,28 @@ export const api = axios.create({
   timeout: 8000,
 });
 
-// Request interceptor to handle caching and performance metadata
+// Request interceptor to handle caching, CSRF, and performance metadata
 api.interceptors.request.use(
   async (config: ExtendedAxiosRequestConfig) => {
     // Add performance monitoring
     config.metadata = { startTime: performance.now() };
 
-    // Axios will automatically handle CSRF tokens from HTTP-only cookies
-    // No need to manually read and set CSRF tokens
+    // Ensure CSRF token for unsafe methods only
+    const method = (config.method || 'get').toLowerCase();
+    const isUnsafe = ['post', 'put', 'patch', 'delete'].includes(method);
+    if (isUnsafe) {
+      let token = getCookie('csrftoken');
+      if (!token) {
+        try {
+          await api.get('/auth/csrf/');
+          token = getCookie('csrftoken');
+        } catch {}
+      }
+      if (token) {
+        config.headers = config.headers || {};
+        (config.headers as any)['X-CSRFToken'] = token;
+      }
+    }
 
     // Check cache for GET requests
     if (config.method === 'get' && config.cache?.enabled) {
@@ -111,8 +132,22 @@ api.interceptors.response.use(
       return Promise.reject(networkError);
     }
 
-    // Axios will automatically handle CSRF token refresh for HTTP-only cookies
-    // No need for manual CSRF retry logic
+    // If we failed with CSRF error (403 or specific CSRF message), try once to get token then replay
+    const isCSRFError = error.response.status === 403 || isCsrfMissing(error.response?.data);
+    if (isCSRFError && originalRequest && !originalRequest._retry) {
+      try {
+        await api.get('/auth/csrf/');
+        const token = getCookie('csrftoken');
+        if (token) {
+          originalRequest._retry = true;
+          originalRequest.headers = originalRequest.headers || {};
+          (originalRequest.headers as any)['X-CSRFToken'] = token;
+          return api(originalRequest);
+        }
+      } catch (csrfError) {
+        console.warn('Failed to retrieve CSRF token:', csrfError);
+      }
+    }
 
     const responseData = error.response?.data as Record<string, unknown>;
     const apiError: ApiError = {
@@ -126,7 +161,11 @@ api.interceptors.response.use(
   }
 );
 
-
+function isCsrfMissing(data: any): boolean {
+  if (!data) return false;
+  const text = typeof data === 'string' ? data : JSON.stringify(data);
+  return /csrf token missing|csrf failed/i.test(text);
+}
 
 function getDefaultErrorMessage(status?: number): string {
   switch (status) {

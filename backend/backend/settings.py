@@ -257,8 +257,9 @@ SECURE_HSTS_PRELOAD = True
 
 # CSRF Settings
 CSRF_COOKIE_SECURE = not DEBUG
-CSRF_COOKIE_HTTPONLY = True  # HTTP-only for security - prevents XSS attacks
+CSRF_COOKIE_HTTPONLY = False  # Allow JavaScript access for SPA CSRF token handling
 CSRF_COOKIE_SAMESITE = "Lax" if not DEBUG else "Lax"  # Use Lax for same-site
+CSRF_COOKIE_NAME = 'csrftoken'  # Ensure consistent naming
 # Default domain - will be overridden by DynamicCSRFDomainMiddleware based on request
 CSRF_COOKIE_DOMAIN = ".ticktime.media" if not DEBUG else None
 
