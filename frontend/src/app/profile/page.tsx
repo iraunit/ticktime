@@ -9,7 +9,7 @@ import { useProfile, useSocialAccounts } from '@/hooks/use-profile';
 import { Card, CardContent } from '@/components/ui/card';
 import { RequireAuth } from '@/components/auth/require-auth';
 import { Badge } from '@/components/ui/badge';
-import { HiUser, HiShare, HiShieldCheck, HiCheckCircle } from 'react-icons/hi2';
+import { HiUser, HiShare, HiShieldCheck, HiCheckCircle, HiUserCircle } from 'react-icons/hi2';
 
 interface ProfileSection {
   id: string;
@@ -159,8 +159,11 @@ export default function ProfilePage() {
               <div className="relative p-4 sm:p-6">
                 <div className="flex items-start sm:items-center mb-3 sm:mb-4">
                   <div className="w-1 h-6 sm:h-8 bg-gradient-to-b from-blue-500 to-purple-500 rounded-full mr-3 sm:mr-4 flex-shrink-0"></div>
-                  <h1 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 bg-clip-text text-transparent leading-tight">
-                    Profile Settings 👤
+                  <h1 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 bg-clip-text text-transparent leading-tight flex items-center gap-2">
+                    Profile Settings
+                    <div className="w-6 h-6 sm:w-7 sm:h-7 bg-gradient-to-r from-blue-500 to-purple-500 rounded-lg flex items-center justify-center shadow-md">
+                      <HiUserCircle className="w-3 h-3 sm:w-4 sm:h-4 text-white" />
+                    </div>
                   </h1>
                 </div>
                 <p className="text-base sm:text-lg text-gray-600 max-w-2xl leading-relaxed">

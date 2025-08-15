@@ -9,7 +9,7 @@ import { QuickActions } from "@/components/dashboard/quick-actions";
 import { useDashboard, useNotifications } from "@/hooks/use-dashboard";
 import { useDeals } from "@/hooks/use-deals";
 import { Button } from "@/components/ui/button";
-import { HiArrowPath } from "react-icons/hi2";
+import { HiArrowPath, HiHandRaised } from "react-icons/hi2";
 import { toast } from "@/lib/toast";
 import { RequireAuth } from "@/components/auth/require-auth";
 import { useUserContext } from "@/components/providers/app-providers";
@@ -109,8 +109,11 @@ export default function DashboardPage() {
               
               <div className="relative flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 p-4">
                 <div>
-                  <h1 className="text-2xl font-bold bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 bg-clip-text text-transparent mb-1">
-                    {greeting}, {userName}! 👋
+                  <h1 className="text-2xl font-bold bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 bg-clip-text text-transparent mb-1 flex items-center gap-2">
+                    {greeting}, {userName}!
+                    <div className="w-6 h-6 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-lg flex items-center justify-center shadow-md">
+                      <HiHandRaised className="w-3 h-3 text-white" />
+                    </div>
                   </h1>
                   <p className="text-sm text-gray-600 max-w-2xl">
                     Monitor your collaborations and track your performance with our comprehensive dashboard.
