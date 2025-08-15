@@ -89,7 +89,7 @@ export function QuickActions() {
           Quick Actions
         </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-2 px-3 pb-3">
+      <CardContent className="flex flex-col gap-y-1 px-3 pb-3">
         {quickActions.map((action, index) => {
           const Icon = action.icon;
           return (
