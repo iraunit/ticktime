@@ -107,8 +107,56 @@ def logout_view(request):
     Session-based logout endpoint.
     """
     try:
+        # Get the current session key before logout
+        session_key = request.session.session_key
+        host = request.get_host()
+        
+        logger.info(f"Logout request from host: {host}, session_key: {session_key}")
+        
+        # Perform Django logout
         logout(request)
-        return Response({'status': 'success', 'message': 'Logout successful'}, status=status.HTTP_200_OK)
+        
+        # Create response
+        response = Response({'status': 'success', 'message': 'Logout successful'}, status=status.HTTP_200_OK)
+        
+        # Explicitly delete the session cookie to ensure it's cleared
+        if session_key:
+            # Delete the session from the database
+            from django.contrib.sessions.models import Session
+            try:
+                Session.objects.filter(session_key=session_key).delete()
+                logger.info(f"Session {session_key} deleted from database")
+            except Exception as e:
+                logger.warning(f"Failed to delete session from database: {str(e)}")
+        
+        # Clear the session cookie with proper domain settings
+        if 'ticktime.media' in host:
+            cookie_domain = '.ticktime.media'
+        elif 'ticktimemedia.com' in host:
+            cookie_domain = '.ticktimemedia.com'
+        else:
+            cookie_domain = None
+            
+        logger.info(f"Setting cookie domain to: {cookie_domain}")
+        
+        response.delete_cookie(
+            'sessionid',
+            domain=cookie_domain,
+            path='/',
+            samesite='Lax'
+        )
+        
+        # Also clear CSRF cookie
+        response.delete_cookie(
+            'csrftoken',
+            domain=cookie_domain,
+            path='/',
+            samesite='Lax'
+        )
+        
+        logger.info("Logout completed successfully")
+        return response
+        
     except Exception as e:
         logger.error(f"Logout failed: {str(e)}")
         return Response({'status': 'error', 'message': 'Logout failed'}, status=status.HTTP_400_BAD_REQUEST)

@@ -298,6 +298,9 @@ SESSION_SAVE_EVERY_REQUEST = True
 # Do not expire sessions on browser close by default
 SESSION_EXPIRE_AT_BROWSER_CLOSE = False
 
+# Session Engine - Use database sessions for better control
+SESSION_ENGINE = 'django.contrib.sessions.backends.db'
+
 # Cache Configuration
 CACHES = {
     "default": {
