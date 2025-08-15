@@ -79,14 +79,18 @@ export function MainLayout({
               expand={true}
               richColors={true}
               closeButton={true}
+              duration={4000}
+              theme="light"
+              className="!bg-gradient-to-br !from-white !to-gray-50 !border !border-gray-200 !rounded-xl !shadow-lg"
               toastOptions={{
-                duration: 3000,
                 style: {
-                  background: 'white',
-                  border: '1px solid #e5e7eb',
-                  color: '#374151',
-                  borderRadius: '8px',
+                  background: 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)',
+                  border: '1px solid #f1f5f9',
+                  color: '#1e293b',
+                  borderRadius: '12px',
                   fontSize: '14px',
+                  boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+                  backdropFilter: 'blur(10px)',
                 },
               }}
             />

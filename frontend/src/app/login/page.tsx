@@ -27,7 +27,21 @@ export default function LoginPage() {
     return (
       <MainLayout showFooter={false}>
         <div className="min-h-screen bg-gradient-to-br from-red-50 to-pink-100 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
-          <Loader2 className="h-8 w-8 animate-spin text-red-600" />
+          <div className="flex justify-center space-x-3">
+            {[
+              { color: 'from-red-500 to-pink-500', delay: 0 },
+              { color: 'from-orange-500 to-red-500', delay: 0.15 },
+              { color: 'from-pink-500 to-purple-500', delay: 0.3 }
+            ].map((ball, i) => (
+              <div
+                key={i}
+                className={`w-4 h-4 rounded-full bg-gradient-to-r shadow-lg ${ball.color}`}
+                style={{
+                  animation: `bigBounce 1.2s ease-in-out ${ball.delay}s infinite`,
+                }}
+              />
+            ))}
+          </div>
         </div>
       </MainLayout>
     );
@@ -42,11 +56,41 @@ export default function LoginPage() {
     <MainLayout showFooter={false}>
       <ClientOnly fallback={
         <div className="min-h-screen bg-gradient-to-br from-red-50 to-pink-100 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
-          <Loader2 className="h-8 w-8 animate-spin text-red-600" />
+          <div className="flex justify-center space-x-3">
+            {[
+              { color: 'from-red-500 to-pink-500', delay: 0 },
+              { color: 'from-orange-500 to-red-500', delay: 0.15 },
+              { color: 'from-pink-500 to-purple-500', delay: 0.3 }
+            ].map((ball, i) => (
+              <div
+                key={i}
+                className={`w-4 h-4 rounded-full bg-gradient-to-r shadow-lg ${ball.color}`}
+                style={{
+                  animation: `bigBounce 1.2s ease-in-out ${ball.delay}s infinite`,
+                }}
+              />
+            ))}
+          </div>
         </div>
       }>
         <div className="min-h-screen bg-gradient-to-br from-red-50 to-pink-100 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
-          <Suspense fallback={<Loader2 className="h-8 w-8 animate-spin text-red-600" />}>
+          <Suspense fallback={
+            <div className="flex justify-center space-x-3">
+              {[
+                { color: 'from-red-500 to-pink-500', delay: 0 },
+                { color: 'from-orange-500 to-red-500', delay: 0.15 },
+                { color: 'from-pink-500 to-purple-500', delay: 0.3 }
+              ].map((ball, i) => (
+                <div
+                  key={i}
+                  className={`w-4 h-4 rounded-full bg-gradient-to-r shadow-lg ${ball.color}`}
+                  style={{
+                    animation: `bigBounce 1.2s ease-in-out ${ball.delay}s infinite`,
+                  }}
+                />
+              ))}
+            </div>
+          }>
             <LoginForm />
           </Suspense>
         </div>

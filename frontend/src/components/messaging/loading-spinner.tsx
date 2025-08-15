@@ -8,18 +8,21 @@ interface LoadingSpinnerProps {
 }
 
 export function LoadingSpinner({ size = "md", text }: LoadingSpinnerProps) {
-  const sizeClasses = {
-    sm: "w-4 h-4",
-    md: "w-6 h-6",
-    lg: "w-8 h-8",
-  };
-
   return (
-    <div className="flex flex-col items-center justify-center space-y-2">
-      <Loader2 className={`${sizeClasses[size]} animate-spin text-blue-600`} />
-      {text && (
-        <p className="text-sm text-gray-500">{text}</p>
-      )}
+    <div className="flex justify-center space-x-2">
+      {[
+        { color: 'from-red-500 to-pink-500', delay: 0 },
+        { color: 'from-orange-500 to-red-500', delay: 0.15 },
+        { color: 'from-pink-500 to-purple-500', delay: 0.3 }
+      ].map((ball, i) => (
+        <div
+          key={i}
+          className={`w-3 h-3 rounded-full bg-gradient-to-r shadow-md ${ball.color}`}
+          style={{
+            animation: `mediumBounce 1.1s ease-in-out ${ball.delay}s infinite`,
+          }}
+        />
+      ))}
     </div>
   );
 }

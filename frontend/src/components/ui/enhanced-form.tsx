@@ -29,7 +29,20 @@ export function EnhancedInput({
   const getValidationIcon = () => {
     switch (validationState) {
       case 'validating':
-        return <Loader2 className="w-4 h-4 animate-spin text-gray-400" />;
+        return (
+          <div className="flex space-x-1">
+            {[0, 1, 2].map((i) => (
+              <div
+                key={i}
+                className="w-1 h-1 rounded-full bg-gray-400 animate-pulse"
+                style={{
+                  animationDelay: `${i * 0.2}s`,
+                  animationDuration: '1.4s'
+                }}
+              />
+            ))}
+          </div>
+        );
       case 'valid':
         return <CheckCircle className="w-4 h-4 text-green-500" />;
       case 'invalid':
@@ -232,7 +245,18 @@ export function AutoSaveForm<T extends FieldValues>({
         <div className="flex items-center space-x-2">
           {isSaving && (
             <>
-              <Loader2 className="w-3 h-3 animate-spin" />
+              <div className="flex space-x-1">
+                {[0, 1, 2].map((i) => (
+                  <div
+                    key={i}
+                    className="w-1 h-1 rounded-full bg-gray-400 animate-pulse"
+                    style={{
+                      animationDelay: `${i * 0.2}s`,
+                      animationDuration: '1.4s'
+                    }}
+                  />
+                ))}
+              </div>
               <span>Saving...</span>
             </>
           )}

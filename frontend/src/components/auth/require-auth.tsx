@@ -29,9 +29,20 @@ export function RequireAuth({ children }: { children: React.ReactNode }) {
   if (isLoading) {
     return (
       <div className="w-full py-16 flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-8 h-8 border-2 border-gray-200 border-t-blue-600 rounded-full animate-spin mx-auto mb-3" />
-          <p className="text-sm text-gray-500">Checking authentication…</p>
+        <div className="flex justify-center space-x-3">
+          {[
+            { color: 'from-red-500 to-pink-500', delay: 0 },
+            { color: 'from-orange-500 to-red-500', delay: 0.15 },
+            { color: 'from-pink-500 to-purple-500', delay: 0.3 }
+          ].map((ball, i) => (
+            <div
+              key={i}
+              className={`w-4 h-4 rounded-full bg-gradient-to-r shadow-lg ${ball.color}`}
+              style={{
+                animation: `bigBounce 1.2s ease-in-out ${ball.delay}s infinite`,
+              }}
+            />
+          ))}
         </div>
       </div>
     );

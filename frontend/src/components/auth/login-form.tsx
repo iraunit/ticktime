@@ -250,8 +250,19 @@ export function LoginForm() {
             >
               {(isSubmitting || isLoading) ? (
                 <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Signing in...
+                  <div className="flex space-x-1 mr-3">
+                    {[0, 1, 2].map((i) => (
+                      <div
+                        key={i}
+                        className="w-1.5 h-1.5 rounded-full bg-white animate-bounce shadow-sm"
+                        style={{
+                          animationDelay: `${i * 0.15}s`,
+                          animationDuration: '0.8s'
+                        }}
+                      />
+                    ))}
+                  </div>
+                  <span className="font-medium">Signing in...</span>
                 </>
               ) : (
                 "Sign In"

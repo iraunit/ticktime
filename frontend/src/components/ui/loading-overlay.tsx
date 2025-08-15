@@ -55,7 +55,18 @@ export function LoadingOverlay({
           <div className="flex flex-col items-center space-y-4">
             {/* Loading spinner */}
             <div className="relative">
-              <Loader2 className="w-8 h-8 animate-spin text-primary" />
+              <div className="flex space-x-1">
+                {[0, 1, 2].map((i) => (
+                  <div
+                    key={i}
+                    className="w-2 h-2 rounded-full bg-red-600 animate-pulse"
+                    style={{
+                      animationDelay: `${i * 0.2}s`,
+                      animationDuration: '1.4s'
+                    }}
+                  />
+                ))}
+              </div>
               {!isOnline && (
                 <div className="absolute -top-1 -right-1">
                   <WifiOff className="w-4 h-4 text-red-500" />

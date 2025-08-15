@@ -192,11 +192,22 @@ export function DealList({
 
       {/* Loading overlay for refresh */}
       {isLoading && deals.length > 0 && (
-        <div className="fixed inset-0 bg-black/20 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-4 shadow-lg">
-            <div className="flex items-center space-x-3">
-              <Loader2 className="h-5 w-5 animate-spin" />
-              <span className="text-sm font-medium">Updating deals...</span>
+        <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl p-6 shadow-xl border border-gray-100">
+            <div className="flex items-center space-x-4">
+              <div className="flex space-x-2">
+                {[0, 1, 2].map((i) => (
+                  <div
+                    key={i}
+                    className="w-2 h-2 rounded-full bg-gradient-to-r from-red-500 to-orange-500 animate-bounce shadow-md"
+                    style={{
+                      animationDelay: `${i * 0.15}s`,
+                      animationDuration: '1s'
+                    }}
+                  />
+                ))}
+              </div>
+              <span className="text-sm font-medium text-gray-700">Updating deals...</span>
             </div>
           </div>
         </div>
