@@ -60,13 +60,7 @@ export const profileApi = {
     const formData = new FormData();
     formData.append('profile_image', file);
     
-    // Ensure CSRF token is available before upload
-    try {
-      await authApi.csrf();
-    } catch (error) {
-      // Silently handle CSRF token fetch errors
-    }
-    
+    // Axios will automatically handle CSRF tokens from HTTP-only cookies
     return api.post('/influencers/profile/upload-image/', formData, {
       // Let axios set Content-Type automatically for multipart/form-data
       // This ensures proper boundary setting
@@ -85,13 +79,7 @@ export const profileApi = {
       formData.append('aadhar_number', aadharNumber);
     }
     
-    // Ensure CSRF token is available before upload
-    try {
-      await authApi.csrf();
-    } catch (error) {
-      // Silently handle CSRF token fetch errors
-    }
-    
+    // Axios will automatically handle CSRF tokens from HTTP-only cookies
     return api.post('/influencers/profile/upload-document/', formData, {
       // Let axios set Content-Type automatically for multipart/form-data
       signal,
@@ -152,13 +140,7 @@ export const dealsApi = {
     if (data.file) formData.append('file', data.file);
     if (data.caption) formData.append('caption', data.caption);
     
-    // Ensure CSRF token is available before upload
-    try {
-      await authApi.csrf();
-    } catch (error) {
-      // Silently handle CSRF token fetch errors
-    }
-    
+    // Axios will automatically handle CSRF tokens from HTTP-only cookies
     return api.post(`/deals/${id}/submit-content/`, formData, {
       // Let axios set Content-Type automatically for multipart/form-data
       signal,
@@ -190,13 +172,7 @@ export const dealsApi = {
     formData.append('message', data.message);
     if (data.file) formData.append('file', data.file);
     
-    // Ensure CSRF token is available before upload
-    try {
-      await authApi.csrf();
-    } catch (error) {
-      // Silently handle CSRF token fetch errors
-    }
-    
+    // Axios will automatically handle CSRF tokens from HTTP-only cookies
     return api.post(`/deals/${id}/messages/`, formData, {
       // Let axios set Content-Type automatically for multipart/form-data
       signal,

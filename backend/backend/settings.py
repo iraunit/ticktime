@@ -68,6 +68,7 @@ MIDDLEWARE = [
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "oauth2_provider.middleware.OAuth2TokenMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
+    "common.middleware.DynamicCSRFDomainMiddleware",  # Add before CSRF middleware
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
@@ -256,10 +257,10 @@ SECURE_HSTS_PRELOAD = True
 
 # CSRF Settings
 CSRF_COOKIE_SECURE = not DEBUG
-CSRF_COOKIE_HTTPONLY = False
-CSRF_COOKIE_SAMESITE = "None" if not DEBUG else "Lax"
-# Let Django handle CSRF cookies automatically - no domain restriction needed
-CSRF_COOKIE_DOMAIN = None
+CSRF_COOKIE_HTTPONLY = True  # HTTP-only for security - prevents XSS attacks
+CSRF_COOKIE_SAMESITE = "Lax" if not DEBUG else "Lax"  # Use Lax for same-site
+# Default domain - will be overridden by DynamicCSRFDomainMiddleware based on request
+CSRF_COOKIE_DOMAIN = ".ticktime.media" if not DEBUG else None
 
 CSRF_TRUSTED_ORIGINS = [
     "http://localhost:3000",
@@ -279,9 +280,9 @@ USE_X_FORWARDED_HOST = True
 # Session Security
 SESSION_COOKIE_SECURE = not DEBUG
 SESSION_COOKIE_HTTPONLY = True
-SESSION_COOKIE_SAMESITE = 'None' if not DEBUG else 'Lax'
-# Let Django handle session cookies automatically - no domain restriction needed
-SESSION_COOKIE_DOMAIN = None
+SESSION_COOKIE_SAMESITE = 'Lax' if not DEBUG else 'Lax'
+# Default domain - will be overridden by DynamicCSRFDomainMiddleware based on request
+SESSION_COOKIE_DOMAIN = ".ticktime.media" if not DEBUG else None
 
 # Default session age (seconds). Extended to 15 days minimum for better UX; login can still set custom expiry when remember_me is true
 SESSION_COOKIE_AGE = 60 * 60 * 24 * 15  # 15 days

@@ -1,3 +1,6 @@
+"""
+Common middleware for the application.
+"""
 import time
 import logging
 from collections import defaultdict
@@ -6,9 +9,36 @@ from django.http import JsonResponse
 from django.conf import settings
 from django.utils.deprecation import MiddlewareMixin
 from django.db import connection
+import re
+from django.http import HttpResponse
+from django.middleware.csrf import get_token
 
 logger = logging.getLogger(__name__)
 security_logger = logging.getLogger('security')
+
+
+class DynamicCSRFDomainMiddleware(MiddlewareMixin):
+    """
+    Middleware to dynamically set CSRF and session cookie domains based on the request host.
+    This allows the same backend to work with multiple frontend domains.
+    """
+    
+    def process_request(self, request):
+        host = request.get_host()
+        
+        # Set CSRF and session cookie domains dynamically based on the request host
+        if 'ticktime.media' in host:
+            settings.CSRF_COOKIE_DOMAIN = '.ticktime.media'
+            settings.SESSION_COOKIE_DOMAIN = '.ticktime.media'
+        elif 'ticktimemedia.com' in host:
+            settings.CSRF_COOKIE_DOMAIN = '.ticktimemedia.com'
+            settings.SESSION_COOKIE_DOMAIN = '.ticktimemedia.com'
+        else:
+            # For localhost or other domains, don't set a specific domain
+            settings.CSRF_COOKIE_DOMAIN = None
+            settings.SESSION_COOKIE_DOMAIN = None
+            
+        return None
 
 
 class SecurityHeadersMiddleware:

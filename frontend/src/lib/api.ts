@@ -18,13 +18,6 @@ interface ExtendedAxiosRequestConfig extends InternalAxiosRequestConfig {
   };
 }
 
-// Utility to read cookies in browser
-function getCookie(name: string): string | null {
-  if (typeof document === 'undefined') return null;
-  const match = document.cookie.match(new RegExp('(^|; )' + name.replace(/([.$?*|{}()\[\]\\\/\+^])/g, '\\$1') + '=([^;]*)'));
-  return match ? decodeURIComponent(match[2]) : null;
-}
-
 // API Error types
 export interface ApiError {
   status: string;
@@ -60,36 +53,14 @@ export const api = axios.create({
   timeout: 8000,
 });
 
-// Request interceptor to handle caching, CSRF, and performance metadata
+// Request interceptor to handle caching and performance metadata
 api.interceptors.request.use(
   async (config: ExtendedAxiosRequestConfig) => {
     // Add performance monitoring
     config.metadata = { startTime: performance.now() };
 
-    // Ensure CSRF token for unsafe methods only
-    const method = (config.method || 'get').toLowerCase();
-    const isUnsafe = ['post', 'put', 'patch', 'delete'].includes(method);
-    if (isUnsafe) {
-      let token = getCookie('csrftoken');
-      if (!token) {
-        try {
-          // Use direct axios call to avoid interceptor loop
-          await axios.get(`${API_BASE_URL}/api/auth/csrf/`, {
-            withCredentials: true,
-            xsrfCookieName: 'csrftoken',
-            xsrfHeaderName: 'X-CSRFToken',
-          });
-          token = getCookie('csrftoken');
-        } catch (error) {
-          // Silently handle CSRF token fetch errors
-        }
-      }
-      if (token) {
-        config.headers = config.headers || {};
-        // Always set X-CSRFToken header for unsafe methods
-        config.headers['X-CSRFToken'] = token;
-      }
-    }
+    // Axios will automatically handle CSRF tokens from HTTP-only cookies
+    // No need to manually read and set CSRF tokens
 
     // Check cache for GET requests
     if (config.method === 'get' && config.cache?.enabled) {
@@ -140,24 +111,8 @@ api.interceptors.response.use(
       return Promise.reject(networkError);
     }
 
-    // If we failed with 403 CSRF on unsafe method, try once to get token then replay
-    if (error.response.status === 403 && originalRequest && !originalRequest._retry) {
-      try {
-        // Use direct axios call to avoid interceptor loop
-        await axios.get(`${API_BASE_URL}/api/auth/csrf/`, {
-          withCredentials: true,
-          xsrfCookieName: 'csrftoken',
-          xsrfHeaderName: 'X-CSRFToken',
-        });
-        const token = getCookie('csrftoken');
-        if (token) {
-          originalRequest._retry = true;
-          originalRequest.headers = originalRequest.headers || {};
-          (originalRequest.headers as any)['X-CSRFToken'] = token;
-          return api(originalRequest);
-        }
-      } catch {}
-    }
+    // Axios will automatically handle CSRF token refresh for HTTP-only cookies
+    // No need for manual CSRF retry logic
 
     const responseData = error.response?.data as Record<string, unknown>;
     const apiError: ApiError = {
