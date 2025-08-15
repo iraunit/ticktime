@@ -125,19 +125,19 @@ export function DealList({
   return (
     <div className={cn("space-y-6", className)}>
       {/* Enhanced Header with stats */}
-      <div className="bg-white rounded-xl border shadow-md p-6">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h2 className="text-xl font-bold text-gray-900 flex items-center">
-              <HiBriefcase className="h-6 w-6 mr-3 text-blue-600" />
-              Your Deals
+      <div className="bg-white rounded-xl border shadow-md p-4 sm:p-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-3">
+          <div className="flex-1">
+            <h2 className="text-lg sm:text-xl font-bold text-gray-900 flex items-center">
+              <HiBriefcase className="h-5 w-5 sm:h-6 sm:w-6 mr-2 sm:mr-3 text-blue-600 flex-shrink-0" />
+              <span>Your Deals</span>
             </h2>
-            <div className="flex items-center space-x-4 mt-2">
-              <p className="text-gray-600">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-4 mt-2 gap-1 sm:gap-0">
+              <p className="text-sm sm:text-base text-gray-600">
                 {filteredDeals.length} of {deals.length} deals
               </p>
               {hasActiveFilters && (
-                <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded-full">
+                <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded-full self-start">
                   Filtered
                 </span>
               )}
@@ -149,24 +149,24 @@ export function DealList({
               size="sm"
               onClick={onRefresh}
               disabled={isLoading}
-              className="border-2 border-gray-200 hover:border-blue-300 hover:bg-blue-50 transition-all duration-200 rounded-lg px-4 py-2"
+              className="border-2 border-gray-200 hover:border-blue-300 hover:bg-blue-50 transition-all duration-200 rounded-lg px-3 sm:px-4 py-2 self-start sm:self-auto"
             >
-              <HiArrowPath className={cn("h-4 w-4 mr-2", { "animate-spin": isLoading })} />
-              Refresh
+              <HiArrowPath className={cn("h-4 w-4 mr-1 sm:mr-2", { "animate-spin": isLoading })} />
+              <span className="text-xs sm:text-sm">Refresh</span>
             </Button>
           )}
         </div>
 
         {/* Quick Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4 mt-4 sm:mt-6">
           {[
             { label: "Total", value: deals.length, color: "blue" },
             { label: "Invited", value: deals.filter(d => d.status === "invited").length, color: "orange" },
             { label: "Active", value: deals.filter(d => d.status === "active").length, color: "green" },
             { label: "Completed", value: deals.filter(d => d.status === "completed").length, color: "purple" }
           ].map((stat, index) => (
-            <div key={index} className={`bg-${stat.color}-50 border border-${stat.color}-200 rounded-lg p-3`}>
-              <div className={`text-lg font-bold text-${stat.color}-600`}>{stat.value}</div>
+            <div key={index} className={`bg-${stat.color}-50 border border-${stat.color}-200 rounded-lg p-2 sm:p-3`}>
+              <div className={`text-base sm:text-lg font-bold text-${stat.color}-600`}>{stat.value}</div>
               <div className="text-xs text-gray-600">{stat.label}</div>
             </div>
           ))}
@@ -187,15 +187,15 @@ export function DealList({
 
       {/* Deal Cards */}
       {sortedDeals.length === 0 ? (
-        <div className="text-center py-16">
-          <div className="mx-auto max-w-md">
-            <div className="w-20 h-20 bg-gradient-to-br from-blue-50 to-indigo-100 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-lg">
-              <HiBriefcase className="h-10 w-10 text-blue-500" />
+        <div className="text-center py-12 sm:py-16">
+          <div className="mx-auto max-w-md px-4">
+            <div className="w-16 h-16 sm:w-20 sm:h-20 bg-gradient-to-br from-blue-50 to-indigo-100 rounded-2xl flex items-center justify-center mx-auto mb-4 sm:mb-6 shadow-lg">
+              <HiBriefcase className="h-8 w-8 sm:h-10 sm:w-10 text-blue-500" />
             </div>
-            <h3 className="text-xl font-bold text-gray-900 mb-3">
+            <h3 className="text-lg sm:text-xl font-bold text-gray-900 mb-2 sm:mb-3">
               {hasActiveFilters ? "No deals match your filters" : "No deals yet"}
             </h3>
-            <p className="text-gray-600 mb-6 leading-relaxed">
+            <p className="text-sm sm:text-base text-gray-600 mb-4 sm:mb-6 leading-relaxed">
               {hasActiveFilters 
                 ? "Try adjusting your search or filter criteria to find more opportunities."
                 : "When brands invite you to collaborate, they'll appear here. Complete your profile to get started!"
@@ -205,14 +205,14 @@ export function DealList({
               <Button 
                 variant="outline" 
                 onClick={clearFilters}
-                className="bg-blue-600 hover:bg-blue-700 text-white border-blue-600 hover:border-blue-700 px-6 py-2 rounded-lg shadow-md hover:shadow-lg transition-all duration-200"
+                className="bg-blue-600 hover:bg-blue-700 text-white border-blue-600 hover:border-blue-700 px-4 sm:px-6 py-2 rounded-lg shadow-md hover:shadow-lg transition-all duration-200 text-sm sm:text-base"
               >
                 Clear Filters
               </Button>
             ) : (
               <Button 
                 asChild
-                className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-lg shadow-lg hover:shadow-xl transition-all duration-200"
+                className="bg-blue-600 hover:bg-blue-700 text-white px-6 sm:px-8 py-2 sm:py-3 rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 text-sm sm:text-base"
               >
                 <a href="/profile">Complete Profile</a>
               </Button>

@@ -49,11 +49,11 @@ export function Header() {
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-14">
           {/* Logo */}
-          <Link href="/" className="flex items-center space-x-2">
-            <div className="w-7 h-7 bg-gradient-to-br from-red-600 to-orange-500 rounded-lg flex items-center justify-center">
+          <Link href="/" className="flex items-center space-x-2 group">
+            <div className="w-7 h-7 bg-gradient-to-br from-red-600 to-orange-500 rounded-lg flex items-center justify-center shadow-md group-hover:shadow-lg transition-all duration-200 transform group-hover:scale-105">
               <span className="text-white font-bold text-xs">TT</span>
             </div>
-            <span className="text-lg font-semibold text-gray-900">TickTime</span>
+            <span className="text-lg font-semibold bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 bg-clip-text text-transparent group-hover:from-red-600 group-hover:via-orange-500 group-hover:to-red-600 transition-all duration-200">TickTime</span>
           </Link>
 
           {/* Desktop Navigation - Only show if authenticated */}
