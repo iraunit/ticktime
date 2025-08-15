@@ -5,7 +5,7 @@ import { Deal } from "@/types";
 import { DealCard } from "./deal-card";
 import { DealFilters } from "./deal-filters";
 import { Button } from "@/components/ui/button";
-import { Loader2, RefreshCw } from "@/lib/icons";
+import { HiArrowPath, HiBriefcase } from "react-icons/hi2";
 import { cn } from "@/lib/utils";
 
 interface DealListProps {
@@ -98,8 +98,25 @@ export function DealList({
   if (isLoading && deals.length === 0) {
     return (
       <div className={cn("space-y-6", className)}>
-        <div className="flex items-center justify-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        <div className="flex items-center justify-center py-16">
+          <div className="text-center">
+            <div className="flex justify-center space-x-3 mb-6">
+              {[
+                { color: 'from-blue-500 to-indigo-500', delay: 0 },
+                { color: 'from-indigo-500 to-purple-500', delay: 0.15 },
+                { color: 'from-purple-500 to-pink-500', delay: 0.3 }
+              ].map((ball, i) => (
+                <div
+                  key={i}
+                  className={`w-4 h-4 rounded-full bg-gradient-to-r shadow-lg ${ball.color}`}
+                  style={{
+                    animation: `bigBounce 1.2s ease-in-out ${ball.delay}s infinite`,
+                  }}
+                />
+              ))}
+            </div>
+            <p className="text-lg font-semibold text-gray-700">Loading your deals...</p>
+          </div>
         </div>
       </div>
     );
@@ -107,27 +124,53 @@ export function DealList({
 
   return (
     <div className={cn("space-y-6", className)}>
-      {/* Header with refresh button */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold text-gray-900">
-            Your Deals
-          </h2>
-          <p className="text-muted-foreground">
-            {filteredDeals.length} of {deals.length} deals
-          </p>
+      {/* Enhanced Header with stats */}
+      <div className="bg-white rounded-xl border shadow-md p-6">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h2 className="text-xl font-bold text-gray-900 flex items-center">
+              <HiBriefcase className="h-6 w-6 mr-3 text-blue-600" />
+              Your Deals
+            </h2>
+            <div className="flex items-center space-x-4 mt-2">
+              <p className="text-gray-600">
+                {filteredDeals.length} of {deals.length} deals
+              </p>
+              {hasActiveFilters && (
+                <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded-full">
+                  Filtered
+                </span>
+              )}
+            </div>
+          </div>
+          {onRefresh && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onRefresh}
+              disabled={isLoading}
+              className="border-2 border-gray-200 hover:border-blue-300 hover:bg-blue-50 transition-all duration-200 rounded-lg px-4 py-2"
+            >
+              <HiArrowPath className={cn("h-4 w-4 mr-2", { "animate-spin": isLoading })} />
+              Refresh
+            </Button>
+          )}
         </div>
-        {onRefresh && (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={onRefresh}
-            disabled={isLoading}
-          >
-            <RefreshCw className={cn("h-4 w-4 mr-2", { "animate-spin": isLoading })} />
-            Refresh
-          </Button>
-        )}
+
+        {/* Quick Stats */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
+          {[
+            { label: "Total", value: deals.length, color: "blue" },
+            { label: "Invited", value: deals.filter(d => d.status === "invited").length, color: "orange" },
+            { label: "Active", value: deals.filter(d => d.status === "active").length, color: "green" },
+            { label: "Completed", value: deals.filter(d => d.status === "completed").length, color: "purple" }
+          ].map((stat, index) => (
+            <div key={index} className={`bg-${stat.color}-50 border border-${stat.color}-200 rounded-lg p-3`}>
+              <div className={`text-lg font-bold text-${stat.color}-600`}>{stat.value}</div>
+              <div className="text-xs text-gray-600">{stat.label}</div>
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* Filters */}
@@ -144,30 +187,34 @@ export function DealList({
 
       {/* Deal Cards */}
       {sortedDeals.length === 0 ? (
-        <div className="text-center py-12">
+        <div className="text-center py-16">
           <div className="mx-auto max-w-md">
-            <div className="mx-auto h-12 w-12 text-gray-400 mb-4">
-              <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={1}
-                  d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                />
-              </svg>
+            <div className="w-20 h-20 bg-gradient-to-br from-blue-50 to-indigo-100 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-lg">
+              <HiBriefcase className="h-10 w-10 text-blue-500" />
             </div>
-            <h3 className="text-lg font-medium text-gray-900 mb-2">
+            <h3 className="text-xl font-bold text-gray-900 mb-3">
               {hasActiveFilters ? "No deals match your filters" : "No deals yet"}
             </h3>
-            <p className="text-gray-500 mb-4">
+            <p className="text-gray-600 mb-6 leading-relaxed">
               {hasActiveFilters 
-                ? "Try adjusting your search or filter criteria."
-                : "When brands invite you to collaborate, they'll appear here."
+                ? "Try adjusting your search or filter criteria to find more opportunities."
+                : "When brands invite you to collaborate, they'll appear here. Complete your profile to get started!"
               }
             </p>
-            {hasActiveFilters && (
-              <Button variant="outline" onClick={clearFilters}>
+            {hasActiveFilters ? (
+              <Button 
+                variant="outline" 
+                onClick={clearFilters}
+                className="bg-blue-600 hover:bg-blue-700 text-white border-blue-600 hover:border-blue-700 px-6 py-2 rounded-lg shadow-md hover:shadow-lg transition-all duration-200"
+              >
                 Clear Filters
+              </Button>
+            ) : (
+              <Button 
+                asChild
+                className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-lg shadow-lg hover:shadow-xl transition-all duration-200"
+              >
+                <a href="/profile">Complete Profile</a>
               </Button>
             )}
           </div>
@@ -182,7 +229,6 @@ export function DealList({
               onReject={onReject}
               onViewDetails={onViewDetails}
               onMessage={onMessage}
-
               isLoading={isLoading}
               className="w-full"
             />
@@ -190,16 +236,16 @@ export function DealList({
         </div>
       )}
 
-      {/* Loading overlay for refresh */}
+      {/* Enhanced Loading overlay for refresh */}
       {isLoading && deals.length > 0 && (
         <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl p-6 shadow-xl border border-gray-100">
-            <div className="flex items-center space-x-4">
-              <div className="flex space-x-2">
+          <div className="bg-white rounded-2xl p-8 shadow-2xl border border-gray-200 max-w-sm mx-4">
+            <div className="text-center">
+              <div className="flex justify-center space-x-2 mb-4">
                 {[0, 1, 2].map((i) => (
                   <div
                     key={i}
-                    className="w-2 h-2 rounded-full bg-gradient-to-r from-red-500 to-orange-500 animate-bounce shadow-md"
+                    className="w-3 h-3 rounded-full bg-gradient-to-r from-blue-500 to-indigo-500 animate-bounce shadow-md"
                     style={{
                       animationDelay: `${i * 0.15}s`,
                       animationDuration: '1s'
@@ -207,7 +253,8 @@ export function DealList({
                   />
                 ))}
               </div>
-              <span className="text-sm font-medium text-gray-700">Updating deals...</span>
+              <p className="text-lg font-semibold text-gray-900 mb-2">Updating deals...</p>
+              <p className="text-sm text-gray-600">Fetching the latest opportunities for you</p>
             </div>
           </div>
         </div>

@@ -11,7 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Search, Filter, X } from "@/lib/icons";
+import { HiMagnifyingGlass, HiFunnel, HiXMark } from "react-icons/hi2";
 import { DealStatus } from "@/types";
 
 interface DealFiltersProps {
@@ -54,136 +54,157 @@ export function DealFilters({
   onClearFilters,
   hasActiveFilters,
 }: DealFiltersProps) {
-  const [showMobileFilters, setShowMobileFilters] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
 
   return (
-    <div className="space-y-4">
-      {/* Search Bar */}
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-        <Input
-          placeholder="Search deals by brand, campaign title..."
-          value={searchQuery}
-          onChange={(e) => onSearchChange(e.target.value)}
-          className="pl-10 pr-4"
-        />
+    <div className="bg-white border shadow-md rounded-xl overflow-hidden">
+      {/* Filter Header */}
+      <div className="p-4 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-3">
+            <HiFunnel className="h-5 w-5 text-gray-600" />
+            <h3 className="text-lg font-semibold text-gray-900">Filter & Search</h3>
+            {hasActiveFilters && (
+              <Badge className="bg-blue-100 text-blue-800 px-2 py-1 text-xs font-medium">
+                Active
+              </Badge>
+            )}
+          </div>
+          <div className="flex items-center space-x-2">
+            {hasActiveFilters && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={onClearFilters}
+                className="text-gray-500 hover:text-gray-700 hover:bg-gray-100 px-3 py-1 text-sm"
+              >
+                <HiXMark className="h-4 w-4 mr-1" />
+                Clear
+              </Button>
+            )}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setIsExpanded(!isExpanded)}
+              className="text-gray-500 hover:text-gray-700 hover:bg-gray-100 px-3 py-1 text-sm lg:hidden"
+            >
+              {isExpanded ? "Hide" : "Show"} Filters
+            </Button>
+          </div>
+        </div>
       </div>
 
-      {/* Desktop Filters */}
-      <div className="hidden md:flex items-center gap-4">
-        <Select value={statusFilter} onValueChange={onStatusFilterChange}>
-          <SelectTrigger className="w-48">
-            <SelectValue placeholder="Filter by status" />
-          </SelectTrigger>
-          <SelectContent>
-            {statusOptions.map((option) => (
-              <SelectItem key={option.value} value={option.value}>
-                {option.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+      {/* Filter Content */}
+      <div className={`p-4 ${isExpanded ? 'block' : 'hidden'} lg:block`}>
+        <div className="grid gap-4 md:grid-cols-3">
+          {/* Search Input */}
+          <div className="relative">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Search Deals
+            </label>
+            <div className="relative">
+              <HiMagnifyingGlass className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <Input
+                type="text"
+                placeholder="Search by brand, title, or description..."
+                value={searchQuery}
+                onChange={(e) => onSearchChange(e.target.value)}
+                className="pl-10 pr-4 py-2 border-2 border-gray-200 focus:border-blue-500 focus:ring-blue-500 rounded-lg"
+              />
+            </div>
+          </div>
 
-        <Select value={dealTypeFilter} onValueChange={onDealTypeFilterChange}>
-          <SelectTrigger className="w-48">
-            <SelectValue placeholder="Filter by type" />
-          </SelectTrigger>
-          <SelectContent>
-            {dealTypeOptions.map((option) => (
-              <SelectItem key={option.value} value={option.value}>
-                {option.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+          {/* Status Filter */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Status
+            </label>
+            <Select value={statusFilter} onValueChange={onStatusFilterChange}>
+              <SelectTrigger className="border-2 border-gray-200 focus:border-blue-500 rounded-lg">
+                <SelectValue placeholder="Select status" />
+              </SelectTrigger>
+              <SelectContent>
+                {statusOptions.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    <div className="flex items-center space-x-2">
+                      {option.value !== "all" && (
+                        <div
+                          className={`w-2 h-2 rounded-full bg-${option.color}-500`}
+                        />
+                      )}
+                      <span>{option.label}</span>
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
 
+          {/* Deal Type Filter */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Deal Type
+            </label>
+            <Select value={dealTypeFilter} onValueChange={onDealTypeFilterChange}>
+              <SelectTrigger className="border-2 border-gray-200 focus:border-blue-500 rounded-lg">
+                <SelectValue placeholder="Select type" />
+              </SelectTrigger>
+              <SelectContent>
+                {dealTypeOptions.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        {/* Active Filters Display */}
         {hasActiveFilters && (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={onClearFilters}
-            className="text-muted-foreground"
-          >
-            <X className="h-4 w-4 mr-1" />
-            Clear Filters
-          </Button>
+          <div className="mt-4 pt-4 border-t border-gray-100">
+            <div className="flex items-center flex-wrap gap-2">
+              <span className="text-sm font-medium text-gray-700">Active filters:</span>
+              
+              {searchQuery && (
+                <Badge variant="secondary" className="bg-blue-100 text-blue-800">
+                  Search: "{searchQuery}"
+                  <button
+                    onClick={() => onSearchChange("")}
+                    className="ml-1 hover:text-blue-900"
+                  >
+                    <HiXMark className="h-3 w-3" />
+                  </button>
+                </Badge>
+              )}
+              
+              {statusFilter !== "all" && (
+                <Badge variant="secondary" className="bg-green-100 text-green-800">
+                  Status: {statusOptions.find(s => s.value === statusFilter)?.label}
+                  <button
+                    onClick={() => onStatusFilterChange("all")}
+                    className="ml-1 hover:text-green-900"
+                  >
+                    <HiXMark className="h-3 w-3" />
+                  </button>
+                </Badge>
+              )}
+              
+              {dealTypeFilter !== "all" && (
+                <Badge variant="secondary" className="bg-purple-100 text-purple-800">
+                  Type: {dealTypeOptions.find(t => t.value === dealTypeFilter)?.label}
+                  <button
+                    onClick={() => onDealTypeFilterChange("all")}
+                    className="ml-1 hover:text-purple-900"
+                  >
+                    <HiXMark className="h-3 w-3" />
+                  </button>
+                </Badge>
+              )}
+            </div>
+          </div>
         )}
       </div>
-
-      {/* Mobile Filter Toggle */}
-      <div className="md:hidden flex items-center justify-between">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setShowMobileFilters(!showMobileFilters)}
-        >
-          <Filter className="h-4 w-4 mr-1" />
-          Filters
-        </Button>
-        {hasActiveFilters && (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={onClearFilters}
-            className="text-muted-foreground"
-          >
-            <X className="h-4 w-4 mr-1" />
-            Clear
-          </Button>
-        )}
-      </div>
-
-      {/* Mobile Filters */}
-      {showMobileFilters && (
-        <div className="md:hidden space-y-3 p-4 bg-gray-50 rounded-lg">
-          <Select value={statusFilter} onValueChange={onStatusFilterChange}>
-            <SelectTrigger>
-              <SelectValue placeholder="Filter by status" />
-            </SelectTrigger>
-            <SelectContent>
-              {statusOptions.map((option) => (
-                <SelectItem key={option.value} value={option.value}>
-                  {option.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          <Select value={dealTypeFilter} onValueChange={onDealTypeFilterChange}>
-            <SelectTrigger>
-              <SelectValue placeholder="Filter by type" />
-            </SelectTrigger>
-            <SelectContent>
-              {dealTypeOptions.map((option) => (
-                <SelectItem key={option.value} value={option.value}>
-                  {option.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      )}
-
-      {/* Active Filters Display */}
-      {hasActiveFilters && (
-        <div className="flex flex-wrap gap-2">
-          {statusFilter !== "all" && (
-            <Badge variant="secondary" className="text-xs">
-              Status: {statusOptions.find(s => s.value === statusFilter)?.label}
-            </Badge>
-          )}
-          {dealTypeFilter !== "all" && (
-            <Badge variant="secondary" className="text-xs">
-              Type: {dealTypeOptions.find(t => t.value === dealTypeFilter)?.label}
-            </Badge>
-          )}
-          {searchQuery && (
-            <Badge variant="secondary" className="text-xs">
-              Search: "{searchQuery}"
-            </Badge>
-          )}
-        </div>
-      )}
     </div>
   );
 }
