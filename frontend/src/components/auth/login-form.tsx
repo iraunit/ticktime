@@ -76,7 +76,7 @@ export function LoginForm() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100">
       <div className="container mx-auto px-4 py-6 max-w-7xl">
-        <div className="min-h-[calc(100vh-3rem)] flex items-center justify-center">
+        <div className="min-h-[calc(100vh-12rem)] flex items-center justify-center">
           <div className="w-full max-w-md">
             
             {/* Header */}
@@ -264,11 +264,6 @@ export function LoginForm() {
                 </Form>
               </CardContent>
             </Card>
-
-            {/* Footer */}
-            <div className="text-center mt-8 text-xs text-gray-500">
-              <p>© 2024 TickTime. All rights reserved.</p>
-            </div>
           </div>
         </div>
       </div>
