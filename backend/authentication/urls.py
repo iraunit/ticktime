@@ -12,4 +12,5 @@ urlpatterns = [
     path('reset-password/<str:uid>/<str:token>/', views.reset_password_view, name='reset_password'),
     path('verify-email/<str:token>/', views.verify_email_view, name='verify_email'),
     path('profile/', views.user_profile_view, name='user_profile'),
+    path('csrf/', views.csrf_token_view, name='csrf_token'),
 ]

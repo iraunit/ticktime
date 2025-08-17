@@ -1,5 +1,6 @@
 import React from "react";
 import * as Hero from "@heroicons/react/24/outline";
+import { HiHandRaised } from "react-icons/hi2";
 
 export type LucideIcon = React.FC<React.SVGProps<SVGSVGElement> & { className?: string }>;
 
@@ -95,6 +96,9 @@ export const PhoneIcon = Phone;
 export const Mail = make("EnvelopeIcon", "lni-envelope", "ri-mail-line", "bx-envelope");
 export const Play = make("PlayIcon", "lni-play", "ri-play-line", "bx-play");
 export const Camera = make("CameraIcon", "lni-camera", "ri-camera-line", "bx-camera");
+
+// Export the HiHandRaised icon directly
+export { HiHandRaised };
 
 export const LineiconsShim = {};
 export default LineiconsShim; 

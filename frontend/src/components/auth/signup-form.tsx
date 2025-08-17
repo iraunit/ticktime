@@ -5,7 +5,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import Link from "next/link";
-import { Eye, EyeOff, Mail, Lock, User, Phone, ArrowRight, ArrowLeft, Loader2, CheckCircle } from "@/lib/icons";
+import { Eye, EyeOff, Mail, Lock, User, Phone, ArrowRight, ArrowLeft, Loader2, CheckCircle, Camera, HiHandRaised } from "@/lib/icons";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -22,7 +22,9 @@ const signupSchema = z.object({
   password_confirm: z.string(),
   first_name: z.string().min(2, "First name must be at least 2 characters"),
   last_name: z.string().min(2, "Last name must be at least 2 characters"),
-  phone_number: z.string().min(10, "Please enter a valid phone number"),
+  phone_number: z.string()
+    .min(7, "Phone number must be at least 7 digits")
+    .regex(/^\d+$/, "Phone number should only contain numbers"),
   country_code: z.string().min(1, "Please select a country code"),
   username: z.string()
     .min(3, "Username must be at least 3 characters")
@@ -68,7 +70,7 @@ export function SignupForm() {
       first_name: "",
       last_name: "",
       phone_number: "",
-      country_code: "+91",
+      country_code: "+1",
       username: "",
       industry: "",
     },
@@ -97,44 +99,33 @@ export function SignupForm() {
   };
 
   const onSubmit = async (data: SignupFormData) => {
-    try {
-      await signup.mutateAsync({
-        email: data.email,
-        password: data.password,
-        password_confirm: data.password_confirm,
-        first_name: data.first_name,
-        last_name: data.last_name,
-        phone_number: data.phone_number,
-        country_code: data.country_code,
-        username: data.username,
-        industry: data.industry,
-      });
-    } catch (error) {
-      console.error('Signup failed:', error);
-    }
+    await signup.mutateAsync(data);
   };
 
   const renderStepContent = () => {
     switch (currentStep) {
       case 1:
         return (
-          <div className="space-y-4" key="step-1">
+          <div className="space-y-6">
+            <div className="flex items-center gap-2 mb-6">
+              <div className="w-2 h-2 bg-gradient-to-r from-purple-500 to-pink-600 rounded-full"></div>
+              <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">Account Security</h3>
+            </div>
+            
             <FormField
               control={form.control}
               name="email"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Email Address</FormLabel>
+                  <FormLabel className="text-sm font-medium text-gray-700">Email Address</FormLabel>
                   <FormControl>
                     <div className="relative">
-                      <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                      <Mail className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
                       <Input
                         {...field}
-                        id="email"
-                        autoComplete="email"
                         type="email"
-                        placeholder="Enter your email"
-                        className="pl-10"
+                        placeholder="your@email.com"
+                        className="h-11 pl-10 border-gray-200 focus:border-purple-500 focus:ring-purple-500/20"
                       />
                     </div>
                   </FormControl>
@@ -148,17 +139,15 @@ export function SignupForm() {
               name="password"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Password</FormLabel>
+                  <FormLabel className="text-sm font-medium text-gray-700">Password</FormLabel>
                   <FormControl>
                     <div className="relative">
-                      <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                      <Lock className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
                       <Input
                         {...field}
-                        id="password"
-                        autoComplete="new-password"
                         type={showPassword ? "text" : "password"}
-                        placeholder="Create a password"
-                        className="pl-10 pr-10"
+                        placeholder="Create a strong password"
+                        className="h-11 pl-10 pr-10 border-gray-200 focus:border-purple-500 focus:ring-purple-500/20"
                       />
                       <Button
                         type="button"
@@ -168,16 +157,13 @@ export function SignupForm() {
                         onClick={() => setShowPassword(!showPassword)}
                       >
                         {showPassword ? (
-                          <EyeOff className="h-4 w-4 text-muted-foreground" />
+                          <EyeOff className="h-4 w-4 text-gray-400" />
                         ) : (
-                          <Eye className="h-4 w-4 text-muted-foreground" />
+                          <Eye className="h-4 w-4 text-gray-400" />
                         )}
                       </Button>
                     </div>
                   </FormControl>
-                  <FormDescription>
-                    Must be at least 8 characters with uppercase, lowercase, and number
-                  </FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
@@ -188,17 +174,15 @@ export function SignupForm() {
               name="password_confirm"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Confirm Password</FormLabel>
+                  <FormLabel className="text-sm font-medium text-gray-700">Confirm Password</FormLabel>
                   <FormControl>
                     <div className="relative">
-                      <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                      <Lock className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
                       <Input
                         {...field}
-                        id="password_confirm"
-                        autoComplete="new-password"
                         type={showConfirmPassword ? "text" : "password"}
                         placeholder="Confirm your password"
-                        className="pl-10 pr-10"
+                        className="h-11 pl-10 pr-10 border-gray-200 focus:border-purple-500 focus:ring-purple-500/20"
                       />
                       <Button
                         type="button"
@@ -208,9 +192,9 @@ export function SignupForm() {
                         onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                       >
                         {showConfirmPassword ? (
-                          <EyeOff className="h-4 w-4 text-muted-foreground" />
+                          <EyeOff className="h-4 w-4 text-gray-400" />
                         ) : (
-                          <Eye className="h-4 w-4 text-muted-foreground" />
+                          <Eye className="h-4 w-4 text-gray-400" />
                         )}
                       </Button>
                     </div>
@@ -224,23 +208,26 @@ export function SignupForm() {
 
       case 2:
         return (
-          <div className="space-y-4" key="step-2">
+          <div className="space-y-6">
+            <div className="flex items-center gap-2 mb-6">
+              <div className="w-2 h-2 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-full"></div>
+              <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">Personal Information</h3>
+            </div>
+            
             <div className="grid grid-cols-2 gap-4">
               <FormField
                 control={form.control}
                 name="first_name"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>First Name</FormLabel>
+                    <FormLabel className="text-sm font-medium text-gray-700">First Name</FormLabel>
                     <FormControl>
                       <div className="relative">
-                        <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                        <User className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
                         <Input
                           {...field}
-                          id="first_name"
-                          autoComplete="given-name"
                           placeholder="First name"
-                          className="pl-10"
+                          className="h-11 pl-10 border-gray-200 focus:border-purple-500 focus:ring-purple-500/20"
                         />
                       </div>
                     </FormControl>
@@ -254,16 +241,14 @@ export function SignupForm() {
                 name="last_name"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Last Name</FormLabel>
+                    <FormLabel className="text-sm font-medium text-gray-700">Last Name</FormLabel>
                     <FormControl>
                       <div className="relative">
-                        <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                        <User className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
                         <Input
                           {...field}
-                          id="last_name"
-                          autoComplete="family-name"
                           placeholder="Last name"
-                          className="pl-10"
+                          className="h-11 pl-10 border-gray-200 focus:border-purple-500 focus:ring-purple-500/20"
                         />
                       </div>
                     </FormControl>
@@ -273,16 +258,40 @@ export function SignupForm() {
               />
             </div>
 
+            <FormField
+              control={form.control}
+              name="username"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-sm font-medium text-gray-700">Username</FormLabel>
+                  <FormControl>
+                    <div className="relative">
+                      <span className="absolute left-3 top-3 text-gray-400 text-sm">@</span>
+                      <Input
+                        {...field}
+                        placeholder="your_username"
+                        className="h-11 pl-8 border-gray-200 focus:border-purple-500 focus:ring-purple-500/20"
+                      />
+                    </div>
+                  </FormControl>
+                  <FormDescription className="text-xs text-gray-500">
+                    This will be your unique identifier on TickTime
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
             <div className="grid grid-cols-3 gap-4">
               <FormField
                 control={form.control}
                 name="country_code"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Country Code</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value || '+91'}>
+                    <FormLabel className="text-sm font-medium text-gray-700">Code</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
                       <FormControl>
-                        <SelectTrigger>
+                        <SelectTrigger className="h-11 border-gray-200 focus:border-purple-500 focus:ring-purple-500/20">
                           <SelectValue placeholder="Code" />
                         </SelectTrigger>
                       </FormControl>
@@ -299,72 +308,54 @@ export function SignupForm() {
                 )}
               />
 
-              <FormField
-                control={form.control}
-                name="phone_number"
-                render={({ field }) => (
-                  <FormItem className="col-span-2">
-                    <FormLabel>Phone Number</FormLabel>
-                    <FormControl>
-                      <div className="relative">
-                        <Phone className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                        <Input
-                          {...field}
-                          id="phone_number"
-                          type="tel"
-                          autoComplete="tel"
-                          placeholder="Enter your phone number"
-                          className="pl-10"
-                        />
-                      </div>
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              <div className="col-span-2">
+                <FormField
+                  control={form.control}
+                  name="phone_number"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-sm font-medium text-gray-700">Phone Number</FormLabel>
+                      <FormControl>
+                        <div className="relative">
+                          <Phone className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                          <Input
+                            {...field}
+                            placeholder="1234567890"
+                            className="h-11 pl-10 border-gray-200 focus:border-purple-500 focus:ring-purple-500/20"
+                            onChange={(e) => {
+                              const value = e.target.value.replace(/\D/g, '');
+                              field.onChange(value);
+                            }}
+                          />
+                        </div>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
             </div>
-
-            <FormField
-              control={form.control}
-              name="username"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Username</FormLabel>
-                  <FormControl>
-                    <div className="relative">
-                      <span className="absolute left-3 top-3 text-muted-foreground text-sm">@</span>
-                      <Input
-                        {...field}
-                        id="username"
-                        autoComplete="username"
-                        placeholder="Choose a username"
-                        className="pl-8"
-                      />
-                    </div>
-                  </FormControl>
-                  <FormDescription>
-                    This will be your unique identifier on the platform
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
           </div>
         );
 
       case 3:
         return (
-          <div className="space-y-4" key="step-3">
+          <div className="space-y-6">
+            <div className="flex items-center gap-2 mb-6">
+              <div className="w-2 h-2 bg-gradient-to-r from-green-500 to-emerald-600 rounded-full"></div>
+              <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">Content Category</h3>
+            </div>
+            
             <FormField
               control={form.control}
               name="industry"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Content Industry</FormLabel>
+                  <FormLabel className="text-sm font-medium text-gray-700">Primary Content Category</FormLabel>
                   <Select onValueChange={field.onChange} defaultValue={field.value}>
                     <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select your primary content category" />
+                      <SelectTrigger className="h-11 border-gray-200 focus:border-purple-500 focus:ring-purple-500/20">
+                        <SelectValue placeholder="Select your main content category" />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
@@ -375,31 +366,13 @@ export function SignupForm() {
                       ))}
                     </SelectContent>
                   </Select>
-                  <FormDescription>
-                    This helps us match you with relevant brand partnerships
+                  <FormDescription className="text-xs text-gray-500">
+                    This helps brands find you for relevant collaborations
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
             />
-
-            <div className="bg-red-50 p-4 rounded-lg">
-              <h4 className="font-medium text-red-900 mb-2">What's next?</h4>
-              <ul className="text-sm text-red-700 space-y-1">
-                <li className="flex items-center">
-                  <CheckCircle className="h-4 w-4 mr-2" />
-                  Complete your profile
-                </li>
-                <li className="flex items-center">
-                  <CheckCircle className="h-4 w-4 mr-2" />
-                  Add your social media accounts
-                </li>
-                <li className="flex items-center">
-                  <CheckCircle className="h-4 w-4 mr-2" />
-                  Start receiving brand invitations
-                </li>
-              </ul>
-            </div>
           </div>
         );
 
@@ -409,97 +382,120 @@ export function SignupForm() {
   };
 
   return (
-    <Card className="w-full max-w-md mx-auto">
-      <CardHeader className="space-y-1 text-center">
-        <CardTitle className="text-2xl font-bold">Create Account</CardTitle>
-        <CardDescription>
-          Join TickTime and start collaborating with brands
-        </CardDescription>
-        
-        {/* Progress Indicator */}
-        <div className="flex justify-center space-x-2 pt-4">
-          {steps.map((step) => (
-            <div
-              key={step.id}
-              className={`w-8 h-2 rounded-full transition-colors ${
-                step.id <= currentStep ? 'bg-red-600' : 'bg-gray-200'
-              }`}
-            />
-          ))}
-        </div>
-        <p className="text-sm text-muted-foreground">
-          Step {currentStep} of {steps.length}: {currentStepData.title}
-        </p>
-      </CardHeader>
-      
-      <CardContent className="space-y-4">
-        {currentStep === 1 && (
-          <>
-            {/* Removed Google OAuth Button */}
-          </>
-        )}
-
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4" autoComplete="off">
-            <div key={currentStep}>
-              {renderStepContent()}
-            </div>
-
-            {signup.error && (
-              <div className="text-sm text-destructive text-center p-3 bg-destructive/10 rounded-md">
-                {(signup.error as any)?.message || "Signup failed. Please try again."}
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100">
+      <div className="container mx-auto px-4 py-6 max-w-7xl">
+        <div className="min-h-[calc(100vh-3rem)] flex items-center justify-center">
+          <div className="w-full max-w-lg">
+            
+            {/* Header */}
+            <div className="relative mb-8">
+              {/* Background decoration */}
+              <div className="absolute inset-0 bg-gradient-to-r from-purple-500/5 via-pink-500/5 to-purple-500/5 rounded-xl -m-2"></div>
+              
+              <div className="relative text-center p-4">
+                <h1 className="text-3xl font-bold bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 bg-clip-text text-transparent mb-2 flex items-center justify-center gap-2">
+                  Create Creator Account
+                  <div className="w-8 h-8 bg-gradient-to-r from-purple-500 to-pink-600 rounded-lg flex items-center justify-center shadow-lg">
+                    <Camera className="w-4 h-4 text-white" />
+                  </div>
+                </h1>
+                <p className="text-gray-600">
+                  Start your journey as a content creator on TickTime
+                </p>
               </div>
-            )}
-
-            <div className="flex justify-between space-x-2">
-              {currentStep > 1 && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={prevStep}
-                  className="flex-1"
-                >
-                  <ArrowLeft className="mr-2 h-4 w-4" />
-                  Back
-                </Button>
-              )}
-
-              {currentStep < steps.length ? (
-                <Button
-                  type="button"
-                  onClick={nextStep}
-                  className={currentStep === 1 ? "w-full" : "flex-1"}
-                >
-                  Continue
-                  <ArrowRight className="ml-2 h-4 w-4" />
-                </Button>
-              ) : (
-                <Button
-                  type="submit"
-                  className="flex-1"
-                  disabled={signup.isPending}
-                >
-                  {signup.isPending ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Creating Account...
-                    </>
-                  ) : (
-                    "Create Account"
-                  )}
-                </Button>
-              )}
             </div>
-          </form>
-        </Form>
 
-        <div className="text-center text-sm">
-          <span className="text-muted-foreground">Already have an account? </span>
-          <Link href="/login" className="text-primary hover:underline font-medium">
-            Sign in
-          </Link>
+            {/* Progress Indicator */}
+            <div className="mb-8">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-medium text-gray-600">Step {currentStep} of {steps.length}</span>
+                <span className="text-sm text-gray-500">{currentStepData.title}</span>
+              </div>
+              <div className="w-full bg-gray-200 rounded-full h-2">
+                <div 
+                  className="bg-gradient-to-r from-purple-500 to-pink-600 h-2 rounded-full transition-all duration-300"
+                  style={{ width: `${(currentStep / steps.length) * 100}%` }}
+                ></div>
+              </div>
+            </div>
+
+            {/* Form Card */}
+            <Card className="shadow-xl border-0 bg-white/80 backdrop-blur-sm">
+              <CardHeader className="space-y-1 text-center pb-6">
+                <CardTitle className="text-xl font-semibold text-gray-900">{currentStepData.title}</CardTitle>
+                <CardDescription className="text-gray-600">
+                  {currentStep === 1 && "Secure your account with a strong password"}
+                  {currentStep === 2 && "Tell us a bit about yourself"}
+                  {currentStep === 3 && "What type of content do you create?"}
+                </CardDescription>
+              </CardHeader>
+              
+              <CardContent className="space-y-6">
+                <Form {...form}>
+                  <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                    {renderStepContent()}
+
+                    {/* Navigation Buttons */}
+                    <div className="flex justify-between pt-6">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={prevStep}
+                        disabled={currentStep === 1}
+                        className="border-gray-200 hover:bg-gray-50"
+                      >
+                        <ArrowLeft className="w-4 h-4 mr-2" />
+                        Previous
+                      </Button>
+
+                      {currentStep < steps.length ? (
+                        <Button
+                          type="button"
+                          onClick={nextStep}
+                          className="bg-gradient-to-r from-purple-500 to-pink-600 hover:from-purple-600 hover:to-pink-700 text-white shadow-lg hover:shadow-xl transition-all duration-200"
+                        >
+                          Next
+                          <ArrowRight className="w-4 h-4 ml-2" />
+                        </Button>
+                      ) : (
+                        <Button
+                          type="submit"
+                          disabled={signup.isPending}
+                          className="bg-gradient-to-r from-purple-500 to-pink-600 hover:from-purple-600 hover:to-pink-700 text-white shadow-lg hover:shadow-xl transition-all duration-200"
+                        >
+                          {signup.isPending ? (
+                            <>
+                              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                              Creating...
+                            </>
+                          ) : (
+                            <>
+                              <CheckCircle className="w-4 h-4 mr-2" />
+                              Create Account
+                            </>
+                          )}
+                        </Button>
+                      )}
+                    </div>
+
+                    <div className="text-center text-sm text-gray-600 pt-4">
+                      Already have an account?{" "}
+                      <Link href="/login" className="font-medium text-purple-600 hover:text-purple-700">
+                        Sign in
+                      </Link>
+                    </div>
+                  </form>
+                </Form>
+              </CardContent>
+            </Card>
+
+            {/* Footer */}
+            <div className="text-center mt-8 text-xs text-gray-500">
+              <p>© 2024 TickTime. All rights reserved.</p>
+            </div>
+          </div>
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }

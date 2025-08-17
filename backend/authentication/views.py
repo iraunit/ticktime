@@ -22,11 +22,11 @@ from common.utils import generate_email_verification_token, verify_email_verific
 from .serializers import (
     UserRegistrationSerializer,
     UserLoginSerializer,
-    PasswordResetRequestSerializer,
-    PasswordResetConfirmSerializer,
-    UserProfileSerializer,
+    ForgotPasswordSerializer,
+    ResetPasswordSerializer,
     BrandRegistrationSerializer,
 )
+from users.serializers import UserProfileSerializer
 
 logger = logging.getLogger(__name__)
 
@@ -260,7 +260,7 @@ def forgot_password_view(request):
     """
     Password reset request endpoint.
     """
-    serializer = PasswordResetRequestSerializer(data=request.data)
+    serializer = ForgotPasswordSerializer(data=request.data)
     
     if serializer.is_valid():
         email = serializer.validated_data['email']
@@ -342,7 +342,7 @@ def reset_password_view(request, uid, token):
     data = request.data.copy()
     data['token'] = token
     
-    serializer = PasswordResetConfirmSerializer(data=data)
+    serializer = ResetPasswordSerializer(data=data)
     
     if serializer.is_valid():
         password = serializer.validated_data['password']

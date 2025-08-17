@@ -27,7 +27,7 @@ export const authApi = {
     website?: string;
     contact_phone?: string;
     description?: string;
-  }) => api.post('/auth/signup/brand/', data),
+  }) => api.post('/auth/brand-signup/', data),
   
   logout: () => api.post('/auth/logout/'),
   

@@ -1,22 +1,15 @@
 import { Suspense } from "react";
-import { MainLayout } from "@/components/layout/main-layout";
 import { SignupForm } from "@/components/auth/signup-form";
 import { Loader2 } from "@/lib/icons";
 
 export default function InfluencerSignupPage() {
   return (
-    <MainLayout showFooter={false}>
-      <div className="min-h-screen bg-gradient-to-br from-red-50 to-pink-100 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
-        <Suspense
-          fallback={
-            <div className="flex items-center justify-center">
-              <Loader2 className="h-8 w-8 animate-spin text-red-600" />
-            </div>
-          }
-        >
-          <SignupForm />
-        </Suspense>
+    <Suspense fallback={
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-gray-600" />
       </div>
-    </MainLayout>
+    }>
+      <SignupForm />
+    </Suspense>
   );
 } 

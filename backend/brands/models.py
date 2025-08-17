@@ -14,6 +14,7 @@ class Brand(models.Model):
     website = models.URLField(blank=True)
     industry = models.CharField(max_length=50, choices=INDUSTRY_CHOICES)
     contact_email = models.EmailField()
+    country_code = models.CharField(max_length=5, default='+1')
     contact_phone = models.CharField(max_length=15, blank=True)
     address = models.TextField(blank=True)
     is_verified = models.BooleanField(default=False)

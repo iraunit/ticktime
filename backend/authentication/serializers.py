@@ -6,6 +6,7 @@ from django.core.exceptions import ValidationError
 from django.utils import timezone
 from common.models import INDUSTRY_CHOICES
 import re
+from urllib.parse import urlparse
 
 
 class UserRegistrationSerializer(serializers.ModelSerializer):
@@ -48,48 +49,50 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
 
     def validate_phone_number(self, value):
         """Validate phone number format."""
-        # Basic phone number validation (can be enhanced based on requirements)
-        phone_pattern = r'^\+?[\d\s\-\(\)]{10,15}$'
-        if not re.match(phone_pattern, value):
-            raise serializers.ValidationError("Please enter a valid phone number.")
-        return value
+        # Remove any non-digit characters for validation
+        clean_number = re.sub(r'\D', '', value)
+        
+        if len(clean_number) < 7:
+            raise serializers.ValidationError("Phone number must be at least 7 digits.")
+        
+        if len(clean_number) > 15:
+            raise serializers.ValidationError("Phone number cannot exceed 15 digits.")
+        
+        return clean_number
 
     def validate(self, attrs):
-        """Validate password confirmation matches."""
+        """Validate password confirmation."""
         if attrs['password'] != attrs['password_confirm']:
             raise serializers.ValidationError("Password confirmation doesn't match.")
         return attrs
 
     def create(self, validated_data):
-        """Create user and associated influencer profile."""
-        # Remove password_confirm from validated_data
-        validated_data.pop('password_confirm')
+        # Import here to avoid circular imports
+        from influencers.models import InfluencerProfile
         
-        # Extract influencer profile data
+        # Remove password_confirm and other profile fields
+        password_confirm = validated_data.pop('password_confirm', None)
         phone_number = validated_data.pop('phone_number')
-        country_code = validated_data.pop('country_code', '+91')
+        country_code = validated_data.pop('country_code')
         username = validated_data.pop('username')
         industry = validated_data.pop('industry')
         
         # Create user
         user = User.objects.create_user(
-            username=validated_data['email'],  # Use email as Django username
+            username=validated_data['email'],  # Use email as username
             email=validated_data['email'],
             first_name=validated_data['first_name'],
             last_name=validated_data['last_name'],
             password=validated_data['password'],
-            is_active=True  # Make user active by default for influencers
+            is_active=True
         )
         
-        # Import here to avoid circular imports
-        from influencers.models import InfluencerProfile
-        
-        # Create influencer profile with verified status
+        # Create influencer profile
         InfluencerProfile.objects.create(
             user=user,
+            username=username,
             phone_number=phone_number,
             country_code=country_code,
-            username=username,
             industry=industry,
             is_verified=True,  # Make influencer verified by default
             email_verified=True,  # Email verified by default
@@ -110,18 +113,98 @@ class BrandRegistrationSerializer(serializers.Serializer):
     # Brand fields
     name = serializers.CharField(max_length=200)
     industry = serializers.ChoiceField(choices=INDUSTRY_CHOICES)
-    website = serializers.URLField(required=False, allow_blank=True)
-    contact_phone = serializers.CharField(max_length=15, required=False, allow_blank=True)
-    description = serializers.CharField(required=False, allow_blank=True)
+    website = serializers.URLField()
+    country_code = serializers.CharField(max_length=5)
+    contact_phone = serializers.CharField(max_length=15)
+    description = serializers.CharField()
+
+    # List of public email domains to block
+    PUBLIC_EMAIL_DOMAINS = {
+        'gmail.com', 'yahoo.com', 'hotmail.com', 'outlook.com', 'aol.com', 
+        'icloud.com', 'live.com', 'msn.com', 'ymail.com', 'protonmail.com',
+        'mail.com', 'zoho.com', 'gmx.com', 'rediffmail.com', 'yahoo.co.in',
+        'yahoo.co.uk', 'hotmail.co.uk', 'live.co.uk', 'outlook.co.uk'
+    }
 
     def validate_email(self, value):
+        """Validate email is unique and not from public domains."""
         if User.objects.filter(email=value).exists():
             raise serializers.ValidationError("A user with this email already exists.")
+        
+        # Check if email domain is in public domains list
+        domain = value.split('@')[1].lower()
+        if domain in self.PUBLIC_EMAIL_DOMAINS:
+            raise serializers.ValidationError(
+                "Please use your business email address, not a personal email like Gmail, Yahoo, etc."
+            )
+        
+        return value
+
+    def validate_contact_phone(self, value):
+        """Validate phone number format - only digits allowed."""
+        if not value:
+            raise serializers.ValidationError("Phone number is required.")
+        
+        # Remove any non-digit characters
+        clean_number = re.sub(r'\D', '', value)
+        
+        if len(clean_number) < 7:
+            raise serializers.ValidationError("Phone number must be at least 7 digits.")
+        
+        if len(clean_number) > 15:
+            raise serializers.ValidationError("Phone number cannot exceed 15 digits.")
+        
+        # Return only digits
+        return clean_number
+
+    def validate_website(self, value):
+        """Validate website URL format."""
+        if not value:
+            raise serializers.ValidationError("Website URL is required.")
+        
+        # Ensure URL has a scheme
+        if not value.startswith(('http://', 'https://')):
+            value = 'https://' + value
+        
+        try:
+            parsed = urlparse(value)
+            if not parsed.netloc:
+                raise serializers.ValidationError("Please enter a valid website URL.")
+        except:
+            raise serializers.ValidationError("Please enter a valid website URL.")
+        
         return value
 
     def validate(self, attrs):
+        """Cross-field validation."""
         if attrs['password'] != attrs['password_confirm']:
-            raise serializers.ValidationError("Password confirmation doesn't match.")
+            raise serializers.ValidationError({"password_confirm": "Password confirmation doesn't match."})
+        
+        # Validate email domain matches website domain
+        email = attrs.get('email', '')
+        website = attrs.get('website', '')
+        
+        if email and website:
+            email_domain = email.split('@')[1].lower()
+            
+            # Extract domain from website URL
+            try:
+                parsed_url = urlparse(website)
+                website_domain = parsed_url.netloc.lower()
+                
+                # Remove www. prefix if present
+                if website_domain.startswith('www.'):
+                    website_domain = website_domain[4:]
+                
+                # Check if email domain matches website domain
+                if email_domain != website_domain:
+                    raise serializers.ValidationError({
+                        "email": f"Email domain ({email_domain}) must match your website domain ({website_domain})"
+                    })
+            except:
+                # If we can't parse the website URL, let the website validator handle it
+                pass
+        
         return attrs
 
     def create(self, validated_data):
@@ -130,9 +213,10 @@ class BrandRegistrationSerializer(serializers.Serializer):
         validated_data.pop('password_confirm', None)
         name = validated_data.pop('name')
         industry = validated_data.pop('industry')
-        website = validated_data.pop('website', '')
-        contact_phone = validated_data.pop('contact_phone', '')
-        description = validated_data.pop('description', '')
+        website = validated_data.pop('website')
+        country_code = validated_data.pop('country_code')
+        contact_phone = validated_data.pop('contact_phone')
+        description = validated_data.pop('description')
 
         # Create user (active for immediate access)
         user = User.objects.create_user(
@@ -149,6 +233,7 @@ class BrandRegistrationSerializer(serializers.Serializer):
             industry=industry,
             website=website,
             contact_email=user.email,
+            country_code=country_code,
             contact_phone=contact_phone,
             description=description,
         )
@@ -164,126 +249,87 @@ class UserLoginSerializer(serializers.Serializer):
     remember_me = serializers.BooleanField(default=False)
 
     def validate(self, attrs):
-        """Authenticate user credentials."""
         email = attrs.get('email')
         password = attrs.get('password')
 
         if email and password:
-            # Try to get user by email
-            try:
-                user = User.objects.get(email=email)
-                if not user.is_active:
-                    raise serializers.ValidationError(
-                        "Account is not activated. Please check your email for verification link."
-                    )
-                username = user.username
-            except User.DoesNotExist:
-                raise serializers.ValidationError("Invalid email or password.")
-
-            # Authenticate using Django username
-            user = authenticate(username=username, password=password)
+            user = authenticate(username=email, password=password)
             
-            if user:
-                attrs['user'] = user
-            else:
-                raise serializers.ValidationError("Invalid email or password.")
+            if not user:
+                raise serializers.ValidationError(
+                    'Unable to log in with provided credentials.'
+                )
+            
+            if not user.is_active:
+                raise serializers.ValidationError(
+                    'User account is disabled.'
+                )
+            
+            attrs['user'] = user
+            return attrs
         else:
-            raise serializers.ValidationError("Email and password are required.")
+            raise serializers.ValidationError(
+                'Must include "email" and "password".'
+            )
 
-        return attrs
 
-
-class PasswordResetRequestSerializer(serializers.Serializer):
+class ForgotPasswordSerializer(serializers.Serializer):
     """
     Serializer for password reset request.
     """
     email = serializers.EmailField()
 
     def validate_email(self, value):
-        """Validate email exists in the system."""
+        """Check that user exists with this email."""
         try:
-            User.objects.get(email=value)
+            user = User.objects.get(email=value)
         except User.DoesNotExist:
-            raise serializers.ValidationError("No user found with this email address.")
+            raise serializers.ValidationError(
+                "No account found with this email address."
+            )
         return value
 
 
-class PasswordResetConfirmSerializer(serializers.Serializer):
+class ResetPasswordSerializer(serializers.Serializer):
     """
     Serializer for password reset confirmation.
     """
     token = serializers.CharField()
-    password = serializers.CharField(validators=[validate_password])
-    password_confirm = serializers.CharField()
+    uid = serializers.CharField()
+    new_password = serializers.CharField(
+        write_only=True, 
+        validators=[validate_password]
+    )
+    confirm_password = serializers.CharField(write_only=True)
 
     def validate(self, attrs):
-        """Validate password confirmation matches."""
-        if attrs['password'] != attrs['password_confirm']:
-            raise serializers.ValidationError("Password confirmation doesn't match.")
+        """Validate password confirmation."""
+        if attrs['new_password'] != attrs['confirm_password']:
+            raise serializers.ValidationError(
+                "Password confirmation doesn't match."
+            )
         return attrs
 
 
-class UserProfileSerializer(serializers.ModelSerializer):
+class EmailVerificationSerializer(serializers.Serializer):
     """
-    Serializer for user profile information.
+    Serializer for email verification.
     """
-    influencer_profile = serializers.SerializerMethodField()
+    token = serializers.CharField()
+    uid = serializers.CharField()
 
-    class Meta:
-        model = User
-        fields = ('id', 'first_name', 'last_name', 'email', 'date_joined', 'influencer_profile')
-        read_only_fields = ('id', 'email', 'date_joined')
-
-    def get_influencer_profile(self, obj):
-        """Get influencer profile data."""
-        try:
-            profile = obj.influencer_profile
-            request = self.context.get('request')
-            
-            # Build full URL for profile image
-            profile_image_url = None
-            if profile.profile_image:
-                if request:
-                    profile_image_url = request.build_absolute_uri(profile.profile_image.url)
-                else:
-                    # Fallback to relative URL if no request context
-                    profile_image_url = profile.profile_image.url
-            
-            return {
-                'username': profile.username,
-                'industry': profile.industry,
-                'phone_number': profile.phone_number,
-                'bio': profile.bio,
-                'is_verified': profile.is_verified,
-                'total_followers': profile.total_followers,
-                'average_engagement_rate': float(profile.average_engagement_rate),
-                'profile_image': profile_image_url,
-            }
-        except:
-            # Import here to avoid circular imports
-            from influencers.models import InfluencerProfile
-            try:
-                profile = obj.influencer_profile
-                request = self.context.get('request')
-                
-                # Build full URL for profile image
-                profile_image_url = None
-                if profile.profile_image:
-                    if request:
-                        profile_image_url = request.build_absolute_uri(profile.profile_image.url)
-                    else:
-                        # Fallback to relative URL if no request context
-                        profile_image_url = profile.profile_image.url
-                
-                return {
-                    'username': profile.username,
-                    'industry': profile.industry,
-                    'phone_number': profile.phone_number,
-                    'bio': profile.bio,
-                    'is_verified': profile.is_verified,
-                    'total_followers': profile.total_followers,
-                    'average_engagement_rate': float(profile.average_engagement_rate),
-                    'profile_image': profile_image_url,
-                }
-            except:
-                return None
+    def validate(self, attrs):
+        """Validate token and uid."""
+        from core.utils import verify_email_token
+        
+        token = attrs.get('token')
+        uid = attrs.get('uid')
+        
+        user = verify_email_token(uid, token)
+        if not user:
+            raise serializers.ValidationError(
+                "Invalid or expired verification link."
+            )
+        
+        attrs['user'] = user
+        return attrs
