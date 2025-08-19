@@ -57,15 +57,15 @@ export function DealFilters({
   const [isExpanded, setIsExpanded] = useState(false);
 
   return (
-    <div className="bg-white border shadow-md rounded-xl overflow-hidden">
-      {/* Filter Header */}
-      <div className="p-4 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white">
+    <div className="bg-white border shadow-sm rounded-lg overflow-hidden">
+      {/* Compact Filter Header */}
+      <div className="p-3 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white">
         <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <HiFunnel className="h-5 w-5 text-gray-600" />
-            <h3 className="text-lg font-semibold text-gray-900">Filter & Search</h3>
+          <div className="flex items-center space-x-2">
+            <HiFunnel className="h-4 w-4 text-gray-600" />
+            <h3 className="text-base font-semibold text-gray-900">Filter & Search</h3>
             {hasActiveFilters && (
-              <Badge className="bg-blue-100 text-blue-800 px-2 py-1 text-xs font-medium">
+              <Badge className="bg-blue-100 text-blue-800 px-1.5 py-0.5 text-xs font-medium">
                 Active
               </Badge>
             )}
@@ -76,9 +76,9 @@ export function DealFilters({
                 variant="ghost"
                 size="sm"
                 onClick={onClearFilters}
-                className="text-gray-500 hover:text-gray-700 hover:bg-gray-100 px-3 py-1 text-sm"
+                className="text-gray-500 hover:text-gray-700 hover:bg-gray-100 px-2 py-1 text-xs"
               >
-                <HiXMark className="h-4 w-4 mr-1" />
+                <HiXMark className="h-3 w-3 mr-1" />
                 Clear
               </Button>
             )}
@@ -86,7 +86,7 @@ export function DealFilters({
               variant="ghost"
               size="sm"
               onClick={() => setIsExpanded(!isExpanded)}
-              className="text-gray-500 hover:text-gray-700 hover:bg-gray-100 px-3 py-1 text-sm lg:hidden"
+              className="text-gray-500 hover:text-gray-700 hover:bg-gray-100 px-2 py-1 text-xs lg:hidden"
             >
               {isExpanded ? "Hide" : "Show"} Filters
             </Button>
@@ -94,33 +94,33 @@ export function DealFilters({
         </div>
       </div>
 
-      {/* Filter Content */}
-      <div className={`p-4 ${isExpanded ? 'block' : 'hidden'} lg:block`}>
-        <div className="grid gap-4 md:grid-cols-3">
+      {/* Compact Filter Content - Stacked for sidebar */}
+      <div className={`p-3 ${isExpanded ? 'block' : 'hidden'} lg:block`}>
+        <div className="space-y-3">
           {/* Search Input */}
           <div className="relative">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-xs font-medium text-gray-700 mb-1">
               Search Deals
             </label>
             <div className="relative">
-              <HiMagnifyingGlass className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <HiMagnifyingGlass className="absolute left-2.5 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
               <Input
                 type="text"
                 placeholder="Search by brand, title, or description..."
                 value={searchQuery}
                 onChange={(e) => onSearchChange(e.target.value)}
-                className="pl-10 pr-4 py-2 border-2 border-gray-200 focus:border-blue-500 focus:ring-blue-500 rounded-lg"
+                className="pl-8 pr-3 py-1.5 border border-gray-200 focus:border-blue-500 focus:ring-blue-500 rounded-md text-sm"
               />
             </div>
           </div>
 
           {/* Status Filter */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-xs font-medium text-gray-700 mb-1">
               Status
             </label>
             <Select value={statusFilter} onValueChange={onStatusFilterChange}>
-              <SelectTrigger className="border-2 border-gray-200 focus:border-blue-500 rounded-lg">
+              <SelectTrigger className="border border-gray-200 focus:border-blue-500 rounded-md py-1.5 text-sm">
                 <SelectValue placeholder="Select status" />
               </SelectTrigger>
               <SelectContent>
@@ -142,11 +142,11 @@ export function DealFilters({
 
           {/* Deal Type Filter */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-xs font-medium text-gray-700 mb-1">
               Deal Type
             </label>
             <Select value={dealTypeFilter} onValueChange={onDealTypeFilterChange}>
-              <SelectTrigger className="border-2 border-gray-200 focus:border-blue-500 rounded-lg">
+              <SelectTrigger className="border border-gray-200 focus:border-blue-500 rounded-md py-1.5 text-sm">
                 <SelectValue placeholder="Select type" />
               </SelectTrigger>
               <SelectContent>
@@ -160,14 +160,14 @@ export function DealFilters({
           </div>
         </div>
 
-        {/* Active Filters Display */}
+        {/* Compact Active Filters Display */}
         {hasActiveFilters && (
-          <div className="mt-4 pt-4 border-t border-gray-100">
-            <div className="flex items-center flex-wrap gap-2">
-              <span className="text-sm font-medium text-gray-700">Active filters:</span>
+          <div className="mt-3 pt-2 border-t border-gray-100">
+            <div className="flex flex-col space-y-1.5">
+              <span className="text-xs font-medium text-gray-700">Active filters:</span>
               
               {searchQuery && (
-                <Badge variant="secondary" className="bg-blue-100 text-blue-800">
+                <Badge variant="secondary" className="bg-blue-100 text-blue-800 text-xs px-1.5 py-0.5 self-start">
                   Search: "{searchQuery}"
                   <button
                     onClick={() => onSearchChange("")}
@@ -179,7 +179,7 @@ export function DealFilters({
               )}
               
               {statusFilter !== "all" && (
-                <Badge variant="secondary" className="bg-green-100 text-green-800">
+                <Badge variant="secondary" className="bg-green-100 text-green-800 text-xs px-1.5 py-0.5 self-start">
                   Status: {statusOptions.find(s => s.value === statusFilter)?.label}
                   <button
                     onClick={() => onStatusFilterChange("all")}
@@ -191,7 +191,7 @@ export function DealFilters({
               )}
               
               {dealTypeFilter !== "all" && (
-                <Badge variant="secondary" className="bg-purple-100 text-purple-800">
+                <Badge variant="secondary" className="bg-purple-100 text-purple-800 text-xs px-1.5 py-0.5 self-start">
                   Type: {dealTypeOptions.find(t => t.value === dealTypeFilter)?.label}
                   <button
                     onClick={() => onDealTypeFilterChange("all")}

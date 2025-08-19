@@ -9,7 +9,6 @@ import { TypingIndicator } from "./typing-indicator";
 import { LoadingSpinner } from "./loading-spinner";
 import { ScrollToBottom } from "./scroll-to-bottom";
 import { Message, Deal } from "@/types";
-import { Card } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { HiExclamationTriangle } from "react-icons/hi2";
 
@@ -133,34 +132,34 @@ export function MessagingInterface({ deal, className = "" }: MessagingInterfaceP
 
   if (messages.isLoading) {
     return (
-      <Card className={`flex items-center justify-center h-96 ${className}`}>
+      <div className={`h-full bg-white border shadow-sm flex items-center justify-center ${className}`}>
         <LoadingSpinner />
-      </Card>
+      </div>
     );
   }
 
   if (messages.isError) {
     return (
-      <Card className={`p-6 ${className}`}>
+      <div className={`h-full bg-white border shadow-sm p-4 flex items-center justify-center ${className}`}>
         <Alert className="border-red-200 bg-red-50">
           <HiExclamationTriangle className="h-4 w-4 text-red-600" />
           <AlertDescription className="text-red-800">
             Failed to load messages. Please try again.
           </AlertDescription>
         </Alert>
-      </Card>
+      </div>
     );
   }
 
   return (
-    <Card className={`flex flex-col h-[500px] md:h-[600px] relative ${className}`}>
+    <div className={`h-full bg-white border shadow-sm flex flex-col overflow-hidden ${className}`}>
       {/* Conversation Header */}
       <ConversationHeader deal={deal} />
       
-      {/* Messages Container */}
+      {/* Messages Container - Individually scrollable */}
       <div 
         ref={messagesContainerRef}
-        className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50 relative"
+        className="flex-1 overflow-y-auto p-3 space-y-3 bg-gray-50 relative min-h-0"
       >
         {(() => {
           const messageList = Array.isArray(messages.data) ? messages.data : messages.data?.data;
@@ -184,7 +183,7 @@ export function MessagingInterface({ deal, className = "" }: MessagingInterfaceP
           ) : (
             <div className="flex items-center justify-center h-full">
               <div className="text-center text-gray-500">
-                <p className="text-lg font-medium">No messages yet</p>
+                <p className="text-base font-medium">No messages yet</p>
                 <p className="text-sm">Start a conversation with the brand</p>
               </div>
             </div>
@@ -216,6 +215,6 @@ export function MessagingInterface({ deal, className = "" }: MessagingInterfaceP
         isLoading={sendMessage.isPending}
         disabled={deal.status === 'completed' || deal.status === 'cancelled'}
       />
-    </Card>
+    </div>
   );
 }

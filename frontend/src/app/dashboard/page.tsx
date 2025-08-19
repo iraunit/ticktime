@@ -45,7 +45,7 @@ export default function DashboardPage() {
   
   if (hasError) {
     return (
-      <MainLayout>
+      <MainLayout showFooter={false}>
         <div className="container mx-auto px-4 py-8">
           <div className="text-center py-12">
             <div className="w-16 h-16 bg-gradient-to-br from-red-50 to-red-100 rounded-xl flex items-center justify-center mx-auto mb-4 shadow-md">
@@ -99,7 +99,7 @@ export default function DashboardPage() {
 
   return (
     <RequireAuth>
-      <MainLayout>
+      <MainLayout showFooter={false}>
         <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100">
           <div className="container mx-auto px-4 py-4 max-w-7xl">
             {/* Compact Header */}

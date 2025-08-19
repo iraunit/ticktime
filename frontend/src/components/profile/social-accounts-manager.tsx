@@ -226,305 +226,226 @@ export function SocialAccountsManager() {
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <CardTitle>Social Media Accounts</CardTitle>
-          {!isAddingAccount && (
-            <Button onClick={handleAddAccount} size="sm">
-              Add Account
-            </Button>
-          )}
+    <div className="space-y-4">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="text-lg font-semibold text-gray-900">Social Media Accounts</h3>
+          <p className="text-sm text-gray-600 mt-1">Connect your social media accounts to showcase your reach</p>
         </div>
-      </CardHeader>
-      <CardContent>
-        {/* Existing Accounts */}
-        {accounts.length > 0 && (
-          <div className="space-y-4 mb-6">
-            {accounts.map((account: SocialMediaAccount) => (
-              <div
-                key={account.id}
-                className="flex items-center justify-between p-4 border rounded-lg"
-              >
-                <div className="flex items-center space-x-4">
-                  <div className="text-2xl">
-                    {getPlatformIcon(account.platform)}
-                  </div>
-                  <div>
-                    <div className="flex items-center space-x-2">
-                      <h3 className="font-medium">
-                        {getPlatformLabel(account.platform)}
-                      </h3>
-                      {account.verified && (
-                        <Badge variant="secondary" className="text-xs">
-                          Verified
-                        </Badge>
-                      )}
-                    </div>
-                    <p className="text-sm text-gray-600">@{account.handle}</p>
-                    <div className="flex items-center space-x-4 text-sm text-gray-500 mt-1">
-                      <span>{formatNumber(account.followers_count)} followers</span>
-                      <span>{account.engagement_rate}% engagement</span>
-                    </div>
-                  </div>
+        {!isAddingAccount && (
+          <Button onClick={handleAddAccount} size="sm">
+            Add Account
+          </Button>
+        )}
+      </div>
+
+      {/* Success/Error Messages */}
+      {success && (
+        <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
+          <p className="text-sm text-green-800">{success}</p>
+        </div>
+      )}
+
+      {error && (
+        <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+          <p className="text-sm text-red-800">{error}</p>
+        </div>
+      )}
+
+      {/* Existing Accounts */}
+      {accounts.length > 0 && (
+        <div className="space-y-3">
+          {accounts.map((account: SocialMediaAccount) => (
+            <div
+              key={account.id}
+              className="flex items-center justify-between p-3 border rounded-lg bg-gray-50"
+            >
+              <div className="flex items-center space-x-3">
+                <div className="text-xl">
+                  {getPlatformIcon(account.platform)}
                 </div>
-                <div className="flex items-center space-x-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleEditAccount(account)}
-                  >
-                    Edit
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleDeleteAccount(account.id)}
-                    className="text-red-600 hover:text-red-700"
-                  >
-                    Delete
-                  </Button>
+                <div>
+                  <div className="flex items-center space-x-2">
+                    <h4 className="font-medium text-sm">
+                      {getPlatformLabel(account.platform)}
+                    </h4>
+                    {account.verified && (
+                      <Badge variant="secondary" className="text-xs">
+                        Verified
+                      </Badge>
+                    )}
+                  </div>
+                  <p className="text-sm text-gray-600">@{account.handle}</p>
+                  <div className="flex items-center space-x-3 text-xs text-gray-500 mt-0.5">
+                    <span>{formatNumber(account.followers_count)} followers</span>
+                    <span>{account.engagement_rate}% engagement</span>
+                  </div>
                 </div>
               </div>
-            ))}
+              <div className="flex items-center space-x-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleEditAccount(account)}
+                  className="text-xs px-2 py-1"
+                >
+                  Edit
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleDeleteAccount(account.id)}
+                  className="text-red-600 hover:text-red-700 text-xs px-2 py-1"
+                >
+                  Delete
+                </Button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Add/Edit Form */}
+      {isAddingAccount && (
+        <div className="border rounded-lg p-4 bg-white">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-base font-medium">
+              {editingAccount ? 'Edit Account' : 'Add New Account'}
+            </h3>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={handleCancel}
+              className="text-gray-500 hover:text-gray-700"
+            >
+              Cancel
+            </Button>
           </div>
-        )}
 
-        {/* Add/Edit Form */}
-        {isAddingAccount && (
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-medium">
-                {editingAccount ? 'Edit Account' : 'Add New Account'}
-              </h3>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={handleCancel}
-              >
-                Cancel
-              </Button>
-            </div>
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <Label htmlFor="platform" className="text-sm font-medium">Platform *</Label>
+                <Select
+                  value={watch('platform')}
+                  onValueChange={(value) => setValue('platform', value)}
+                >
+                  <SelectTrigger className="mt-1">
+                    <SelectValue placeholder="Select platform" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {SOCIAL_PLATFORMS.map((platform) => (
+                      <SelectItem key={platform.value} value={platform.value}>
+                        <div className="flex items-center space-x-2">
+                          <span>{platform.icon}</span>
+                          <span>{platform.label}</span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {errors.platform && (
+                  <p className="text-red-500 text-xs mt-1">{errors.platform.message}</p>
+                )}
+              </div>
 
-            {/* Platform Selection */}
-            <div className="space-y-2">
-              <Label htmlFor="platform">Platform *</Label>
-              <Select
-                value={watchedPlatform}
-                onValueChange={(value) => setValue('platform', value, { shouldValidate: true })}
-              >
-                <SelectTrigger className={errors.platform ? 'border-red-500' : ''}>
-                  <SelectValue placeholder="Select a platform" />
-                </SelectTrigger>
-                <SelectContent>
-                  {getAvailablePlatforms().map((platform) => (
-                    <SelectItem key={platform.value} value={platform.value}>
-                      <div className="flex items-center space-x-2">
-                        <span>{platform.icon}</span>
-                        <span>{platform.label}</span>
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {errors.platform && (
-                <p className="text-sm text-red-600">{errors.platform.message}</p>
-              )}
-            </div>
-
-            {/* Handle and Profile URL */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="handle">Handle/Username *</Label>
+              <div>
+                <Label htmlFor="handle" className="text-sm font-medium">Handle *</Label>
                 <Input
                   id="handle"
                   {...register('handle')}
-                  placeholder="@username"
-                  className={errors.handle ? 'border-red-500' : ''}
+                  placeholder="username"
+                  className="mt-1"
                 />
                 {errors.handle && (
-                  <p className="text-sm text-red-600">{errors.handle.message}</p>
+                  <p className="text-red-500 text-xs mt-1">{errors.handle.message}</p>
                 )}
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="profile_url">Profile URL</Label>
-                <div className="flex space-x-2">
-                  <Input
-                    id="profile_url"
-                    {...register('profile_url')}
-                    placeholder="https://..."
-                    className={errors.profile_url ? 'border-red-500' : ''}
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      if (watchedPlatform && watchedHandle) {
-                        const generatedUrl = generateProfileUrl(watchedPlatform, watchedHandle);
-                        setValue('profile_url', generatedUrl);
-                      }
-                    }}
-                    disabled={!watchedPlatform || !watchedHandle}
-                  >
-                    Auto
-                  </Button>
-                </div>
-                {errors.profile_url && (
-                  <p className="text-sm text-red-600">{errors.profile_url.message}</p>
-                )}
-                <p className="text-sm text-gray-500">
-                  Leave empty to auto-generate based on platform and handle
-                </p>
               </div>
             </div>
 
-            {/* Follower Stats */}
-            {SHOW_METRICS && (
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="followers_count">Followers *</Label>
-                  <Input id="followers_count" type="number" {...register('followers_count', { valueAsNumber: true })} placeholder="0" className={errors.followers_count ? 'border-red-500' : ''} />
-                  {errors.followers_count && (<p className="text-sm text-red-600">{errors.followers_count.message}</p>)}
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="following_count">Following</Label>
-                  <Input id="following_count" type="number" {...register('following_count', { valueAsNumber: true })} placeholder="0" />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="posts_count">Posts</Label>
-                  <Input id="posts_count" type="number" {...register('posts_count', { valueAsNumber: true })} placeholder="0" />
-                </div>
-              </div>
-            )}
+            <div>
+              <Label htmlFor="profile_url" className="text-sm font-medium">Profile URL</Label>
+              <Input
+                id="profile_url"
+                {...register('profile_url')}
+                placeholder="https://..."
+                className="mt-1"
+              />
+              {errors.profile_url && (
+                <p className="text-red-500 text-xs mt-1">{errors.profile_url.message}</p>
+              )}
+            </div>
 
-            {/* Engagement Metrics */}
-            {SHOW_METRICS && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="engagement_rate">Engagement Rate (%) *</Label>
-                  <Input id="engagement_rate" type="number" step="0.01" min="0" max="100" {...register('engagement_rate', { valueAsNumber: true })} placeholder="0.00" className={errors.engagement_rate ? 'border-red-500' : ''} />
-                  {errors.engagement_rate && (<p className="text-sm text-red-600">{errors.engagement_rate.message}</p>)}
-                  <p className="text-sm text-gray-500">Calculate as: (Likes + Comments + Shares) / Followers × 100</p>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="average_likes">Average Likes</Label>
-                  <Input id="average_likes" type="number" min="0" {...register('average_likes', { valueAsNumber: true })} placeholder="0" />
-                </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <Label htmlFor="followers_count" className="text-sm font-medium">Followers Count *</Label>
+                <Input
+                  id="followers_count"
+                  type="number"
+                  {...register('followers_count', { valueAsNumber: true })}
+                  placeholder="0"
+                  className="mt-1"
+                />
+                {errors.followers_count && (
+                  <p className="text-red-500 text-xs mt-1">{errors.followers_count.message}</p>
+                )}
               </div>
-            )}
 
-            {SHOW_METRICS && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="average_comments">Average Comments</Label>
-                  <Input id="average_comments" type="number" min="0" {...register('average_comments', { valueAsNumber: true })} placeholder="0" />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="average_shares">Average Shares</Label>
-                  <Input id="average_shares" type="number" min="0" {...register('average_shares', { valueAsNumber: true })} placeholder="0" />
-                </div>
+              <div>
+                <Label htmlFor="engagement_rate" className="text-sm font-medium">Engagement Rate (%) *</Label>
+                <Input
+                  id="engagement_rate"
+                  type="number"
+                  step="0.1"
+                  {...register('engagement_rate', { valueAsNumber: true })}
+                  placeholder="0.0"
+                  className="mt-1"
+                />
+                {errors.engagement_rate && (
+                  <p className="text-red-500 text-xs mt-1">{errors.engagement_rate.message}</p>
+                )}
               </div>
-            )}
+            </div>
 
-            {/* Engagement Rate Calculator */}
-            {SHOW_METRICS && (
-              <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h4 className="font-medium text-blue-900">Auto-Calculate Engagement Rate</h4>
-                    <p className="text-sm text-blue-700">Calculate based on your average engagement metrics</p>
-                  </div>
-                  <Button type="button" variant="outline" size="sm" onClick={() => {
-                    const followers = watch('followers_count');
-                    const likes = watch('average_likes') || 0;
-                    const comments = watch('average_comments') || 0;
-                    const shares = watch('average_shares') || 0;
-                    if (followers > 0) {
-                      const engagement = ((likes + comments + shares) / followers) * 100;
-                      setValue('engagement_rate', Math.round(engagement * 100) / 100);
-                    }
-                  }} disabled={!watch('followers_count') || watch('followers_count') === 0}>Calculate</Button>
-                </div>
-              </div>
-            )}
-
-            {/* Verified Status */}
             <div className="flex items-center space-x-2">
               <input
-                id="verified"
                 type="checkbox"
+                id="verified"
                 {...register('verified')}
-                className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                className="rounded border-gray-300"
               />
-              <Label htmlFor="verified">This account is verified</Label>
+              <Label htmlFor="verified" className="text-sm">Verified Account</Label>
             </div>
 
-            {/* Error and Success Messages */}
-            {error && (
-              <div className="p-3 bg-red-50 border border-red-200 rounded-md">
-                <p className="text-sm text-red-600">{error}</p>
-              </div>
-            )}
-
-            {success && (
-              <div className="p-3 bg-green-50 border border-green-200 rounded-md">
-                <p className="text-sm text-green-600">{success}</p>
-              </div>
-            )}
-
-            {/* Submit Button */}
-            <div className="flex justify-end space-x-2">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={handleCancel}
-              >
-                Cancel
+            <div className="flex items-center gap-2 pt-2">
+              <Button type="submit" disabled={isSubmitting} size="sm">
+                {isSubmitting ? 'Saving...' : (editingAccount ? 'Update Account' : 'Add Account')}
               </Button>
-              <Button
-                type="submit"
-                disabled={isSubmitting}
-                className="min-w-[120px]"
-              >
-                {isSubmitting ? 'Saving...' : editingAccount ? 'Update Account' : 'Add Account'}
+              <Button type="button" variant="outline" onClick={handleCancel} size="sm">
+                Cancel
               </Button>
             </div>
           </form>
-        )}
+        </div>
+      )}
 
-        {/* Empty State */}
-        {accounts.length === 0 && !isAddingAccount && (
-          <div className="text-center py-8">
-            <div className="text-gray-400 mb-4">
-              <svg
-                className="mx-auto h-12 w-12"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"
-                />
-              </svg>
-            </div>
-            <h3 className="text-lg font-medium text-gray-900 mb-2">
-              No social media accounts added
-            </h3>
-            <p className="text-gray-600 mb-4">
-              Add your social media accounts to showcase your reach and engagement to brands.
-            </p>
-            <Button onClick={handleAddAccount}>
-              Add Your First Account
-            </Button>
+      {/* Empty State */}
+      {accounts.length === 0 && !isAddingAccount && (
+        <div className="text-center py-8">
+          <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
+            <span className="text-2xl">📱</span>
           </div>
-        )}
-      </CardContent>
-    </Card>
+          <h3 className="text-lg font-medium text-gray-900 mb-2">No social accounts yet</h3>
+          <p className="text-sm text-gray-600 mb-4">
+            Add your social media accounts to showcase your reach and engagement to brands.
+          </p>
+          <Button onClick={handleAddAccount} size="sm">
+            Add Your First Account
+          </Button>
+        </div>
+      )}
+    </div>
   );
 }

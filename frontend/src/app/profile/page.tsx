@@ -88,13 +88,13 @@ export default function ProfilePage() {
   if (profile.isLoading) {
     return (
       <RequireAuth>
-        <MainLayout>
+        <MainLayout showFooter={false}>
           <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100">
-            <div className="max-w-7xl mx-auto px-4 py-6">
+            <div className="max-w-7xl mx-auto px-4 py-4">
               <div className="animate-pulse">
-                <div className="h-8 bg-gray-200 rounded w-48 mb-8"></div>
-                <div className="grid grid-cols-12 gap-6">
-                  <div className="col-span-3 space-y-4">
+                <div className="h-8 bg-gray-200 rounded w-48 mb-6"></div>
+                <div className="grid grid-cols-12 gap-4">
+                  <div className="col-span-3 space-y-3">
                     {[1, 2, 3, 4, 5].map(i => (
                       <div key={i} className="h-12 bg-gray-200 rounded-lg"></div>
                     ))}
@@ -148,41 +148,41 @@ export default function ProfilePage() {
 
   return (
     <RequireAuth>
-      <MainLayout>
+      <MainLayout showFooter={false}>
         <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100">
-          <div className="max-w-7xl mx-auto px-2 sm:px-4 py-4 sm:py-6">
-            {/* Enhanced Header */}
-            <div className="relative mb-6 sm:mb-8">
+          <div className="max-w-7xl mx-auto px-2 sm:px-4 py-2 sm:py-4">
+            {/* Compact Header */}
+            <div className="relative mb-4 sm:mb-6">
               {/* Background decoration */}
-              <div className="absolute inset-0 bg-gradient-to-r from-blue-500/5 via-purple-500/5 to-green-500/5 rounded-xl sm:rounded-2xl -m-2 sm:-m-4"></div>
+              <div className="absolute inset-0 bg-gradient-to-r from-blue-500/5 via-purple-500/5 to-green-500/5 rounded-lg sm:rounded-xl -m-2 sm:-m-3"></div>
               
-              <div className="relative p-4 sm:p-6">
-                <div className="flex items-start sm:items-center mb-3 sm:mb-4">
-                  <div className="w-1 h-6 sm:h-8 bg-gradient-to-b from-blue-500 to-purple-500 rounded-full mr-3 sm:mr-4 flex-shrink-0"></div>
-                  <h1 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 bg-clip-text text-transparent leading-tight flex items-center gap-2">
+              <div className="relative p-3 sm:p-4">
+                <div className="flex items-start sm:items-center mb-2 sm:mb-3">
+                  <div className="w-1 h-6 sm:h-8 bg-gradient-to-b from-blue-500 to-purple-500 rounded-full mr-2 sm:mr-3 flex-shrink-0"></div>
+                  <h1 className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 bg-clip-text text-transparent leading-tight flex items-center gap-2">
                     Profile Settings
-                    <div className="w-6 h-6 sm:w-7 sm:h-7 bg-gradient-to-r from-blue-500 to-purple-500 rounded-lg flex items-center justify-center shadow-md">
+                    <div className="w-5 h-5 sm:w-6 sm:h-6 bg-gradient-to-r from-blue-500 to-purple-500 rounded-lg flex items-center justify-center shadow-md">
                       <HiUserCircle className="w-3 h-3 sm:w-4 sm:h-4 text-white" />
                     </div>
                   </h1>
                 </div>
-                <p className="text-base sm:text-lg text-gray-600 max-w-2xl leading-relaxed">
+                <p className="text-sm sm:text-base text-gray-600 max-w-2xl leading-relaxed">
                   Complete your profile to unlock more collaboration opportunities and build trust with brands.
                 </p>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6">
-              {/* Enhanced Left Sidebar */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 sm:gap-4">
+              {/* Compact Left Sidebar */}
               <div className="col-span-1 lg:col-span-3">
-                <div className="bg-white rounded-xl border shadow-lg overflow-hidden">
+                <div className="bg-white rounded-lg border shadow-sm overflow-hidden">
                   {/* Navigation Header */}
-                  <div className="bg-gradient-to-r from-blue-50 via-purple-50 to-green-50 border-b border-gray-200 p-3 sm:p-4">
-                    <h3 className="text-base sm:text-lg font-semibold text-gray-900">Profile Sections</h3>
+                  <div className="bg-gradient-to-r from-blue-50 via-purple-50 to-green-50 border-b border-gray-200 p-3">
+                    <h3 className="text-base font-semibold text-gray-900">Profile Sections</h3>
                   </div>
 
                   {/* Navigation Items */}
-                  <div className="p-3 sm:p-4 space-y-2">
+                  <div className="p-3 space-y-1.5">
                     {profileSections.map((section) => {
                       const colors = getColorScheme(section.color);
                       const Icon = section.icon;
@@ -191,14 +191,14 @@ export default function ProfilePage() {
                         <button
                           key={section.id}
                           onClick={() => setActiveSection(section.id)}
-                          className={`w-full flex items-center justify-between p-4 text-sm rounded-lg transition-all duration-200 ${
+                          className={`w-full flex items-center justify-between p-3 text-sm rounded-lg transition-all duration-200 ${
                             activeSection === section.id
                               ? `bg-gradient-to-r ${colors.cardBg} ${colors.text} border-2 ${colors.border} shadow-md`
                               : 'text-gray-700 hover:bg-gray-50 border-2 border-transparent hover:shadow-md'
                           }`}
                         >
-                          <div className="flex items-center gap-3">
-                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                          <div className="flex items-center gap-2.5">
+                            <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${
                               activeSection === section.id 
                                 ? `bg-gradient-to-r ${colors.bg} text-white shadow-md`
                                 : 'bg-gray-100 text-gray-500'
@@ -208,8 +208,8 @@ export default function ProfilePage() {
                             <span className="font-medium">{section.label}</span>
                           </div>
                           {section.completed && (
-                            <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center shadow-md">
-                              <HiCheckCircle className="w-3 h-3 text-white" />
+                            <div className="w-4 h-4 bg-green-500 rounded-full flex items-center justify-center shadow-md">
+                              <HiCheckCircle className="w-2.5 h-2.5 text-white" />
                             </div>
                           )}
                         </button>
@@ -217,11 +217,11 @@ export default function ProfilePage() {
                     })}
                   </div>
 
-                  {/* Enhanced Profile Strength */}
-                  <div className="p-3 sm:p-4 border-t border-gray-100 bg-gradient-to-r from-gray-50 to-white">
-                    <div className="flex items-center justify-between mb-2 sm:mb-3">
-                      <span className="text-xs sm:text-sm font-semibold text-gray-700">Profile Strength</span>
-                      <span className={`text-xs sm:text-sm font-bold px-2 py-1 rounded-full ${
+                  {/* Compact Profile Strength */}
+                  <div className="p-3 border-t border-gray-100 bg-gradient-to-r from-gray-50 to-white">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs font-semibold text-gray-700">Profile Strength</span>
+                      <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
                         completionPercentage === 100 ? 'bg-green-100 text-green-800' :
                         completionPercentage >= 67 ? 'bg-yellow-100 text-yellow-800' :
                         'bg-red-100 text-red-800'
@@ -229,9 +229,9 @@ export default function ProfilePage() {
                         {completionPercentage}%
                       </span>
                     </div>
-                    <div className="w-full bg-gray-200 rounded-full h-2 sm:h-3 overflow-hidden">
+                    <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
                       <div 
-                        className={`h-3 rounded-full transition-all duration-500 ${
+                        className={`h-2 rounded-full transition-all duration-500 ${
                           completionPercentage === 100 ? 'bg-gradient-to-r from-green-500 to-emerald-500' :
                           completionPercentage >= 67 ? 'bg-gradient-to-r from-yellow-500 to-orange-500' :
                           'bg-gradient-to-r from-red-500 to-pink-500'
@@ -242,19 +242,19 @@ export default function ProfilePage() {
                   </div>
                 </div>
 
-                {/* Enhanced Quick Stats */}
-                <div className="mt-6 bg-white rounded-xl border shadow-lg overflow-hidden">
-                  <div className="bg-gradient-to-r from-gray-50 to-white border-b border-gray-200 p-4">
-                    <h4 className="text-lg font-semibold text-gray-900">Profile Summary</h4>
+                {/* Compact Quick Stats */}
+                <div className="mt-4 bg-white rounded-lg border shadow-sm overflow-hidden">
+                  <div className="bg-gradient-to-r from-gray-50 to-white border-b border-gray-200 p-3">
+                    <h4 className="text-base font-semibold text-gray-900">Profile Summary</h4>
                   </div>
-                  <div className="p-4 space-y-4">
-                    <div className="flex justify-between items-center p-3 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-200">
+                  <div className="p-3 space-y-3">
+                    <div className="flex justify-between items-center p-2.5 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-200">
                       <span className="text-sm font-medium text-blue-700">Social accounts</span>
-                      <span className="text-lg font-bold text-blue-800">{accountsList?.length || 0}</span>
+                      <span className="text-base font-bold text-blue-800">{accountsList?.length || 0}</span>
                     </div>
-                    <div className="flex justify-between items-center p-3 bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg border border-green-200">
+                    <div className="flex justify-between items-center p-2.5 bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg border border-green-200">
                       <span className="text-sm font-medium text-green-700">Verified</span>
-                      <span className={`text-lg font-bold ${
+                      <span className={`text-base font-bold ${
                         (profile.data?.is_verified && profile.data?.aadhar_number && profile.data?.aadhar_document) 
                           ? 'text-green-800' 
                           : 'text-gray-500'
@@ -262,9 +262,9 @@ export default function ProfilePage() {
                         {(profile.data?.is_verified && profile.data?.aadhar_number && profile.data?.aadhar_document) ? 'Yes' : 'No'}
                       </span>
                     </div>
-                    <div className="flex justify-between items-center p-3 bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg border border-purple-200">
+                    <div className="flex justify-between items-center p-2.5 bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg border border-purple-200">
                       <span className="text-sm font-medium text-purple-700">Industry</span>
-                      <span className="text-sm font-bold text-purple-800 text-right max-w-24 truncate">
+                      <span className="text-sm font-bold text-purple-800 text-right max-w-20 truncate">
                         {profile.data?.industry ? 
                           profile.data.industry.replace('_', ' ').replace(/\b\w/g, (l: string) => l.toUpperCase()) 
                           : 'Not set'
@@ -275,29 +275,29 @@ export default function ProfilePage() {
                 </div>
               </div>
 
-              {/* Enhanced Right Content Area */}
+              {/* Compact Right Content Area */}
               <div className="col-span-1 lg:col-span-9">
-                <div className="bg-white rounded-xl border shadow-lg overflow-hidden">
-                  {/* Enhanced Content Header */}
-                  <div className="bg-gradient-to-r from-gray-50 to-white border-b border-gray-200 p-4 sm:p-6">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                      <div className="flex items-center gap-3 sm:gap-4">
+                <div className="bg-white rounded-lg border shadow-sm overflow-hidden">
+                  {/* Compact Content Header */}
+                  <div className="bg-gradient-to-r from-gray-50 to-white border-b border-gray-200 p-3 sm:p-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                      <div className="flex items-center gap-2.5 sm:gap-3">
                         {profileSections.find(s => s.id === activeSection) && (
-                          <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl flex items-center justify-center bg-gradient-to-r ${
+                          <div className={`w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center bg-gradient-to-r ${
                             getColorScheme(profileSections.find(s => s.id === activeSection)?.color || 'blue').bg
                           } text-white shadow-lg`}>
                             {(() => {
                               const section = profileSections.find(s => s.id === activeSection);
                               const Icon = section?.icon;
-                              return Icon ? <Icon className="w-4 h-4 sm:w-5 sm:h-5" /> : null;
+                              return Icon ? <Icon className="w-4 h-4" /> : null;
                             })()}
                           </div>
                         )}
                         <div>
-                          <h2 className="text-xl font-bold text-gray-900">
+                          <h2 className="text-lg font-bold text-gray-900">
                             {profileSections.find(s => s.id === activeSection)?.label || 'Profile'}
                           </h2>
-                          <p className="text-sm text-gray-600 mt-1">
+                          <p className="text-sm text-gray-600 mt-0.5">
                             {activeSection === 'personal' && 'Update your basic information and profile details'}
                             {activeSection === 'social' && 'Connect your social media accounts to showcase your reach'}
                             {activeSection === 'documents' && 'Complete verification to build trust with brands'}
@@ -305,8 +305,8 @@ export default function ProfilePage() {
                         </div>
                       </div>
                       {profileSections.find(s => s.id === activeSection)?.completed && (
-                        <Badge className="bg-green-100 text-green-800 border-green-200 px-3 py-1 text-sm font-medium">
-                          <HiCheckCircle className="w-4 h-4 mr-1" />
+                        <Badge className="bg-green-100 text-green-800 border-green-200 px-2 py-1 text-sm font-medium">
+                          <HiCheckCircle className="w-3 h-3 mr-1" />
                           Completed
                         </Badge>
                       )}
@@ -314,7 +314,7 @@ export default function ProfilePage() {
                   </div>
 
                   {/* Content Body */}
-                  <div className="p-6">
+                  <div className="p-4">
                     {renderContent()}
                   </div>
                 </div>

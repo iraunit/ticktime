@@ -20,27 +20,27 @@ export function AnalyticsOverview() {
 
   if (performance.isLoading || earnings.isLoading || collaborationHistory.isLoading) {
     return (
-      <div className="space-y-4 sm:space-y-6">
+      <div className="space-y-3">
         {/* Loading Header */}
-        <div className="bg-white rounded-xl border shadow-lg p-4 sm:p-6">
-          <Skeleton className="h-5 sm:h-6 w-40 sm:w-48 mb-2" />
-          <Skeleton className="h-4 w-72 sm:w-96" />
+        <div className="bg-white rounded-lg border shadow-sm p-3">
+          <Skeleton className="h-5 w-40 mb-2" />
+          <Skeleton className="h-4 w-72" />
         </div>
         
         {/* Loading Stats Grid */}
-        <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
           {Array.from({ length: 6 }).map((_, i) => (
-            <Card key={i} className="rounded-xl border shadow-lg">
-              <CardHeader className="p-3 sm:p-4 pb-2 sm:pb-3">
+            <Card key={i} className="rounded-lg border shadow-sm">
+              <CardHeader className="p-3 pb-2">
                 <div className="flex items-center justify-between">
-                  <Skeleton className="h-3 sm:h-4 w-20 sm:w-24" />
-                  <Skeleton className="h-6 w-6 sm:h-8 sm:w-8 rounded-lg" />
+                  <Skeleton className="h-3 w-20" />
+                  <Skeleton className="h-6 w-6 rounded-lg" />
                 </div>
               </CardHeader>
-              <CardContent className="p-3 sm:p-4 pt-0">
-                <Skeleton className="h-6 sm:h-8 w-12 sm:w-16 mb-2 sm:mb-3" />
-                <Skeleton className="h-2 sm:h-3 w-24 sm:w-32 mb-1 sm:mb-2" />
-                <Skeleton className="h-1.5 sm:h-2 w-full" />
+              <CardContent className="p-3 pt-0">
+                <Skeleton className="h-6 w-12 mb-2" />
+                <Skeleton className="h-2 w-24 mb-1" />
+                <Skeleton className="h-1.5 w-full" />
               </CardContent>
             </Card>
           ))}
@@ -128,55 +128,55 @@ export function AnalyticsOverview() {
   ];
 
   return (
-    <div className="space-y-4 sm:space-y-6">
-      {/* Enhanced Section Header - Mobile Optimized */}
-      <div className="bg-white rounded-xl border shadow-lg p-4 sm:p-6">
-        <div className="flex items-start sm:items-center gap-3 sm:gap-4 mb-3 sm:mb-4">
-          <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-lg sm:rounded-xl flex items-center justify-center shadow-lg flex-shrink-0">
-            <HiChartBar className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
+    <div className="space-y-3">
+      {/* Compact Section Header */}
+      <div className="bg-white rounded-lg border shadow-sm p-3">
+        <div className="flex items-center gap-3 mb-2">
+          <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-lg flex items-center justify-center shadow-md flex-shrink-0">
+            <HiChartBar className="w-4 h-4 text-white" />
           </div>
           <div>
-            <h2 className="text-lg sm:text-xl font-bold text-gray-900 leading-tight">Performance Overview</h2>
-            <p className="text-sm sm:text-base text-gray-600 leading-relaxed">Your collaboration analytics at a glance</p>
+            <h2 className="text-lg font-bold text-gray-900 leading-tight">Performance Overview</h2>
+            <p className="text-sm text-gray-600 leading-relaxed">Your collaboration analytics at a glance</p>
           </div>
         </div>
       </div>
 
-      {/* Enhanced Stats Grid - Mobile Optimized */}
-      <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+      {/* Compact Stats Grid */}
+      <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
         {statCards.map((stat, index) => {
           const Icon = stat.icon;
           return (
-            <Card key={index} className={`rounded-xl border shadow-lg hover:shadow-xl transition-all duration-200 ${stat.cardBg} ${stat.border}`}>
-              <CardHeader className="p-3 sm:p-4 pb-2 sm:pb-3">
+            <Card key={index} className={`rounded-lg border shadow-sm hover:shadow-md transition-all duration-200 ${stat.cardBg} ${stat.border}`}>
+              <CardHeader className="p-3 pb-2">
                 <div className="flex items-center justify-between">
-                  <CardTitle className="text-xs sm:text-sm font-medium text-gray-600 leading-tight">
+                  <CardTitle className="text-xs font-medium text-gray-600 leading-tight">
                     {stat.title}
                   </CardTitle>
-                  <div className={`w-6 h-6 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center shadow-md ${stat.iconBg}`}>
-                    <Icon className="w-3 h-3 sm:w-4 sm:h-4 text-white" />
+                  <div className={`w-6 h-6 rounded-lg flex items-center justify-center shadow-sm ${stat.iconBg}`}>
+                    <Icon className="w-3 h-3 text-white" />
                   </div>
                 </div>
               </CardHeader>
               
-              <CardContent className="p-3 sm:p-4 pt-0">
-                <div className={`text-lg sm:text-2xl font-bold mb-1 sm:mb-2 ${stat.textColor}`}>
+              <CardContent className="p-3 pt-0">
+                <div className={`text-lg font-bold mb-1 ${stat.textColor}`}>
                   {stat.value}
                 </div>
                 
-                <p className="text-xs sm:text-sm text-gray-500 mb-2 sm:mb-3 leading-tight">
+                <p className="text-xs text-gray-500 mb-2 leading-tight">
                   {stat.description}
                 </p>
                 
                 {stat.trend && (
                   <div className="flex items-center pt-2 border-t border-white/50">
-                    <div className={`flex items-center text-xs sm:text-sm font-medium ${
+                    <div className={`flex items-center text-xs font-medium ${
                       stat.trend.isPositive ? 'text-green-600' : 'text-red-600'
                     }`}>
                       {stat.trend.isPositive ? (
-                        <HiArrowTrendingUp className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
+                        <HiArrowTrendingUp className="w-3 h-3 mr-1" />
                       ) : (
-                        <HiArrowTrendingDown className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
+                        <HiArrowTrendingDown className="w-3 h-3 mr-1" />
                       )}
                       <span>{Math.abs(stat.trend.value)}%</span>
                     </div>
@@ -189,99 +189,54 @@ export function AnalyticsOverview() {
         })}
       </div>
 
-      {/* Recent Activity Section - Mobile Optimized */}
-      <div className="grid gap-4 sm:gap-6 grid-cols-1 lg:grid-cols-2">
+      {/* Recent Activity Section */}
+      <div className="grid gap-3 grid-cols-1 lg:grid-cols-2">
         {/* Recent Collaborations */}
-        <Card className="rounded-xl border shadow-lg">
-          <CardHeader className="p-4 sm:p-6 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-lg flex items-center justify-center shadow-md">
-                <HiCalendarDays className="w-4 h-4 text-white" />
+        <Card className="rounded-lg border shadow-sm">
+          <CardHeader className="p-3 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white">
+            <div className="flex items-center gap-2">
+              <div className="w-6 h-6 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-lg flex items-center justify-center shadow-sm">
+                <HiCalendarDays className="w-3 h-3 text-white" />
               </div>
-              <div>
-                <CardTitle className="text-base sm:text-lg font-bold text-gray-900">Recent Activity</CardTitle>
-                <p className="text-xs sm:text-sm text-gray-600">Latest collaboration updates</p>
-              </div>
+              <CardTitle className="text-sm font-semibold text-gray-900">Recent Collaborations</CardTitle>
             </div>
           </CardHeader>
-          <CardContent className="p-4 sm:p-6">
-            {historyData && historyData.length > 0 ? (
-              <div className="space-y-3">
-                {historyData.slice(0, 3).map((item: CollaborationHistory, index: number) => (
-                  <div key={index} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg border">
-                    <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-lg flex items-center justify-center">
-                      <HiUsers className="w-4 h-4 text-white" />
+          <CardContent className="p-3">
+            <div className="space-y-2">
+              {historyData?.slice(0, 5).map((collab: CollaborationHistory, index: number) => (
+                <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded-md">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 bg-gradient-to-r from-blue-400 to-indigo-500 rounded-lg flex items-center justify-center text-white text-xs font-bold">
+                      {collab.brand?.name?.charAt(0) || 'B'}
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-900 truncate">{item.brand.name}</p>
-                      <p className="text-xs text-gray-600 truncate">{item.campaign_title}</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-sm font-bold text-green-600">₹{item.total_value.toLocaleString()}</p>
-                      <p className="text-xs text-gray-500">{item.completed_at ? new Date(item.completed_at).toLocaleDateString() : 'N/A'}</p>
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">{collab.brand?.name || 'Brand'}</p>
+                      <p className="text-xs text-gray-500">{collab.campaign_title || 'Campaign'}</p>
                     </div>
                   </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-6">
-                <div className="w-12 h-12 bg-gradient-to-br from-gray-100 to-gray-200 rounded-xl flex items-center justify-center mx-auto mb-3">
-                  <HiCalendarDays className="w-6 h-6 text-gray-400" />
+                  <div className="text-right">
+                    <p className="text-sm font-semibold text-green-600">₹{collab.total_value?.toLocaleString() || 0}</p>
+                    <p className="text-xs text-gray-500">{collab.status || 'Completed'}</p>
+                  </div>
                 </div>
-                <p className="text-sm text-gray-600">No recent activity</p>
-              </div>
-            )}
+              ))}
+            </div>
           </CardContent>
         </Card>
 
-        {/* Performance Insights */}
-        <Card className="rounded-xl border shadow-lg">
-          <CardHeader className="p-4 sm:p-6 border-b border-gray-200 bg-gradient-to-r from-green-50 to-emerald-50">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 bg-gradient-to-r from-green-500 to-emerald-500 rounded-lg flex items-center justify-center shadow-md">
-                <HiTrophy className="w-4 h-4 text-white" />
+        {/* Performance Chart */}
+        <Card className="rounded-lg border shadow-sm">
+          <CardHeader className="p-3 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white">
+            <div className="flex items-center gap-2">
+              <div className="w-6 h-6 bg-gradient-to-r from-green-500 to-emerald-500 rounded-lg flex items-center justify-center shadow-sm">
+                <HiChartBar className="w-3 h-3 text-white" />
               </div>
-              <div>
-                <CardTitle className="text-base sm:text-lg font-bold text-gray-900">Performance Insights</CardTitle>
-                <p className="text-xs sm:text-sm text-gray-600">Key metrics and achievements</p>
-              </div>
+              <CardTitle className="text-sm font-semibold text-gray-900">Performance Trend</CardTitle>
             </div>
           </CardHeader>
-          <CardContent className="p-4 sm:p-6">
-            <div className="space-y-4">
-              <div className="flex items-center justify-between p-3 bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg border border-green-200">
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 bg-gradient-to-r from-green-500 to-emerald-500 rounded-lg flex items-center justify-center">
-                    <HiStar className="w-4 h-4 text-white" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-green-800">Success Rate</p>
-                    <p className="text-xs text-green-600">Campaign completion</p>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <p className="text-lg font-bold text-green-800">
-                    {performanceData?.completion_rate || 0}%
-                  </p>
-                </div>
-              </div>
-              
-              <div className="flex items-center justify-between p-3 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-200">
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-lg flex items-center justify-center">
-                    <HiBanknotes className="w-4 h-4 text-white" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-blue-800">Avg. Deal Value</p>
-                    <p className="text-xs text-blue-600">Per collaboration</p>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <p className="text-lg font-bold text-blue-800">
-                    ₹{earningsData?.average_deal_value?.toLocaleString() || 0}
-                  </p>
-                </div>
-              </div>
+          <CardContent className="p-3">
+            <div className="h-32 flex items-center justify-center bg-gray-50 rounded-md">
+              <p className="text-sm text-gray-500">Chart visualization would go here</p>
             </div>
           </CardContent>
         </Card>

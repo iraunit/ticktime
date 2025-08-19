@@ -2,7 +2,6 @@
 
 import { DealTabs } from "@/components/deals/deal-tabs";
 import { useDeal } from "@/hooks/use-deals";
-import { mockDeals } from "@/lib/demo-data";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Loader2 } from "@/lib/icons";
@@ -15,8 +14,7 @@ export function DealDetailsContent({ dealId }: DealDetailsContentProps) {
   const router = useRouter();
   const { deal } = useDeal(dealId);
 
-  // Use mock data for now, replace with real data when backend is ready
-  const dealData = deal.data || mockDeals.find(d => d.id === dealId);
+  const dealData = deal.data;
 
   const handleAccept = async (dealId: number) => {
     try {

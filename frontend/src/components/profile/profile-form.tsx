@@ -99,8 +99,11 @@ export function ProfileForm({ profile }: ProfileFormProps) {
 
   const handleImageUpload = async () => {
     if (!profileImage) return;
-    
-    setIsSubmitting(true);
+
+    setIsLoading(true);
+    clearError();
+    setSuccess(null);
+
     try {
       await uploadProfileImage.mutateAsync(profileImage);
       setProfileImage(null);
@@ -108,13 +111,13 @@ export function ProfileForm({ profile }: ProfileFormProps) {
     } catch (err) {
       setError(err);
     } finally {
-      setIsSubmitting(false);
+      setIsLoading(false);
     }
   };
 
-  const handleEditToggle = () => {
+  const handleEditToggle = useCallback(() => {
     if (isEditing) {
-      // Cancel editing - reset form to original values
+      // Reset form to original values when canceling
       form.reset({
         first_name: profile?.user?.first_name || '',
         last_name: profile?.user?.last_name || '',
@@ -124,67 +127,49 @@ export function ProfileForm({ profile }: ProfileFormProps) {
         industry: profile?.industry || '',
       });
       setProfileImage(null);
-      clearError();
-      setSuccess(null);
     }
     setIsEditing(!isEditing);
-  };
+    clearError();
+    setSuccess(null);
+  }, [isEditing, form, profile, clearError]);
 
   return (
-    <div className="space-y-6">
-      <LoadingOverlay 
-        isVisible={isLoading} 
-        message="Updating your profile..." 
-      />
+    <div className="space-y-4">
+      {/* Success/Error Messages */}
+      {success && (
+        <Alert className="border-green-200 bg-green-50 text-green-800">
+          <CheckCircle className="h-4 w-4" />
+          <AlertDescription>{success}</AlertDescription>
+        </Alert>
+      )}
 
-      {/* Header with Edit/Cancel Button */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h3 className="text-lg font-medium text-gray-900">Personal Information</h3>
-          <p className="text-sm text-gray-500 mt-1">
-            {isEditing ? 'Edit your personal details below' : 'Your personal information and contact details'}
-          </p>
-        </div>
-        <Button
-          type="button"
-          variant={isEditing ? "outline" : "default"}
-          size="sm"
-          onClick={handleEditToggle}
-          disabled={isSubmitting}
-        >
-          {isEditing ? (
-            <>
-              <X className="w-4 h-4 mr-2" />
-              Cancel
-            </>
-          ) : (
-            <>
-              <Settings className="w-4 h-4 mr-2" />
-              Edit
-            </>
-          )}
-        </Button>
-      </div>
-
-      {/* Display general error */}
-      {isError && error && (
+      {isError && (
         <ErrorDisplay 
           error={error} 
-          onRetry={() => form.handleSubmit(onSubmit)()} 
-          variant="inline"
-          className="mb-4"
+          onRetry={() => clearError()}
         />
       )}
 
-      {/* Success message */}
-      {success && (
-        <div className="flex items-center p-3 bg-green-50 border border-green-200 rounded-md mb-4">
-          <CheckCircle className="w-4 h-4 text-green-600 mr-2" />
-          <p className="text-sm text-green-600">{success}</p>
+      {/* Edit Toggle Button */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Settings className="h-4 w-4 text-gray-500" />
+          <span className="text-sm text-gray-600">
+            {isEditing ? 'Editing mode' : 'View mode'}
+          </span>
         </div>
-      )}
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={handleEditToggle}
+          className="text-sm"
+        >
+          {isEditing ? 'Cancel' : 'Edit Profile'}
+        </Button>
+      </div>
 
-      {/* Hidden File Input - Outside form to prevent React Hook Form from including it */}
+      {/* Hidden file input for image upload */}
       {isEditing && (
         <input
           id="profile-image-input"
@@ -194,7 +179,6 @@ export function ProfileForm({ profile }: ProfileFormProps) {
           onChange={(e) => {
             const file = e.target.files?.[0];
             if (file) {
-              // Validate file
               if (file.size > 5 * 1024 * 1024) {
                 alert('File size must be less than 5MB');
                 return;
@@ -211,15 +195,15 @@ export function ProfileForm({ profile }: ProfileFormProps) {
 
       <AutoSaveForm form={form} onSave={handleAutoSave}>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             {/* Profile Image Upload */}
             <div className="space-y-2">
               <label className="text-sm font-medium">Profile Image</label>
-              <div className="flex items-center gap-4">
+              <div className="flex items-center gap-3">
                 {/* Clickable Profile Image */}
                 <div className="relative group">
                   <div 
-                    className={`relative w-24 h-24 rounded-full overflow-hidden border-2 border-gray-200 transition-all duration-200 ${
+                    className={`relative w-20 h-20 rounded-full overflow-hidden border-2 border-gray-200 transition-all duration-200 ${
                       isEditing ? 'cursor-pointer hover:border-blue-400' : 'cursor-default'
                     }`}
                     onClick={isEditing ? () => document.getElementById('profile-image-input')?.click() : undefined}
@@ -235,7 +219,7 @@ export function ProfileForm({ profile }: ProfileFormProps) {
                         {/* Hover Overlay - only show when editing */}
                         {isEditing && (
                           <div className="absolute inset-0 bg-black bg-opacity-40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                            <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
                             </svg>
@@ -247,7 +231,7 @@ export function ProfileForm({ profile }: ProfileFormProps) {
                       <div className={`w-full h-full bg-gray-100 flex items-center justify-center transition-colors duration-200 ${
                         isEditing ? 'group-hover:bg-gray-200' : ''
                       }`}>
-                        <svg className={`w-8 h-8 text-gray-400 ${isEditing ? 'group-hover:text-gray-600' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg className={`w-6 h-6 text-gray-400 ${isEditing ? 'group-hover:text-gray-600' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                         </svg>
                       </div>
@@ -263,7 +247,7 @@ export function ProfileForm({ profile }: ProfileFormProps) {
                         setProfileImage(null);
                         // TODO: Also remove from backend if needed
                       }}
-                      className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm hover:bg-red-600 transition-colors shadow-sm"
+                      className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-sm hover:bg-red-600 transition-colors shadow-sm"
                     >
                       ×
                     </button>
@@ -289,7 +273,7 @@ export function ProfileForm({ profile }: ProfileFormProps) {
 
               {/* Upload Button - only show when image is selected */}
               {profileImage && isEditing && (
-                <div className="flex items-center gap-3 pt-2">
+                <div className="flex items-center gap-3 pt-1">
                   <Button type="button" size="sm" onClick={handleImageUpload} disabled={isSubmitting}>
                     {isSubmitting ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Uploading...</> : 'Save Image'}
                   </Button>
@@ -299,7 +283,7 @@ export function ProfileForm({ profile }: ProfileFormProps) {
             </div>
 
             {/* Name Fields */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <FormField
                 control={form.control}
                 name="first_name"
@@ -402,7 +386,7 @@ export function ProfileForm({ profile }: ProfileFormProps) {
                     <Textarea 
                       {...field} 
                       placeholder="Tell us about yourself, your content style, and what makes you unique..."
-                      rows={4}
+                      rows={3}
                       disabled={!isEditing}
                       className={!isEditing ? 'bg-gray-50' : ''}
                     />
@@ -435,7 +419,7 @@ export function ProfileForm({ profile }: ProfileFormProps) {
 
             {/* Save Button - only show when editing */}
             {isEditing && (
-              <div className="flex items-center gap-3 pt-4 border-t border-gray-100">
+              <div className="flex items-center gap-3 pt-3 border-t border-gray-100">
                 <Button type="submit" disabled={isSubmitting || !form.formState.isValid}>
                   {isSubmitting ? (
                     <>

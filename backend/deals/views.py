@@ -480,3 +480,92 @@ def earnings_tracking_view(request):
         'status': 'success',
         'earnings': earnings_data
     }, status=status.HTTP_200_OK)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def submit_content_view(request, deal_id):
+    """
+    Submit content for a deal (placeholder implementation).
+    """
+    try:
+        profile = request.user.influencer_profile
+    except InfluencerProfile.DoesNotExist:
+        return Response({
+            'status': 'error',
+            'message': 'Influencer profile not found.'
+        }, status=status.HTTP_404_NOT_FOUND)
+
+    deal = get_object_or_404(
+        Deal.objects.select_related('campaign__brand'),
+        id=deal_id,
+        influencer=profile
+    )
+
+    # Placeholder implementation
+    return Response({
+        'status': 'success',
+        'message': 'Content submission endpoint - implementation pending'
+    }, status=status.HTTP_200_OK)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def content_submissions_view(request, deal_id):
+    """
+    Get content submissions for a deal (placeholder implementation).
+    """
+    try:
+        profile = request.user.influencer_profile
+    except InfluencerProfile.DoesNotExist:
+        return Response({
+            'status': 'error',
+            'message': 'Influencer profile not found.'
+        }, status=status.HTTP_404_NOT_FOUND)
+
+    deal = get_object_or_404(
+        Deal.objects.select_related('campaign__brand'),
+        id=deal_id,
+        influencer=profile
+    )
+
+    # Placeholder implementation
+    return Response({
+        'status': 'success',
+        'submissions': []
+    }, status=status.HTTP_200_OK)
+
+
+@api_view(['GET', 'POST'])
+@permission_classes([IsAuthenticated])
+def deal_messages_view(request, deal_id):
+    """
+    Get or send messages for a deal (placeholder implementation).
+    """
+    try:
+        profile = request.user.influencer_profile
+    except InfluencerProfile.DoesNotExist:
+        return Response({
+            'status': 'error',
+            'message': 'Influencer profile not found.'
+        }, status=status.HTTP_404_NOT_FOUND)
+
+    deal = get_object_or_404(
+        Deal.objects.select_related('campaign__brand'),
+        id=deal_id,
+        influencer=profile
+    )
+
+    if request.method == 'GET':
+        # Placeholder implementation for getting messages
+        return Response({
+            'status': 'success',
+            'messages': []
+        }, status=status.HTTP_200_OK)
+    
+    elif request.method == 'POST':
+        # Placeholder implementation for sending messages
+        return Response({
+            'status': 'success',
+            'message': 'Message sent successfully'
+        }, status=status.HTTP_200_OK)

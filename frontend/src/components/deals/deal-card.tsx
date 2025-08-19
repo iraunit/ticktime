@@ -97,8 +97,8 @@ export function DealCard({
   return (
     <>
       <Card className={cn(
-        "relative overflow-hidden transition-all duration-300 hover:shadow-xl transform hover:-translate-y-1",
-        "border-2 shadow-lg bg-gradient-to-br from-white via-gray-50/30 to-white",
+        "relative overflow-hidden transition-all duration-300 hover:shadow-lg transform hover:-translate-y-0.5",
+        "border shadow-sm bg-gradient-to-br from-white via-gray-50/30 to-white",
         {
           "border-l-blue-500 border-l-4": deal.status === "invited",
           "border-l-green-500 border-l-4": deal.status === "accepted" || deal.status === "active",
@@ -111,7 +111,7 @@ export function DealCard({
       )}>
         {/* Urgent indicator */}
         {isUrgent && deal.status === "invited" && (
-          <div className="absolute top-0 right-0 bg-gradient-to-r from-red-500 to-orange-500 text-white px-3 py-1 text-xs font-bold rounded-bl-lg shadow-lg">
+          <div className="absolute top-0 right-0 bg-gradient-to-r from-red-500 to-orange-500 text-white px-2 py-0.5 text-xs font-bold rounded-bl-lg shadow-md">
             URGENT
           </div>
         )}
@@ -123,24 +123,24 @@ export function DealCard({
           }}></div>
         </div>
 
-        <CardHeader className="relative pb-4">
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex items-start space-x-4 flex-1">
+        <CardHeader className="relative pb-2">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex items-start space-x-3 flex-1">
               {/* Brand Logo */}
               {deal?.campaign?.brand?.logo && (
-                <div className="w-16 h-16 rounded-xl overflow-hidden shadow-lg border-2 border-white bg-white flex-shrink-0">
+                <div className="w-12 h-12 rounded-lg overflow-hidden shadow-md border border-white bg-white flex-shrink-0">
                   <Image
                     src={deal.campaign.brand.logo}
                     alt={deal?.campaign?.brand?.name || "Brand"}
-                    width={64}
-                    height={64}
+                    width={48}
+                    height={48}
                     className="w-full h-full object-cover"
                   />
                 </div>
               )}
               
               <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-2">
+                <div className="flex items-center gap-1.5 mb-1.5">
                   <Badge className={cn("text-xs font-medium border", statusColors[deal.status])}>
                     {deal.status.replace('_', ' ').toUpperCase()}
                   </Badge>
@@ -156,11 +156,11 @@ export function DealCard({
                   )}
                 </div>
                 
-                <CardTitle className="text-xl font-bold text-gray-900 mb-1 leading-tight">
+                <CardTitle className="text-lg font-bold text-gray-900 mb-1 leading-tight">
                   {deal?.campaign?.title || "Campaign Title"}
                 </CardTitle>
                 
-                <p className="text-sm font-semibold text-blue-600 mb-2">
+                <p className="text-sm font-semibold text-blue-600 mb-1">
                   {deal?.campaign?.brand?.name || "Brand Name"}
                 </p>
               </div>
@@ -170,16 +170,16 @@ export function DealCard({
 
         <CardContent className="relative pt-0">
           {/* Campaign Description */}
-          <p className="text-gray-700 mb-4 leading-relaxed line-clamp-3">
+          <p className="text-gray-700 mb-3 leading-relaxed line-clamp-2 text-sm">
             {deal?.campaign?.description || "No description available."}
           </p>
 
-          {/* Key Details Grid */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          {/* Compact Key Details Grid */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 mb-4">
             {/* Compensation */}
-            <div className="bg-gradient-to-br from-green-50 to-emerald-100 rounded-lg p-3 border border-green-200">
-              <div className="flex items-center text-green-700 mb-1">
-                <HiBanknotes className="h-4 w-4 mr-1" />
+            <div className="bg-gradient-to-br from-green-50 to-emerald-100 rounded-md p-2 border border-green-200">
+              <div className="flex items-center text-green-700 mb-0.5">
+                <HiBanknotes className="h-3 w-3 mr-1" />
                 <span className="text-xs font-medium">Compensation</span>
               </div>
               <div className="text-sm font-bold text-green-800">
@@ -189,16 +189,16 @@ export function DealCard({
 
             {/* Deadline */}
             <div className={cn(
-              "rounded-lg p-3 border",
+              "rounded-md p-2 border",
               isUrgent 
                 ? "bg-gradient-to-br from-red-50 to-orange-100 border-red-200"
                 : "bg-gradient-to-br from-blue-50 to-indigo-100 border-blue-200"
             )}>
               <div className={cn(
-                "flex items-center mb-1",
+                "flex items-center mb-0.5",
                 isUrgent ? "text-red-700" : "text-blue-700"
               )}>
-                <HiClock className="h-4 w-4 mr-1" />
+                <HiClock className="h-3 w-3 mr-1" />
                 <span className="text-xs font-medium">Deadline</span>
               </div>
               <div className={cn(
@@ -210,9 +210,9 @@ export function DealCard({
             </div>
 
             {/* Deliverables */}
-            <div className="bg-gradient-to-br from-purple-50 to-pink-100 rounded-lg p-3 border border-purple-200">
-              <div className="flex items-center text-purple-700 mb-1">
-                <HiCamera className="h-4 w-4 mr-1" />
+            <div className="bg-gradient-to-br from-purple-50 to-pink-100 rounded-md p-2 border border-purple-200">
+              <div className="flex items-center text-purple-700 mb-0.5">
+                <HiCamera className="h-3 w-3 mr-1" />
                 <span className="text-xs font-medium">Content</span>
               </div>
               <div className="text-sm font-bold text-purple-800">
@@ -221,9 +221,9 @@ export function DealCard({
             </div>
 
             {/* Platform */}
-            <div className="bg-gradient-to-br from-indigo-50 to-blue-100 rounded-lg p-3 border border-indigo-200">
-              <div className="flex items-center text-indigo-700 mb-1">
-                <HiGlobeAlt className="h-4 w-4 mr-1" />
+            <div className="bg-gradient-to-br from-indigo-50 to-blue-100 rounded-md p-2 border border-indigo-200">
+              <div className="flex items-center text-indigo-700 mb-0.5">
+                <HiGlobeAlt className="h-3 w-3 mr-1" />
                 <span className="text-xs font-medium">Platform</span>
               </div>
               <div className="text-sm font-bold text-indigo-800">

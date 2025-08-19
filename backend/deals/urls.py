@@ -9,6 +9,9 @@ urlpatterns = [
     path('deals/<int:deal_id>/', views.deal_detail_view, name='deal_detail'),
     path('deals/<int:deal_id>/action/', views.deal_action_view, name='deal_action'),
     path('deals/<int:deal_id>/timeline/', views.deal_timeline_view, name='deal_timeline'),
+    path('deals/<int:deal_id>/submit-content/', views.submit_content_view, name='submit_content'),
+    path('deals/<int:deal_id>/content-submissions/', views.content_submissions_view, name='content_submissions'),
+    path('deals/<int:deal_id>/messages/', views.deal_messages_view, name='deal_messages'),
     
     # Dashboard endpoints for deals
     path('dashboard/recent-deals/', views.recent_deals_view, name='recent_deals'),
