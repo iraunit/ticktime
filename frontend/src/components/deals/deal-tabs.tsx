@@ -61,10 +61,10 @@ export function DealTabs({ deal, onAccept, onReject, isLoading }: DealTabsProps)
   };
 
   return (
-    <div className="space-y-6">
-      {/* Tab Navigation */}
-      <Card className="p-1">
-        <div className="flex space-x-1">
+    <div className="space-y-4">
+      {/* Enhanced Tab Navigation */}
+      <Card className="bg-white/80 backdrop-blur-sm border-0 shadow-lg">
+        <div className="flex space-x-1 p-1">
           {tabs.map((tab) => {
             const Icon = tab.icon;
             const status = getTabStatus(tab.id);
@@ -76,8 +76,10 @@ export function DealTabs({ deal, onAccept, onReject, isLoading }: DealTabsProps)
                 variant={activeTab === tab.id ? "default" : "ghost"}
                 onClick={() => setActiveTab(tab.id)}
                 className={cn(
-                  "flex-1 justify-center relative",
-                  activeTab === tab.id && "shadow-sm"
+                  "flex-1 justify-center relative py-3 transition-all duration-300",
+                  activeTab === tab.id 
+                    ? "bg-gradient-to-r from-blue-500 to-indigo-500 text-white shadow-lg transform scale-105" 
+                    : "hover:bg-gray-50 hover:shadow-md"
                 )}
               >
                 <Icon className="w-4 h-4 mr-2" />
@@ -92,7 +94,7 @@ export function DealTabs({ deal, onAccept, onReject, isLoading }: DealTabsProps)
                 {tab.badge && (
                   <Badge 
                     variant="destructive" 
-                    className="absolute -top-1 -right-1 h-5 w-5 p-0 text-xs flex items-center justify-center"
+                    className="absolute -top-1 -right-1 h-5 w-5 p-0 text-xs flex items-center justify-center animate-pulse"
                   >
                     {tab.badge}
                   </Badge>
@@ -103,8 +105,8 @@ export function DealTabs({ deal, onAccept, onReject, isLoading }: DealTabsProps)
         </div>
       </Card>
 
-      {/* Tab Content */}
-      <div className="min-h-[600px]">
+      {/* Content Area */}
+      <div className="min-h-[500px]">
         {activeTab === 'details' && (
           <DealDetails
             deal={deal}
@@ -116,37 +118,65 @@ export function DealTabs({ deal, onAccept, onReject, isLoading }: DealTabsProps)
         )}
         
         {activeTab === 'messages' && (
-          <div className="space-y-4">
-            {/* Messages Header */}
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-2xl font-bold text-gray-900">
-                  Messages
-                </h2>
-                <p className="text-sm text-gray-600">
-                  Communicate with {deal.campaign.brand.name} about this collaboration
-                </p>
+          <div className="space-y-3">
+            {/* Enhanced Messages Header */}
+            <div className="bg-gradient-to-r from-blue-50 via-purple-50 to-pink-50 rounded-xl border border-blue-200 p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-500 rounded-lg flex items-center justify-center">
+                    <MessageCircle className="w-5 h-5 text-white" />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                      Messages
+                    </h2>
+                    <p className="text-sm text-gray-600 mt-1">
+                      Communicate with {deal.campaign.brand.name} about this collaboration
+                    </p>
+                  </div>
+                </div>
+                
+                {/* Enhanced Deal Status */}
+                <div className="flex items-center space-x-3">
+                  <div className="text-right">
+                    <p className="text-xs text-gray-500">Deal Status</p>
+                    <Badge
+                      variant="outline"
+                      className={cn(
+                        "text-sm px-3 py-1 rounded-full border-2 font-medium",
+                        deal.status === 'active' && "border-green-300 text-green-700 bg-green-50",
+                        deal.status === 'completed' && "border-blue-300 text-blue-700 bg-blue-50",
+                        deal.status === 'revision_requested' && "border-orange-300 text-orange-700 bg-orange-50",
+                        deal.status === 'accepted' && "border-purple-300 text-purple-700 bg-purple-50"
+                      )}
+                    >
+                      {deal.status.replace('_', ' ').toUpperCase()}
+                    </Badge>
+                  </div>
+                </div>
               </div>
-              
-              {/* Deal Status in Messages */}
-              <Badge
-                variant="outline"
-                className={cn(
-                  "text-sm",
-                  deal.status === 'active' && "border-green-200 text-green-800 bg-green-50",
-                  deal.status === 'completed' && "border-blue-200 text-blue-800 bg-blue-50",
-                  deal.status === 'revision_requested' && "border-orange-200 text-orange-800 bg-orange-50"
-                )}
-              >
-                {deal.status.replace('_', ' ').toUpperCase()}
-              </Badge>
             </div>
             
-            {/* Messaging Interface */}
-            <MessagingInterface 
-              deal={deal} 
-              className="h-[600px]"
-            />
+            {/* Enhanced Messaging Interface */}
+            <div className="bg-white/80 backdrop-blur-sm rounded-xl border-0 shadow-lg overflow-hidden">
+              <div className="bg-gradient-to-r from-gray-50 to-gray-100 px-4 py-3 border-b border-gray-200">
+                <div className="flex items-center space-x-3">
+                  <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center">
+                    <span className="text-white font-bold text-sm">
+                      {deal.campaign.brand.name.charAt(0).toUpperCase()}
+                    </span>
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-gray-900">{deal.campaign.brand.name}</h3>
+                    <p className="text-xs text-gray-500">Campaign: {deal.campaign.title}</p>
+                  </div>
+                </div>
+              </div>
+              <MessagingInterface 
+                deal={deal} 
+                className="h-[500px]"
+              />
+            </div>
           </div>
         )}
       </div>

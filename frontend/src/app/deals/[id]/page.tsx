@@ -11,9 +11,11 @@ export default async function DealDetailsPage({ params }: DealDetailsPageProps) 
   const { id } = await params;
 
   return (
-    <MainLayout>
-      <div className="container mx-auto px-4 py-8">
-        <DealDetailsContent dealId={parseInt(id)} />
+    <MainLayout showFooter={false}>
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
+        <div className="container mx-auto px-4 py-6 max-w-7xl">
+          <DealDetailsContent dealId={parseInt(id)} />
+        </div>
       </div>
     </MainLayout>
   );
