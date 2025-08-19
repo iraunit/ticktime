@@ -88,7 +88,7 @@ export default function ProfilePage() {
   if (profile.isLoading) {
     return (
       <RequireAuth>
-        <MainLayout>
+        <MainLayout showFooter={false}>
           <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100">
             <div className="max-w-7xl mx-auto px-4 py-4">
               <div className="animate-pulse">
@@ -148,7 +148,7 @@ export default function ProfilePage() {
 
   return (
     <RequireAuth>
-      <MainLayout>
+      <MainLayout showFooter={false}>
         <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100">
           <div className="max-w-7xl mx-auto px-2 sm:px-4 py-2 sm:py-4">
             {/* Compact Header */}

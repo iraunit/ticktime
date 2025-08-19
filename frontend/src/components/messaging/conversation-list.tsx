@@ -86,69 +86,63 @@ export function ConversationList({ selectedDealId, onSelectDeal }: ConversationL
 
   if (deals.isLoading) {
     return (
-      <Card className="h-full border shadow-lg">
-        <div className="p-6">
-          <div className="flex items-center justify-center h-32">
-            <LoadingSpinner />
-          </div>
-        </div>
-      </Card>
+      <div className="h-full bg-white border shadow-sm flex items-center justify-center">
+        <LoadingSpinner />
+      </div>
     );
   }
 
   if (deals.error) {
     return (
-      <Card className="h-full border shadow-lg">
-        <div className="p-6">
-          <Alert className="border-red-200 bg-red-50">
-            <AlertDescription className="text-red-800">
-              Unable to load conversations. Please try again later.
-            </AlertDescription>
-          </Alert>
-        </div>
-      </Card>
+      <div className="h-full bg-white border shadow-sm p-4 flex items-center justify-center">
+        <Alert className="border-red-200 bg-red-50">
+          <AlertDescription className="text-red-800">
+            Unable to load conversations. Please try again later.
+          </AlertDescription>
+        </Alert>
+      </div>
     );
   }
 
   return (
-    <Card className="h-full border shadow-lg bg-white overflow-hidden">
-      {/* Header */}
-      <div className="bg-gradient-to-r from-purple-50 via-pink-50 to-indigo-50 border-b border-gray-200 p-3 sm:p-4">
-        <div className="flex flex-col sm:flex-row sm:items-center mb-3 sm:mb-4 gap-2 sm:gap-0">
+    <div className="h-full bg-white border shadow-sm flex flex-col overflow-hidden">
+      {/* Compact Header */}
+      <div className="bg-gradient-to-r from-purple-50 via-pink-50 to-indigo-50 border-b border-gray-200 p-3 flex-shrink-0">
+        <div className="flex items-center mb-3 gap-2">
           <div className="flex items-center flex-1">
-            <HiChatBubbleLeftRight className="h-5 w-5 text-purple-600 mr-2 flex-shrink-0" />
-            <h2 className="text-base sm:text-lg font-semibold text-gray-900">Conversations</h2>
+            <HiChatBubbleLeftRight className="h-4 w-4 text-purple-600 mr-2 flex-shrink-0" />
+            <h2 className="text-base font-semibold text-gray-900">Conversations</h2>
             {filteredDeals.length > 0 && (
-              <Badge className="ml-2 bg-purple-100 text-purple-800 px-2 py-1 text-xs">
+              <Badge className="ml-2 bg-purple-100 text-purple-800 px-1.5 py-0.5 text-xs">
                 {filteredDeals.length}
               </Badge>
             )}
           </div>
         </div>
         
-        {/* Search */}
+        {/* Compact Search */}
         <div className="relative">
-          <HiMagnifyingGlass className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <HiMagnifyingGlass className="absolute left-2.5 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
           <Input
             placeholder="Search conversations..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10 pr-4 py-2 sm:py-3 text-sm sm:text-base border-2 border-purple-200 focus:border-purple-400 focus:ring-purple-400 rounded-lg"
+            className="pl-8 pr-3 py-1.5 text-sm border border-purple-200 focus:border-purple-400 focus:ring-purple-400 rounded-md"
           />
         </div>
       </div>
 
-      {/* Conversation List */}
-      <div className="flex-1 overflow-y-auto">
+      {/* Scrollable Conversation List */}
+      <div className="flex-1 overflow-y-auto min-h-0">
         {filteredDeals.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-64 p-6 text-center">
-            <div className="w-16 h-16 bg-gradient-to-br from-purple-100 to-pink-100 rounded-2xl flex items-center justify-center mb-4 shadow-lg">
-              <HiBriefcase className="h-8 w-8 text-purple-500" />
+          <div className="flex flex-col items-center justify-center h-full p-4 text-center">
+            <div className="w-12 h-12 bg-gradient-to-br from-purple-100 to-pink-100 rounded-xl flex items-center justify-center mb-3 shadow-lg">
+              <HiBriefcase className="h-6 w-6 text-purple-500" />
             </div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">
+            <h3 className="text-base font-semibold text-gray-900 mb-1">
               {searchQuery ? "No conversations found" : "No active conversations"}
             </h3>
-            <p className="text-sm text-gray-600 max-w-sm">
+            <p className="text-xs text-gray-600 max-w-sm">
               {searchQuery 
                 ? "Try adjusting your search terms" 
                 : "Start collaborating with brands to see your conversations here"
@@ -166,28 +160,28 @@ export function ConversationList({ selectedDealId, onSelectDeal }: ConversationL
                 <div
                   key={deal.id}
                   onClick={() => onSelectDeal(deal)}
-                  className={`p-3 sm:p-4 cursor-pointer transition-all duration-200 hover:bg-gradient-to-r hover:from-purple-50 hover:to-pink-50 ${
+                  className={`p-3 cursor-pointer transition-all duration-200 hover:bg-gradient-to-r hover:from-purple-50 hover:to-pink-50 ${
                     isSelected 
                       ? 'bg-gradient-to-r from-purple-100 to-pink-100 border-r-4 border-purple-500' 
-                      : 'hover:shadow-md'
+                      : 'hover:shadow-sm'
                   }`}
                 >
-                  <div className="flex items-start space-x-2 sm:space-x-3">
+                  <div className="flex items-start space-x-2">
                     {/* Brand Logo */}
                     <div className="flex-shrink-0">
                       {deal?.campaign?.brand?.logo ? (
-                        <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg sm:rounded-xl overflow-hidden shadow-md border-2 border-white">
+                        <div className="w-10 h-10 rounded-lg overflow-hidden shadow-sm border border-white">
                           <Image
                             src={deal.campaign.brand.logo}
                             alt={deal?.campaign?.brand?.name || "Brand"}
-                            width={48}
-                            height={48}
+                            width={40}
+                            height={40}
                             className="w-full h-full object-cover"
                           />
                         </div>
                       ) : (
-                        <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-purple-400 to-pink-500 rounded-lg sm:rounded-xl flex items-center justify-center shadow-md">
-                          <span className="text-white font-bold text-sm sm:text-lg">
+                        <div className="w-10 h-10 bg-gradient-to-br from-purple-400 to-pink-500 rounded-lg flex items-center justify-center shadow-sm">
+                          <span className="text-white font-bold text-sm">
                             {deal?.campaign?.brand?.name?.charAt(0) || 'B'}
                           </span>
                         </div>
@@ -197,12 +191,12 @@ export function ConversationList({ selectedDealId, onSelectDeal }: ConversationL
                     {/* Conversation Details */}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between mb-1">
-                        <h3 className="text-xs sm:text-sm font-semibold text-gray-900 truncate">
+                        <h3 className="text-sm font-semibold text-gray-900 truncate">
                           {deal?.campaign?.brand?.name || "Brand Name"}
                         </h3>
-                        <div className="flex items-center space-x-1 sm:space-x-2">
+                        <div className="flex items-center space-x-1">
                           {unreadCount > 0 && (
-                            <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+                            <div className="w-1.5 h-1.5 bg-red-500 rounded-full"></div>
                           )}
                           <span className="text-xs text-gray-500">
                             {getLastMessageTime(deal)}
@@ -210,7 +204,7 @@ export function ConversationList({ selectedDealId, onSelectDeal }: ConversationL
                         </div>
                       </div>
                       
-                      <p className="text-xs sm:text-sm text-gray-600 truncate mb-2">
+                      <p className="text-xs text-gray-600 truncate mb-1.5">
                         {deal?.campaign?.title || "Campaign Title"}
                       </p>
                       
@@ -221,7 +215,7 @@ export function ConversationList({ selectedDealId, onSelectDeal }: ConversationL
                         </Badge>
                         
                         {unreadCount > 0 && (
-                          <div className="bg-red-500 text-white text-xs rounded-full h-4 w-4 sm:h-5 sm:w-5 flex items-center justify-center font-medium">
+                          <div className="bg-red-500 text-white text-xs rounded-full h-4 w-4 flex items-center justify-center font-medium">
                             {unreadCount}
                           </div>
                         )}
@@ -234,6 +228,6 @@ export function ConversationList({ selectedDealId, onSelectDeal }: ConversationL
           </div>
         )}
       </div>
-    </Card>
+    </div>
   );
 }
