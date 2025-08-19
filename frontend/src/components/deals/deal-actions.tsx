@@ -113,6 +113,16 @@ export function DealActions({
       </Button>
       
       <Button
+        variant="outline"
+        onClick={() => onViewDetails?.(deal.id)}
+        disabled={isLoading}
+        className="border-2 border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-gray-400 shadow-md hover:shadow-lg transition-all duration-200"
+      >
+        <HiEye className="h-4 w-4 mr-2" />
+        View Details
+      </Button>
+      
+      <Button
         variant="ghost"
         onClick={() => onMessage?.(deal.id)}
         disabled={isLoading}
@@ -137,6 +147,16 @@ export function DealActions({
       
       <Button
         variant="outline"
+        onClick={() => onViewDetails?.(deal.id)}
+        disabled={isLoading}
+        className="border-2 border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-gray-400 shadow-md hover:shadow-lg transition-all duration-200"
+      >
+        <HiEye className="h-4 w-4 mr-2" />
+        View Details
+      </Button>
+      
+      <Button
+        variant="ghost"
         onClick={() => onMessage?.(deal.id)}
         disabled={isLoading}
         className="border-2 border-blue-200 text-blue-700 hover:bg-blue-50 hover:border-blue-300 shadow-md hover:shadow-lg transition-all duration-200"

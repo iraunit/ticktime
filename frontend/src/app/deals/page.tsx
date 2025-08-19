@@ -3,7 +3,6 @@
 import { MainLayout } from "@/components/layout/main-layout";
 import { DealList } from "@/components/deals/deal-list";
 import { useDeals } from "@/hooks/use-deals";
-import { mockDeals } from "@/lib/demo-data";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { RequireAuth } from "@/components/auth/require-auth";
@@ -12,9 +11,7 @@ export default function DealsPage() {
   const router = useRouter();
   const { deals, acceptDeal, rejectDeal } = useDeals();
 
-
-  // Use mock data for now, replace with real data when backend is ready
-  const dealsData = deals.data || mockDeals;
+  const dealsData = deals.data || [];
   const isLoading = deals.isLoading || acceptDeal.isPending || rejectDeal.isPending;
 
   const handleAccept = async (dealId: number) => {

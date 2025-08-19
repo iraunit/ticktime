@@ -70,4 +70,6 @@ class Deal(models.Model):
         """Check if the response deadline has passed"""
         if self.responded_at:
             return False
+        if self.campaign.application_deadline is None:
+            return False
         return timezone.now() > self.campaign.application_deadline

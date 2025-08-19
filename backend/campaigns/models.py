@@ -36,7 +36,7 @@ class Campaign(models.Model):
     platforms_required = models.JSONField(default=list, blank=True)
     content_count = models.IntegerField(default=1, validators=[MinValueValidator(1)])
     special_instructions = models.TextField(blank=True)
-    application_deadline = models.DateTimeField()
+    application_deadline = models.DateTimeField(null=True, blank=True)
     product_delivery_date = models.DateTimeField(null=True, blank=True)
     content_creation_start = models.DateTimeField(null=True, blank=True)
     content_creation_end = models.DateTimeField(null=True, blank=True)
@@ -73,11 +73,15 @@ class Campaign(models.Model):
     @property
     def is_expired(self):
         """Check if the campaign application deadline has passed"""
+        if self.application_deadline is None:
+            return False
         return timezone.now() > self.application_deadline
 
     @property
     def days_until_deadline(self):
         """Calculate days remaining until application deadline"""
+        if self.application_deadline is None:
+            return None
         if self.is_expired:
             return 0
         delta = self.application_deadline - timezone.now()

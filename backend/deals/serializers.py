@@ -30,6 +30,8 @@ class DealListSerializer(serializers.ModelSerializer):
         """Calculate days until response deadline."""
         if obj.responded_at or obj.campaign.is_expired:
             return 0
+        if obj.campaign.application_deadline is None:
+            return None
         delta = obj.campaign.application_deadline - timezone.now()
         return max(0, delta.days)
 

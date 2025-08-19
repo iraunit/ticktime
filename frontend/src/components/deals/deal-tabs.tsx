@@ -28,8 +28,7 @@ type TabType = 'details' | 'messages';
 export function DealTabs({ deal, onAccept, onReject, isLoading }: DealTabsProps) {
   const [activeTab, setActiveTab] = useState<TabType>('details');
 
-  // Mock unread message count - in real app this would come from API
-  // Using 0 to avoid hydration mismatches
+  // TODO: Get unread message count from API
   const unreadMessageCount = 0;
 
   const tabs = [

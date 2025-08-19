@@ -93,13 +93,11 @@ export function useDeal(id: number) {
 export function useDealMessages(dealId: number) {
   const queryClient = useQueryClient();
 
-  // Get messages for a deal (still mock-based, no auth needed)
+  // Get messages for a deal
   const messagesQuery = useQuery({
     queryKey: ['dealMessages', dealId],
-    queryFn: async () => {
-      const { mockMessages } = await import('@/lib/demo-data');
-      return { data: mockMessages[dealId] || [] };
-    },
+    queryFn: () => dealsApi.getMessages(dealId),
+    select: (response) => response.data.messages || [],
     enabled: !!dealId,
   });
 
