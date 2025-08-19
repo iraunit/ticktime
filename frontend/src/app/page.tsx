@@ -39,20 +39,6 @@ export default function Home() {
               </div>
             </div>
             
-            {/* Enhanced text with modern styling */}
-            <div className="relative group">
-              <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-white/95 via-gray-50/95 to-white/95 backdrop-blur-xl border border-white/60 shadow-2xl px-8 py-4">
-                <div className="absolute inset-0 bg-gradient-to-r from-red-500/5 via-orange-500/5 to-pink-500/5 animate-pulse"></div>
-                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent -skew-x-12 animate-shimmer opacity-60"></div>
-                <div className="relative z-10 flex items-center justify-center">
-                  <span className="text-lg font-bold bg-gradient-to-r from-gray-800 via-gray-700 to-gray-800 bg-clip-text text-transparent tracking-wide">
-                    Loading...
-                  </span>
-                </div>
-                <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-16 h-1 bg-gradient-to-r from-red-500 via-orange-500 to-red-500 rounded-full opacity-80"></div>
-              </div>
-              <div className="absolute inset-0 bg-gradient-to-r from-red-500/10 via-orange-500/10 to-pink-500/10 rounded-2xl blur-xl scale-110 opacity-50"></div>
-            </div>
             
             {/* Subtle background animation */}
             <div className="absolute inset-0 pointer-events-none">

@@ -17,6 +17,7 @@ interface DealListProps {
   onMessage?: (dealId: number) => void;
   onRefresh?: () => void;
   className?: string;
+  showHeader?: boolean;
 }
 
 export function DealList({
@@ -28,6 +29,7 @@ export function DealList({
   onMessage,
   onRefresh,
   className,
+  showHeader = true,
 }: DealListProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -97,10 +99,10 @@ export function DealList({
 
   if (isLoading && deals.length === 0) {
     return (
-      <div className={cn("space-y-6", className)}>
-        <div className="flex items-center justify-center py-16">
+      <div className={cn("space-y-4", className)}>
+        <div className="flex items-center justify-center py-12">
           <div className="text-center">
-            <div className="flex justify-center space-x-3 mb-6">
+            <div className="flex justify-center space-x-3 mb-4">
               {[
                 { color: 'from-blue-500 to-indigo-500', delay: 0 },
                 { color: 'from-indigo-500 to-purple-500', delay: 0.15 },
@@ -123,79 +125,83 @@ export function DealList({
   }
 
   return (
-    <div className={cn("space-y-6", className)}>
-      {/* Enhanced Header with stats */}
-      <div className="bg-white rounded-xl border shadow-md p-4 sm:p-6">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-3">
-          <div className="flex-1">
-            <h2 className="text-lg sm:text-xl font-bold text-gray-900 flex items-center">
-              <HiBriefcase className="h-5 w-5 sm:h-6 sm:w-6 mr-2 sm:mr-3 text-blue-600 flex-shrink-0" />
-              <span>Your Deals</span>
-            </h2>
-            <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-4 mt-2 gap-1 sm:gap-0">
-              <p className="text-sm sm:text-base text-gray-600">
-                {filteredDeals.length} of {deals.length} deals
-              </p>
-              {hasActiveFilters && (
-                <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded-full self-start">
-                  Filtered
-                </span>
-              )}
+    <div className={cn("space-y-4", className)}>
+      {/* Header with stats - only show if showHeader is true */}
+      {showHeader && (
+        <div className="bg-white rounded-lg border shadow-sm p-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-3 gap-2">
+            <div className="flex-1">
+              <h2 className="text-lg font-bold text-gray-900 flex items-center">
+                <HiBriefcase className="h-5 w-5 mr-2 text-blue-600 flex-shrink-0" />
+                <span>Your Deals</span>
+              </h2>
+              <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-3 mt-1 gap-1">
+                <p className="text-sm text-gray-600">
+                  {filteredDeals.length} of {deals.length} deals
+                </p>
+                {hasActiveFilters && (
+                  <span className="px-2 py-0.5 bg-blue-100 text-blue-800 text-xs font-medium rounded-full self-start">
+                    Filtered
+                  </span>
+                )}
+              </div>
             </div>
+            {onRefresh && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={onRefresh}
+                disabled={isLoading}
+                className="border border-gray-200 hover:border-blue-300 hover:bg-blue-50 transition-all duration-200 rounded-lg px-3 py-1.5 self-start sm:self-auto"
+              >
+                <HiArrowPath className={cn("h-4 w-4 mr-1", { "animate-spin": isLoading })} />
+                <span className="text-sm">Refresh</span>
+              </Button>
+            )}
           </div>
-          {onRefresh && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={onRefresh}
-              disabled={isLoading}
-              className="border-2 border-gray-200 hover:border-blue-300 hover:bg-blue-50 transition-all duration-200 rounded-lg px-3 sm:px-4 py-2 self-start sm:self-auto"
-            >
-              <HiArrowPath className={cn("h-4 w-4 mr-1 sm:mr-2", { "animate-spin": isLoading })} />
-              <span className="text-xs sm:text-sm">Refresh</span>
-            </Button>
-          )}
-        </div>
 
-        {/* Quick Stats */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4 mt-4 sm:mt-6">
-          {[
-            { label: "Total", value: deals.length, color: "blue" },
-            { label: "Invited", value: deals.filter(d => d.status === "invited").length, color: "orange" },
-            { label: "Active", value: deals.filter(d => d.status === "active").length, color: "green" },
-            { label: "Completed", value: deals.filter(d => d.status === "completed").length, color: "purple" }
-          ].map((stat, index) => (
-            <div key={index} className={`bg-${stat.color}-50 border border-${stat.color}-200 rounded-lg p-2 sm:p-3`}>
-              <div className={`text-base sm:text-lg font-bold text-${stat.color}-600`}>{stat.value}</div>
-              <div className="text-xs text-gray-600">{stat.label}</div>
-            </div>
-          ))}
+          {/* Compact Stats */}
+          <div className="grid grid-cols-4 gap-2">
+            {[
+              { label: "Total", value: deals.length, color: "blue" },
+              { label: "Invited", value: deals.filter(d => d.status === "invited").length, color: "orange" },
+              { label: "Active", value: deals.filter(d => d.status === "active").length, color: "green" },
+              { label: "Completed", value: deals.filter(d => d.status === "completed").length, color: "purple" }
+            ].map((stat, index) => (
+              <div key={index} className={`bg-${stat.color}-50 border border-${stat.color}-200 rounded-lg p-2`}>
+                <div className={`text-lg font-bold text-${stat.color}-600`}>{stat.value}</div>
+                <div className="text-xs text-gray-600">{stat.label}</div>
+              </div>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
-      {/* Filters */}
-      <DealFilters
-        searchQuery={searchQuery}
-        onSearchChange={setSearchQuery}
-        statusFilter={statusFilter}
-        onStatusFilterChange={setStatusFilter}
-        dealTypeFilter={dealTypeFilter}
-        onDealTypeFilterChange={setDealTypeFilter}
-        onClearFilters={clearFilters}
-        hasActiveFilters={hasActiveFilters}
-      />
+      {/* Filters - only show if showHeader is true */}
+      {showHeader && (
+        <DealFilters
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
+          statusFilter={statusFilter}
+          onStatusFilterChange={setStatusFilter}
+          dealTypeFilter={dealTypeFilter}
+          onDealTypeFilterChange={setDealTypeFilter}
+          onClearFilters={clearFilters}
+          hasActiveFilters={hasActiveFilters}
+        />
+      )}
 
       {/* Deal Cards */}
       {sortedDeals.length === 0 ? (
-        <div className="text-center py-12 sm:py-16">
+        <div className="text-center py-8">
           <div className="mx-auto max-w-md px-4">
-            <div className="w-16 h-16 sm:w-20 sm:h-20 bg-gradient-to-br from-blue-50 to-indigo-100 rounded-2xl flex items-center justify-center mx-auto mb-4 sm:mb-6 shadow-lg">
-              <HiBriefcase className="h-8 w-8 sm:h-10 sm:w-10 text-blue-500" />
+            <div className="w-16 h-16 bg-gradient-to-br from-blue-50 to-indigo-100 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
+              <HiBriefcase className="h-8 w-8 text-blue-500" />
             </div>
-            <h3 className="text-lg sm:text-xl font-bold text-gray-900 mb-2 sm:mb-3">
+            <h3 className="text-lg font-bold text-gray-900 mb-2">
               {hasActiveFilters ? "No deals match your filters" : "No deals yet"}
             </h3>
-            <p className="text-sm sm:text-base text-gray-600 mb-4 sm:mb-6 leading-relaxed">
+            <p className="text-sm text-gray-600 mb-4 leading-relaxed">
               {hasActiveFilters 
                 ? "Try adjusting your search or filter criteria to find more opportunities."
                 : "When brands invite you to collaborate, they'll appear here. Complete your profile to get started!"
@@ -205,14 +211,14 @@ export function DealList({
               <Button 
                 variant="outline" 
                 onClick={clearFilters}
-                className="bg-blue-600 hover:bg-blue-700 text-white border-blue-600 hover:border-blue-700 px-4 sm:px-6 py-2 rounded-lg shadow-md hover:shadow-lg transition-all duration-200 text-sm sm:text-base"
+                className="bg-blue-600 hover:bg-blue-700 text-white border-blue-600 hover:border-blue-700 px-4 py-2 rounded-lg shadow-md hover:shadow-lg transition-all duration-200 text-sm"
               >
                 Clear Filters
               </Button>
             ) : (
               <Button 
                 asChild
-                className="bg-blue-600 hover:bg-blue-700 text-white px-6 sm:px-8 py-2 sm:py-3 rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 text-sm sm:text-base"
+                className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 text-sm"
               >
                 <a href="/profile">Complete Profile</a>
               </Button>
@@ -220,7 +226,7 @@ export function DealList({
           </div>
         </div>
       ) : (
-        <div className="grid gap-6">
+        <div className="grid gap-3">
           {sortedDeals.map((deal) => (
             <DealCard
               key={deal.id}
