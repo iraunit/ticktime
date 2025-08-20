@@ -86,19 +86,19 @@ export default function BrandReviewsPage() {
     setIsLoading(true);
     try {
       const [givenResponse, receivedResponse, statsResponse] = await Promise.all([
-        api.get('/api/brands/reviews/given/', {
+        api.get('/brands/reviews/given/', {
           params: {
             search: searchTerm || undefined,
             rating: ratingFilter !== 'all' ? ratingFilter : undefined,
           }
         }),
-        api.get('/api/brands/reviews/received/', {
+        api.get('/brands/reviews/received/', {
           params: {
             search: searchTerm || undefined,
             rating: ratingFilter !== 'all' ? ratingFilter : undefined,
           }
         }),
-        api.get('/api/brands/reviews/stats/')
+        api.get('/brands/reviews/stats/')
       ]);
       
       setReviewsGiven(givenResponse.data.reviews || []);
@@ -114,7 +114,7 @@ export default function BrandReviewsPage() {
 
   const respondToReview = async (reviewId: number, response: string) => {
     try {
-      await api.post(`/api/brands/reviews/${reviewId}/respond/`, {
+              await api.post(`/brands/reviews/${reviewId}/respond/`, {
         response: response.trim()
       });
       
@@ -130,7 +130,7 @@ export default function BrandReviewsPage() {
 
   const updateReviewVisibility = async (reviewId: number, isPublic: boolean) => {
     try {
-      await api.patch(`/api/brands/reviews/${reviewId}/visibility/`, {
+              await api.patch(`/brands/reviews/${reviewId}/visibility/`, {
         is_public: isPublic
       });
       

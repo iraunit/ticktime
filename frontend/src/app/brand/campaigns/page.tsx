@@ -70,7 +70,7 @@ export default function BrandCampaignsPage() {
   const fetchCampaigns = async () => {
     setIsLoading(true);
     try {
-      const response = await api.get('/api/campaigns/', {
+      const response = await api.get('/campaigns/', {
         params: {
           search: searchTerm || undefined,
           status: statusFilter !== 'all' ? statusFilter : undefined,

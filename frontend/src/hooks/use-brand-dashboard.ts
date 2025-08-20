@@ -13,11 +13,23 @@ export function useBrandDashboard() {
     queryKey: ['brand-dashboard-stats'],
     queryFn: async () => {
       try {
-        const response = await api.get('/api/brands/dashboard/');
+        const response = await api.get('/brands/dashboard/');
         return response.data.dashboard;
       } catch (error: any) {
         console.error('Brand dashboard API error:', error);
-        throw new Error(error.response?.data?.message || 'Failed to load dashboard data');
+        
+        // Handle different types of errors
+        if (error.response?.status === 404) {
+          throw new Error('Brand profile not found. Please complete your brand profile setup.');
+        } else if (error.response?.status === 403) {
+          throw new Error('You do not have permission to view analytics.');
+        } else if (error.response?.status === 401) {
+          throw new Error('Please log in to view your dashboard.');
+        } else if (error.response?.data?.message) {
+          throw new Error(error.response.data.message);
+        } else {
+          throw new Error('Failed to load dashboard data. Please try again later.');
+        }
       }
     },
     select: (data) => data?.stats || {},
@@ -33,11 +45,23 @@ export function useBrandDashboard() {
     queryKey: ['brand-recent-deals'],
     queryFn: async () => {
       try {
-        const response = await api.get('/api/brands/dashboard/');
+        const response = await api.get('/brands/dashboard/');
         return response.data.dashboard?.recent_deals || [];
       } catch (error: any) {
         console.error('Brand recent deals API error:', error);
-        throw new Error(error.response?.data?.message || 'Failed to load recent deals');
+        
+        // Handle different types of errors
+        if (error.response?.status === 404) {
+          throw new Error('Brand profile not found. Please complete your brand profile setup.');
+        } else if (error.response?.status === 403) {
+          throw new Error('You do not have permission to view deals.');
+        } else if (error.response?.status === 401) {
+          throw new Error('Please log in to view your deals.');
+        } else if (error.response?.data?.message) {
+          throw new Error(error.response.data.message);
+        } else {
+          throw new Error('Failed to load recent deals. Please try again later.');
+        }
       }
     },
     enabled: !isAuthLoading && isAuthenticatedState,
@@ -52,11 +76,23 @@ export function useBrandDashboard() {
     queryKey: ['brand-recent-campaigns'],
     queryFn: async () => {
       try {
-        const response = await api.get('/api/brands/dashboard/');
+        const response = await api.get('/brands/dashboard/');
         return response.data.dashboard?.recent_campaigns || [];
       } catch (error: any) {
         console.error('Brand recent campaigns API error:', error);
-        throw new Error(error.response?.data?.message || 'Failed to load recent campaigns');
+        
+        // Handle different types of errors
+        if (error.response?.status === 404) {
+          throw new Error('Brand profile not found. Please complete your brand profile setup.');
+        } else if (error.response?.status === 403) {
+          throw new Error('You do not have permission to view campaigns.');
+        } else if (error.response?.status === 401) {
+          throw new Error('Please log in to view your campaigns.');
+        } else if (error.response?.data?.message) {
+          throw new Error(error.response.data.message);
+        } else {
+          throw new Error('Failed to load recent campaigns. Please try again later.');
+        }
       }
     },
     enabled: !isAuthLoading && isAuthenticatedState,

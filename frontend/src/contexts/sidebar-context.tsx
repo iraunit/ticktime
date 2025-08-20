@@ -16,25 +16,31 @@ export function SidebarProvider({ children }: { children: ReactNode }) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isHoverExpanded, setIsHoverExpanded] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
+  const [hasMounted, setHasMounted] = useState(false);
   const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Load initial state from localStorage
+  // Mark as mounted to prevent hydration issues
   useEffect(() => {
-    if (typeof window !== 'undefined') {
+    setHasMounted(true);
+  }, []);
+
+  // Load initial state from localStorage only after mounting
+  useEffect(() => {
+    if (hasMounted && typeof window !== 'undefined') {
       const savedState = localStorage.getItem('sidebar-collapsed');
       if (savedState !== null) {
         setIsCollapsed(JSON.parse(savedState));
       }
       setIsInitialized(true);
     }
-  }, []);
+  }, [hasMounted]);
 
   // Save state to localStorage when it changes
   useEffect(() => {
-    if (isInitialized && typeof window !== 'undefined') {
+    if (isInitialized && hasMounted && typeof window !== 'undefined') {
       localStorage.setItem('sidebar-collapsed', JSON.stringify(isCollapsed));
     }
-  }, [isCollapsed, isInitialized]);
+  }, [isCollapsed, isInitialized, hasMounted]);
 
   const toggleSidebar = () => {
     setIsCollapsed(prev => !prev);

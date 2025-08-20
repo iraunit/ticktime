@@ -5,7 +5,7 @@ import Link from "next/link";
 import { CheckCircle, XCircle, Loader2 } from "@/lib/icons";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { authService } from "@/lib/auth";
+import { authApi } from "@/lib/api-client";
 
 interface EmailVerificationFormProps {
   token: string;
@@ -18,7 +18,7 @@ export function EmailVerificationForm({ token }: EmailVerificationFormProps) {
   useEffect(() => {
     const verifyEmail = async () => {
       try {
-        const response = await authService.verifyEmail(token);
+        const response = await authApi.verifyEmail(token);
         setStatus('success');
         setMessage(response.message || 'Email verified successfully!');
       } catch (error: any) {

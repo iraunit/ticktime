@@ -64,7 +64,7 @@ export default function BrandMessagesPage() {
   const fetchConversations = async () => {
     setIsLoading(true);
     try {
-      const response = await api.get('/api/brands/conversations/', {
+      const response = await api.get('/brands/conversations/', {
         params: {
           search: searchTerm || undefined,
         }
@@ -82,7 +82,7 @@ export default function BrandMessagesPage() {
   const fetchMessages = async (conversationId: number) => {
     setIsLoadingMessages(true);
     try {
-      const response = await api.get(`/api/brands/conversations/${conversationId}/messages/`);
+      const response = await api.get(`/brands/conversations/${conversationId}/messages/`);
       setMessages(response.data.messages || []);
     } catch (error: any) {
       console.error('Failed to fetch messages:', error);
@@ -97,7 +97,7 @@ export default function BrandMessagesPage() {
     if (!newMessage.trim() || !selectedConversation) return;
 
     try {
-      const response = await api.post(`/api/brands/conversations/${selectedConversation.id}/messages/`, {
+      const response = await api.post(`/brands/conversations/${selectedConversation.id}/messages/`, {
         content: newMessage.trim()
       });
       

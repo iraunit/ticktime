@@ -158,7 +158,7 @@ export default function CreateCampaignPage() {
   const fetchInfluencers = async () => {
     setIsLoadingInfluencers(true);
     try {
-      const response = await api.get('/api/influencers/search/', {
+      const response = await api.get('/influencers/search/', {
         params: {
           search: searchTerm || undefined,
           platform: influencerFilters.platform !== 'all' ? influencerFilters.platform : undefined,
@@ -247,7 +247,7 @@ export default function CreateCampaignPage() {
   const handleSubmit = async () => {
     setIsSubmitting(true);
     try {
-      const response = await api.post('/api/brands/campaigns/', {
+              const response = await api.post('/brands/campaigns/', {
         ...campaignData,
         selected_influencers: selectedInfluencers.map(inf => inf.id)
       });

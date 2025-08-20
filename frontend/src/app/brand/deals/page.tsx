@@ -98,7 +98,7 @@ export default function BrandDealsPage() {
   const fetchDealsByCampaigns = async () => {
     setIsLoading(true);
     try {
-      const response = await api.get('/api/brands/deals/by-campaigns/', {
+      const response = await api.get('/brands/deals/by-campaigns/', {
         params: {
           search: searchTerm || undefined,
           status: statusFilter !== 'all' ? statusFilter : undefined,
@@ -122,7 +122,7 @@ export default function BrandDealsPage() {
   const fetchDeals = async () => {
     setIsLoading(true);
     try {
-      const response = await api.get('/api/brands/deals/', {
+      const response = await api.get('/brands/deals/', {
         params: {
           search: searchTerm || undefined,
           status: statusFilter !== 'all' ? statusFilter : undefined,

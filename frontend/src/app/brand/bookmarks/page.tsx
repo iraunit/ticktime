@@ -61,7 +61,7 @@ export default function BrandBookmarksPage() {
   const fetchBookmarks = async () => {
     setIsLoading(true);
     try {
-      const response = await api.get('/api/brands/bookmarks/', {
+      const response = await api.get('/brands/bookmarks/', {
         params: {
           search: searchTerm || undefined,
           category: categoryFilter !== 'all' ? categoryFilter : undefined,
@@ -79,7 +79,7 @@ export default function BrandBookmarksPage() {
 
   const removeBookmark = async (bookmarkId: number) => {
     try {
-      await api.delete(`/api/brands/bookmarks/${bookmarkId}/`);
+      await api.delete(`/brands/bookmarks/${bookmarkId}/`);
       setBookmarks(prev => prev.filter(b => b.id !== bookmarkId));
       toast.success('Influencer removed from bookmarks');
     } catch (error: any) {
@@ -90,7 +90,7 @@ export default function BrandBookmarksPage() {
 
   const updateNotes = async (bookmarkId: number, notes: string) => {
     try {
-      await api.patch(`/api/brands/bookmarks/${bookmarkId}/`, { notes });
+      await api.patch(`/brands/bookmarks/${bookmarkId}/`, { notes });
       setBookmarks(prev => prev.map(b => 
         b.id === bookmarkId ? { ...b, notes } : b
       ));
@@ -104,7 +104,7 @@ export default function BrandBookmarksPage() {
 
   const startConversation = async (influencerId: number) => {
     try {
-      const response = await api.post('/api/brands/conversations/', {
+      const response = await api.post('/brands/conversations/', {
         influencer_id: influencerId,
         message: "Hi! I'm interested in collaborating with you."
       });

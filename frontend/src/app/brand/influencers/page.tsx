@@ -115,7 +115,7 @@ export default function InfluencerSearchPage() {
   const fetchInfluencers = async () => {
     setIsLoading(true);
     try {
-              const response = await api.get('/api/influencers/search/', {
+              const response = await api.get('/influencers/search/', {
         params: {
           search: searchTerm,
           industry: industryFilter !== 'all' ? industryFilter : undefined,

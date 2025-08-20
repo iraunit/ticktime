@@ -120,7 +120,7 @@ export default function DealDetailsPage() {
   const fetchDeal = async () => {
     setIsLoading(true);
     try {
-      const response = await api.get(`/api/brands/deals/${dealId}/`);
+      const response = await api.get(`/brands/deals/${dealId}/`);
       setDeal(response.data.deal);
       setNotes(response.data.deal.notes || "");
     } catch (error: any) {
@@ -135,7 +135,7 @@ export default function DealDetailsPage() {
   const updateDealStatus = async (status: string, additionalData: any = {}) => {
     setIsUpdating(true);
     try {
-      await api.patch(`/api/brands/deals/${dealId}/status/`, {
+      await api.patch(`/brands/deals/${dealId}/status/`, {
         status,
         ...additionalData
       });
@@ -172,7 +172,7 @@ export default function DealDetailsPage() {
   const reviewContent = async (contentId: number, approved: boolean, notes: string) => {
     setIsUpdating(true);
     try {
-      await api.patch(`/api/brands/deals/${dealId}/content/${contentId}/review/`, {
+      await api.patch(`/brands/deals/${dealId}/content/${contentId}/review/`, {
         approved,
         review_notes: notes
       });
@@ -200,7 +200,7 @@ export default function DealDetailsPage() {
 
   const updateNotes = async () => {
     try {
-      await api.patch(`/api/brands/deals/${dealId}/notes/`, { notes });
+      await api.patch(`/brands/deals/${dealId}/notes/`, { notes });
       toast.success('Notes updated successfully');
     } catch (error: any) {
       console.error('Failed to update notes:', error);

@@ -103,7 +103,7 @@ export default function BrandAnalyticsPage() {
   const fetchOverallAnalytics = async () => {
     setIsLoading(true);
     try {
-      const response = await api.get('/api/brands/analytics/overview/', {
+      const response = await api.get('/brands/analytics/overview/', {
         params: { time_range: timeRange }
       });
       setOverallAnalytics(response.data.analytics);
@@ -118,7 +118,7 @@ export default function BrandAnalyticsPage() {
   const fetchCampaignAnalytics = async () => {
     setIsLoading(true);
     try {
-      const response = await api.get('/api/brands/analytics/campaigns/', {
+      const response = await api.get('/brands/analytics/campaigns/', {
         params: { time_range: timeRange }
       });
       setCampaignAnalytics(response.data.campaigns);
