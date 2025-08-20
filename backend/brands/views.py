@@ -611,3 +611,183 @@ def approve_reject_content_view(request, deal_id):
         'status': 'success',
         'message': message
     })
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def brand_conversations_view(request):
+    """
+    List all conversations for the authenticated brand.
+    """
+    try:
+        brand_user = get_brand_user_or_403(request)
+        if not brand_user:
+            return Response({
+                'status': 'error',
+                'message': 'Brand profile not found.'
+            }, status=status.HTTP_404_NOT_FOUND)
+    except Exception:
+        return Response({
+            'status': 'error',
+            'message': 'Brand profile not found.'
+        }, status=status.HTTP_404_NOT_FOUND)
+
+    # Get conversations for deals involving this brand
+    from messaging.models import Conversation
+    conversations = Conversation.objects.filter(
+        deal__campaign__brand=brand_user.brand
+    ).select_related(
+        'deal__campaign__brand',
+        'deal__influencer'
+    ).prefetch_related(
+        'messages'
+    ).order_by('-updated_at')
+
+    # Apply search filter
+    search = request.GET.get('search')
+    if search:
+        conversations = conversations.filter(
+            Q(deal__influencer__name__icontains=search) |
+            Q(deal__influencer__username__icontains=search) |
+            Q(deal__campaign__title__icontains=search) |
+            Q(messages__content__icontains=search)
+        ).distinct()
+
+    # Apply status filter
+    status_filter = request.GET.get('status')
+    if status_filter:
+        conversations = conversations.filter(deal__status=status_filter)
+
+    # Apply unread only filter
+    unread_only = request.GET.get('unread_only')
+    if unread_only and unread_only.lower() == 'true':
+        conversations = conversations.filter(
+            messages__sender_type='influencer',
+            messages__read_by_brand=False
+        ).distinct()
+
+    # Pagination
+    from deals.views import DealPagination
+    paginator = DealPagination()
+    page = paginator.paginate_queryset(conversations, request)
+    
+    if page is not None:
+        from messaging.serializers import ConversationSerializer
+        serializer = ConversationSerializer(page, many=True, context={'request': request})
+        response = paginator.get_paginated_response(serializer.data)
+        response.data = {
+            'status': 'success',
+            'conversations': response.data['results'],
+            'count': response.data['count'],
+            'next': response.data['next'],
+            'previous': response.data['previous']
+        }
+        return response
+
+    from messaging.serializers import ConversationSerializer
+    serializer = ConversationSerializer(conversations, many=True, context={'request': request})
+    return Response({
+        'status': 'success',
+        'conversations': serializer.data,
+        'total_count': conversations.count()
+    }, status=status.HTTP_200_OK)
+
+
+@api_view(['GET', 'POST'])
+@permission_classes([IsAuthenticated])
+def brand_conversation_messages_view(request, conversation_id):
+    """
+    List messages for a brand conversation or send a new message.
+    """
+    try:
+        brand_user = get_brand_user_or_403(request)
+        if not brand_user:
+            return Response({
+                'status': 'error',
+                'message': 'Brand profile not found.'
+            }, status=status.HTTP_404_NOT_FOUND)
+    except Exception:
+        return Response({
+            'status': 'error',
+            'message': 'Brand profile not found.'
+        }, status=status.HTTP_404_NOT_FOUND)
+
+    from messaging.models import Conversation
+    conversation = get_object_or_404(
+        Conversation.objects.select_related('deal__campaign__brand', 'deal__influencer'),
+        id=conversation_id,
+        deal__campaign__brand=brand_user.brand
+    )
+
+    if request.method == 'GET':
+        from messaging.models import Message
+        messages = conversation.messages.all().order_by('-created_at')
+        
+        # Apply search filter
+        search_query = request.GET.get('search')
+        if search_query:
+            messages = messages.filter(content__icontains=search_query)
+        
+        # Mark messages as read by brand
+        unread_messages = messages.filter(
+            sender_type='influencer',
+            read_by_brand=False
+        )
+        for message in unread_messages:
+            message.mark_as_read('brand')
+
+        # Pagination
+        from deals.views import DealPagination
+        paginator = DealPagination()
+        page = paginator.paginate_queryset(messages, request)
+        
+        if page is not None:
+            from messaging.serializers import MessageSerializer
+            serializer = MessageSerializer(page, many=True, context={'request': request})
+            response = paginator.get_paginated_response(serializer.data)
+            response.data = {
+                'status': 'success',
+                'messages': response.data['results'],
+                'count': response.data['count'],
+                'next': response.data['next'],
+                'previous': response.data['previous']
+            }
+            return response
+
+        from messaging.serializers import MessageSerializer
+        serializer = MessageSerializer(messages, many=True, context={'request': request})
+        return Response({
+            'status': 'success',
+            'messages': serializer.data,
+            'total_count': messages.count()
+        }, status=status.HTTP_200_OK)
+
+    elif request.method == 'POST':
+        # Create new message
+        from messaging.serializers import MessageSerializer
+        serializer = MessageSerializer(data=request.data)
+        
+        if serializer.is_valid():
+            from messaging.models import Message
+            # Save with additional fields
+            message = serializer.save(
+                conversation=conversation,
+                sender_type='brand',
+                sender_user=request.user
+            )
+        
+            # Update conversation timestamp
+            conversation.updated_at = timezone.now()
+            conversation.save()
+            
+            return Response({
+                'status': 'success',
+                'message': 'Message sent successfully.',
+                'message_data': MessageSerializer(message, context={'request': request}).data
+            }, status=status.HTTP_201_CREATED)
+
+        return Response({
+            'status': 'error',
+            'message': 'Invalid message data.',
+            'errors': serializer.errors
+        }, status=status.HTTP_400_BAD_REQUEST)

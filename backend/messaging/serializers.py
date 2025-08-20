@@ -55,6 +55,9 @@ class ConversationSerializer(serializers.ModelSerializer):
     """
     deal_title = serializers.CharField(source='deal.campaign.title', read_only=True)
     brand_name = serializers.CharField(source='deal.campaign.brand.name', read_only=True)
+    influencer_name = serializers.CharField(source='deal.influencer.name', read_only=True)
+    influencer_username = serializers.CharField(source='deal.influencer.username', read_only=True)
+    influencer_avatar = serializers.CharField(source='deal.influencer.profile_image', read_only=True)
     last_message = MessageSerializer(read_only=True)
     unread_count = serializers.SerializerMethodField()
     messages_count = serializers.SerializerMethodField()
@@ -62,7 +65,8 @@ class ConversationSerializer(serializers.ModelSerializer):
     class Meta:
         model = Conversation
         fields = (
-            'id', 'deal', 'deal_title', 'brand_name', 'last_message',
+            'id', 'deal', 'deal_title', 'brand_name', 'influencer_name', 
+            'influencer_username', 'influencer_avatar', 'last_message',
             'unread_count', 'messages_count', 'created_at', 'updated_at'
         )
         read_only_fields = ('id', 'created_at', 'updated_at')
@@ -72,6 +76,8 @@ class ConversationSerializer(serializers.ModelSerializer):
         request = self.context.get('request')
         if request and hasattr(request.user, 'influencer_profile'):
             return obj.unread_count_for_influencer
+        elif request and hasattr(request.user, 'brand_user'):
+            return obj.unread_count_for_brand
         return 0
 
     def get_messages_count(self, obj):

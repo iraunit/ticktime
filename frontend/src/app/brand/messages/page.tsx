@@ -16,7 +16,8 @@ import {
   HiCheckCircle,
   HiClock,
   HiArrowPath,
-  HiEllipsisVertical
+  HiEllipsisVertical,
+  HiArrowLeft
 } from "react-icons/hi2";
 
 interface Message {
@@ -29,19 +30,15 @@ interface Message {
 
 interface Conversation {
   id: number;
-  influencer: {
-    id: number;
-    name: string;
-    username: string;
-    avatar?: string;
-    profile_image?: string;
-    is_online: boolean;
-  };
+  influencer_name: string;
+  influencer_username: string;
+  influencer_avatar?: string;
   deal: {
     id: number;
     campaign_title: string;
     status: string;
   };
+  deal_title: string;
   last_message: {
     content: string;
     timestamp: string;
@@ -62,19 +59,27 @@ export default function BrandMessagesPage() {
   const [newMessage, setNewMessage] = useState("");
 
   const fetchConversations = async () => {
+    console.log('Fetching conversations...');
     setIsLoading(true);
     try {
       const response = await api.get('/brands/conversations/', {
         params: {
           search: searchTerm || undefined,
-        }
+        },
+        timeout: 10000, // 10 second timeout
       });
+      console.log('Conversations response:', response.data);
       setConversations(response.data.conversations || []);
     } catch (error: any) {
       console.error('Failed to fetch conversations:', error);
-      toast.error(error.response?.data?.message || 'Failed to load conversations. Please try again.');
+      if (error.code === 'ECONNABORTED') {
+        toast.error('Request timed out. Please check your connection and try again.');
+      } else {
+        toast.error(error.response?.data?.message || 'Failed to load conversations. Please try again.');
+      }
       setConversations([]);
     } finally {
+      console.log('Setting loading to false');
       setIsLoading(false);
     }
   };
@@ -101,7 +106,7 @@ export default function BrandMessagesPage() {
         content: newMessage.trim()
       });
       
-      setMessages(prev => [...prev, response.data.message]);
+      setMessages(prev => [...prev, response.data.message_data]);
       setNewMessage("");
       
       // Update last message in conversations list
@@ -116,12 +121,20 @@ export default function BrandMessagesPage() {
     }
   };
 
+  // Initial load of conversations
   useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      fetchConversations();
-    }, searchTerm ? 500 : 0);
+    fetchConversations();
+  }, []);
 
-    return () => clearTimeout(timeoutId);
+  // Search with debounce
+  useEffect(() => {
+    if (searchTerm !== undefined) {
+      const timeoutId = setTimeout(() => {
+        fetchConversations();
+      }, searchTerm ? 500 : 0);
+
+      return () => clearTimeout(timeoutId);
+    }
   }, [searchTerm]);
 
   useEffect(() => {
@@ -167,18 +180,16 @@ export default function BrandMessagesPage() {
   };
 
   return (
-    <div className="min-h-screen">
-      <div className="container mx-auto px-4 py-4 max-w-7xl">
+    <div className="h-[calc(100vh-80px)] bg-gradient-to-br from-gray-50 via-white to-gray-100 overflow-hidden p-3">
+      <div className="h-full">
         {/* Header */}
-        <div className="relative mb-6">
-          <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/5 via-purple-500/5 to-pink-500/5 rounded-xl -m-2"></div>
-          
-          <div className="relative flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 p-4">
+        <div className="mb-4">
+          <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-bold bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 bg-clip-text text-transparent mb-1">
+              <h1 className="text-xl font-bold text-gray-900">
                 Messages
               </h1>
-              <p className="text-sm text-gray-600 max-w-2xl">
+              <p className="text-sm text-gray-600">
                 Communicate directly with influencers about your collaboration deals.
               </p>
             </div>
@@ -204,9 +215,11 @@ export default function BrandMessagesPage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 h-[calc(100vh-200px)]">
-          {/* Conversations List */}
-          <div className="lg:col-span-4 bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+        <div className="h-full flex gap-3">
+          {/* Desktop: Two-column layout */}
+          <div className="hidden lg:flex w-full gap-3">
+            {/* Conversations List */}
+            <div className="w-1/3 bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
             <div className="p-4 border-b border-gray-200">
               <div className="relative">
                 <HiMagnifyingGlass className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -228,9 +241,9 @@ export default function BrandMessagesPage() {
                 </div>
               ) : conversations.length === 0 ? (
                 <div className="p-8 text-center">
-                  <GlobalLoader />
+                  <HiChatBubbleLeftRight className="w-12 h-12 text-gray-300 mx-auto mb-4" />
                   <p className="text-gray-500 mt-4 text-sm">
-                    Start conversations by sending deals to influencers.
+                    No conversations yet. Start conversations by sending deals to influencers.
                   </p>
                 </div>
               ) : (
@@ -248,18 +261,15 @@ export default function BrandMessagesPage() {
                           <div className="relative">
                             <div className="w-10 h-10 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-full flex items-center justify-center">
                               <span className="text-sm font-bold text-white">
-                                {conversation.influencer.name.charAt(0)}
+                                {conversation.influencer_name.charAt(0)}
                               </span>
                             </div>
-                            {conversation.influencer.is_online && (
-                              <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></div>
-                            )}
                           </div>
                           
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center justify-between">
                               <h3 className="font-medium text-gray-900 truncate">
-                                {conversation.influencer.name}
+                                {conversation.influencer_name}
                               </h3>
                               <span className="text-xs text-gray-500">
                                 {formatTime(conversation.last_message.timestamp)}
@@ -267,13 +277,13 @@ export default function BrandMessagesPage() {
                             </div>
                             
                             <p className="text-sm text-gray-600 truncate">
-                              {conversation.influencer.username}
+                              {conversation.influencer_username}
                             </p>
                             
                             <div className="flex items-center gap-2 mt-1">
                               {getStatusBadge(conversation.deal.status)}
                               <span className="text-xs text-gray-500 truncate">
-                                {conversation.deal.campaign_title}
+                                {conversation.deal_title}
                               </span>
                             </div>
                             
@@ -297,8 +307,8 @@ export default function BrandMessagesPage() {
             </div>
           </div>
 
-          {/* Messages Area */}
-          <div className="lg:col-span-8 bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden flex flex-col">
+            {/* Messages Area */}
+            <div className="w-2/3 bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden flex flex-col">
             {selectedConversation ? (
               <>
                 {/* Chat Header */}
@@ -307,15 +317,15 @@ export default function BrandMessagesPage() {
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-full flex items-center justify-center">
                         <span className="text-sm font-bold text-white">
-                          {selectedConversation.influencer.name.charAt(0)}
+                          {selectedConversation.influencer_name.charAt(0)}
                         </span>
                       </div>
                       <div>
                         <h3 className="font-semibold text-gray-900">
-                          {selectedConversation.influencer.name}
+                          {selectedConversation.influencer_name}
                         </h3>
                         <p className="text-sm text-gray-600">
-                          {selectedConversation.deal.campaign_title}
+                          {selectedConversation.deal_title}
                         </p>
                       </div>
                     </div>
@@ -403,6 +413,205 @@ export default function BrandMessagesPage() {
                 </div>
               </div>
             )}
+          </div>
+          </div>
+
+          {/* Mobile: Facebook Messenger-style layout */}
+          <div className="lg:hidden w-full h-full">
+            {/* Conversation List - Mobile (full screen when no conversation selected) */}
+            <div className={`h-full ${selectedConversation ? 'hidden' : 'block'}`}>
+              <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden h-full">
+                <div className="p-4 border-b border-gray-200">
+                  <div className="relative">
+                    <HiMagnifyingGlass className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <Input
+                      placeholder="Search conversations..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="pl-10"
+                    />
+                  </div>
+                </div>
+
+                <div className="overflow-y-auto h-full">
+                  {isLoading ? (
+                    <div className="p-4 space-y-3">
+                      {Array.from({ length: 5 }).map((_, i) => (
+                        <GlobalLoader key={i} />
+                      ))}
+                    </div>
+                  ) : conversations.length === 0 ? (
+                    <div className="p-8 text-center">
+                      <HiChatBubbleLeftRight className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+                      <p className="text-gray-500 mt-4 text-sm">
+                        No conversations yet. Start conversations by sending deals to influencers.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="divide-y divide-gray-100">
+                      {conversations.map((conversation) => (
+                        <div
+                          key={conversation.id}
+                          className={`p-4 cursor-pointer hover:bg-gray-50 transition-colors ${
+                            selectedConversation?.id === conversation.id ? 'bg-indigo-50 border-r-2 border-indigo-500' : ''
+                          }`}
+                          onClick={() => setSelectedConversation(conversation)}
+                        >
+                          <div className="flex items-start justify-between">
+                            <div className="flex items-start gap-3 flex-1 min-w-0">
+                              <div className="relative">
+                                <div className="w-10 h-10 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-full flex items-center justify-center">
+                                  <span className="text-sm font-bold text-white">
+                                    {conversation.influencer_name.charAt(0)}
+                                  </span>
+                                </div>
+                              </div>
+                              
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center justify-between">
+                                  <h3 className="font-medium text-gray-900 truncate">
+                                    {conversation.influencer_name}
+                                  </h3>
+                                  <span className="text-xs text-gray-500">
+                                    {formatTime(conversation.last_message.timestamp)}
+                                  </span>
+                                </div>
+                                
+                                <p className="text-sm text-gray-600 truncate">
+                                  {conversation.influencer_username}
+                                </p>
+                                
+                                <div className="flex items-center gap-2 mt-1">
+                                  {getStatusBadge(conversation.deal.status)}
+                                  <span className="text-xs text-gray-500 truncate">
+                                    {conversation.deal_title}
+                                  </span>
+                                </div>
+                                
+                                <p className="text-sm text-gray-700 mt-2 truncate">
+                                  {conversation.last_message.sender === 'influencer' ? '' : 'You: '}
+                                  {conversation.last_message.content}
+                                </p>
+                              </div>
+                            </div>
+                            
+                            {conversation.unread_count > 0 && (
+                              <div className="w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center ml-2">
+                                {conversation.unread_count}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Messaging Interface - Mobile (full screen when conversation selected) */}
+            <div className={`h-full ${selectedConversation ? 'block' : 'hidden'}`}>
+              {selectedConversation && (
+                <div className="relative h-full">
+                  {/* Mobile back button */}
+                  <div className="absolute top-3 left-3 z-10">
+                    <button
+                      onClick={() => setSelectedConversation(null)}
+                      className="bg-white/95 backdrop-blur-sm rounded-lg p-2 shadow-md border border-gray-200 hover:bg-white hover:shadow-lg transition-all duration-200"
+                    >
+                      <HiArrowLeft className="w-4 h-4 text-gray-700" />
+                    </button>
+                  </div>
+                  <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden h-full flex flex-col">
+                    {/* Chat Header */}
+                    <div className="p-4 border-b border-gray-200 bg-gradient-to-r from-indigo-50 to-purple-50">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-full flex items-center justify-center">
+                            <span className="text-sm font-bold text-white">
+                              {selectedConversation.influencer_name.charAt(0)}
+                            </span>
+                          </div>
+                          <div>
+                            <h3 className="font-semibold text-gray-900">
+                              {selectedConversation.influencer_name}
+                            </h3>
+                            <p className="text-sm text-gray-600">
+                              {selectedConversation.deal_title}
+                            </p>
+                          </div>
+                        </div>
+                        
+                        <div className="flex items-center gap-2">
+                          {getStatusBadge(selectedConversation.deal.status)}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Messages */}
+                    <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                      {isLoadingMessages ? (
+                        <div className="flex items-center justify-center h-full">
+                          <GlobalLoader />
+                        </div>
+                      ) : messages.length === 0 ? (
+                        <div className="flex items-center justify-center h-full">
+                          <div className="text-center">
+                            <HiChatBubbleLeftRight className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+                            <p className="text-gray-500">No messages yet</p>
+                            <p className="text-sm text-gray-400">Start the conversation below</p>
+                          </div>
+                        </div>
+                      ) : (
+                        messages.map((message) => (
+                          <div
+                            key={message.id}
+                            className={`flex ${message.sender === 'brand' ? 'justify-end' : 'justify-start'}`}
+                          >
+                            <div
+                              className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
+                                message.sender === 'brand'
+                                  ? 'bg-gradient-to-r from-indigo-500 to-purple-600 text-white'
+                                  : 'bg-gray-100 text-gray-900'
+                              }`}
+                            >
+                              <p className="text-sm">{message.content}</p>
+                              <p
+                                className={`text-xs mt-1 ${
+                                  message.sender === 'brand' ? 'text-indigo-100' : 'text-gray-500'
+                                }`}
+                              >
+                                {formatTime(message.timestamp)}
+                              </p>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+
+                    {/* Message Input */}
+                    <div className="p-4 border-t border-gray-200">
+                      <div className="flex items-center gap-3">
+                        <Input
+                          placeholder="Type your message..."
+                          value={newMessage}
+                          onChange={(e) => setNewMessage(e.target.value)}
+                          onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
+                          className="flex-1"
+                        />
+                        <Button 
+                          onClick={sendMessage}
+                          disabled={!newMessage.trim()}
+                          className="bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white"
+                        >
+                          <HiPaperAirplane className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>

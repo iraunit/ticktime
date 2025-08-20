@@ -17,6 +17,10 @@ urlpatterns = [
     path('deals/by-campaigns/', views.brand_deals_by_campaigns_view, name='brand-deals-by-campaigns'),
     path('deals/<int:deal_id>/content/', views.approve_reject_content_view, name='approve-reject-content'),
     
+    # Messaging
+    path('conversations/', views.brand_conversations_view, name='brand-conversations'),
+    path('conversations/<int:conversation_id>/messages/', views.brand_conversation_messages_view, name='brand-conversation-messages'),
+    
     # Influencer Management
     path('influencers/<int:influencer_id>/bookmark/', views.bookmark_influencer_view, name='bookmark-influencer'),
     path('bookmarks/', views.bookmarked_influencers_view, name='bookmarked-influencers'),
