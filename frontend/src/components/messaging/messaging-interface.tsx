@@ -6,7 +6,7 @@ import { MessageBubble } from "./message-bubble";
 import { MessageInput } from "./message-input";
 import { ConversationHeader } from "./conversation-header";
 import { TypingIndicator } from "./typing-indicator";
-import { LoadingSpinner } from "./loading-spinner";
+import { GlobalLoader } from "@/components/ui/global-loader";
 import { ScrollToBottom } from "./scroll-to-bottom";
 import { Message, Deal } from "@/types";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -133,7 +133,7 @@ export function MessagingInterface({ deal, className = "" }: MessagingInterfaceP
   if (messages.isLoading) {
     return (
       <div className={`h-full bg-white border shadow-sm flex items-center justify-center ${className}`}>
-        <LoadingSpinner />
+        <GlobalLoader />
       </div>
     );
   }
@@ -168,7 +168,7 @@ export function MessagingInterface({ deal, className = "" }: MessagingInterfaceP
               {/* Loading more indicator */}
               {isLoadingMore && (
                 <div className="flex justify-center py-2">
-                  <LoadingSpinner size="sm" />
+                  <GlobalLoader />
                 </div>
               )}
               

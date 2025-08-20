@@ -2,10 +2,10 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { CheckCircle, XCircle, Loader2 } from "@/lib/icons";
+import { CheckCircle, XCircle } from "@/lib/icons";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader } from "@/components/ui/loader";
+import { GlobalLoader } from "@/components/ui/global-loader";
 import { authApi } from "@/lib/api-client";
 
 interface EmailVerificationFormProps {
@@ -36,7 +36,7 @@ export function EmailVerificationForm({ token }: EmailVerificationFormProps) {
       <Card className="w-full max-w-md mx-auto">
         <CardHeader className="space-y-1 text-center">
           <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <Loader2 className="h-8 w-8 text-blue-600 animate-spin" />
+                         <GlobalLoader />
           </div>
           <CardTitle className="text-2xl font-bold">Verifying your email</CardTitle>
           <CardDescription>

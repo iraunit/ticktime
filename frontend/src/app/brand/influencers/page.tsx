@@ -23,7 +23,7 @@ import {
 } from "react-icons/hi2";
 import { api } from "@/lib/api";
 import { toast } from "@/lib/toast";
-import { LoadingSpinner, CardSkeletonLoader } from "@/components/ui/loading-spinner";
+import { GlobalLoader } from "@/components/ui/global-loader";
 
 // Platform icons mapping
 const platformIcons: { [key: string]: string } = {
@@ -521,7 +521,7 @@ export default function InfluencerSearchPage() {
         {isLoading && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {Array.from({ length: 6 }).map((_, i) => (
-              <CardSkeletonLoader key={i} />
+                              <GlobalLoader key={i} />
             ))}
           </div>
         )}
@@ -638,7 +638,7 @@ export default function InfluencerSearchPage() {
         {/* Empty State */}
         {!isLoading && influencers.length === 0 && (
           <Card className="p-12 text-center bg-gradient-to-br from-white via-white to-gray-50 border border-gray-200 shadow-md">
-            <LoadingSpinner size="lg" text="No influencers found" />
+            <GlobalLoader />
             <div className="mt-8">
               <p className="text-gray-500 mb-4">
                 Try adjusting your search criteria or filters to find more creators.

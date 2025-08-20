@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { HiMagnifyingGlass, HiChatBubbleLeftRight, HiBriefcase } from "react-icons/hi2";
 import { formatDistanceToNow } from "date-fns";
 import Image from "next/image";
-import { LoadingSpinner } from "./loading-spinner";
+import { GlobalLoader } from "@/components/ui/global-loader";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface ConversationListProps {
@@ -87,7 +87,7 @@ export function ConversationList({ selectedDealId, onSelectDeal }: ConversationL
   if (deals.isLoading) {
     return (
       <div className="h-full bg-white border shadow-sm flex items-center justify-center">
-        <LoadingSpinner />
+        <GlobalLoader />
       </div>
     );
   }

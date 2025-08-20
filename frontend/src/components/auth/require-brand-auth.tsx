@@ -4,7 +4,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useUserContext } from "@/components/providers/app-providers";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { LoadingSpinner } from "@/components/ui/loading-spinner";
+import { GlobalLoader } from "@/components/ui/global-loader";
 
 interface RequireBrandAuthProps {
   children: React.ReactNode;
@@ -42,7 +42,7 @@ export function RequireBrandAuth({ children }: RequireBrandAuthProps) {
   if (isAuthLoading || isUserLoading || !hasChecked) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <LoadingSpinner size="lg" text="Verifying brand access" />
+        <GlobalLoader />
       </div>
     );
   }
@@ -51,7 +51,7 @@ export function RequireBrandAuth({ children }: RequireBrandAuthProps) {
   if (!isAuthenticated() || !user || user.account_type !== 'brand' || !user.brand_profile) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <LoadingSpinner size="lg" text="Redirecting to brand access" />
+        <GlobalLoader />
       </div>
     );
   }

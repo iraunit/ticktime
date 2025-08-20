@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { LoadingSpinner, CardSkeletonLoader } from "@/components/ui/loading-spinner";
+import { GlobalLoader } from "@/components/ui/global-loader";
 import { toast } from "@/lib/toast";
 import { api } from "@/lib/api";
 import { 
@@ -311,14 +311,14 @@ export default function BrandDealsPage() {
         {isLoading && (
           <div className="grid gap-6">
             {Array.from({ length: 3 }).map((_, i) => (
-              <CardSkeletonLoader key={i} />
+                              <GlobalLoader key={i} />
             ))}
           </div>
         )}
 
         {!isLoading && (viewMode === 'campaigns' ? campaigns.length === 0 : deals.length === 0) && (
           <Card className="p-12 text-center bg-gradient-to-br from-white via-white to-gray-50 border border-gray-200 shadow-md">
-            <LoadingSpinner size="lg" text="No deals found" />
+            <GlobalLoader />
             <div className="mt-8">
               <p className="text-gray-500 mb-6">
                 {hasActiveFilters ? "Try adjusting your search criteria or filters." : "Start by creating campaigns and sending deals to influencers."}

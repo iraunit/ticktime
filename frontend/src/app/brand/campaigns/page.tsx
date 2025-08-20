@@ -23,7 +23,7 @@ import {
 } from "react-icons/hi2";
 import { api } from "@/lib/api";
 import { toast } from "@/lib/toast";
-import { LoadingSpinner, CardSkeletonLoader } from "@/components/ui/loading-spinner";
+import { GlobalLoader } from "@/components/ui/global-loader";
 
 interface Campaign {
   id: number;
@@ -232,7 +232,7 @@ export default function BrandCampaignsPage() {
         {isLoading && (
           <div className="grid gap-6">
             {Array.from({ length: 3 }).map((_, i) => (
-              <CardSkeletonLoader key={i} />
+                              <GlobalLoader key={i} />
             ))}
           </div>
         )}

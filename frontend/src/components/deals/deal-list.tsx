@@ -7,7 +7,7 @@ import { DealFilters } from "./deal-filters";
 import { Button } from "@/components/ui/button";
 import { HiArrowPath, HiBriefcase } from "react-icons/hi2";
 import { cn } from "@/lib/utils";
-import { Loader } from "@/components/ui/loader";
+import { GlobalLoader } from "@/components/ui/global-loader";
 
 interface DealListProps {
   deals: Deal[];
@@ -103,7 +103,7 @@ export function DealList({
       <div className={cn("space-y-4", className)}>
         <div className="flex items-center justify-center py-12">
           <div className="text-center relative">
-            <Loader className="mb-4" showBackground={true} />
+            <GlobalLoader className="mb-4" />
             <p className="text-lg font-semibold text-gray-700">Loading your deals...</p>
           </div>
         </div>
@@ -234,7 +234,7 @@ export function DealList({
         <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50">
           <div className="bg-white rounded-2xl p-8 shadow-2xl border border-gray-200 max-w-sm mx-4">
             <div className="text-center relative">
-              <Loader className="mb-4" showBackground={true} />
+              <GlobalLoader className="mb-4" />
             </div>
               <p className="text-lg font-semibold text-gray-900 mb-2">Updating deals...</p>
               <p className="text-sm text-gray-600">Fetching the latest opportunities for you</p>

@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { LoadingSpinner, CardSkeletonLoader } from "@/components/ui/loading-spinner";
+import { GlobalLoader } from "@/components/ui/global-loader";
 import { toast } from "@/lib/toast";
 import { api } from "@/lib/api";
 import { 
@@ -287,12 +287,12 @@ export default function BrandBookmarksPage() {
         {isLoading ? (
           <div className="grid gap-6">
             {Array.from({ length: 6 }).map((_, i) => (
-              <CardSkeletonLoader key={i} />
+                              <GlobalLoader key={i} />
             ))}
           </div>
         ) : filteredBookmarks.length === 0 ? (
           <Card className="p-12 text-center bg-gradient-to-br from-white via-white to-gray-50 border border-gray-200 shadow-md">
-            <LoadingSpinner size="lg" text="No bookmarks found" />
+            <GlobalLoader />
             <div className="mt-8">
               <p className="text-gray-500 mb-6">
                 {searchTerm || categoryFilter !== "all" 

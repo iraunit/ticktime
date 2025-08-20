@@ -1,8 +1,7 @@
 import { Suspense } from "react";
 import { MainLayout } from "@/components/layout/main-layout";
 import { EmailVerificationForm } from "@/components/auth/email-verification-form";
-import { Loader } from "@/components/ui/loader";
-import { Loader2 } from "@/lib/icons";
+import { GlobalLoader } from "@/components/ui/global-loader";
 
 interface VerifyEmailPageProps {
   searchParams: Promise<{ token?: string }>;
@@ -39,7 +38,7 @@ export default async function VerifyEmailPage({ searchParams }: VerifyEmailPageP
         <Suspense
           fallback={
             <div className="flex items-center justify-center">
-              <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+                             <GlobalLoader />
             </div>
           }
         >

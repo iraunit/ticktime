@@ -4,8 +4,7 @@ import { DealTabs } from "@/components/deals/deal-tabs";
 import { useDeal } from "@/hooks/use-deals";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Loader } from "@/components/ui/loader";
-import { Loader2 } from "@/lib/icons";
+import { GlobalLoader } from "@/components/ui/global-loader";
 
 interface DealDetailsContentProps {
   dealId: number;
@@ -40,7 +39,7 @@ export function DealDetailsContent({ dealId }: DealDetailsContentProps) {
   if (deal.isLoading) {
     return (
       <div className="flex items-center justify-center py-12 relative">
-        <Loader variant="simple" />
+        <GlobalLoader />
       </div>
     );
   }

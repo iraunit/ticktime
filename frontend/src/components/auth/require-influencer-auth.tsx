@@ -4,6 +4,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useUserContext } from "@/components/providers/app-providers";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { GlobalLoader } from "@/components/ui/global-loader";
 
 interface RequireInfluencerAuthProps {
   children: React.ReactNode;
@@ -39,20 +40,12 @@ export function RequireInfluencerAuth({ children }: RequireInfluencerAuthProps) 
 
   // Show loading while checking authentication or if we've determined a redirect is needed
   if (isAuthLoading || isUserLoading || !hasChecked) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
-      </div>
-    );
+    return <GlobalLoader />;
   }
 
   // Only render children if user is authenticated and is an influencer
   if (!isAuthenticated() || !user || user.account_type !== 'influencer' || !user.influencer_profile) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
-      </div>
-    );
+    return <GlobalLoader />;
   }
 
   return <>{children}</>;

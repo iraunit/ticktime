@@ -3,6 +3,7 @@
 import { useUserContext } from "@/components/providers/app-providers";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
+import { GlobalLoader } from "@/components/ui/global-loader";
 
 export default function ProfilePage() {
   const { user, isLoading } = useUserContext();
@@ -26,20 +27,12 @@ export default function ProfilePage() {
 
   // Show loading while checking
   if (isLoading || !user) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
-      </div>
-    );
+    return <GlobalLoader />;
   }
 
   // If wrong user type, show loading while redirecting
   if (user.account_type !== 'influencer') {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
-      </div>
-    );
+    return <GlobalLoader />;
   }
 
   // Only render for influencers - import and render the actual profile page component

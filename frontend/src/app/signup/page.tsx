@@ -6,9 +6,9 @@ import Link from "next/link";
 import { MainLayout } from "@/components/layout/main-layout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Loader2, Building2, Camera, HiHandRaised } from "@/lib/icons";
+import { Building2, Camera, HiHandRaised } from "@/lib/icons";
 import { useAuth } from "@/hooks/use-auth";
-import { Loader } from "@/components/ui/loader";
+import { GlobalLoader } from "@/components/ui/global-loader";
 
 export default function SignupPage() {
   const router = useRouter();
@@ -26,7 +26,7 @@ export default function SignupPage() {
     return (
       <MainLayout>
         <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 flex items-center justify-center">
-          <Loader2 className="h-8 w-8 animate-spin text-gray-600" />
+          <GlobalLoader />
         </div>
       </MainLayout>
     );

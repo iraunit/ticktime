@@ -12,14 +12,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { AutoSaveForm } from '@/components/ui/enhanced-form';
 import { ErrorDisplay } from '@/components/ui/error-display';
-import { LoadingOverlay } from '@/components/ui/loading-overlay';
+import { OverlayLoader } from '@/components/ui/global-loader';
 import { useProfile } from '@/hooks/use-profile';
 import { useErrorHandling } from '@/hooks/use-error-handling';
 import { InfluencerProfile } from '@/types';
 import { getMediaUrl } from '@/lib/utils';
 
 // Import icons from our icon system
-import { AlertCircle, CheckCircle, Loader2, Save, Settings, X } from '@/lib/icons';
+import { AlertCircle, CheckCircle, Save, Settings, X } from '@/lib/icons';
 
 // Import custom components
 import { CommonProfileForm } from '@/components/profile/common-profile-form';

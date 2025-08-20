@@ -1,8 +1,7 @@
 import { Suspense } from "react";
 import { MainLayout } from "@/components/layout/main-layout";
 import { ResetPasswordForm } from "@/components/auth/reset-password-form";
-import { Loader } from "@/components/ui/loader";
-import { Loader2 } from "@/lib/icons";
+import { GlobalLoader } from "@/components/ui/global-loader";
 
 interface ResetPasswordPageProps {
   searchParams: Promise<{ token?: string }>;
@@ -39,7 +38,7 @@ export default async function ResetPasswordPage({ searchParams }: ResetPasswordP
         <Suspense
           fallback={
                         <div className="flex items-center justify-center relative">
-              <Loader variant="simple" />
+                             <GlobalLoader />
             </div>
           }
         >

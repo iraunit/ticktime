@@ -18,7 +18,7 @@ import { EnhancedInput, EnhancedTextarea } from '@/components/ui/enhanced-form';
 import { useApiErrorHandler } from '@/contexts/error-context';
 import { useLoadingState } from '@/contexts/loading-context';
 import { nameSchema, phoneSchema } from '@/lib/validation';
-import { CheckCircle, Loader2, AlertCircle, Save } from '@/lib/icons';
+import { CheckCircle, AlertCircle, Save } from '@/lib/icons';
 
 const profileSchema = z.object({
   first_name: nameSchema,

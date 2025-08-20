@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Eye, EyeOff, Mail, Lock, Loader2, AlertCircle, CheckCircle, HiHandRaised } from "@/lib/icons";
-import { InlineLoader } from "@/components/ui/inline-loader";
+import { Eye, EyeOff, Mail, Lock, AlertCircle, CheckCircle, HiHandRaised } from "@/lib/icons";
+import { InlineLoader } from "@/components/ui/global-loader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";

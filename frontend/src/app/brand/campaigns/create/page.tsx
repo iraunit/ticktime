@@ -10,8 +10,8 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { LoadingSpinner, CardSkeletonLoader } from "@/components/ui/loading-spinner";
-import { InlineLoader } from "@/components/ui/inline-loader";
+import { GlobalLoader } from "@/components/ui/global-loader";
+import { InlineLoader } from "@/components/ui/global-loader";
 import { toast } from "@/lib/toast";
 import { api } from "@/lib/api";
 import { 
@@ -721,7 +721,7 @@ export default function CreateCampaignPage() {
                   {isLoadingInfluencers ? (
                     <div className="grid gap-4">
                       {Array.from({ length: 4 }).map((_, i) => (
-                        <CardSkeletonLoader key={i} />
+                        <GlobalLoader key={i} />
                       ))}
                     </div>
                   ) : influencers.length > 0 ? (
@@ -784,7 +784,7 @@ export default function CreateCampaignPage() {
                     </div>
                   ) : (
                     <div className="text-center py-8">
-                      <LoadingSpinner size="md" text="No influencers found" />
+                      <GlobalLoader />
                       <p className="text-gray-500 mt-2">Try adjusting your search criteria.</p>
                     </div>
                   )}

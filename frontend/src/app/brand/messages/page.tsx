@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { LoadingSpinner, CardSkeletonLoader } from "@/components/ui/loading-spinner";
+import { GlobalLoader } from "@/components/ui/global-loader";
 import { toast } from "@/lib/toast";
 import { api } from "@/lib/api";
 import { 
@@ -223,12 +223,12 @@ export default function BrandMessagesPage() {
               {isLoading ? (
                 <div className="p-4 space-y-3">
                   {Array.from({ length: 5 }).map((_, i) => (
-                    <CardSkeletonLoader key={i} />
+                    <GlobalLoader key={i} />
                   ))}
                 </div>
               ) : conversations.length === 0 ? (
                 <div className="p-8 text-center">
-                  <LoadingSpinner size="md" text="No conversations found" />
+                  <GlobalLoader />
                   <p className="text-gray-500 mt-4 text-sm">
                     Start conversations by sending deals to influencers.
                   </p>
@@ -333,7 +333,7 @@ export default function BrandMessagesPage() {
                 <div className="flex-1 overflow-y-auto p-4 space-y-4">
                   {isLoadingMessages ? (
                     <div className="flex items-center justify-center h-full">
-                      <LoadingSpinner size="md" text="Loading messages" />
+                      <GlobalLoader />
                     </div>
                   ) : messages.length === 0 ? (
                     <div className="flex items-center justify-center h-full">

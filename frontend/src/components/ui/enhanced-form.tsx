@@ -4,9 +4,10 @@ import { useState, useEffect } from 'react';
 import { useForm, UseFormReturn, FieldValues, Path } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { CheckCircle, AlertCircle, Loader2 } from '@/lib/icons';
+import { CheckCircle, AlertCircle } from '@/lib/icons';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { InlineLoader } from '@/components/ui/global-loader';
 import { Button } from '@/components/ui/button';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '@/components/ui/form';
 import { cn } from '@/lib/utils';
@@ -451,7 +452,7 @@ export function MultiStepForm<T extends FieldValues>({
               <Button type="submit" disabled={isSubmitting}>
                 {isSubmitting ? (
                   <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    <InlineLoader />
                     Submitting...
                   </>
                 ) : (

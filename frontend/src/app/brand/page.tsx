@@ -22,7 +22,7 @@ import {
 import { useBrandDashboard } from "@/hooks/use-brand-dashboard";
 import { useUserContext } from "@/components/providers/app-providers";
 import { toast } from "@/lib/toast";
-import { LoadingSpinner } from "@/components/ui/loading-spinner";
+import { GlobalLoader } from "@/components/ui/global-loader";
 
 export default function BrandDashboard() {
   const { user } = useUserContext();

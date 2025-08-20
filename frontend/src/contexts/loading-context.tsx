@@ -1,6 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react';
+import { GlobalLoader } from '@/components/ui/global-loader';
 
 interface LoadingState {
   isLoading: boolean;
@@ -88,6 +89,7 @@ export function LoadingProvider({ children }: LoadingProviderProps) {
   return (
     <LoadingContext.Provider value={value}>
       {children}
+      <GlobalLoader isVisible={isAnyLoading()} />
     </LoadingContext.Provider>
   );
 }

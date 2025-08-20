@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { LoadingSpinner, CardSkeletonLoader } from "@/components/ui/loading-spinner";
+import { GlobalLoader } from "@/components/ui/global-loader";
 import { toast } from "@/lib/toast";
 import { api } from "@/lib/api";
 import { 
@@ -234,7 +234,7 @@ export default function BrandAnalyticsPage() {
             {isLoading ? (
               <div className="grid gap-6">
                 {Array.from({ length: 4 }).map((_, i) => (
-                  <CardSkeletonLoader key={i} />
+                  <GlobalLoader key={i} />
                 ))}
               </div>
             ) : overallAnalytics ? (
@@ -398,7 +398,7 @@ export default function BrandAnalyticsPage() {
               </>
             ) : (
               <div className="text-center py-12">
-                <LoadingSpinner size="lg" text="No analytics data available" />
+                <GlobalLoader />
                 <p className="text-gray-500 mt-4">Start creating campaigns to see analytics.</p>
               </div>
             )}
@@ -409,7 +409,7 @@ export default function BrandAnalyticsPage() {
             {isLoading ? (
               <div className="grid gap-6">
                 {Array.from({ length: 3 }).map((_, i) => (
-                  <CardSkeletonLoader key={i} />
+                  <GlobalLoader key={i} />
                 ))}
               </div>
             ) : campaignAnalytics.length > 0 ? (
@@ -552,7 +552,7 @@ export default function BrandAnalyticsPage() {
               </div>
             ) : (
               <div className="text-center py-12">
-                <LoadingSpinner size="lg" text="No campaign analytics available" />
+                <GlobalLoader />
                 <p className="text-gray-500 mt-4">Create and launch campaigns to see detailed analytics.</p>
               </div>
             )}
@@ -563,7 +563,7 @@ export default function BrandAnalyticsPage() {
             {isLoading ? (
               <div className="grid gap-6">
                 {Array.from({ length: 2 }).map((_, i) => (
-                  <CardSkeletonLoader key={i} />
+                  <GlobalLoader key={i} />
                 ))}
               </div>
             ) : overallAnalytics && campaignAnalytics.length > 0 ? (
@@ -667,7 +667,7 @@ export default function BrandAnalyticsPage() {
               </div>
             ) : (
               <div className="text-center py-12">
-                <LoadingSpinner size="lg" text="No audience data available" />
+                <GlobalLoader />
                 <p className="text-gray-500 mt-4">Complete some campaigns to see audience insights.</p>
               </div>
             )}

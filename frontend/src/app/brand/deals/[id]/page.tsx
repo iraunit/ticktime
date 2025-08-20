@@ -10,8 +10,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { LoadingSpinner } from "@/components/ui/loading-spinner";
-import { InlineLoader } from "@/components/ui/inline-loader";
+import { GlobalLoader } from "@/components/ui/global-loader";
+import { InlineLoader } from "@/components/ui/global-loader";
 import { toast } from "@/lib/toast";
 import { api } from "@/lib/api";
 import { 
@@ -274,7 +274,7 @@ export default function DealDetailsPage() {
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <LoadingSpinner size="lg" text="Loading deal details" />
+        <GlobalLoader />
       </div>
     );
   }

@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { LoadingSpinner, CardSkeletonLoader } from "@/components/ui/loading-spinner";
+import { GlobalLoader } from "@/components/ui/global-loader";
 import { toast } from "@/lib/toast";
 import { api } from "@/lib/api";
 import { 
@@ -375,12 +375,12 @@ export default function BrandReviewsPage() {
             {isLoading ? (
               <div className="grid gap-4">
                 {Array.from({ length: 3 }).map((_, i) => (
-                  <CardSkeletonLoader key={i} />
+                  <GlobalLoader key={i} />
                 ))}
               </div>
             ) : reviewsReceived.length === 0 ? (
               <Card className="p-12 text-center bg-gradient-to-br from-white via-white to-gray-50 border border-gray-200 shadow-md">
-                <LoadingSpinner size="lg" text="No reviews received yet" />
+                <GlobalLoader />
                 <div className="mt-8">
                   <p className="text-gray-500 mb-6">
                     Complete deals with influencers to start receiving reviews.
@@ -507,12 +507,12 @@ export default function BrandReviewsPage() {
             {isLoading ? (
               <div className="grid gap-4">
                 {Array.from({ length: 3 }).map((_, i) => (
-                  <CardSkeletonLoader key={i} />
+                  <GlobalLoader key={i} />
                 ))}
               </div>
             ) : reviewsGiven.length === 0 ? (
               <Card className="p-12 text-center bg-gradient-to-br from-white via-white to-gray-50 border border-gray-200 shadow-md">
-                <LoadingSpinner size="lg" text="No reviews given yet" />
+                <GlobalLoader />
                 <div className="mt-8">
                   <p className="text-gray-500 mb-6">
                     Complete deals and rate influencers to build your review history.
