@@ -57,10 +57,12 @@ export default function BrandMessagesPage() {
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [newMessage, setNewMessage] = useState("");
+  const [error, setError] = useState<string | null>(null);
 
   const fetchConversations = async () => {
     console.log('Fetching conversations...');
     setIsLoading(true);
+    setError(null);
     try {
       const response = await api.get('/brands/conversations/', {
         params: {
@@ -72,11 +74,12 @@ export default function BrandMessagesPage() {
       setConversations(response.data.conversations || []);
     } catch (error: any) {
       console.error('Failed to fetch conversations:', error);
-      if (error.code === 'ECONNABORTED') {
-        toast.error('Request timed out. Please check your connection and try again.');
-      } else {
-        toast.error(error.response?.data?.message || 'Failed to load conversations. Please try again.');
-      }
+      const errorMessage = error.code === 'ECONNABORTED' 
+        ? 'Request timed out. Please check your connection and try again.'
+        : error.response?.data?.message || 'Failed to load conversations. Please try again.';
+      
+      setError(errorMessage);
+      toast.error(errorMessage);
       setConversations([]);
     } finally {
       console.log('Setting loading to false');
@@ -208,8 +211,8 @@ export default function BrandMessagesPage() {
                 disabled={isLoading}
                 className="border border-gray-200 hover:border-indigo-300 hover:bg-indigo-50 transition-all duration-200 rounded-lg px-4 py-2"
               >
-                <HiArrowPath className="h-4 w-4 mr-1" />
-                Refresh
+                <HiArrowPath className={`h-4 w-4 mr-1 ${isLoading ? 'animate-spin' : ''}`} />
+                {isLoading ? 'Loading...' : 'Refresh'}
               </Button>
             </div>
           </div>
@@ -238,6 +241,21 @@ export default function BrandMessagesPage() {
                   {Array.from({ length: 5 }).map((_, i) => (
                     <GlobalLoader key={i} />
                   ))}
+                </div>
+              ) : error ? (
+                <div className="p-8 text-center">
+                  <div className="text-red-500 mb-4">
+                    <HiChatBubbleLeftRight className="w-12 h-12 mx-auto mb-2" />
+                    <p className="text-sm">{error}</p>
+                  </div>
+                  <Button 
+                    onClick={fetchConversations}
+                    variant="outline"
+                    size="sm"
+                    className="mt-2"
+                  >
+                    Try Again
+                  </Button>
                 </div>
               ) : conversations.length === 0 ? (
                 <div className="p-8 text-center">
@@ -439,6 +457,21 @@ export default function BrandMessagesPage() {
                       {Array.from({ length: 5 }).map((_, i) => (
                         <GlobalLoader key={i} />
                       ))}
+                    </div>
+                  ) : error ? (
+                    <div className="p-8 text-center">
+                      <div className="text-red-500 mb-4">
+                        <HiChatBubbleLeftRight className="w-12 h-12 mx-auto mb-2" />
+                        <p className="text-sm">{error}</p>
+                      </div>
+                      <Button 
+                        onClick={fetchConversations}
+                        variant="outline"
+                        size="sm"
+                        className="mt-2"
+                      >
+                        Try Again
+                      </Button>
                     </div>
                   ) : conversations.length === 0 ? (
                     <div className="p-8 text-center">
