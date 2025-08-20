@@ -5,7 +5,7 @@ import { MainLayout } from "@/components/layout/main-layout";
 import { ConversationList, MessagingInterface } from "@/components/messaging";
 import { Deal } from "@/types";
 import { HiChatBubbleLeftRight, HiArrowLeft } from "react-icons/hi2";
-import { RequireAuth } from "@/components/auth/require-auth";
+import { RequireInfluencerAuth } from "@/components/auth/require-influencer-auth";
 
 export default function MessagesPage() {
   const [selectedDeal, setSelectedDeal] = useState<Deal | null>(null);
@@ -19,7 +19,7 @@ export default function MessagesPage() {
   };
 
   return (
-    <RequireAuth>
+    <RequireInfluencerAuth>
       <MainLayout showFooter={false}>
         <div className="h-[calc(100vh-80px)] bg-gradient-to-br from-gray-50 via-white to-gray-100 overflow-hidden p-3">
           <div className="h-full flex gap-3">
@@ -86,6 +86,6 @@ export default function MessagesPage() {
           </div>
         </div>
       </MainLayout>
-    </RequireAuth>
+    </RequireInfluencerAuth>
   );
 }

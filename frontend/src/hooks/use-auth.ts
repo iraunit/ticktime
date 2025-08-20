@@ -52,12 +52,26 @@ export function useAuth() {
   const loginMutation = useMutation({
     mutationFn: ({ email, password, remember_me }: { email: string; password: string; remember_me?: boolean }) =>
       authApi.login(email, password, remember_me),
-    onSuccess: async () => {
+    onSuccess: async (response) => {
       setIsAuthenticatedState(true);
       queryClient.invalidateQueries({ queryKey: ['user'] });
       await refreshUserContext();
+      
       const next = getNextPath();
-      router.push(next || '/dashboard');
+      if (next) {
+        router.push(next);
+        return;
+      }
+      
+      // Redirect based on account type
+      const user = response?.data?.user;
+      if (user?.account_type === 'brand') {
+        router.push('/brand');
+      } else if (user?.account_type === 'influencer') {
+        router.push('/dashboard');
+      } else {
+        router.push('/dashboard'); // fallback
+      }
     },
   });
 

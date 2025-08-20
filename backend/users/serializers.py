@@ -11,17 +11,25 @@ class UserProfileSerializer(serializers.ModelSerializer):
     full_name = serializers.CharField(source='get_full_name', read_only=True)
     has_influencer_profile = serializers.SerializerMethodField()
     has_brand_profile = serializers.SerializerMethodField()
+    account_type = serializers.SerializerMethodField()
+    
+    # Brand profile details if user is a brand user
+    brand_profile = serializers.SerializerMethodField()
+    
+    # Influencer profile details if user is an influencer
+    influencer_profile = serializers.SerializerMethodField()
 
     class Meta:
         model = User
         fields = (
             'id', 'username', 'email', 'first_name', 'last_name', 'full_name',
             'date_joined', 'last_login', 'is_active', 'has_influencer_profile',
-            'has_brand_profile'
+            'has_brand_profile', 'account_type', 'brand_profile', 'influencer_profile'
         )
         read_only_fields = (
             'id', 'username', 'date_joined', 'last_login', 'is_active',
-            'has_influencer_profile', 'has_brand_profile'
+            'has_influencer_profile', 'has_brand_profile', 'account_type',
+            'brand_profile', 'influencer_profile'
         )
 
     def get_has_influencer_profile(self, obj):
@@ -30,8 +38,42 @@ class UserProfileSerializer(serializers.ModelSerializer):
 
     def get_has_brand_profile(self, obj):
         """Check if user has a brand profile."""
-        # Will be updated when brands app is implemented
-        return False
+        return hasattr(obj, 'brand_user')
+    
+    def get_account_type(self, obj):
+        """Determine the primary account type for the user."""
+        if hasattr(obj, 'influencer_profile'):
+            return 'influencer'
+        elif hasattr(obj, 'brand_user'):
+            return 'brand'
+        return 'user'
+    
+    def get_brand_profile(self, obj):
+        """Get brand profile information if user is a brand user."""
+        if hasattr(obj, 'brand_user'):
+            brand_user = obj.brand_user
+            return {
+                'brand_id': brand_user.brand.id,
+                'brand_name': brand_user.brand.name,
+                'role': brand_user.role,
+                'can_create_campaigns': brand_user.can_create_campaigns,
+                'can_manage_users': brand_user.can_manage_users,
+                'can_approve_content': brand_user.can_approve_content,
+                'can_view_analytics': brand_user.can_view_analytics,
+            }
+        return None
+    
+    def get_influencer_profile(self, obj):
+        """Get basic influencer profile information if user is an influencer."""
+        if hasattr(obj, 'influencer_profile'):
+            profile = obj.influencer_profile
+            return {
+                'username': profile.username,
+                'full_name': profile.full_name,
+                'bio': profile.bio,
+                'is_verified': profile.is_verified,
+            }
+        return None
 
 
 class UserUpdateSerializer(serializers.ModelSerializer):
@@ -120,14 +162,14 @@ class UserInfoSerializer(serializers.ModelSerializer):
 
     def get_has_brand_profile(self, obj):
         """Check if user has a brand profile."""
-        # Will be updated when brands app is implemented
-        return False
+        return hasattr(obj, 'brand_user')
 
     def get_account_type(self, obj):
         """Determine the primary account type for the user."""
         if hasattr(obj, 'influencer_profile'):
             return 'influencer'
-        # Will add brand check when brands app is implemented
+        elif hasattr(obj, 'brand_user'):
+            return 'brand'
         return 'user'
 
 

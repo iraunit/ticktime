@@ -9,8 +9,8 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "TickTime | Influencer Marketing Platform",
-  description: "Connect with brands and manage your influencer collaborations",
+  title: "TickTime - Influencer Marketing Platform",
+  description: "Connect brands with influencers for authentic marketing campaigns",
 };
 
 export default function RootLayout({
@@ -19,8 +19,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
-      <body className={`${inter.variable} font-sans antialiased`} suppressHydrationWarning>
+    <html lang="en">
+      <body className={`${inter.variable} font-sans antialiased`}>
         <AppProviders>
           {children}
         </AppProviders>

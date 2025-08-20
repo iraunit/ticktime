@@ -11,7 +11,7 @@ import { useDeals } from "@/hooks/use-deals";
 import { Button } from "@/components/ui/button";
 import { HiArrowPath, HiHandRaised } from "react-icons/hi2";
 import { toast } from "@/lib/toast";
-import { RequireAuth } from "@/components/auth/require-auth";
+import { RequireInfluencerAuth } from "@/components/auth/require-influencer-auth";
 import { useUserContext } from "@/components/providers/app-providers";
 
 export default function DashboardPage() {
@@ -98,7 +98,7 @@ export default function DashboardPage() {
   const greeting = currentHour < 12 ? 'Good morning' : currentHour < 18 ? 'Good afternoon' : 'Good evening';
 
   return (
-    <RequireAuth>
+    <RequireInfluencerAuth>
       <MainLayout showFooter={false}>
         <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100">
           <div className="container mx-auto px-4 py-4 max-w-7xl">
@@ -127,8 +127,8 @@ export default function DashboardPage() {
                       {new Date().toLocaleTimeString()}
                     </p>
                   </div>
-                  <Button
-                    variant="outline"
+                  <Button 
+                    variant="outline" 
                     size="sm"
                     onClick={handleRefresh}
                     disabled={stats.isLoading || recentDeals.isLoading}
@@ -170,7 +170,7 @@ export default function DashboardPage() {
                   <div className="w-1 h-6 bg-gradient-to-b from-blue-500 to-indigo-500 rounded-full mr-3"></div>
                   <h2 className="text-lg font-bold text-gray-900">Recent Activity</h2>
                 </div>
-                <RecentDeals
+                <RecentDeals 
                   deals={recentDeals.data || []}
                   onAcceptDeal={handleAcceptDeal}
                   onRejectDeal={handleRejectDeal}
@@ -195,7 +195,7 @@ export default function DashboardPage() {
                     isLoading={markAsRead.isPending}
                   />
                 </div>
-                
+
                 <div>
                   <div className="flex items-center mb-3">
                     <div className="w-1 h-6 bg-gradient-to-b from-emerald-500 to-green-500 rounded-full mr-3"></div>
@@ -208,6 +208,6 @@ export default function DashboardPage() {
           </div>
         </div>
       </MainLayout>
-    </RequireAuth>
+    </RequireInfluencerAuth>
   );
 }

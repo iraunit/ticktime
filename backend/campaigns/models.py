@@ -10,6 +10,7 @@ class Campaign(models.Model):
     that influencers can participate in.
     """
     brand = models.ForeignKey('brands.Brand', on_delete=models.CASCADE, related_name='campaigns')
+    created_by = models.ForeignKey('auth.User', on_delete=models.SET_NULL, null=True, blank=True, related_name='created_campaigns')
     title = models.CharField(max_length=200)
     description = models.TextField()
     objectives = models.TextField(blank=True)
@@ -55,6 +56,7 @@ class Campaign(models.Model):
         db_table = 'campaigns'
         indexes = [
             models.Index(fields=['brand']),
+            models.Index(fields=['created_by']),
             models.Index(fields=['deal_type']),
             models.Index(fields=['application_deadline']),
             models.Index(fields=['campaign_start_date']),

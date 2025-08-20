@@ -14,6 +14,7 @@ export * from './skeleton';
 export * from './tabs';
 export * from './separator';
 export * from './checkbox';
+export * from './slider';
 
 // Enhanced components
 export * from './error-boundary';

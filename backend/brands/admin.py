@@ -1,22 +1,21 @@
 from django.contrib import admin
-from .models import Brand
+from .models import Brand, BrandUser, BrandAuditLog, BookmarkedInfluencer
 
 
 @admin.register(Brand)
 class BrandAdmin(admin.ModelAdmin):
-    list_display = ['name', 'industry', 'rating', 'total_campaigns', 'is_verified', 'created_at']
-    list_filter = ['industry', 'is_verified', 'created_at']
-    search_fields = ['name', 'contact_email', 'website']
-    readonly_fields = ['total_campaigns', 'created_at', 'updated_at']
-    
+    list_display = ('name', 'domain', 'industry', 'is_verified', 'rating', 'total_campaigns', 'created_at')
+    list_filter = ('industry', 'is_verified', 'created_at')
+    search_fields = ('name', 'domain', 'contact_email', 'description')
+    readonly_fields = ('created_at', 'updated_at', 'rating', 'total_campaigns')
     fieldsets = (
-        ('Brand Information', {
-            'fields': ('name', 'logo', 'description', 'website', 'industry')
+        ('Basic Information', {
+            'fields': ('name', 'domain', 'logo', 'description', 'industry')
         }),
-        ('Contact Details', {
-            'fields': ('contact_email', 'contact_phone', 'address')
+        ('Contact Information', {
+            'fields': ('contact_email', 'contact_phone', 'country_code', 'website', 'address')
         }),
-        ('Status & Rating', {
+        ('Status & Metrics', {
             'fields': ('is_verified', 'rating', 'total_campaigns')
         }),
         ('Timestamps', {
@@ -24,3 +23,81 @@ class BrandAdmin(admin.ModelAdmin):
             'classes': ('collapse',)
         }),
     )
+    ordering = ('-created_at',)
+
+
+@admin.register(BrandUser)
+class BrandUserAdmin(admin.ModelAdmin):
+    list_display = ('user', 'brand', 'role', 'is_active', 'joined_at', 'last_activity')
+    list_filter = ('role', 'is_active', 'joined_at')
+    search_fields = ('user__first_name', 'user__last_name', 'user__email', 'brand__name')
+    readonly_fields = ('invited_at', 'last_activity')
+    fieldsets = (
+        ('User & Brand', {
+            'fields': ('user', 'brand')
+        }),
+        ('Role & Status', {
+            'fields': ('role', 'is_active')
+        }),
+        ('Invitation Details', {
+            'fields': ('invited_by', 'invited_at', 'joined_at')
+        }),
+        ('Activity', {
+            'fields': ('last_activity',),
+            'classes': ('collapse',)
+        }),
+    )
+    ordering = ('-joined_at',)
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related('user', 'brand', 'invited_by')
+
+
+@admin.register(BrandAuditLog)
+class BrandAuditLogAdmin(admin.ModelAdmin):
+    list_display = ('brand', 'user', 'action', 'description', 'created_at')
+    list_filter = ('action', 'created_at', 'brand')
+    search_fields = ('brand__name', 'user__first_name', 'user__last_name', 'description')
+    readonly_fields = ('created_at', 'metadata')
+    fieldsets = (
+        ('Action Details', {
+            'fields': ('brand', 'user', 'action', 'description')
+        }),
+        ('Metadata', {
+            'fields': ('metadata', 'created_at'),
+            'classes': ('collapse',)
+        }),
+    )
+    ordering = ('-created_at',)
+    date_hierarchy = 'created_at'
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related('brand', 'user')
+
+    def has_add_permission(self, request):
+        # Audit logs should not be manually created
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        # Audit logs should not be modified
+        return False
+
+
+@admin.register(BookmarkedInfluencer)
+class BookmarkedInfluencerAdmin(admin.ModelAdmin):
+    list_display = ('brand', 'influencer', 'bookmarked_by', 'created_at')
+    list_filter = ('created_at', 'brand')
+    search_fields = ('brand__name', 'influencer__username', 'influencer__user__first_name', 'influencer__user__last_name')
+    readonly_fields = ('created_at',)
+    fieldsets = (
+        ('Bookmark Details', {
+            'fields': ('brand', 'influencer', 'bookmarked_by')
+        }),
+        ('Notes & Timestamp', {
+            'fields': ('notes', 'created_at')
+        }),
+    )
+    ordering = ('-created_at',)
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related('brand', 'influencer', 'bookmarked_by')

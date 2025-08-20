@@ -1,48 +1,95 @@
 from rest_framework import serializers
-from django.db.models import Avg
-from .models import Brand
-from deals.models import Deal
+from django.contrib.auth.models import User
+from .models import Brand, BrandUser, BrandAuditLog, BookmarkedInfluencer
+from influencers.serializers import InfluencerProfileSerializer
 
 
 class BrandSerializer(serializers.ModelSerializer):
-    """
-    Serializer for brand information in deal contexts.
-    """
     class Meta:
         model = Brand
-        fields = (
-            'id', 'name', 'logo', 'description', 'website', 'industry',
-            'rating', 'total_campaigns', 'is_verified'
-        )
+        fields = '__all__'
         read_only_fields = ('id', 'rating', 'total_campaigns', 'is_verified')
 
 
-class BrandRatingSerializer(serializers.Serializer):
-    """
-    Serializer for brand rating and review submission.
-    """
-    rating = serializers.IntegerField(min_value=1, max_value=5)
-    review = serializers.CharField(max_length=1000, required=False, allow_blank=True)
+class UserProfileSerializer(serializers.ModelSerializer):
+    full_name = serializers.CharField(source='get_full_name', read_only=True)
+    
+    class Meta:
+        model = User
+        fields = ('id', 'first_name', 'last_name', 'full_name', 'email')
 
-    def validate_rating(self, value):
-        """Validate rating is between 1 and 5."""
-        if value < 1 or value > 5:
-            raise serializers.ValidationError("Rating must be between 1 and 5.")
+
+class BrandTeamSerializer(serializers.ModelSerializer):
+    user = UserProfileSerializer(read_only=True)
+    can_create_campaigns = serializers.BooleanField(read_only=True)
+    can_manage_users = serializers.BooleanField(read_only=True)
+    can_approve_content = serializers.BooleanField(read_only=True)
+    can_view_analytics = serializers.BooleanField(read_only=True)
+    
+    class Meta:
+        model = BrandUser
+        fields = (
+            'id', 'user', 'role', 'is_active', 'invited_at', 'joined_at',
+            'last_activity', 'can_create_campaigns', 'can_manage_users',
+            'can_approve_content', 'can_view_analytics'
+        )
+
+
+class BrandUserInviteSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+    first_name = serializers.CharField(max_length=150, required=False)
+    last_name = serializers.CharField(max_length=150, required=False)
+    role = serializers.ChoiceField(choices=BrandUser.ROLE_CHOICES)
+
+    def validate_role(self, value):
+        """Ensure only owner/admin can invite owners/admins"""
+        if value in ['owner', 'admin']:
+            # This validation would need request context to check current user role
+            pass
         return value
 
 
-class BrandRatingListSerializer(serializers.ModelSerializer):
-    """
-    Serializer for listing brand ratings and reviews.
-    """
-    brand_name = serializers.CharField(source='campaign.brand.name', read_only=True)
-    brand_logo = serializers.ImageField(source='campaign.brand.logo', read_only=True)
-    campaign_title = serializers.CharField(source='campaign.title', read_only=True)
-    collaboration_date = serializers.DateTimeField(source='completed_at', read_only=True)
+class BrandDashboardSerializer(serializers.Serializer):
+    brand = BrandSerializer(read_only=True)
+    stats = serializers.DictField(read_only=True)
+    recent_deals = serializers.SerializerMethodField()
+    recent_campaigns = serializers.SerializerMethodField()
 
+    def get_recent_deals(self, obj):
+        from deals.serializers import DealListSerializer
+        return DealListSerializer(obj['recent_deals'], many=True).data
+
+    def get_recent_campaigns(self, obj):
+        from campaigns.serializers import CampaignListSerializer
+        return CampaignListSerializer(obj['recent_campaigns'], many=True).data
+
+
+class BrandAuditLogSerializer(serializers.ModelSerializer):
+    user = UserProfileSerializer(read_only=True)
+    action_display = serializers.CharField(source='get_action_display', read_only=True)
+    
     class Meta:
-        model = Deal
-        fields = [
-            'id', 'brand_name', 'brand_logo', 'campaign_title', 
-            'brand_rating', 'brand_review', 'collaboration_date'
-        ]
+        model = BrandAuditLog
+        fields = ('id', 'user', 'action', 'action_display', 'description', 'metadata', 'created_at')
+
+
+class BookmarkedInfluencerSerializer(serializers.ModelSerializer):
+    influencer = InfluencerProfileSerializer(read_only=True)
+    bookmarked_by = UserProfileSerializer(read_only=True)
+    
+    class Meta:
+        model = BookmarkedInfluencer
+        fields = ('id', 'influencer', 'bookmarked_by', 'notes', 'created_at')
+
+
+class BrandRatingSerializer(serializers.Serializer):
+    rating = serializers.IntegerField(min_value=1, max_value=5)
+    review = serializers.CharField(required=False, allow_blank=True)
+
+
+class BrandRatingListSerializer(serializers.Serializer):
+    campaign_title = serializers.CharField(source='campaign.title')
+    brand_name = serializers.CharField(source='campaign.brand.name')
+    brand_rating = serializers.IntegerField()
+    brand_review = serializers.CharField()
+    completed_at = serializers.DateTimeField()
