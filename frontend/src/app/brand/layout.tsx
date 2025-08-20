@@ -9,7 +9,10 @@ function BrandLayoutContent({
 }: {
   children: React.ReactNode;
 }) {
-  const { isCollapsed } = useSidebar();
+  const { isCollapsed, isHoverExpanded } = useSidebar();
+
+  // Determine if sidebar should appear expanded (either manually or by hover)
+  const isExpanded = !isCollapsed || isHoverExpanded;
 
   return (
     <RequireBrandAuth>
@@ -17,9 +20,9 @@ function BrandLayoutContent({
         <div className="flex">
           <BrandSidebar />
           <div className={`flex-1 transition-all duration-300 ease-in-out ${
-            isCollapsed ? 'ml-16' : 'ml-64'
+            isExpanded ? 'ml-64' : 'ml-16'
           }`}>
-            <main className="p-6">
+            <main className="p-6 animate-in fade-in-0 duration-300">
               {children}
             </main>
           </div>

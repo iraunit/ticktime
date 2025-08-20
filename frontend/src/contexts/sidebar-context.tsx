@@ -1,24 +1,88 @@
 "use client";
 
-import { createContext, useContext, useState, ReactNode } from 'react';
+import { createContext, useContext, useState, ReactNode, useEffect, useRef } from 'react';
 
 interface SidebarContextType {
   isCollapsed: boolean;
   setIsCollapsed: (collapsed: boolean) => void;
   toggleSidebar: () => void;
+  isHoverExpanded: boolean;
+  setIsHoverExpanded: (expanded: boolean) => void;
 }
 
 const SidebarContext = createContext<SidebarContextType | undefined>(undefined);
 
 export function SidebarProvider({ children }: { children: ReactNode }) {
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isHoverExpanded, setIsHoverExpanded] = useState(false);
+  const [isInitialized, setIsInitialized] = useState(false);
+  const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Load initial state from localStorage
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const savedState = localStorage.getItem('sidebar-collapsed');
+      if (savedState !== null) {
+        setIsCollapsed(JSON.parse(savedState));
+      }
+      setIsInitialized(true);
+    }
+  }, []);
+
+  // Save state to localStorage when it changes
+  useEffect(() => {
+    if (isInitialized && typeof window !== 'undefined') {
+      localStorage.setItem('sidebar-collapsed', JSON.stringify(isCollapsed));
+    }
+  }, [isCollapsed, isInitialized]);
 
   const toggleSidebar = () => {
-    setIsCollapsed(!isCollapsed);
+    setIsCollapsed(prev => !prev);
+    // Clear any hover expansion when manually toggling
+    setIsHoverExpanded(false);
   };
 
+  const handleSetCollapsed = (collapsed: boolean) => {
+    setIsCollapsed(collapsed);
+    // Clear hover expansion when manually setting state
+    if (!collapsed) {
+      setIsHoverExpanded(false);
+    }
+  };
+
+  const handleSetHoverExpanded = (expanded: boolean) => {
+    setIsHoverExpanded(expanded);
+    
+    // Clear any existing timeout
+    if (hoverTimeoutRef.current) {
+      clearTimeout(hoverTimeoutRef.current);
+    }
+
+    // If expanding on hover, set a timeout to collapse after delay
+    if (expanded && isCollapsed) {
+      hoverTimeoutRef.current = setTimeout(() => {
+        setIsHoverExpanded(false);
+      }, 3000); // Auto-collapse after 3 seconds of no hover
+    }
+  };
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (hoverTimeoutRef.current) {
+        clearTimeout(hoverTimeoutRef.current);
+      }
+    };
+  }, []);
+
   return (
-    <SidebarContext.Provider value={{ isCollapsed, setIsCollapsed, toggleSidebar }}>
+    <SidebarContext.Provider value={{ 
+      isCollapsed, 
+      setIsCollapsed: handleSetCollapsed, 
+      toggleSidebar,
+      isHoverExpanded,
+      setIsHoverExpanded: handleSetHoverExpanded
+    }}>
       {children}
     </SidebarContext.Provider>
   );
