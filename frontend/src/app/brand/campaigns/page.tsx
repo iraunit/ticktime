@@ -29,36 +29,23 @@ interface Campaign {
   id: number;
   title: string;
   description: string;
-  industry: string;
-  status: string;
-  application_deadline: string;
-  campaign_duration_start: string;
-  campaign_duration_end: string;
-  total_budget: number;
+  deal_type: string;
+  deal_type_display: string;
   cash_amount: number;
   product_value: number;
-  target_audience_age_min: number;
-  target_audience_age_max: number;
-  target_audience_gender: string;
-  target_audience_location: string;
-  platform_requirements: string[];
-  content_requirements: string;
-  deliverables: string[];
+  total_value: number;
+  product_name: string;
+  application_deadline: string;
+  campaign_start_date: string;
+  campaign_end_date: string;
+  is_active: boolean;
+  is_expired: boolean;
+  days_until_deadline: number;
   created_at: string;
   brand_name: string;
-  applicants_count?: number;
-  accepted_count?: number;
-  completed_count?: number;
+  platforms_required: string[];
+  content_count: number;
 }
-
-const statusOptions = [
-  { value: "all", label: "All Status", color: "gray" },
-  { value: "draft", label: "Draft", color: "gray" },
-  { value: "active", label: "Active", color: "green" },
-  { value: "paused", label: "Paused", color: "yellow" },
-  { value: "completed", label: "Completed", color: "blue" },
-  { value: "cancelled", label: "Cancelled", color: "red" },
-];
 
 export default function BrandCampaignsPage() {
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
@@ -70,14 +57,14 @@ export default function BrandCampaignsPage() {
   const fetchCampaigns = async () => {
     setIsLoading(true);
     try {
-      const response = await api.get('/campaigns/', {
+      const response = await api.get('/brands/campaigns/', {
         params: {
           search: searchTerm || undefined,
           status: statusFilter !== 'all' ? statusFilter : undefined,
           ordering: sortBy,
         }
       });
-      setCampaigns(response.data.results || []);
+      setCampaigns(response.data.campaigns || []);
     } catch (error) {
       console.error('Failed to fetch campaigns:', error);
       toast.error('Failed to load campaigns. Please try again.');
@@ -120,11 +107,6 @@ export default function BrandCampaignsPage() {
     return diffDays;
   };
 
-  const getStatusBadgeColor = (status: string) => {
-    const statusOption = statusOptions.find(s => s.value === status);
-    return statusOption?.color || 'gray';
-  };
-
   const clearFilters = () => {
     setSearchTerm("");
     setStatusFilter("all");
@@ -138,7 +120,7 @@ export default function BrandCampaignsPage() {
       <div className="container mx-auto px-4 py-4 max-w-7xl">
         {/* Header */}
         <div className="relative mb-6">
-          <div className="absolute inset-0 bg-gradient-to-r from-blue-500/5 via-purple-500/5 to-pink-500/5 rounded-xl -m-2"></div>
+          <div className="absolute inset-0 bg-gradient-to-r from-red-500/5 via-orange-500/5 to-red-500/5 rounded-xl -m-2"></div>
           
           <div className="relative flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 p-4">
             <div>
@@ -159,7 +141,7 @@ export default function BrandCampaignsPage() {
               </div>
               <Button 
                 size="sm"
-                className="bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white shadow-md"
+                className="bg-gradient-to-r from-red-500 to-orange-600 hover:from-red-600 hover:to-orange-700 text-white shadow-md"
               >
                 <HiPlus className="h-4 w-4 mr-1" />
                 Create Campaign
@@ -178,7 +160,7 @@ export default function BrandCampaignsPage() {
                 placeholder="Search campaigns by title, description, or brand..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 h-12 text-base border-gray-200 focus:border-blue-300 focus:ring-blue-200"
+                className="pl-10 h-12 text-base border-gray-200 focus:border-red-300 focus:ring-red-200"
               />
               {searchTerm && (
                 <Button
@@ -202,11 +184,12 @@ export default function BrandCampaignsPage() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {statusOptions.map(status => (
-                        <SelectItem key={status.value} value={status.value}>
-                          {status.label}
-                        </SelectItem>
-                      ))}
+                      <SelectItem value="all">All Status</SelectItem>
+                      <SelectItem value="draft">Draft</SelectItem>
+                      <SelectItem value="active">Active</SelectItem>
+                      <SelectItem value="paused">Paused</SelectItem>
+                      <SelectItem value="completed">Completed</SelectItem>
+                      <SelectItem value="cancelled">Cancelled</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -272,16 +255,15 @@ export default function BrandCampaignsPage() {
                       <div className="flex items-center gap-3 mb-2">
                         <h3 className="text-xl font-bold text-gray-900">{campaign.title}</h3>
                         <Badge 
-                          variant={getStatusBadgeColor(campaign.status) === 'green' ? 'default' : 'secondary'}
+                          variant="default"
                           className={`text-xs ${
-                            getStatusBadgeColor(campaign.status) === 'green' ? 'bg-green-100 text-green-800' :
-                            getStatusBadgeColor(campaign.status) === 'yellow' ? 'bg-yellow-100 text-yellow-800' :
-                            getStatusBadgeColor(campaign.status) === 'blue' ? 'bg-blue-100 text-blue-800' :
-                            getStatusBadgeColor(campaign.status) === 'red' ? 'bg-red-100 text-red-800' :
+                            campaign.is_active && !campaign.is_expired ? 'bg-green-100 text-green-800' :
+                            campaign.is_expired ? 'bg-red-100 text-red-800' :
                             'bg-gray-100 text-gray-800'
                           }`}
                         >
-                          {statusOptions.find(s => s.value === campaign.status)?.label || campaign.status}
+                          {campaign.is_active && !campaign.is_expired ? 'Active' :
+                           campaign.is_expired ? 'Expired' : 'Inactive'}
                         </Badge>
                         {isUrgent && (
                           <Badge className="bg-orange-100 text-orange-800 text-xs">
@@ -306,17 +288,17 @@ export default function BrandCampaignsPage() {
                         </div>
                         <div className="flex items-center gap-1">
                           <HiBanknotes className="w-4 h-4" />
-                          Budget: {formatCurrency(campaign.total_budget)}
+                          Budget: {formatCurrency(campaign.total_value)}
                         </div>
                         <div className="flex items-center gap-1">
                           <HiUsers className="w-4 h-4" />
-                          {campaign.applicants_count || 0} applicants
+                          {campaign.content_count || 0} content pieces
                         </div>
                       </div>
                     </div>
 
                     <div className="flex items-center gap-2 ml-4">
-                      <Button variant="ghost" size="sm" className="hover:bg-blue-50 hover:text-blue-600">
+                      <Button variant="ghost" size="sm" className="hover:bg-red-50 hover:text-red-600">
                         <HiEye className="w-4 h-4" />
                       </Button>
                       <Button variant="ghost" size="sm" className="hover:bg-green-50 hover:text-green-600">
@@ -330,41 +312,44 @@ export default function BrandCampaignsPage() {
 
                   {/* Campaign Stats */}
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <div className="bg-gradient-to-br from-blue-50 to-indigo-50 p-4 rounded-lg">
+                    <div className="bg-gradient-to-br from-red-50 to-orange-50 p-4 rounded-lg">
                       <div className="flex items-center justify-between">
                         <div>
                           <p className="text-xs text-gray-500 mb-1">Total Budget</p>
-                          <p className="text-lg font-bold text-blue-600">{formatCurrency(campaign.total_budget)}</p>
+                          <p className="text-lg font-bold text-red-600">{formatCurrency(campaign.total_value)}</p>
                         </div>
-                        <HiBanknotes className="w-8 h-8 text-blue-500" />
+                        <HiBanknotes className="w-8 h-8 text-red-500" />
                       </div>
                     </div>
 
                     <div className="bg-gradient-to-br from-green-50 to-emerald-50 p-4 rounded-lg">
                       <div className="flex items-center justify-between">
                         <div>
-                          <p className="text-xs text-gray-500 mb-1">Applicants</p>
-                          <p className="text-lg font-bold text-green-600">{campaign.applicants_count || 0}</p>
+                          <p className="text-xs text-gray-500 mb-1">Content Count</p>
+                          <p className="text-lg font-bold text-green-600">{campaign.content_count || 0}</p>
                         </div>
                         <HiUsers className="w-8 h-8 text-green-500" />
                       </div>
                     </div>
 
-                    <div className="bg-gradient-to-br from-purple-50 to-pink-50 p-4 rounded-lg">
+                    <div className="bg-gradient-to-br from-orange-50 to-red-50 p-4 rounded-lg">
                       <div className="flex items-center justify-between">
                         <div>
-                          <p className="text-xs text-gray-500 mb-1">Accepted</p>
-                          <p className="text-lg font-bold text-purple-600">{campaign.accepted_count || 0}</p>
+                          <p className="text-xs text-gray-500 mb-1">Deal Type</p>
+                          <p className="text-lg font-bold text-orange-600">{campaign.deal_type_display}</p>
                         </div>
-                        <HiCheckCircle className="w-8 h-8 text-purple-500" />
+                        <HiCheckCircle className="w-8 h-8 text-orange-500" />
                       </div>
                     </div>
 
                     <div className="bg-gradient-to-br from-yellow-50 to-orange-50 p-4 rounded-lg">
                       <div className="flex items-center justify-between">
                         <div>
-                          <p className="text-xs text-gray-500 mb-1">Completed</p>
-                          <p className="text-lg font-bold text-orange-600">{campaign.completed_count || 0}</p>
+                          <p className="text-xs text-gray-500 mb-1">Status</p>
+                          <p className="text-lg font-bold text-orange-600">
+                            {campaign.is_active && !campaign.is_expired ? 'Active' :
+                             campaign.is_expired ? 'Expired' : 'Inactive'}
+                          </p>
                         </div>
                         <HiClock className="w-8 h-8 text-orange-500" />
                       </div>
@@ -375,7 +360,7 @@ export default function BrandCampaignsPage() {
                   <div className="mt-4 pt-4 border-t border-gray-100">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="text-sm font-medium text-gray-700">Platforms:</span>
-                      {campaign.platform_requirements?.map((platform, index) => (
+                      {campaign.platforms_required?.map((platform: string, index: number) => (
                         <Badge key={index} variant="outline" className="text-xs">
                           {platform}
                         </Badge>
@@ -398,12 +383,12 @@ export default function BrandCampaignsPage() {
               </p>
               <div className="flex items-center justify-center gap-3">
                 {hasActiveFilters && (
-                  <Button variant="outline" onClick={clearFilters} className="border-blue-200 hover:bg-blue-50 hover:border-blue-300">
+                  <Button variant="outline" onClick={clearFilters} className="border-red-200 hover:bg-red-50 hover:border-red-300">
                     <HiArrowPath className="w-4 h-4 mr-2" />
                     Clear Filters
                   </Button>
                 )}
-                <Button className="bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white">
+                <Button className="bg-gradient-to-r from-red-500 to-orange-600 hover:from-red-600 hover:to-orange-700 text-white">
                   <HiPlus className="w-4 h-4 mr-2" />
                   Create First Campaign
                 </Button>

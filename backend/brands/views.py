@@ -217,17 +217,39 @@ def brand_campaigns_view(request):
 
     campaigns = brand_user.brand.campaigns.all()
 
-    # Apply filters
+    # Apply search filter
+    search = request.GET.get('search')
+    if search:
+        campaigns = campaigns.filter(
+            Q(title__icontains=search) |
+            Q(description__icontains=search) |
+            Q(product_name__icontains=search)
+        )
+
+    # Apply status filter
     status_filter = request.GET.get('status')
     if status_filter == 'active':
         campaigns = campaigns.filter(application_deadline__gte=timezone.now())
     elif status_filter == 'expired':
         campaigns = campaigns.filter(application_deadline__lt=timezone.now())
 
+    # Apply ordering
+    ordering = request.GET.get('ordering', '-created_at')
+    valid_ordering_fields = [
+        'created_at', '-created_at',
+        'title', '-title',
+        'application_deadline', '-application_deadline',
+        'cash_amount', '-cash_amount'
+    ]
+    if ordering in valid_ordering_fields:
+        campaigns = campaigns.order_by(ordering)
+    else:
+        campaigns = campaigns.order_by('-created_at')
+
     # Pagination
     page = int(request.GET.get('page', 1))
     page_size = int(request.GET.get('page_size', 10))
-    paginator = Paginator(campaigns.order_by('-created_at'), page_size)
+    paginator = Paginator(campaigns, page_size)
     campaigns_page = paginator.get_page(page)
 
     from campaigns.serializers import CampaignListSerializer
