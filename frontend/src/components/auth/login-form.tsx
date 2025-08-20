@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Eye, EyeOff, Mail, Lock, Loader2, AlertCircle, CheckCircle, HiHandRaised } from "@/lib/icons";
+import { InlineLoader } from "@/components/ui/inline-loader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -221,7 +222,7 @@ export function LoginForm() {
                     >
                       {isSubmitting || isLoading ? (
                         <>
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          <InlineLoader size="sm" className="mr-2" />
                           Signing in...
                         </>
                       ) : (

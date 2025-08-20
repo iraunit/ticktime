@@ -1,243 +1,266 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { StatsCard } from "@/components/dashboard/stats-card";
 import { 
   HiMegaphone, 
   HiUsers, 
   HiCheckCircle, 
   HiClock, 
   HiChartBar,
-  HiEye
+  HiEye,
+  HiArrowPath,
+  HiHandRaised,
+  HiBriefcase,
+  HiBanknotes,
+  HiArrowTrendingUp,
+  HiExclamationTriangle
 } from "react-icons/hi2";
-
-interface DashboardStats {
-  total_campaigns: number;
-  active_campaigns: number;
-  total_deals: number;
-  pending_deals: number;
-  active_deals: number;
-  completed_deals: number;
-  pending_content: number;
-  avg_rating: number;
-}
-
-interface DashboardData {
-  brand: {
-    name: string;
-    industry: string;
-    rating: number;
-    is_verified: boolean;
-  };
-  stats: DashboardStats;
-  recent_deals: any[];
-  recent_campaigns: any[];
-}
+import { useBrandDashboard } from "@/hooks/use-brand-dashboard";
+import { useUserContext } from "@/components/providers/app-providers";
+import { toast } from "@/lib/toast";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 
 export default function BrandDashboard() {
-  const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const { user } = useUserContext();
+  const { stats, recentDeals } = useBrandDashboard();
 
+  // Remove auto-refresh to prevent infinite loops on API errors
+
+  const handleRefresh = () => {
+    stats.refetch();
+    recentDeals.refetch();
+    toast.success("Dashboard refreshed");
+  };
+
+  // Show error toasts when API calls fail
   useEffect(() => {
-    // TODO: Replace with actual API call
-    const fetchDashboard = async () => {
-      setIsLoading(true);
-      try {
-        // Simulate API call
-        setTimeout(() => {
-          setDashboardData({
-            brand: {
-              name: "Sample Brand",
-              industry: "fashion_beauty",
-              rating: 4.2,
-              is_verified: true
-            },
-            stats: {
-              total_campaigns: 12,
-              active_campaigns: 3,
-              total_deals: 45,
-              pending_deals: 8,
-              active_deals: 15,
-              completed_deals: 22,
-              pending_content: 5,
-              avg_rating: 4.3
-            },
-            recent_deals: [],
-            recent_campaigns: []
-          });
-          setIsLoading(false);
-        }, 1000);
-      } catch (error) {
-        setIsLoading(false);
-      }
-    };
+    if (stats.error) {
+      toast.error(stats.error.message || 'Failed to load dashboard statistics');
+    }
+    if (recentDeals.error) {
+      toast.error(recentDeals.error.message || 'Failed to load recent deals');
+    }
+  }, [stats.error, recentDeals.error]);
 
-    fetchDashboard();
-  }, []);
+  // Error handling - show loading state instead of full error page
+  const hasError = stats.error || recentDeals.error;
 
-  if (isLoading) {
-    return (
-      <div className="space-y-6">
-        <div className="animate-pulse">
-          <div className="h-8 bg-gray-200 rounded w-1/4 mb-4"></div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {[...Array(4)].map((_, i) => (
-              <div key={i} className="h-32 bg-gray-200 rounded"></div>
+  const userName = user?.first_name || user?.brand_profile?.brand_name || 'Brand';
+  const currentHour = new Date().getHours();
+  const greeting = currentHour < 12 ? 'Good morning' : currentHour < 18 ? 'Good afternoon' : 'Good evening';
+
+  // Format brand-specific stats
+  const brandStats = stats.data || {};
+  const statsData = [
+    {
+      title: "Total Campaigns",
+      value: brandStats.total_campaigns || 0,
+      icon: HiMegaphone,
+      description: "All campaigns created",
+    },
+    {
+      title: "Active Campaigns", 
+      value: brandStats.active_campaigns || 0,
+      icon: HiClock,
+      description: "Currently running campaigns",
+    },
+    {
+      title: "Total Deals",
+      value: brandStats.total_deals || 0,
+      icon: HiBriefcase,
+      description: "All collaborations",
+    },
+    {
+      title: "Active Deals",
+      value: brandStats.active_deals || 0,
+      icon: HiUsers,
+      description: "Ongoing collaborations",
+    },
+    {
+      title: "Completed Deals",
+      value: brandStats.completed_deals || 0,
+      icon: HiCheckCircle,
+      description: "Successfully finished",
+    },
+    {
+      title: "Pending Reviews",
+      value: brandStats.pending_content || 0,
+      icon: HiExclamationTriangle,
+      description: "Content awaiting review",
+    },
+  ];
+
+  return (
+    <div className="min-h-screen">
+      <div className="container mx-auto px-4 py-4 max-w-7xl">
+        {/* Compact Header */}
+        <div className="relative mb-6">
+          {/* Background decoration */}
+          <div className="absolute inset-0 bg-gradient-to-r from-blue-500/5 via-indigo-500/5 to-purple-500/5 rounded-xl -m-2"></div>
+          
+          <div className="relative flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 p-4">
+            <div>
+              <h1 className="text-2xl font-bold bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 bg-clip-text text-transparent mb-1 flex items-center gap-2">
+                {greeting}, {userName}!
+                <div className="w-6 h-6 bg-gradient-to-r from-blue-400 to-indigo-500 rounded-lg flex items-center justify-center shadow-md">
+                  <HiHandRaised className="w-3 h-3 text-white" />
+                </div>
+              </h1>
+              <p className="text-sm text-gray-600 max-w-2xl">
+                Manage your campaigns and track influencer collaborations with our comprehensive brand dashboard.
+              </p>
+            </div>
+            
+            <div className="flex items-center gap-3">
+              <div className="text-right hidden sm:block">
+                <p className="text-xs text-gray-500">Last updated</p>
+                <p className="text-xs font-medium text-gray-700">
+                  {new Date().toLocaleTimeString()}
+                </p>
+              </div>
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={handleRefresh}
+                disabled={stats.isLoading}
+                className="border border-gray-200 hover:border-blue-300 hover:bg-blue-50 transition-all duration-200 rounded-lg px-4 py-2"
+              >
+                <HiArrowPath className="h-4 w-4 mr-1" />
+                Refresh
+              </Button>
+            </div>
+          </div>
+        </div>
+
+        {/* Compact Stats Grid */}
+        <div className="mb-6">
+          <div className="flex items-center mb-3">
+            <div className="w-1 h-6 bg-gradient-to-b from-blue-500 to-indigo-500 rounded-full mr-3"></div>
+            <h2 className="text-lg font-bold text-gray-900">Campaign Overview</h2>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+            {statsData.map((stat, index) => (
+              <StatsCard
+                key={index}
+                title={stat.title}
+                value={stat.value}
+                description={stat.description}
+                icon={stat.icon}
+              />
             ))}
           </div>
         </div>
-      </div>
-    );
-  }
 
-  if (!dashboardData) {
-    return <div>Error loading dashboard data</div>;
-  }
+        {/* Main Content Grid */}
+        <div className="grid gap-6 lg:grid-cols-4">
+          {/* Left Column - Quick Actions */}
+          <div className="lg:col-span-2 order-2 lg:order-1">
+            <div className="flex items-center mb-3">
+              <div className="w-1 h-6 bg-gradient-to-b from-emerald-500 to-green-500 rounded-full mr-3"></div>
+              <h2 className="text-lg font-bold text-gray-900">Quick Actions</h2>
+            </div>
+            <Card className="p-6 bg-gradient-to-br from-white via-white to-gray-50 border border-gray-200 shadow-md">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <Button className="w-full justify-start bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white shadow-md">
+                  <HiMegaphone className="w-4 h-4 mr-2" />
+                  Create Campaign
+                </Button>
+                <Button variant="outline" className="w-full justify-start border-purple-200 hover:bg-purple-50 hover:border-purple-300">
+                  <HiUsers className="w-4 h-4 mr-2" />
+                  Search Influencers
+                </Button>
+                <Button variant="outline" className="w-full justify-start border-orange-200 hover:bg-orange-50 hover:border-orange-300">
+                  <HiEye className="w-4 h-4 mr-2" />
+                  Review Content ({brandStats.pending_content || 0})
+                </Button>
+                <Button variant="outline" className="w-full justify-start border-green-200 hover:bg-green-50 hover:border-green-300">
+                  <HiChartBar className="w-4 h-4 mr-2" />
+                  View Analytics
+                </Button>
+              </div>
+            </Card>
+          </div>
 
-  const { brand, stats } = dashboardData;
+          {/* Right Column - Recent Activity & Profile */}
+          <div className="lg:col-span-2 space-y-4 order-1 lg:order-2">
+            <div>
+              <div className="flex items-center mb-3">
+                <div className="w-1 h-6 bg-gradient-to-b from-purple-500 to-pink-500 rounded-full mr-3"></div>
+                <h2 className="text-lg font-bold text-gray-900">Recent Activity</h2>
+              </div>
+              <Card className="p-6 bg-gradient-to-br from-white via-white to-purple-50/30 border border-purple-100 shadow-md">
+                {recentDeals.isLoading ? (
+                  <div className="space-y-3">
+                    {Array.from({ length: 3 }).map((_, i) => (
+                      <div key={i} className="h-16 bg-gradient-to-r from-gray-100 via-gray-50 to-gray-100 animate-pulse rounded-lg relative overflow-hidden">
+                        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/60 to-transparent -skew-x-12 animate-shimmer"></div>
+                      </div>
+                    ))}
+                  </div>
+                ) : recentDeals.data && recentDeals.data.length > 0 ? (
+                  <div className="space-y-3">
+                    {recentDeals.data.slice(0, 3).map((deal: any, index: number) => (
+                      <div key={index} className="flex items-center justify-between py-3 border-b border-gray-100 last:border-b-0">
+                        <div className="flex items-center space-x-3">
+                          <div className="w-10 h-10 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-lg flex items-center justify-center">
+                            <HiBriefcase className="w-5 h-5 text-blue-600" />
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium text-gray-900">{deal.campaign?.title || 'New Deal'}</p>
+                            <p className="text-xs text-gray-500">
+                              {deal.influencer?.username || 'Influencer'} • {deal.status}
+                            </p>
+                          </div>
+                        </div>
+                        <Badge variant={deal.status === 'active' ? 'default' : 'secondary'} className="text-xs">
+                          {deal.status}
+                        </Badge>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <div className="w-12 h-12 bg-gradient-to-br from-gray-100 to-gray-200 rounded-full flex items-center justify-center mx-auto mb-3">
+                      <HiBriefcase className="w-6 h-6 text-gray-400" />
+                    </div>
+                    <p className="text-sm text-gray-500">No recent activity</p>
+                    <p className="text-xs text-gray-400 mt-1">Start by creating your first campaign</p>
+                  </div>
+                )}
+              </Card>
+            </div>
 
-  return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">
-            Welcome back, {brand.name}
-          </h1>
-          <div className="flex items-center gap-2 mt-2">
-            <Badge variant={brand.is_verified ? "default" : "secondary"}>
-              {brand.is_verified ? "Verified" : "Pending Verification"}
-            </Badge>
-            <Badge variant="outline">{brand.industry}</Badge>
-            <div className="flex items-center gap-1">
-              <span className="text-yellow-500">★</span>
-              <span className="text-sm text-gray-600">{brand.rating}/5.0</span>
+            {/* Brand Profile Summary */}
+            <div>
+              <div className="flex items-center mb-3">
+                <div className="w-1 h-6 bg-gradient-to-b from-orange-500 to-red-500 rounded-full mr-3"></div>
+                <h2 className="text-lg font-bold text-gray-900">Profile Status</h2>
+              </div>
+              <Card className="p-6 bg-gradient-to-br from-white via-white to-orange-50/30 border border-orange-100 shadow-md">
+                <div className="flex items-center space-x-4">
+                  <div className="w-12 h-12 bg-gradient-to-br from-orange-400 to-red-500 rounded-xl flex items-center justify-center shadow-md">
+                    <span className="text-white font-bold text-lg">{userName.charAt(0)}</span>
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="font-semibold text-gray-900">{userName}</h3>
+                                         <div className="flex items-center gap-2 mt-1">
+                       <Badge variant="default" className="text-xs">
+                         {user?.brand_profile?.role || 'Brand User'}
+                       </Badge>
+                       <Badge variant="outline" className="text-xs">
+                         Brand Account
+                       </Badge>
+                    </div>
+                  </div>
+                </div>
+              </Card>
             </div>
           </div>
         </div>
-        <Button>
-          <HiMegaphone className="w-4 h-4 mr-2" />
-          Create Campaign
-        </Button>
-      </div>
-
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">Total Campaigns</p>
-              <p className="text-3xl font-bold text-gray-900">{stats.total_campaigns}</p>
-              <p className="text-sm text-green-600">
-                {stats.active_campaigns} active
-              </p>
-            </div>
-            <div className="h-12 w-12 bg-blue-100 rounded-lg flex items-center justify-center">
-              <HiMegaphone className="w-6 h-6 text-blue-600" />
-            </div>
-          </div>
-        </Card>
-
-        <Card className="p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">Total Deals</p>
-              <p className="text-3xl font-bold text-gray-900">{stats.total_deals}</p>
-              <p className="text-sm text-blue-600">
-                {stats.active_deals} active
-              </p>
-            </div>
-            <div className="h-12 w-12 bg-green-100 rounded-lg flex items-center justify-center">
-              <HiUsers className="w-6 h-6 text-green-600" />
-            </div>
-          </div>
-        </Card>
-
-        <Card className="p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">Completed Deals</p>
-              <p className="text-3xl font-bold text-gray-900">{stats.completed_deals}</p>
-              <p className="text-sm text-green-600">
-                {stats.avg_rating}/5.0 avg rating
-              </p>
-            </div>
-            <div className="h-12 w-12 bg-green-100 rounded-lg flex items-center justify-center">
-              <HiCheckCircle className="w-6 h-6 text-green-600" />
-            </div>
-          </div>
-        </Card>
-
-        <Card className="p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">Pending Actions</p>
-              <p className="text-3xl font-bold text-gray-900">
-                {stats.pending_deals + stats.pending_content}
-              </p>
-              <p className="text-sm text-orange-600">
-                {stats.pending_content} content reviews
-              </p>
-            </div>
-            <div className="h-12 w-12 bg-orange-100 rounded-lg flex items-center justify-center">
-              <HiClock className="w-6 h-6 text-orange-600" />
-            </div>
-          </div>
-        </Card>
-      </div>
-
-      {/* Quick Actions */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card className="p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
-          <div className="space-y-3">
-            <Button variant="outline" className="w-full justify-start">
-              <HiMegaphone className="w-4 h-4 mr-2" />
-              Create New Campaign
-            </Button>
-            <Button variant="outline" className="w-full justify-start">
-              <HiUsers className="w-4 h-4 mr-2" />
-              Search Influencers
-            </Button>
-            <Button variant="outline" className="w-full justify-start">
-              <HiEye className="w-4 h-4 mr-2" />
-              Review Pending Content ({stats.pending_content})
-            </Button>
-            <Button variant="outline" className="w-full justify-start">
-              <HiChartBar className="w-4 h-4 mr-2" />
-              View Analytics
-            </Button>
-          </div>
-        </Card>
-
-        <Card className="p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Recent Activity</h3>
-          <div className="space-y-3">
-            <div className="flex items-center justify-between py-2 border-b border-gray-100">
-              <div>
-                <p className="text-sm font-medium">New deal application</p>
-                <p className="text-xs text-gray-500">@influencer_username</p>
-              </div>
-              <span className="text-xs text-gray-400">2h ago</span>
-            </div>
-            <div className="flex items-center justify-between py-2 border-b border-gray-100">
-              <div>
-                <p className="text-sm font-medium">Content submitted</p>
-                <p className="text-xs text-gray-500">Summer Campaign #1</p>
-              </div>
-              <span className="text-xs text-gray-400">5h ago</span>
-            </div>
-            <div className="flex items-center justify-between py-2">
-              <div>
-                <p className="text-sm font-medium">Campaign completed</p>
-                <p className="text-xs text-gray-500">Spring Collection</p>
-              </div>
-              <span className="text-xs text-gray-400">1d ago</span>
-            </div>
-          </div>
-        </Card>
       </div>
     </div>
   );

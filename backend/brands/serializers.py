@@ -60,8 +60,8 @@ class BrandDashboardSerializer(serializers.Serializer):
         return DealListSerializer(obj['recent_deals'], many=True).data
 
     def get_recent_campaigns(self, obj):
-        from campaigns.serializers import CampaignListSerializer
-        return CampaignListSerializer(obj['recent_campaigns'], many=True).data
+        from campaigns.serializers import CampaignSerializer
+        return CampaignSerializer(obj['recent_campaigns'], many=True).data
 
 
 class BrandAuditLogSerializer(serializers.ModelSerializer):

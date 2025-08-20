@@ -1,10 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { LoadingSpinner, CardSkeletonLoader } from "@/components/ui/loading-spinner";
+import { toast } from "@/lib/toast";
+import { api } from "@/lib/api";
 import { 
   HiBookmark, 
   HiMagnifyingGlass,
@@ -12,313 +17,449 @@ import {
   HiCheckBadge,
   HiTrash,
   HiChatBubbleLeftRight,
-  HiEye
+  HiEye,
+  HiPlus,
+  HiArrowPath,
+  HiPencil,
+  HiHeart
 } from "react-icons/hi2";
 
-// Mock data for bookmarked influencers
-const mockBookmarks = [
-  {
-    id: 1,
-    influencer: {
-      name: "Sarah Johnson",
-      username: "@sarahjohnson",
-      avatar: null,
-      followers: 125000,
-      engagement_rate: 4.2,
-      is_verified: true,
-      bio: "Fashion & lifestyle content creator. Spreading positivity through style and self-love.",
-      platforms: ["instagram", "tiktok"],
-      categories: ["Fashion", "Lifestyle"]
-    },
-    notes: "Great engagement with fashion content. Perfect for our summer collection.",
-    bookmarked_at: "2024-01-15T10:30:00Z",
-    last_collaboration: "Summer Collection 2023"
-  },
-  {
-    id: 2,
-    influencer: {
-      name: "Mike Chen",
-      username: "@mikechenfit",
-      avatar: null,
-      followers: 89000,
-      engagement_rate: 5.1,
-      is_verified: false,
-      bio: "Fitness coach helping people transform their lives through health and wellness.",
-      platforms: ["youtube", "instagram"],
-      categories: ["Fitness", "Health"]
-    },
-    notes: "High-quality fitness content. Good for equipment and supplement campaigns.",
-    bookmarked_at: "2024-01-10T14:15:00Z",
-    last_collaboration: null
-  },
-  {
-    id: 3,
-    influencer: {
-      name: "Emma Wilson",
-      username: "@emmawilson",
-      avatar: null,
-      followers: 67000,
-      engagement_rate: 6.8,
-      is_verified: true,
-      bio: "Tech reviewer and software engineer. Making technology accessible for everyone.",
-      platforms: ["youtube", "twitter"],
-      categories: ["Technology", "Education"]
-    },
-    notes: "Excellent tech reviews. Perfect for our product launch campaigns.",
-    bookmarked_at: "2024-01-05T09:00:00Z",
-    last_collaboration: "Tech Review Series 2023"
-  }
-];
+interface BookmarkedInfluencer {
+  id: number;
+  influencer: {
+    id: number;
+    name: string;
+    username: string;
+    profile_image?: string;
+    followers: number;
+    engagement_rate: number;
+    is_verified: boolean;
+    bio: string;
+    platforms: string[];
+    categories: string[];
+    location: string;
+    avg_rating: number;
+    rate_per_post: number;
+  };
+  notes: string;
+  bookmarked_at: string;
+  last_collaboration?: string;
+  created_by: {
+    id: number;
+    name: string;
+  };
+}
 
 export default function BrandBookmarksPage() {
+  const [bookmarks, setBookmarks] = useState<BookmarkedInfluencer[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState("all");
+  const [categoryFilter, setCategoryFilter] = useState("all");
+  const [isEditingNotes, setIsEditingNotes] = useState<number | null>(null);
+  const [editNotes, setEditNotes] = useState("");
 
-  const categories = ["all", ...Array.from(new Set(mockBookmarks.flatMap(b => b.influencer.categories)))];
+  const fetchBookmarks = async () => {
+    setIsLoading(true);
+    try {
+      const response = await api.get('/api/brands/bookmarks/', {
+        params: {
+          search: searchTerm || undefined,
+          category: categoryFilter !== 'all' ? categoryFilter : undefined,
+        }
+      });
+      setBookmarks(response.data.bookmarks || []);
+    } catch (error: any) {
+      console.error('Failed to fetch bookmarks:', error);
+      toast.error(error.response?.data?.message || 'Failed to load bookmarks.');
+      setBookmarks([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
-  const filteredBookmarks = mockBookmarks.filter(bookmark => {
+  const removeBookmark = async (bookmarkId: number) => {
+    try {
+      await api.delete(`/api/brands/bookmarks/${bookmarkId}/`);
+      setBookmarks(prev => prev.filter(b => b.id !== bookmarkId));
+      toast.success('Influencer removed from bookmarks');
+    } catch (error: any) {
+      console.error('Failed to remove bookmark:', error);
+      toast.error('Failed to remove bookmark.');
+    }
+  };
+
+  const updateNotes = async (bookmarkId: number, notes: string) => {
+    try {
+      await api.patch(`/api/brands/bookmarks/${bookmarkId}/`, { notes });
+      setBookmarks(prev => prev.map(b => 
+        b.id === bookmarkId ? { ...b, notes } : b
+      ));
+      setIsEditingNotes(null);
+      toast.success('Notes updated successfully');
+    } catch (error: any) {
+      console.error('Failed to update notes:', error);
+      toast.error('Failed to update notes.');
+    }
+  };
+
+  const startConversation = async (influencerId: number) => {
+    try {
+      const response = await api.post('/api/brands/conversations/', {
+        influencer_id: influencerId,
+        message: "Hi! I'm interested in collaborating with you."
+      });
+      toast.success('Conversation started successfully');
+      // Redirect to messages page
+      window.location.href = '/brand/messages';
+    } catch (error: any) {
+      console.error('Failed to start conversation:', error);
+      toast.error('Failed to start conversation.');
+    }
+  };
+
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      fetchBookmarks();
+    }, searchTerm ? 500 : 0);
+
+    return () => clearTimeout(timeoutId);
+  }, [searchTerm, categoryFilter]);
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-IN', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric'
+    });
+  };
+
+  const formatFollowers = (count: number) => {
+    if (count >= 1000000) return `${(count / 1000000).toFixed(1)}M`;
+    if (count >= 1000) return `${(count / 1000).toFixed(1)}K`;
+    return count.toString();
+  };
+
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat("en-IN", {
+      style: "currency",
+      currency: "INR",
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(amount);
+  };
+
+  // Get unique categories from bookmarks
+  const allCategories = Array.from(new Set(bookmarks.flatMap(b => b.influencer.categories)));
+  const categories = ["all", ...allCategories];
+
+  const filteredBookmarks = bookmarks.filter(bookmark => {
     const matchesSearch = bookmark.influencer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          bookmark.influencer.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          bookmark.notes.toLowerCase().includes(searchTerm.toLowerCase());
     
-    const matchesCategory = selectedCategory === "all" || 
-                           bookmark.influencer.categories.includes(selectedCategory);
+    const matchesCategory = categoryFilter === "all" || 
+                           bookmark.influencer.categories.includes(categoryFilter);
     
     return matchesSearch && matchesCategory;
   });
 
-  const formatFollowers = (count: number) => {
-    if (count >= 1000000) {
-      return `${(count / 1000000).toFixed(1)}M`;
-    } else if (count >= 1000) {
-      return `${(count / 1000).toFixed(1)}K`;
-    }
-    return count.toString();
-  };
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    });
-  };
-
-  const handleRemoveBookmark = (bookmarkId: number) => {
-    // Here you would call the API to remove the bookmark
-    console.log("Removing bookmark:", bookmarkId);
-  };
-
-  const handleStartCampaign = (influencer: any) => {
-    // Here you would navigate to campaign creation with pre-filled influencer
-    console.log("Starting campaign with:", influencer);
-  };
-
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold text-gray-900">Bookmarked Influencers</h1>
-        <p className="text-gray-600 mt-2">
-          Manage your saved influencers and start new collaborations
-        </p>
-      </div>
-
-      {/* Search and Filters */}
-      <Card>
-        <CardContent className="p-6">
-          <div className="flex flex-col md:flex-row gap-4">
-            <div className="flex-1 relative">
-              <HiMagnifyingGlass className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-              <Input
-                placeholder="Search bookmarked influencers..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-              />
+    <div className="min-h-screen">
+      <div className="container mx-auto px-4 py-4 max-w-7xl">
+        {/* Header */}
+        <div className="relative mb-6">
+          <div className="absolute inset-0 bg-gradient-to-r from-pink-500/5 via-purple-500/5 to-indigo-500/5 rounded-xl -m-2"></div>
+          
+          <div className="relative flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 p-4">
+            <div>
+              <h1 className="text-2xl font-bold bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 bg-clip-text text-transparent mb-1">
+                Bookmarked Influencers
+              </h1>
+              <p className="text-sm text-gray-600 max-w-2xl">
+                Manage your saved influencers and track potential collaboration opportunities.
+              </p>
             </div>
-            <div className="flex gap-2 flex-wrap">
-              {categories.map(category => (
-                <Button
-                  key={category}
-                  variant={selectedCategory === category ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setSelectedCategory(category)}
-                  className="capitalize"
-                >
-                  {category}
-                </Button>
-              ))}
+            
+            <div className="flex items-center gap-3">
+              <div className="text-right hidden sm:block">
+                <p className="text-xs text-gray-500">Total Bookmarks</p>
+                <p className="text-xs font-medium text-gray-700">
+                  {bookmarks.length} influencers
+                </p>
+              </div>
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={fetchBookmarks}
+                disabled={isLoading}
+                className="border border-gray-200 hover:border-pink-300 hover:bg-pink-50 transition-all duration-200 rounded-lg px-4 py-2"
+              >
+                <HiArrowPath className="h-4 w-4 mr-1" />
+                Refresh
+              </Button>
             </div>
           </div>
-        </CardContent>
-      </Card>
+        </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Total Bookmarks</p>
-                <p className="text-3xl font-bold text-gray-900">{mockBookmarks.length}</p>
-              </div>
-              <HiBookmark className="w-8 h-8 text-blue-500" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Verified Influencers</p>
-                <p className="text-3xl font-bold text-green-600">
-                  {mockBookmarks.filter(b => b.influencer.is_verified).length}
-                </p>
-              </div>
-              <HiCheckBadge className="w-8 h-8 text-green-500" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Previous Collaborators</p>
-                <p className="text-3xl font-bold text-purple-600">
-                  {mockBookmarks.filter(b => b.last_collaboration).length}
-                </p>
-              </div>
-              <HiUsers className="w-8 h-8 text-purple-500" />
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Bookmarked Influencers Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filteredBookmarks.map((bookmark) => (
-          <Card key={bookmark.id} className="hover:shadow-lg transition-shadow">
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+          <Card className="border-l-4 border-l-pink-500 shadow-sm">
             <CardContent className="p-6">
-              <div className="flex items-start justify-between mb-4">
-                <div className="flex items-center space-x-3">
-                  <div className="w-12 h-12 bg-gray-200 rounded-full overflow-hidden">
-                    {bookmark.influencer.avatar ? (
-                      <img
-                        src={bookmark.influencer.avatar}
-                        alt={bookmark.influencer.name}
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-gray-500">
-                        {bookmark.influencer.name.charAt(0)}
-                      </div>
-                    )}
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <h3 className="font-semibold text-gray-900">{bookmark.influencer.name}</h3>
-                      {bookmark.influencer.is_verified && (
-                        <HiCheckBadge className="w-4 h-4 text-blue-500" />
-                      )}
-                    </div>
-                    <p className="text-sm text-gray-600">{bookmark.influencer.username}</p>
-                  </div>
-                </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => handleRemoveBookmark(bookmark.id)}
-                  className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                >
-                  <HiTrash className="w-4 h-4" />
-                </Button>
-              </div>
-
-              <p className="text-sm text-gray-600 mb-4 line-clamp-2">{bookmark.influencer.bio}</p>
-
-              <div className="space-y-3">
-                {/* Stats */}
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div>
-                    <p className="text-gray-500">Followers</p>
-                    <p className="font-semibold">{formatFollowers(bookmark.influencer.followers)}</p>
-                  </div>
-                  <div>
-                    <p className="text-gray-500">Engagement</p>
-                    <p className="font-semibold">{bookmark.influencer.engagement_rate}%</p>
-                  </div>
-                </div>
-
-                {/* Categories */}
+              <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-xs text-gray-500 mb-2">Categories</p>
-                  <div className="flex flex-wrap gap-1">
-                    {bookmark.influencer.categories.map((category, index) => (
-                      <Badge key={index} variant="secondary" className="text-xs">
-                        {category}
-                      </Badge>
-                    ))}
-                  </div>
+                  <p className="text-sm text-gray-600 mb-1">Total Bookmarks</p>
+                  <p className="text-3xl font-bold text-gray-900">{bookmarks.length}</p>
                 </div>
-
-                {/* Notes */}
-                <div>
-                  <p className="text-xs text-gray-500 mb-1">Notes</p>
-                  <p className="text-sm text-gray-700 line-clamp-2">{bookmark.notes}</p>
-                </div>
-
-                {/* Last Collaboration */}
-                {bookmark.last_collaboration && (
-                  <div>
-                    <p className="text-xs text-gray-500 mb-1">Last Collaboration</p>
-                    <p className="text-sm text-gray-700">{bookmark.last_collaboration}</p>
-                  </div>
-                )}
-
-                <div className="text-xs text-gray-400">
-                  Bookmarked {formatDate(bookmark.bookmarked_at)}
-                </div>
-
-                {/* Actions */}
-                <div className="flex space-x-2 pt-2">
-                  <Button
-                    variant="default"
-                    size="sm"
-                    onClick={() => handleStartCampaign(bookmark.influencer)}
-                    className="flex-1"
-                  >
-                    Start Campaign
-                  </Button>
-                  <Button variant="outline" size="sm">
-                    <HiEye className="w-4 h-4" />
-                  </Button>
-                  <Button variant="outline" size="sm">
-                    <HiChatBubbleLeftRight className="w-4 h-4" />
-                  </Button>
+                <div className="p-3 bg-pink-100 rounded-lg">
+                  <HiBookmark className="w-6 h-6 text-pink-600" />
                 </div>
               </div>
             </CardContent>
           </Card>
-        ))}
-      </div>
 
-      {filteredBookmarks.length === 0 && (
-        <Card>
-          <CardContent className="text-center py-12">
-            <HiBookmark className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No bookmarks found</h3>
-            <p className="text-gray-500">
-              {searchTerm || selectedCategory !== "all" 
-                ? "No influencers match your current filters."
-                : "You haven't bookmarked any influencers yet. Start by searching and bookmarking influencers you'd like to work with."
-              }
-            </p>
+          <Card className="border-l-4 border-l-green-500 shadow-sm">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600 mb-1">Verified Influencers</p>
+                  <p className="text-3xl font-bold text-gray-900">
+                    {bookmarks.filter(b => b.influencer.is_verified).length}
+                  </p>
+                </div>
+                <div className="p-3 bg-green-100 rounded-lg">
+                  <HiCheckBadge className="w-6 h-6 text-green-600" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-l-4 border-l-blue-500 shadow-sm">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600 mb-1">Previous Collaborations</p>
+                  <p className="text-3xl font-bold text-gray-900">
+                    {bookmarks.filter(b => b.last_collaboration).length}
+                  </p>
+                </div>
+                <div className="p-3 bg-blue-100 rounded-lg">
+                  <HiUsers className="w-6 h-6 text-blue-600" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Search and Filters */}
+        <Card className="shadow-sm border border-gray-200 mb-6">
+          <CardContent className="p-4">
+            <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
+              <div className="relative flex-1">
+                <HiMagnifyingGlass className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                <Input
+                  placeholder="Search influencers by name, username, or notes..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+              
+              <div className="flex gap-2 flex-wrap">
+                {categories.map((category) => (
+                  <button
+                    key={category}
+                    onClick={() => setCategoryFilter(category)}
+                    className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
+                      categoryFilter === category
+                        ? 'bg-pink-500 text-white'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                  >
+                    {category === "all" ? "All Categories" : category}
+                  </button>
+                ))}
+              </div>
+            </div>
           </CardContent>
         </Card>
-      )}
+
+        {/* Bookmarked Influencers */}
+        {isLoading ? (
+          <div className="grid gap-6">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <CardSkeletonLoader key={i} />
+            ))}
+          </div>
+        ) : filteredBookmarks.length === 0 ? (
+          <Card className="p-12 text-center bg-gradient-to-br from-white via-white to-gray-50 border border-gray-200 shadow-md">
+            <LoadingSpinner size="lg" text="No bookmarks found" />
+            <div className="mt-8">
+              <p className="text-gray-500 mb-6">
+                {searchTerm || categoryFilter !== "all" 
+                  ? "Try adjusting your search criteria or filters." 
+                  : "Start bookmarking influencers to build your list of potential collaborators."}
+              </p>
+              <Button className="bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 text-white">
+                <HiPlus className="w-4 h-4 mr-2" />
+                Discover Influencers
+              </Button>
+            </div>
+          </Card>
+        ) : (
+          <div className="grid gap-6">
+            {filteredBookmarks.map((bookmark) => (
+              <Card key={bookmark.id} className="shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
+                <CardContent className="p-6">
+                  <div className="flex flex-col lg:flex-row gap-6">
+                    {/* Influencer Info */}
+                    <div className="flex items-start gap-4 flex-1">
+                      <div className="w-16 h-16 bg-gradient-to-r from-pink-500 to-purple-600 rounded-full flex items-center justify-center shadow-md">
+                        <span className="text-xl font-bold text-white">
+                          {bookmark.influencer.name.charAt(0)}
+                        </span>
+                      </div>
+                      
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-2">
+                          <h3 className="text-lg font-semibold text-gray-900 truncate">
+                            {bookmark.influencer.name}
+                          </h3>
+                          {bookmark.influencer.is_verified && (
+                            <HiCheckBadge className="w-5 h-5 text-blue-500" />
+                          )}
+                        </div>
+                        
+                        <p className="text-sm text-gray-600 mb-2">{bookmark.influencer.username}</p>
+                        <p className="text-sm text-gray-700 mb-3 line-clamp-2">{bookmark.influencer.bio}</p>
+                        
+                        <div className="flex items-center gap-4 mb-3">
+                          <span className="text-sm text-gray-600">
+                            <HiUsers className="w-4 h-4 inline mr-1" />
+                            {formatFollowers(bookmark.influencer.followers)} followers
+                          </span>
+                          <span className="text-sm text-gray-600">
+                            <HiHeart className="w-4 h-4 inline mr-1" />
+                            {bookmark.influencer.engagement_rate}% engagement
+                          </span>
+                          <span className="text-sm text-gray-600">
+                            {formatCurrency(bookmark.influencer.rate_per_post)}/post
+                          </span>
+                        </div>
+                        
+                        <div className="flex gap-2 mb-3">
+                          {bookmark.influencer.platforms.map((platform) => (
+                            <Badge key={platform} variant="outline" className="text-xs">
+                              {platform}
+                            </Badge>
+                          ))}
+                        </div>
+                        
+                        <div className="flex gap-2">
+                          {bookmark.influencer.categories.map((category) => (
+                            <Badge key={category} className="bg-pink-100 text-pink-800 border-0 text-xs">
+                              {category}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Notes Section */}
+                    <div className="lg:w-80">
+                      <div className="bg-gray-50 rounded-lg p-4">
+                        <div className="flex items-center justify-between mb-2">
+                          <h4 className="font-medium text-gray-900">Notes</h4>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              setIsEditingNotes(bookmark.id);
+                              setEditNotes(bookmark.notes);
+                            }}
+                          >
+                            <HiPencil className="w-4 h-4" />
+                          </Button>
+                        </div>
+                        
+                        {isEditingNotes === bookmark.id ? (
+                          <div className="space-y-2">
+                            <Textarea
+                              value={editNotes}
+                              onChange={(e) => setEditNotes(e.target.value)}
+                              className="h-20 text-sm"
+                              placeholder="Add notes about this influencer..."
+                            />
+                            <div className="flex gap-2">
+                              <Button
+                                size="sm"
+                                onClick={() => updateNotes(bookmark.id, editNotes)}
+                                className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white"
+                              >
+                                Save
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setIsEditingNotes(null)}
+                              >
+                                Cancel
+                              </Button>
+                            </div>
+                          </div>
+                        ) : (
+                          <p className="text-sm text-gray-700 whitespace-pre-wrap">
+                            {bookmark.notes || "No notes added yet."}
+                          </p>
+                        )}
+                        
+                        <div className="mt-3 pt-3 border-t border-gray-200">
+                          <p className="text-xs text-gray-500">
+                            Bookmarked on {formatDate(bookmark.bookmarked_at)}
+                          </p>
+                          {bookmark.last_collaboration && (
+                            <p className="text-xs text-gray-500">
+                              Last collaboration: {bookmark.last_collaboration}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Action Buttons */}
+                      <div className="flex gap-2 mt-4">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => startConversation(bookmark.influencer.id)}
+                          className="flex-1"
+                        >
+                          <HiChatBubbleLeftRight className="w-4 h-4 mr-2" />
+                          Message
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="flex-1"
+                        >
+                          <HiEye className="w-4 h-4 mr-2" />
+                          View Profile
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => removeBookmark(bookmark.id)}
+                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                        >
+                          <HiTrash className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 } 

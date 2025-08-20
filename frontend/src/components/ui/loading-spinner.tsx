@@ -108,17 +108,28 @@ export function LoadingSpinner({
           {/* Multi-colored bouncing balls */}
           <div className="flex space-x-3">
             {[
-              { color: 'from-red-500 to-pink-500', delay: 0 },
-              { color: 'from-orange-500 to-red-500', delay: 0.15 },
-              { color: 'from-pink-500 to-purple-500', delay: 0.3 }
+              { 
+                gradient: 'linear-gradient(135deg, #ef4444 0%, #ec4899 100%)',
+                shadow: '0 4px 12px rgba(239, 68, 68, 0.4)',
+                delay: 0 
+              },
+              { 
+                gradient: 'linear-gradient(135deg, #f97316 0%, #ef4444 100%)',
+                shadow: '0 4px 12px rgba(249, 115, 22, 0.4)',
+                delay: 0.15 
+              },
+              { 
+                gradient: 'linear-gradient(135deg, #ec4899 0%, #a855f7 100%)',
+                shadow: '0 4px 12px rgba(236, 72, 153, 0.4)',
+                delay: 0.3 
+              }
             ].map((ball, i) => (
               <div
                 key={i}
-                className={cn(
-                  'w-4 h-4 rounded-full bg-gradient-to-r shadow-lg',
-                  ball.color
-                )}
+                className="w-4 h-4 rounded-full shadow-lg"
                 style={{
+                  background: ball.gradient,
+                  boxShadow: ball.shadow,
                   animation: `bigBounce 1.2s ease-in-out ${ball.delay}s infinite`,
                 }}
               />
@@ -126,7 +137,10 @@ export function LoadingSpinner({
           </div>
           
           {/* Glowing effect under balls */}
-          <div className="absolute top-full mt-1 left-1/2 transform -translate-x-1/2 w-12 h-2 bg-gradient-to-r from-red-500/20 via-orange-500/20 to-pink-500/20 rounded-full blur-sm"></div>
+          <div className="absolute top-full mt-1 left-1/2 transform -translate-x-1/2 w-12 h-2 rounded-full blur-sm" 
+               style={{
+                 background: 'linear-gradient(90deg, rgba(239, 68, 68, 0.3) 0%, rgba(249, 115, 22, 0.3) 50%, rgba(236, 72, 153, 0.3) 100%)'
+               }}></div>
         </div>
         
         {/* Optional influencer-related text */}
@@ -161,18 +175,31 @@ export function PageLoadingSpinner({
         <div className="mb-12">
           <div className="flex justify-center space-x-4 mb-6">
             {[
-              { color: 'from-red-500 to-pink-500', delay: 0, size: 'w-5 h-5' },
-              { color: 'from-orange-500 to-red-500', delay: 0.15, size: 'w-6 h-6' },
-              { color: 'from-pink-500 to-purple-500', delay: 0.3, size: 'w-5 h-5' }
+              { 
+                gradient: 'linear-gradient(135deg, #ef4444 0%, #ec4899 100%)',
+                shadow: '0 6px 20px rgba(239, 68, 68, 0.5)',
+                delay: 0, 
+                size: 'w-5 h-5' 
+              },
+              { 
+                gradient: 'linear-gradient(135deg, #f97316 0%, #ef4444 100%)',
+                shadow: '0 6px 20px rgba(249, 115, 22, 0.5)',
+                delay: 0.15, 
+                size: 'w-6 h-6' 
+              },
+              { 
+                gradient: 'linear-gradient(135deg, #ec4899 0%, #a855f7 100%)',
+                shadow: '0 6px 20px rgba(236, 72, 153, 0.5)',
+                delay: 0.3, 
+                size: 'w-5 h-5' 
+              }
             ].map((ball, i) => (
               <div
                 key={i}
-                className={cn(
-                  'rounded-full bg-gradient-to-r shadow-xl',
-                  ball.color,
-                  ball.size
-                )}
+                className={cn('rounded-full shadow-xl', ball.size)}
                 style={{
+                  background: ball.gradient,
+                  boxShadow: ball.shadow,
                   animation: `bigBounce 1.4s ease-in-out ${ball.delay}s infinite`,
                 }}
               />
@@ -181,12 +208,17 @@ export function PageLoadingSpinner({
           
           {/* Ground reflection */}
           <div className="flex justify-center space-x-4">
-            {[0, 1, 2].map((i) => (
+            {[
+              { color: 'rgba(239, 68, 68, 0.3)', delay: 0 },
+              { color: 'rgba(249, 115, 22, 0.3)', delay: 0.15 },
+              { color: 'rgba(236, 72, 153, 0.3)', delay: 0.3 }
+            ].map((reflection, i) => (
               <div
                 key={i}
-                className="w-8 h-1 bg-gradient-to-r from-gray-300/40 to-transparent rounded-full blur-sm"
+                className="w-8 h-1 rounded-full blur-sm"
                 style={{
-                  animation: `pulse 1.4s ease-in-out ${i * 0.15}s infinite`,
+                  background: `linear-gradient(90deg, ${reflection.color} 0%, transparent 100%)`,
+                  animation: `pulse 1.4s ease-in-out ${reflection.delay}s infinite`,
                 }}
               />
             ))}

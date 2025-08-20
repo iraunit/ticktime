@@ -1,10 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { LoadingSpinner, CardSkeletonLoader } from "@/components/ui/loading-spinner";
+import { toast } from "@/lib/toast";
+import { api } from "@/lib/api";
 import { 
   HiEye, 
   HiChatBubbleLeftRight, 
@@ -14,308 +19,496 @@ import {
   HiDocument,
   HiCheckCircle,
   HiClock,
-  HiXCircle
+  HiXCircle,
+  HiMagnifyingGlass,
+  HiChevronLeft,
+  HiChevronRight,
+  HiFunnel,
+  HiArrowPath
 } from "react-icons/hi2";
 
-// Mock data for deals
-const mockDeals = [
-  {
-    id: 1,
-    influencer: {
-      name: "Sarah Johnson",
-      username: "@sarahjohnson",
-      followers: 125000,
-      avatar: null
-    },
-    campaign: "Summer Collection 2024",
-    status: "pending_content",
-    value: 2500,
-    created_at: "2024-01-15T10:30:00Z",
-    deadline: "2024-02-15T23:59:59Z",
-    deliverables: ["Instagram Post", "Instagram Story", "Reel"],
-    submitted_content: []
-  },
-  {
-    id: 2,
-    influencer: {
-      name: "Mike Chen",
-      username: "@mikechenfit",
-      followers: 89000,
-      avatar: null
-    },
-    campaign: "Fitness Equipment Launch",
-    status: "content_submitted",
-    value: 1800,
-    created_at: "2024-01-10T14:15:00Z",
-    deadline: "2024-02-10T23:59:59Z",
-    deliverables: ["YouTube Video", "Instagram Post"],
-    submitted_content: ["YouTube Video"]
-  },
-  {
-    id: 3,
-    influencer: {
-      name: "Emma Wilson",
-      username: "@emmawilson",
-      followers: 67000,
-      avatar: null
-    },
-    campaign: "Tech Review Series",
-    status: "completed",
-    value: 3200,
-    created_at: "2024-01-05T09:00:00Z",
-    deadline: "2024-01-25T23:59:59Z",
-    deliverables: ["YouTube Review", "Instagram Post", "Blog Article"],
-    submitted_content: ["YouTube Review", "Instagram Post", "Blog Article"]
-  }
+interface Deal {
+  id: number;
+  influencer: {
+    id: number;
+    name: string;
+    username: string;
+    followers: number;
+    avatar?: string;
+    profile_image?: string;
+  };
+  campaign: {
+    id: number;
+    title: string;
+    brand_name: string;
+  };
+  status: 'pending' | 'accepted' | 'rejected' | 'content_submitted' | 'approved' | 'completed' | 'cancelled';
+  value: number;
+  created_at: string;
+  deadline: string;
+  deliverables: string[];
+  submitted_content: any[];
+  brand_rating?: number;
+  influencer_rating?: number;
+}
+
+interface Campaign {
+  id: number;
+  title: string;
+  deals_count: number;
+  active_deals: number;
+  completed_deals: number;
+  total_value: number;
+  deals: Deal[];
+}
+
+interface PaginationInfo {
+  current_page: number;
+  total_pages: number;
+  total_items: number;
+  items_per_page: number;
+}
+
+const statusOptions = [
+  { value: "all", label: "All Status", color: "gray" },
+  { value: "pending", label: "Pending Response", color: "yellow" },
+  { value: "accepted", label: "Accepted", color: "green" },
+  { value: "rejected", label: "Rejected", color: "red" },
+  { value: "content_submitted", label: "Content Submitted", color: "blue" },
+  { value: "approved", label: "Approved", color: "emerald" },
+  { value: "completed", label: "Completed", color: "green" },
+  { value: "cancelled", label: "Cancelled", color: "gray" },
 ];
 
-const statusConfig = {
-  pending_acceptance: { label: "Pending Acceptance", color: "bg-yellow-100 text-yellow-800", icon: HiClock },
-  active: { label: "Active", color: "bg-blue-100 text-blue-800", icon: HiCheckCircle },
-  pending_content: { label: "Pending Content", color: "bg-orange-100 text-orange-800", icon: HiDocument },
-  content_submitted: { label: "Content Submitted", color: "bg-purple-100 text-purple-800", icon: HiEye },
-  completed: { label: "Completed", color: "bg-green-100 text-green-800", icon: HiCheckCircle },
-  cancelled: { label: "Cancelled", color: "bg-red-100 text-red-800", icon: HiXCircle }
-};
-
 export default function BrandDealsPage() {
-  const [selectedTab, setSelectedTab] = useState("all");
+  const [viewMode, setViewMode] = useState<'campaigns' | 'deals'>('campaigns');
+  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+  const [deals, setDeals] = useState<Deal[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [sortBy, setSortBy] = useState("created_at_desc");
+  const [pagination, setPagination] = useState<PaginationInfo>({
+    current_page: 1,
+    total_pages: 1,
+    total_items: 0,
+    items_per_page: 20
+  });
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    });
+  const fetchDealsByCampaigns = async () => {
+    setIsLoading(true);
+    try {
+      const response = await api.get('/api/brands/deals/by-campaigns/', {
+        params: {
+          search: searchTerm || undefined,
+          status: statusFilter !== 'all' ? statusFilter : undefined,
+          ordering: sortBy,
+          page: pagination.current_page,
+          page_size: pagination.items_per_page,
+        }
+      });
+      
+      setCampaigns(response.data.campaigns || []);
+      setPagination(response.data.pagination || pagination);
+    } catch (error: any) {
+      console.error('Failed to fetch deals by campaigns:', error);
+      toast.error(error.response?.data?.message || 'Failed to load deals. Please try again.');
+      setCampaigns([]);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
+  const fetchDeals = async () => {
+    setIsLoading(true);
+    try {
+      const response = await api.get('/api/brands/deals/', {
+        params: {
+          search: searchTerm || undefined,
+          status: statusFilter !== 'all' ? statusFilter : undefined,
+          ordering: sortBy,
+          page: pagination.current_page,
+          page_size: pagination.items_per_page,
+        }
+      });
+      
+      setDeals(response.data.deals || []);
+      setPagination(response.data.pagination || pagination);
+    } catch (error: any) {
+      console.error('Failed to fetch deals:', error);
+      toast.error(error.response?.data?.message || 'Failed to load deals. Please try again.');
+      setDeals([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      if (viewMode === 'campaigns') {
+        fetchDealsByCampaigns();
+      } else {
+        fetchDeals();
+      }
+    }, searchTerm ? 500 : 0);
+
+    return () => clearTimeout(timeoutId);
+  }, [viewMode, searchTerm, statusFilter, sortBy, pagination.current_page]);
+
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD'
+    return new Intl.NumberFormat("en-IN", {
+      style: "currency",
+      currency: "INR",
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
     }).format(amount);
   };
 
-  const getDaysRemaining = (deadline: string) => {
-    const now = new Date();
-    const deadlineDate = new Date(deadline);
-    const diffTime = deadlineDate.getTime() - now.getTime();
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    return diffDays;
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-IN', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric'
+    });
   };
 
-  const filteredDeals = mockDeals.filter(deal => {
-    if (selectedTab === "all") return true;
-    return deal.status === selectedTab;
-  });
+  const getStatusBadge = (status: string) => {
+    const statusOption = statusOptions.find(s => s.value === status);
+    const color = statusOption?.color || 'gray';
+    
+    const colorClasses = {
+      gray: 'bg-gray-100 text-gray-800',
+      yellow: 'bg-yellow-100 text-yellow-800',
+      green: 'bg-green-100 text-green-800',
+      red: 'bg-red-100 text-red-800',
+      blue: 'bg-blue-100 text-blue-800',
+      emerald: 'bg-emerald-100 text-emerald-800',
+    };
 
-  const stats = {
-    total: mockDeals.length,
-    active: mockDeals.filter(d => d.status === "active").length,
-    pending: mockDeals.filter(d => d.status === "pending_content").length,
-    completed: mockDeals.filter(d => d.status === "completed").length,
+    return (
+      <Badge className={`${colorClasses[color]} border-0`}>
+        {statusOption?.label || status}
+      </Badge>
+    );
   };
+
+  const clearFilters = () => {
+    setSearchTerm("");
+    setStatusFilter("all");
+    setSortBy("created_at_desc");
+    setPagination(prev => ({ ...prev, current_page: 1 }));
+  };
+
+  const handlePageChange = (page: number) => {
+    setPagination(prev => ({ ...prev, current_page: page }));
+  };
+
+  const hasActiveFilters = searchTerm !== "" || statusFilter !== "all" || sortBy !== "created_at_desc";
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold text-gray-900">Deals Management</h1>
-        <p className="text-gray-600 mt-2">
-          Track and manage all your influencer collaborations
-        </p>
-      </div>
-
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Total Deals</p>
-                <p className="text-3xl font-bold text-gray-900">{stats.total}</p>
-              </div>
-              <HiDocument className="w-8 h-8 text-blue-500" />
+    <div className="min-h-screen">
+      <div className="container mx-auto px-4 py-4 max-w-7xl">
+        {/* Header */}
+        <div className="relative mb-6">
+          <div className="absolute inset-0 bg-gradient-to-r from-green-500/5 via-blue-500/5 to-purple-500/5 rounded-xl -m-2"></div>
+          
+          <div className="relative flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 p-4">
+            <div>
+              <h1 className="text-2xl font-bold bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 bg-clip-text text-transparent mb-1">
+                Deal Management
+              </h1>
+              <p className="text-sm text-gray-600 max-w-2xl">
+                Track and manage all your influencer collaborations across campaigns.
+              </p>
             </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Active</p>
-                <p className="text-3xl font-bold text-blue-600">{stats.active}</p>
+            
+            <div className="flex items-center gap-3">
+              <div className="text-right hidden sm:block">
+                <p className="text-xs text-gray-500">Total Deals</p>
+                <p className="text-xs font-medium text-gray-700">
+                  {pagination.total_items} deals
+                </p>
               </div>
-              <HiCheckCircle className="w-8 h-8 text-blue-500" />
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => viewMode === 'campaigns' ? fetchDealsByCampaigns() : fetchDeals()}
+                disabled={isLoading}
+                className="border border-gray-200 hover:border-green-300 hover:bg-green-50 transition-all duration-200 rounded-lg px-4 py-2"
+              >
+                <HiArrowPath className="h-4 w-4 mr-1" />
+                Refresh
+              </Button>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
 
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Pending</p>
-                <p className="text-3xl font-bold text-orange-600">{stats.pending}</p>
-              </div>
-              <HiClock className="w-8 h-8 text-orange-500" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Completed</p>
-                <p className="text-3xl font-bold text-green-600">{stats.completed}</p>
-              </div>
-              <HiCheckCircle className="w-8 h-8 text-green-500" />
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Deals List */}
-      <Card>
-        <CardHeader>
-          <CardTitle>All Deals</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Tabs value={selectedTab} onValueChange={setSelectedTab}>
-            <TabsList className="grid w-full grid-cols-5">
-              <TabsTrigger value="all">All</TabsTrigger>
-              <TabsTrigger value="active">Active</TabsTrigger>
-              <TabsTrigger value="pending_content">Pending</TabsTrigger>
-              <TabsTrigger value="content_submitted">Submitted</TabsTrigger>
-              <TabsTrigger value="completed">Completed</TabsTrigger>
+        {/* View Mode Tabs */}
+        <div className="mb-6">
+          <Tabs value={viewMode} onValueChange={(value) => setViewMode(value as 'campaigns' | 'deals')}>
+            <TabsList className="grid w-full max-w-md grid-cols-2">
+              <TabsTrigger value="campaigns">By Campaigns</TabsTrigger>
+              <TabsTrigger value="deals">All Deals</TabsTrigger>
             </TabsList>
+          </Tabs>
+        </div>
 
-            <TabsContent value={selectedTab} className="mt-6">
-              <div className="space-y-4">
-                {filteredDeals.map((deal) => {
-                  const status = statusConfig[deal.status as keyof typeof statusConfig];
-                  const daysRemaining = getDaysRemaining(deal.deadline);
-                  const StatusIcon = status.icon;
+        {/* Filters */}
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 mb-6">
+          <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center">
+            <div className="flex items-center gap-2 flex-1 min-w-0">
+              <HiMagnifyingGlass className="h-5 w-5 text-gray-400" />
+              <Input
+                placeholder="Search deals, campaigns, or influencers..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="border-0 bg-transparent focus:ring-0 focus:border-0 p-0"
+              />
+            </div>
+            
+            <div className="flex items-center gap-3 flex-wrap">
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-48">
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  {statusOptions.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
 
-                  return (
-                    <Card key={deal.id} className="p-6">
-                      <div className="flex items-start justify-between">
-                        <div className="flex items-start space-x-4">
-                          <div className="w-12 h-12 bg-gray-200 rounded-full flex items-center justify-center">
-                            {deal.influencer.avatar ? (
-                              <img 
-                                src={deal.influencer.avatar} 
-                                alt={deal.influencer.name}
-                                className="w-full h-full rounded-full object-cover"
-                              />
-                            ) : (
-                              <span className="text-gray-600 font-medium">
-                                {deal.influencer.name.charAt(0)}
-                              </span>
-                            )}
+              <Select value={sortBy} onValueChange={setSortBy}>
+                <SelectTrigger className="w-48">
+                  <SelectValue placeholder="Sort by" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="created_at_desc">Newest First</SelectItem>
+                  <SelectItem value="created_at_asc">Oldest First</SelectItem>
+                  <SelectItem value="deadline_asc">Deadline (Urgent)</SelectItem>
+                  <SelectItem value="value_desc">Highest Value</SelectItem>
+                  <SelectItem value="value_asc">Lowest Value</SelectItem>
+                </SelectContent>
+              </Select>
+
+              {hasActiveFilters && (
+                <Button 
+                  variant="outline" 
+                  onClick={clearFilters}
+                  className="border-gray-200 hover:bg-gray-50"
+                >
+                  <HiFunnel className="w-4 h-4 mr-2" />
+                  Clear Filters
+                </Button>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Content */}
+        {isLoading && (
+          <div className="grid gap-6">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <CardSkeletonLoader key={i} />
+            ))}
+          </div>
+        )}
+
+        {!isLoading && (viewMode === 'campaigns' ? campaigns.length === 0 : deals.length === 0) && (
+          <Card className="p-12 text-center bg-gradient-to-br from-white via-white to-gray-50 border border-gray-200 shadow-md">
+            <LoadingSpinner size="lg" text="No deals found" />
+            <div className="mt-8">
+              <p className="text-gray-500 mb-6">
+                {hasActiveFilters ? "Try adjusting your search criteria or filters." : "Start by creating campaigns and sending deals to influencers."}
+              </p>
+              <div className="flex items-center justify-center gap-3">
+                {hasActiveFilters && (
+                  <Button variant="outline" onClick={clearFilters} className="border-blue-200 hover:bg-blue-50 hover:border-blue-300">
+                    <HiArrowPath className="w-4 h-4 mr-2" />
+                    Clear Filters
+                  </Button>
+                )}
+                <Button className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white">
+                  <HiDocument className="w-4 h-4 mr-2" />
+                  Create First Campaign
+                </Button>
+              </div>
+            </div>
+          </Card>
+        )}
+
+        {/* Campaigns View */}
+        {!isLoading && viewMode === 'campaigns' && campaigns.length > 0 && (
+          <div className="space-y-6">
+            {campaigns.map((campaign) => (
+              <Card key={campaign.id} className="shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
+                <CardHeader className="pb-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle className="text-lg font-semibold text-gray-900">
+                        {campaign.title}
+                      </CardTitle>
+                      <div className="flex items-center gap-4 mt-2 text-sm text-gray-500">
+                        <span className="flex items-center gap-1">
+                          <HiUsers className="w-4 h-4" />
+                          {campaign.deals_count} deals
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <HiCheckCircle className="w-4 h-4" />
+                          {campaign.completed_deals} completed
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <HiCurrencyDollar className="w-4 h-4" />
+                          {formatCurrency(campaign.total_value)}
+                        </span>
+                      </div>
+                    </div>
+                    <Button variant="outline" size="sm">
+                      <HiEye className="w-4 h-4 mr-2" />
+                      View Campaign
+                    </Button>
+                  </div>
+                </CardHeader>
+                
+                <CardContent>
+                  <div className="space-y-3">
+                    {campaign.deals.slice(0, 5).map((deal) => (
+                      <div key={deal.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 bg-gradient-to-r from-gray-300 to-gray-400 rounded-full flex items-center justify-center">
+                            <span className="text-sm font-medium text-white">
+                              {deal.influencer.name.charAt(0)}
+                            </span>
                           </div>
-
-                          <div className="flex-1">
-                            <div className="flex items-center gap-3 mb-2">
-                              <h3 className="text-lg font-semibold text-gray-900">
-                                {deal.influencer.name}
-                              </h3>
-                              <span className="text-sm text-gray-500">
-                                {deal.influencer.username}
-                              </span>
-                              <Badge variant="secondary">
-                                <HiUsers className="w-3 h-3 mr-1" />
-                                {deal.influencer.followers.toLocaleString()}
-                              </Badge>
-                            </div>
-
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-                              <div>
-                                <p className="text-gray-500">Campaign</p>
-                                <p className="font-medium">{deal.campaign}</p>
-                              </div>
-                              <div>
-                                <p className="text-gray-500">Value</p>
-                                <p className="font-medium">{formatCurrency(deal.value)}</p>
-                              </div>
-                              <div>
-                                <p className="text-gray-500">Deadline</p>
-                                <p className="font-medium">
-                                  {formatDate(deal.deadline)}
-                                  {daysRemaining > 0 && (
-                                    <span className="text-orange-600 ml-2">
-                                      ({daysRemaining} days left)
-                                    </span>
-                                  )}
-                                  {daysRemaining <= 0 && (
-                                    <span className="text-red-600 ml-2">
-                                      (Overdue)
-                                    </span>
-                                  )}
-                                </p>
-                              </div>
-                            </div>
-
-                            <div className="mt-4">
-                              <p className="text-sm text-gray-500 mb-2">Deliverables</p>
-                              <div className="flex flex-wrap gap-2">
-                                {deal.deliverables.map((deliverable, index) => (
-                                  <Badge 
-                                    key={index}
-                                    variant={deal.submitted_content.includes(deliverable) ? "default" : "outline"}
-                                  >
-                                    {deal.submitted_content.includes(deliverable) && (
-                                      <HiCheckCircle className="w-3 h-3 mr-1" />
-                                    )}
-                                    {deliverable}
-                                  </Badge>
-                                ))}
-                              </div>
-                            </div>
+                          <div>
+                            <p className="font-medium text-gray-900">{deal.influencer.name}</p>
+                            <p className="text-sm text-gray-500">{deal.influencer.username}</p>
                           </div>
                         </div>
-
-                        <div className="flex flex-col items-end space-y-3">
-                          <Badge className={status.color}>
-                            <StatusIcon className="w-3 h-3 mr-1" />
-                            {status.label}
-                          </Badge>
-
-                          <div className="flex space-x-2">
-                            <Button variant="outline" size="sm">
-                              <HiEye className="w-4 h-4 mr-1" />
-                              View
-                            </Button>
-                            <Button variant="outline" size="sm">
-                              <HiChatBubbleLeftRight className="w-4 h-4 mr-1" />
-                              Message
-                            </Button>
-                          </div>
+                        
+                        <div className="flex items-center gap-4">
+                          {getStatusBadge(deal.status)}
+                          <span className="text-sm font-medium text-gray-700">
+                            {formatCurrency(deal.value)}
+                          </span>
+                          <Button variant="ghost" size="sm">
+                            <HiEye className="w-4 h-4" />
+                          </Button>
                         </div>
                       </div>
-                    </Card>
-                  );
-                })}
-
-                {filteredDeals.length === 0 && (
-                  <div className="text-center py-12">
-                    <HiDocument className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                    <h3 className="text-lg font-medium text-gray-900 mb-2">No deals found</h3>
-                    <p className="text-gray-500">
-                      {selectedTab === "all" 
-                        ? "You haven't created any deals yet."
-                        : `No deals with status "${selectedTab}".`
-                      }
-                    </p>
+                    ))}
+                    
+                    {campaign.deals.length > 5 && (
+                      <div className="text-center pt-2">
+                        <Button variant="outline" size="sm">
+                          View {campaign.deals.length - 5} more deals
+                        </Button>
+                      </div>
+                    )}
                   </div>
-                )}
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+
+        {/* All Deals View */}
+        {!isLoading && viewMode === 'deals' && deals.length > 0 && (
+          <div className="grid gap-4">
+            {deals.map((deal) => (
+              <Card key={deal.id} className="shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 bg-gradient-to-r from-gray-300 to-gray-400 rounded-full flex items-center justify-center">
+                        <span className="text-lg font-medium text-white">
+                          {deal.influencer.name.charAt(0)}
+                        </span>
+                      </div>
+                      
+                      <div>
+                        <h3 className="font-semibold text-gray-900">{deal.influencer.name}</h3>
+                        <p className="text-sm text-gray-500">{deal.influencer.username}</p>
+                        <p className="text-sm text-blue-600 font-medium">{deal.campaign.title}</p>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center gap-4">
+                      {getStatusBadge(deal.status)}
+                      <div className="text-right">
+                        <p className="font-semibold text-gray-900">{formatCurrency(deal.value)}</p>
+                        <p className="text-sm text-gray-500">{formatDate(deal.created_at)}</p>
+                      </div>
+                      <Button variant="outline" size="sm">
+                        <HiEye className="w-4 h-4 mr-2" />
+                        View Deal
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+
+        {/* Pagination */}
+        {!isLoading && pagination.total_pages > 1 && (
+          <div className="flex items-center justify-between mt-8 p-4 bg-white rounded-lg border border-gray-200">
+            <div className="text-sm text-gray-600">
+              Showing {((pagination.current_page - 1) * pagination.items_per_page) + 1} to{' '}
+              {Math.min(pagination.current_page * pagination.items_per_page, pagination.total_items)} of{' '}
+              {pagination.total_items} deals
+            </div>
+            
+            <div className="flex items-center gap-2">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                disabled={pagination.current_page === 1}
+                onClick={() => handlePageChange(pagination.current_page - 1)}
+              >
+                <HiChevronLeft className="w-4 h-4" />
+                Previous
+              </Button>
+              
+              <div className="flex items-center gap-1">
+                {Array.from({ length: pagination.total_pages }, (_, i) => i + 1)
+                  .filter(page => {
+                    const current = pagination.current_page;
+                    return page === 1 || page === pagination.total_pages || (page >= current - 1 && page <= current + 1);
+                  })
+                  .map((page, index, array) => (
+                    <div key={page}>
+                      {index > 0 && array[index - 1] !== page - 1 && (
+                        <span className="px-2 text-gray-400">...</span>
+                      )}
+                      <Button
+                        variant={page === pagination.current_page ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => handlePageChange(page)}
+                        className="w-8 h-8 p-0"
+                      >
+                        {page}
+                      </Button>
+                    </div>
+                  ))}
               </div>
-            </TabsContent>
-          </Tabs>
-        </CardContent>
-      </Card>
+              
+              <Button 
+                variant="outline" 
+                size="sm" 
+                disabled={pagination.current_page === pagination.total_pages}
+                onClick={() => handlePageChange(pagination.current_page + 1)}
+              >
+                Next
+                <HiChevronRight className="w-4 h-4" />
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 } 
