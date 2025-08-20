@@ -1,6 +1,7 @@
 from django.db import models
 from django.core.validators import MinValueValidator, MaxValueValidator
-from common.models import INDUSTRY_CHOICES, PLATFORM_CHOICES
+from common.models import INDUSTRY_CHOICES, PLATFORM_CHOICES, CONTENT_CATEGORIES
+from django.contrib.postgres.fields import ArrayField
 
 
 class InfluencerProfile(models.Model):
@@ -9,21 +10,30 @@ class InfluencerProfile(models.Model):
     beyond the default Django User model.
     """
     user = models.OneToOneField('auth.User', on_delete=models.CASCADE, related_name='influencer_profile')
-    phone_number = models.CharField(max_length=15, blank=True)
-    country_code = models.CharField(max_length=5, default='+91', help_text='Country code for phone number (e.g., +1, +44, +91)')
+    # Link to common user profile
+    user_profile = models.OneToOneField('users.UserProfile', on_delete=models.CASCADE, related_name='influencer_profile', null=True, blank=True)
+    
     username = models.CharField(max_length=50, unique=True)
     industry = models.CharField(max_length=50, choices=INDUSTRY_CHOICES)
-    bio = models.TextField(blank=True)
-    profile_image = models.ImageField(upload_to='profiles/', blank=True, null=True)
-    address = models.TextField(blank=True)
-    aadhar_number = models.CharField(max_length=12, blank=True)
+    
+    # Categories the influencer specializes in
+    categories = ArrayField(
+        models.CharField(max_length=30, choices=CONTENT_CATEGORIES),
+        blank=True,
+        null=True,
+        help_text='Content categories the influencer specializes in'
+    )
+    
+    bio = models.TextField(blank=True, default='')
+    aadhar_number = models.CharField(max_length=12, blank=True, default='')
     aadhar_document = models.FileField(upload_to='documents/', blank=True, null=True)
     is_verified = models.BooleanField(default=False)
-    email_verified = models.BooleanField(default=False)
-    phone_number_verified = models.BooleanField(default=False)
-    bank_account_number = models.CharField(max_length=20, blank=True)
-    bank_ifsc_code = models.CharField(max_length=11, blank=True)
-    bank_account_holder_name = models.CharField(max_length=100, blank=True)
+    
+    # Financial information
+    bank_account_number = models.CharField(max_length=20, blank=True, default='')
+    bank_ifsc_code = models.CharField(max_length=11, blank=True, default='')
+    bank_account_holder_name = models.CharField(max_length=100, blank=True, default='')
+    
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

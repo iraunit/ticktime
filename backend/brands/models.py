@@ -12,13 +12,11 @@ class Brand(models.Model):
     name = models.CharField(max_length=200)
     domain = models.CharField(max_length=255, unique=True, default='example.com', help_text="Company domain (e.g., google.com)")
     logo = models.ImageField(upload_to='brands/', blank=True, null=True)
-    description = models.TextField(blank=True)
-    website = models.URLField(blank=True)
+    description = models.TextField(blank=True, default='')
+    website = models.URLField(blank=True, default='')
     industry = models.CharField(max_length=50, choices=INDUSTRY_CHOICES)
     contact_email = models.EmailField()
-    country_code = models.CharField(max_length=5, default='+1')
-    contact_phone = models.CharField(max_length=15, blank=True)
-    address = models.TextField(blank=True)
+    # Removed country_code and contact_phone as they're now in UserProfile
     is_verified = models.BooleanField(default=False)
     rating = models.DecimalField(
         max_digits=3, 
@@ -53,6 +51,9 @@ class BrandUser(models.Model):
     """
     Association between users and brands with role-based permissions
     """
+    # Link to user profile for common fields
+    user_profile = models.OneToOneField('users.UserProfile', on_delete=models.CASCADE, related_name='brand_user_profile', null=True, blank=True)
+    
     ROLE_CHOICES = [
         ('owner', 'Brand Owner'),
         ('admin', 'Administrator'),

@@ -7,15 +7,33 @@ export interface User {
   is_verified: boolean;
 }
 
+export interface UserProfile {
+  id: number;
+  user: number;
+  gender?: 'male' | 'female' | 'other' | 'prefer_not_to_say';
+  country_code: string;
+  phone_number: string;
+  phone_verified: boolean;
+  email_verified: boolean;
+  country?: string;
+  state?: string;
+  city?: string;
+  zipcode?: string;
+  address_line1?: string;
+  address_line2?: string;
+  profile_image?: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface InfluencerProfile {
   id: number;
   user: User;
-  phone_number: string;
+  user_profile: UserProfile;
   username: string;
   industry: string;
+  categories?: string[];
   bio: string;
-  profile_image?: string;
-  address: string;
   aadhar_number?: string;
   aadhar_document?: string;
   is_verified: boolean;
@@ -49,8 +67,21 @@ export interface Brand {
   logo?: string;
   description: string;
   website?: string;
+  industry: string;
+  contact_email: string;
   rating?: number;
   total_collaborations?: number;
+}
+
+export interface BrandUser {
+  id: number;
+  user: User;
+  user_profile: UserProfile;
+  brand: Brand;
+  role: 'owner' | 'admin' | 'manager' | 'editor' | 'viewer';
+  is_active: boolean;
+  joined_at?: string;
+  last_activity: string;
 }
 
 export interface Campaign {
@@ -226,9 +257,18 @@ export interface SignupForm {
 export interface ProfileUpdateForm {
   first_name: string;
   last_name: string;
+  gender?: string;
+  country_code: string;
   phone_number: string;
-  bio: string;
-  address: string;
+  country?: string;
+  state?: string;
+  city?: string;
+  zipcode?: string;
+  address_line1?: string;
+  address_line2?: string;
+  bio?: string;
+  industry: string;
+  categories?: string[];
   profile_image?: File;
 }
 

@@ -373,29 +373,32 @@ export default function BrandCampaignsPage() {
           </div>
         )}
 
-        {/* Empty State */}
-        {!isLoading && campaigns.length === 0 && (
-          <Card className="p-12 text-center bg-gradient-to-br from-white via-white to-gray-50 border border-gray-200 shadow-md">
-            <LoadingSpinner size="lg" text="No campaigns found" />
-            <div className="mt-8">
-              <p className="text-gray-500 mb-6">
-                {hasActiveFilters ? "Try adjusting your search criteria or filters." : "Get started by creating your first campaign."}
-              </p>
-              <div className="flex items-center justify-center gap-3">
-                {hasActiveFilters && (
-                  <Button variant="outline" onClick={clearFilters} className="border-red-200 hover:bg-red-50 hover:border-red-300">
-                    <HiArrowPath className="w-4 h-4 mr-2" />
-                    Clear Filters
-                  </Button>
-                )}
-                <Button className="bg-gradient-to-r from-red-500 to-orange-600 hover:from-red-600 hover:to-orange-700 text-white">
-                  <HiPlus className="w-4 h-4 mr-2" />
-                  Create First Campaign
-                </Button>
-              </div>
-            </div>
-          </Card>
-        )}
+            {/* Empty State */}
+    {!isLoading && campaigns.length === 0 && (
+      <Card className="p-12 text-center bg-gradient-to-br from-white via-white to-gray-50 border border-gray-200 shadow-md">
+        <div className="flex justify-center">
+          <HiExclamationTriangle className="w-16 h-16 text-orange-500 mb-4" />
+        </div>
+        <h3 className="text-lg font-semibold text-gray-900 mb-2">No campaigns found</h3>
+        <div className="mt-4">
+          <p className="text-gray-500 mb-6">
+            {hasActiveFilters ? "Try adjusting your search criteria or filters." : "Get started by creating your first campaign."}
+          </p>
+          <div className="flex items-center justify-center gap-3">
+            {hasActiveFilters && (
+              <Button variant="outline" onClick={clearFilters} className="border-red-200 hover:bg-red-50 hover:border-red-300">
+                <HiArrowPath className="w-4 h-4 mr-2" />
+                Clear Filters
+              </Button>
+            )}
+            <Button className="bg-gradient-to-r from-red-500 to-orange-600 hover:from-red-600 hover:to-orange-700 text-white">
+              <HiPlus className="w-4 h-4 mr-2" />
+              Create First Campaign
+            </Button>
+          </div>
+        </div>
+      </Card>
+    )}
       </div>
     </div>
   );
