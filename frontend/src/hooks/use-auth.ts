@@ -5,6 +5,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { authApi } from '@/lib/api-client';
 import { useRouter } from 'next/navigation';
 import { useUserContext } from '@/components/providers/app-providers';
+import { toast } from '@/lib/toast';
 
 // Auth state management (session-based)
 export function useAuth() {
@@ -48,11 +49,28 @@ export function useAuth() {
     return next && next.startsWith('/') ? next : null;
   };
 
+  // Helper to format error messages from API responses
+  const formatErrorMessage = (error: any): string => {
+    // Backend now sends simple string error messages
+    if (error?.response?.data?.message) {
+      return error.response.data.message;
+    }
+    
+    // Handle other API errors
+    if (error?.message) {
+      return error.message;
+    }
+    
+    // Fallback to general error message
+    return 'An unexpected error occurred. Please try again.';
+  };
+
   // Login mutation (creates session)
   const loginMutation = useMutation({
     mutationFn: ({ email, password, remember_me }: { email: string; password: string; remember_me?: boolean }) =>
       authApi.login(email, password, remember_me),
     onSuccess: async (response) => {
+      toast.success('Welcome back!');
       setIsAuthenticatedState(true);
       queryClient.invalidateQueries({ queryKey: ['user'] });
       await refreshUserContext();
@@ -73,9 +91,13 @@ export function useAuth() {
         router.push('/dashboard'); // fallback
       }
     },
+    onError: (error: any) => {
+      const errorMessage = formatErrorMessage(error);
+      toast.error(errorMessage);
+    },
   });
 
-  // Signup mutation (influencer) — backend returns user, no tokens
+  // Signup mutation (influencer) — backend returns user and auto-logs in
   const signupMutation = useMutation({
     mutationFn: (data: {
       email: string;
@@ -88,9 +110,26 @@ export function useAuth() {
       username: string;
       industry: string;
     }) => authApi.signup(data),
-    onSuccess: () => {
-      // After signup, redirect to login with success message since account is verified
-      router.push('/login?message=Account created successfully! You can now log in.');
+    onSuccess: async (response) => {
+      // Show success message
+      toast.success('Account created successfully! Welcome to TickTime!');
+      
+      // Check if user was auto-logged in
+      if (response?.data?.auto_logged_in) {
+        setIsAuthenticatedState(true);
+        queryClient.invalidateQueries({ queryKey: ['user'] });
+        await refreshUserContext();
+        
+        // Redirect to dashboard since user is already logged in
+        router.push('/dashboard');
+      } else {
+        // Fallback: redirect to login with success message
+        router.push('/login?message=Account created successfully! You can now log in.');
+      }
+    },
+    onError: (error: any) => {
+      const errorMessage = formatErrorMessage(error);
+      toast.error(errorMessage);
     },
   });
 
@@ -108,8 +147,26 @@ export function useAuth() {
       contact_phone?: string;
       description?: string;
     }) => authApi.brandSignup(data),
-    onSuccess: () => {
-      router.push('/login?message=Brand account created. Please log in.');
+    onSuccess: async (response) => {
+      // Show success message
+      toast.success('Brand account created successfully! Welcome to TickTime!');
+      
+      // Check if user was auto-logged in
+      if (response?.data?.auto_logged_in) {
+        setIsAuthenticatedState(true);
+        queryClient.invalidateQueries({ queryKey: ['user'] });
+        await refreshUserContext();
+        
+        // Redirect to brand dashboard since user is already logged in
+        router.push('/brand');
+      } else {
+        // Fallback: redirect to login with success message
+        router.push('/login?message=Brand account created. Please log in.');
+      }
+    },
+    onError: (error: any) => {
+      const errorMessage = formatErrorMessage(error);
+      toast.error(errorMessage);
     },
   });
 
@@ -130,16 +187,28 @@ export function useAuth() {
     },
   });
 
-  // Forgot/reset password unchanged
+  // Forgot/reset password mutations
   const forgotPasswordMutation = useMutation({
     mutationFn: (email: string) => authApi.forgotPassword(email),
+    onSuccess: () => {
+      toast.success('Password reset email sent! Please check your inbox.');
+    },
+    onError: (error: any) => {
+      const errorMessage = formatErrorMessage(error);
+      toast.error(errorMessage);
+    },
   });
 
   const resetPasswordMutation = useMutation({
     mutationFn: ({ token, password }: { token: string; password: string }) =>
       authApi.resetPassword(token, password),
     onSuccess: () => {
-      router.push('/login?message=Password reset successful. Please log in with your new password.');
+      toast.success('Password reset successful! You can now log in with your new password.');
+      router.push('/login');
+    },
+    onError: (error: any) => {
+      const errorMessage = formatErrorMessage(error);
+      toast.error(errorMessage);
     },
   });
 

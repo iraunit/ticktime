@@ -88,7 +88,17 @@ export function SignupForm() {
   const nextStep = async () => {
     const isValid = await validateCurrentStep();
     if (isValid && currentStep < steps.length) {
+      // Clear any potential form contamination
+      const currentValues = form.getValues();
+      console.log('Current form values before step change:', currentValues);
+      
       setCurrentStep(currentStep + 1);
+      
+      // Ensure form state is clean for next step
+      setTimeout(() => {
+        const newValues = form.getValues();
+        console.log('Form values after step change:', newValues);
+      }, 100);
     }
   };
 
@@ -99,7 +109,12 @@ export function SignupForm() {
   };
 
   const onSubmit = async (data: SignupFormData) => {
-    await signup.mutateAsync(data);
+    try {
+      await signup.mutateAsync(data);
+    } catch (error: any) {
+      // Error toast is already handled in the useAuth hook
+      // Since backend now sends simple string errors, we don't set field-specific errors
+    }
   };
 
   const renderStepContent = () => {
@@ -125,6 +140,7 @@ export function SignupForm() {
                         {...field}
                         type="email"
                         placeholder="your@email.com"
+                        autoComplete="email"
                         className="h-11 pl-10 border-gray-200 focus:border-purple-500 focus:ring-purple-500/20"
                       />
                     </div>
@@ -147,6 +163,7 @@ export function SignupForm() {
                         {...field}
                         type={showPassword ? "text" : "password"}
                         placeholder="Create a strong password"
+                        autoComplete="new-password"
                         className="h-11 pl-10 pr-10 border-gray-200 focus:border-purple-500 focus:ring-purple-500/20"
                       />
                       <Button
@@ -182,6 +199,7 @@ export function SignupForm() {
                         {...field}
                         type={showConfirmPassword ? "text" : "password"}
                         placeholder="Confirm your password"
+                        autoComplete="new-password"
                         className="h-11 pl-10 pr-10 border-gray-200 focus:border-purple-500 focus:ring-purple-500/20"
                       />
                       <Button
@@ -227,6 +245,7 @@ export function SignupForm() {
                         <Input
                           {...field}
                           placeholder="First name"
+                          autoComplete="given-name"
                           className="h-11 pl-10 border-gray-200 focus:border-purple-500 focus:ring-purple-500/20"
                         />
                       </div>
@@ -248,6 +267,7 @@ export function SignupForm() {
                         <Input
                           {...field}
                           placeholder="Last name"
+                          autoComplete="family-name"
                           className="h-11 pl-10 border-gray-200 focus:border-purple-500 focus:ring-purple-500/20"
                         />
                       </div>
@@ -270,6 +290,7 @@ export function SignupForm() {
                       <Input
                         {...field}
                         placeholder="your_username"
+                        autoComplete="username"
                         className="h-11 pl-8 border-gray-200 focus:border-purple-500 focus:ring-purple-500/20"
                       />
                     </div>
@@ -321,6 +342,7 @@ export function SignupForm() {
                           <Input
                             {...field}
                             placeholder="1234567890"
+                            autoComplete="tel"
                             className="h-11 pl-10 border-gray-200 focus:border-purple-500 focus:ring-purple-500/20"
                             onChange={(e) => {
                               const value = e.target.value.replace(/\D/g, '');
@@ -432,7 +454,7 @@ export function SignupForm() {
               
               <CardContent className="space-y-6">
                 <Form {...form}>
-                  <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                  <form key={`step-${currentStep}`} onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
                     {renderStepContent()}
 
                     {/* Navigation Buttons */}
@@ -465,7 +487,18 @@ export function SignupForm() {
                         >
                           {signup.isPending ? (
                             <>
-                              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                              <div className="flex space-x-1 mr-2">
+                  {[0, 1, 2].map((i) => (
+                    <div
+                      key={i}
+                      className="w-1.5 h-1.5 rounded-full bg-white animate-pulse"
+                      style={{
+                        animationDelay: `${i * 0.2}s`,
+                        animationDuration: '1.4s'
+                      }}
+                    />
+                  ))}
+                </div>
                               Creating...
                             </>
                           ) : (

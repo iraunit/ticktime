@@ -69,7 +69,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
             profile = obj.influencer_profile
             return {
                 'username': profile.username,
-                'full_name': profile.full_name,
+                'full_name': profile.user.get_full_name(),
                 'bio': profile.bio,
                 'is_verified': profile.is_verified,
             }

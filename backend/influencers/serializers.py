@@ -8,6 +8,7 @@ from common.models import (
     DEAL_TYPE_CHOICES, CONTENT_TYPE_CHOICES
 )
 import re
+import json
 
 
 class InfluencerProfileSerializer(serializers.ModelSerializer):
@@ -17,6 +18,9 @@ class InfluencerProfileSerializer(serializers.ModelSerializer):
     user_first_name = serializers.CharField(source='user.first_name', read_only=True)
     user_last_name = serializers.CharField(source='user.last_name', read_only=True)
     user_email = serializers.EmailField(source='user.email', read_only=True)
+    phone_number = serializers.SerializerMethodField()
+    profile_image = serializers.SerializerMethodField()
+    address = serializers.SerializerMethodField()
     total_followers = serializers.ReadOnlyField()
     average_engagement_rate = serializers.ReadOnlyField()
     social_accounts_count = serializers.SerializerMethodField()
@@ -25,7 +29,7 @@ class InfluencerProfileSerializer(serializers.ModelSerializer):
         model = InfluencerProfile
         fields = (
             'id', 'user_first_name', 'user_last_name', 'user_email',
-            'phone_number', 'username', 'industry', 'bio', 'profile_image',
+            'phone_number', 'username', 'industry', 'categories', 'bio', 'profile_image',
             'address', 'aadhar_number', 'aadhar_document', 'is_verified',
             'bank_account_number', 'bank_ifsc_code', 'bank_account_holder_name',
             'total_followers', 'average_engagement_rate', 'social_accounts_count',
@@ -36,6 +40,37 @@ class InfluencerProfileSerializer(serializers.ModelSerializer):
     def get_social_accounts_count(self, obj):
         """Get count of active social media accounts."""
         return obj.social_accounts.filter(is_active=True).count()
+
+    def get_phone_number(self, obj):
+        """Get phone number from user profile."""
+        return obj.user_profile.phone_number if obj.user_profile else ''
+
+    def get_profile_image(self, obj):
+        """Get profile image from user profile."""
+        return obj.user_profile.profile_image.url if obj.user_profile and obj.user_profile.profile_image else None
+
+    def get_address(self, obj):
+        """Get address from user profile."""
+        if obj.user_profile and obj.user_profile.address_line1:
+            address_parts = [obj.user_profile.address_line1]
+            if obj.user_profile.address_line2:
+                address_parts.append(obj.user_profile.address_line2)
+            if obj.user_profile.city:
+                address_parts.append(obj.user_profile.city)
+            if obj.user_profile.state:
+                address_parts.append(obj.user_profile.state)
+            if obj.user_profile.zipcode:
+                address_parts.append(obj.user_profile.zipcode)
+            return ', '.join(address_parts)
+        return ''
+
+    def to_representation(self, instance):
+        """Handle categories for API response."""
+        data = super().to_representation(instance)
+        # Categories is already a list since we're using JSONField
+        if 'categories' not in data or data['categories'] is None:
+            data['categories'] = []
+        return data
 
     def validate_username(self, value):
         """Validate username is unique and follows proper format."""
@@ -85,12 +120,14 @@ class InfluencerProfileUpdateSerializer(serializers.ModelSerializer):
     """
     first_name = serializers.CharField(source='user.first_name', required=False)
     last_name = serializers.CharField(source='user.last_name', required=False)
+    phone_number = serializers.CharField(required=False)
+    address = serializers.CharField(required=False)
 
     class Meta:
         model = InfluencerProfile
         fields = (
             'first_name', 'last_name', 'phone_number', 'username', 
-            'industry', 'bio', 'address'
+            'industry', 'categories', 'bio', 'address'
         )
 
     def validate_username(self, value):
@@ -123,12 +160,30 @@ class InfluencerProfileUpdateSerializer(serializers.ModelSerializer):
         # Extract user data
         user_data = validated_data.pop('user', {})
         
+        # Extract fields that should be updated in UserProfile
+        phone_number = validated_data.pop('phone_number', None)
+        address = validated_data.pop('address', None)
+        
         # Update user fields
         if user_data:
             user = instance.user
             for attr, value in user_data.items():
                 setattr(user, attr, value)
             user.save()
+        
+        # Update UserProfile fields
+        if instance.user_profile:
+            if phone_number is not None:
+                instance.user_profile.phone_number = phone_number
+            if address is not None:
+                # Parse address into components (simple implementation)
+                address_parts = address.split(',')
+                instance.user_profile.address_line1 = address_parts[0].strip() if len(address_parts) > 0 else ''
+                instance.user_profile.address_line2 = address_parts[1].strip() if len(address_parts) > 1 else ''
+                instance.user_profile.city = address_parts[2].strip() if len(address_parts) > 2 else ''
+                instance.user_profile.state = address_parts[3].strip() if len(address_parts) > 3 else ''
+                instance.user_profile.zipcode = address_parts[4].strip() if len(address_parts) > 4 else ''
+            instance.user_profile.save()
         
         # Update profile fields
         for attr, value in validated_data.items():
@@ -228,6 +283,8 @@ class ProfileImageUploadSerializer(serializers.ModelSerializer):
     """
     Serializer for profile image upload.
     """
+    profile_image = serializers.ImageField(required=False)
+    
     class Meta:
         model = InfluencerProfile
         fields = ('profile_image',)
@@ -247,6 +304,16 @@ class ProfileImageUploadSerializer(serializers.ModelSerializer):
                 )
         
         return value
+
+    def update(self, instance, validated_data):
+        """Update profile image in UserProfile."""
+        profile_image = validated_data.pop('profile_image', None)
+        
+        if profile_image and instance.user_profile:
+            instance.user_profile.profile_image = profile_image
+            instance.user_profile.save()
+        
+        return instance
 
 
 class DocumentUploadSerializer(serializers.ModelSerializer):

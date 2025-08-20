@@ -4,6 +4,7 @@ from django.contrib.auth import authenticate
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
 from django.utils import timezone
+from django.db import transaction
 from common.models import INDUSTRY_CHOICES
 import re
 from urllib.parse import urlparse
@@ -41,10 +42,23 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         return value
 
     def validate(self, attrs):
-        """Cross-field validation."""
+        """Cross-field validation with additional checks."""
         if attrs['password'] != attrs['password_confirm']:
             raise serializers.ValidationError({"password_confirm": "Password confirmation doesn't match."})
+        
+        # Additional validation to prevent race conditions
+        email = attrs.get('email')
+        username = attrs.get('username')
+        
+        if email and User.objects.filter(email=email).exists():
+            raise serializers.ValidationError({"email": "A user with this email already exists."})
+        
+        if username and InfluencerProfile.objects.filter(username=username).exists():
+            raise serializers.ValidationError({"username": "This username is already taken."})
+        
         return attrs
+
+
 
     def create(self, validated_data):
         # Extract influencer-specific fields
@@ -54,27 +68,37 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         industry = validated_data.pop('industry')
         validated_data.pop('password_confirm', None)
 
-        # Create user
-        user = User.objects.create_user(
-            username=validated_data['email'],
-            email=validated_data['email'],
-            first_name=validated_data['first_name'],
-            last_name=validated_data['last_name'],
-            password=validated_data['password'],
-            is_active=True
-        )
-        
-        # Create influencer profile
-        InfluencerProfile.objects.create(
-            user=user,
-            phone_number=phone_number,
-            country_code=country_code,
-            username=username,
-            industry=industry,
-            is_verified=True,
-        )
-        
-        return user
+        with transaction.atomic():
+            # Create user
+            user = User.objects.create_user(
+                username=validated_data['email'],
+                email=validated_data['email'],
+                first_name=validated_data['first_name'],
+                last_name=validated_data['last_name'],
+                password=validated_data['password'],
+                is_active=True
+            )
+            
+            # Create user profile with phone and country info
+            from users.models import UserProfile
+            user_profile = UserProfile.objects.create(
+                user=user,
+                phone_number=phone_number,
+                country_code=country_code,
+                email_verified=True
+            )
+            
+            # Create influencer profile
+            influencer_profile = InfluencerProfile.objects.create(
+                user=user,
+                user_profile=user_profile,
+                username=username,
+                industry=industry,
+                categories=[],  # Store as JSON list
+                is_verified=True,
+            )
+            
+            return user
 
 
 class BrandRegistrationSerializer(serializers.Serializer):
@@ -165,6 +189,8 @@ class BrandRegistrationSerializer(serializers.Serializer):
         
         return attrs
 
+
+
     def create(self, validated_data):
         from brands.models import Brand, BrandUser
         
@@ -180,37 +206,46 @@ class BrandRegistrationSerializer(serializers.Serializer):
         contact_phone = validated_data.pop('contact_phone')
         description = validated_data.pop('description')
 
-        # Create user
-        user = User.objects.create_user(
-            username=validated_data['email'],
-            email=validated_data['email'],
-            first_name=validated_data['first_name'],
-            last_name=validated_data['last_name'],
-            password=validated_data['password'],
-            is_active=True
-        )
-        
-        # Create brand
-        brand = Brand.objects.create(
-            name=name,
-            domain=domain,
-            industry=industry,
-            website=website,
-            contact_email=user.email,
-            country_code=country_code,
-            contact_phone=contact_phone,
-            description=description,
-        )
-        
-        # Create brand user association (owner role)
-        BrandUser.objects.create(
-            user=user,
-            brand=brand,
-            role='owner',
-            joined_at=timezone.now()
-        )
-        
-        return user
+        with transaction.atomic():
+            # Create user
+            user = User.objects.create_user(
+                username=validated_data['email'],
+                email=validated_data['email'],
+                first_name=validated_data['first_name'],
+                last_name=validated_data['last_name'],
+                password=validated_data['password'],
+                is_active=True
+            )
+            
+            # Create user profile with phone and country info
+            from users.models import UserProfile
+            user_profile = UserProfile.objects.create(
+                user=user,
+                phone_number=contact_phone,
+                country_code=country_code,
+                email_verified=True
+            )
+            
+            # Create brand
+            brand = Brand.objects.create(
+                name=name,
+                domain=domain,
+                industry=industry,
+                website=website,
+                contact_email=user.email,
+                description=description,
+            )
+            
+            # Create brand user association (owner role)
+            brand_user = BrandUser.objects.create(
+                user=user,
+                brand=brand,
+                user_profile=user_profile,
+                role='owner',
+                joined_at=timezone.now()
+            )
+            
+            return user
 
 
 class UserLoginSerializer(serializers.Serializer):

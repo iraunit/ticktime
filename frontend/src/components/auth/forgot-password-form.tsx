@@ -31,6 +31,7 @@ export function ForgotPasswordForm() {
     try {
       await forgotPassword.mutateAsync(data.email);
     } catch (error) {
+      // Error toast is already handled in the useAuth hook
       console.error('Forgot password failed:', error);
     }
   };
@@ -124,7 +125,18 @@ export function ForgotPasswordForm() {
             >
               {forgotPassword.isPending ? (
                 <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  <div className="flex space-x-1 mr-2">
+                  {[0, 1, 2].map((i) => (
+                    <div
+                      key={i}
+                      className="w-1.5 h-1.5 rounded-full bg-white animate-pulse"
+                      style={{
+                        animationDelay: `${i * 0.2}s`,
+                        animationDuration: '1.4s'
+                      }}
+                    />
+                  ))}
+                </div>
                   Sending...
                 </>
               ) : (

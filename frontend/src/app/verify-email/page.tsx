@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import { MainLayout } from "@/components/layout/main-layout";
 import { EmailVerificationForm } from "@/components/auth/email-verification-form";
+import { Loader } from "@/components/ui/loader";
 import { Loader2 } from "@/lib/icons";
 
 interface VerifyEmailPageProps {
@@ -22,7 +23,7 @@ export default async function VerifyEmailPage({ searchParams }: VerifyEmailPageP
             </p>
             <a
               href="/signup"
-              className="text-blue-600 hover:underline"
+              className="text-red-600 hover:underline"
             >
               Create a new account
             </a>

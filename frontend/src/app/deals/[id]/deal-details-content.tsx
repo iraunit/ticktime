@@ -4,6 +4,7 @@ import { DealTabs } from "@/components/deals/deal-tabs";
 import { useDeal } from "@/hooks/use-deals";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { Loader } from "@/components/ui/loader";
 import { Loader2 } from "@/lib/icons";
 
 interface DealDetailsContentProps {
@@ -38,8 +39,8 @@ export function DealDetailsContent({ dealId }: DealDetailsContentProps) {
 
   if (deal.isLoading) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      <div className="flex items-center justify-center py-12 relative">
+        <Loader variant="simple" />
       </div>
     );
   }
@@ -53,7 +54,7 @@ export function DealDetailsContent({ dealId }: DealDetailsContentProps) {
         </p>
         <button
           onClick={() => router.push("/deals")}
-          className="text-blue-600 hover:underline"
+                     className="text-red-600 hover:underline"
         >
           Back to Deals
         </button>

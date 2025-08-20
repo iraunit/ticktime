@@ -5,6 +5,7 @@ import Link from "next/link";
 import { CheckCircle, XCircle, Loader2 } from "@/lib/icons";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Loader } from "@/components/ui/loader";
 import { authApi } from "@/lib/api-client";
 
 interface EmailVerificationFormProps {

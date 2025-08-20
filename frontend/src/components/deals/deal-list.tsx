@@ -7,6 +7,7 @@ import { DealFilters } from "./deal-filters";
 import { Button } from "@/components/ui/button";
 import { HiArrowPath, HiBriefcase } from "react-icons/hi2";
 import { cn } from "@/lib/utils";
+import { Loader } from "@/components/ui/loader";
 
 interface DealListProps {
   deals: Deal[];
@@ -101,22 +102,8 @@ export function DealList({
     return (
       <div className={cn("space-y-4", className)}>
         <div className="flex items-center justify-center py-12">
-          <div className="text-center">
-            <div className="flex justify-center space-x-3 mb-4">
-              {[
-                { color: 'from-blue-500 to-indigo-500', delay: 0 },
-                { color: 'from-indigo-500 to-purple-500', delay: 0.15 },
-                { color: 'from-purple-500 to-pink-500', delay: 0.3 }
-              ].map((ball, i) => (
-                <div
-                  key={i}
-                  className={`w-4 h-4 rounded-full bg-gradient-to-r shadow-lg ${ball.color}`}
-                  style={{
-                    animation: `bigBounce 1.2s ease-in-out ${ball.delay}s infinite`,
-                  }}
-                />
-              ))}
-            </div>
+          <div className="text-center relative">
+            <Loader className="mb-4" showBackground={true} />
             <p className="text-lg font-semibold text-gray-700">Loading your deals...</p>
           </div>
         </div>
@@ -132,7 +119,7 @@ export function DealList({
           <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-3 gap-2">
             <div className="flex-1">
               <h2 className="text-lg font-bold text-gray-900 flex items-center">
-                <HiBriefcase className="h-5 w-5 mr-2 text-blue-600 flex-shrink-0" />
+                                 <HiBriefcase className="h-5 w-5 mr-2 text-red-600 flex-shrink-0" />
                 <span>Your Deals</span>
               </h2>
               <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-3 mt-1 gap-1">
@@ -195,8 +182,8 @@ export function DealList({
       {sortedDeals.length === 0 ? (
         <div className="text-center py-8">
           <div className="mx-auto max-w-md px-4">
-            <div className="w-16 h-16 bg-gradient-to-br from-blue-50 to-indigo-100 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
-              <HiBriefcase className="h-8 w-8 text-blue-500" />
+            <div className="w-16 h-16 bg-gradient-to-br from-red-50 to-orange-100 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
+              <HiBriefcase className="h-8 w-8 text-red-500" />
             </div>
             <h3 className="text-lg font-bold text-gray-900 mb-2">
               {hasActiveFilters ? "No deals match your filters" : "No deals yet"}
@@ -211,14 +198,14 @@ export function DealList({
               <Button 
                 variant="outline" 
                 onClick={clearFilters}
-                className="bg-blue-600 hover:bg-blue-700 text-white border-blue-600 hover:border-blue-700 px-4 py-2 rounded-lg shadow-md hover:shadow-lg transition-all duration-200 text-sm"
+                className="bg-red-600 hover:bg-red-700 text-white border-red-600 hover:border-red-700 px-4 py-2 rounded-lg shadow-md hover:shadow-lg transition-all duration-200 text-sm"
               >
                 Clear Filters
               </Button>
             ) : (
               <Button 
                 asChild
-                className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 text-sm"
+                className="bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 text-sm"
               >
                 <a href="/profile">Complete Profile</a>
               </Button>
@@ -246,24 +233,13 @@ export function DealList({
       {isLoading && deals.length > 0 && (
         <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50">
           <div className="bg-white rounded-2xl p-8 shadow-2xl border border-gray-200 max-w-sm mx-4">
-            <div className="text-center">
-              <div className="flex justify-center space-x-2 mb-4">
-                {[0, 1, 2].map((i) => (
-                  <div
-                    key={i}
-                    className="w-3 h-3 rounded-full bg-gradient-to-r from-blue-500 to-indigo-500 animate-bounce shadow-md"
-                    style={{
-                      animationDelay: `${i * 0.15}s`,
-                      animationDuration: '1s'
-                    }}
-                  />
-                ))}
-              </div>
+            <div className="text-center relative">
+              <Loader className="mb-4" showBackground={true} />
+            </div>
               <p className="text-lg font-semibold text-gray-900 mb-2">Updating deals...</p>
               <p className="text-sm text-gray-600">Fetching the latest opportunities for you</p>
             </div>
           </div>
-        </div>
       )}
     </div>
   );

@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { MainLayout } from "@/components/layout/main-layout";
 import { SignupForm } from "@/components/auth/signup-form";
 import { Loader2 } from "@/lib/icons";
+import { Loader } from "@/components/ui/loader";
 
 export default function InfluencerSignupPage() {
   return (

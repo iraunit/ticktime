@@ -318,7 +318,18 @@ export function ProfileForm({ profile }: ProfileFormProps) {
               {profileImage && isEditing && (
                 <div className="flex items-center gap-3 pt-1">
                   <Button type="button" size="sm" onClick={handleImageUpload} disabled={isSubmitting}>
-                    {isSubmitting ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Uploading...</> : 'Save Image'}
+                    {isSubmitting ? <><div className="flex space-x-1 mr-2">
+                  {[0, 1, 2].map((i) => (
+                    <div
+                      key={i}
+                      className="w-1.5 h-1.5 rounded-full bg-white animate-pulse"
+                      style={{
+                        animationDelay: `${i * 0.2}s`,
+                        animationDuration: '1.4s'
+                      }}
+                    />
+                  ))}
+                </div>Uploading...</> : 'Save Image'}
                   </Button>
                   <span className="text-xs text-gray-500">Click to save your new profile image</span>
                 </div>
@@ -671,7 +682,18 @@ export function ProfileForm({ profile }: ProfileFormProps) {
                 <Button type="submit" disabled={isSubmitting || !form.formState.isValid}>
                   {isSubmitting ? (
                     <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      <div className="flex space-x-1 mr-2">
+                  {[0, 1, 2].map((i) => (
+                    <div
+                      key={i}
+                      className="w-1.5 h-1.5 rounded-full bg-white animate-pulse"
+                      style={{
+                        animationDelay: `${i * 0.2}s`,
+                        animationDuration: '1.4s'
+                      }}
+                    />
+                  ))}
+                </div>
                       Saving...
                     </>
                   ) : (

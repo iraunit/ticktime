@@ -35,6 +35,22 @@ from common.models import PLATFORM_CHOICES
 logger = logging.getLogger(__name__)
 
 
+def format_serializer_errors(serializer_errors):
+    """Convert serializer errors to simple string messages."""
+    error_messages = []
+    for field, errors in serializer_errors.items():
+        if isinstance(errors, list):
+            for error in errors:
+                # Make field names user-friendly
+                friendly_field = field.replace('_', ' ').title()
+                error_messages.append(f"{friendly_field}: {error}")
+        else:
+            friendly_field = field.replace('_', ' ').title()
+            error_messages.append(f"{friendly_field}: {errors}")
+    
+    return '; '.join(error_messages) if error_messages else 'Invalid data provided.'
+
+
 # Profile Management Views
 
 @api_view(['GET', 'PUT', 'PATCH'])
@@ -79,10 +95,10 @@ def influencer_profile_view(request):
                 'profile': updated_profile.data
             }, status=status.HTTP_200_OK)
         
+        error_message = format_serializer_errors(serializer.errors)
         return Response({
             'status': 'error',
-            'message': 'Invalid profile data.',
-            'errors': serializer.errors
+            'message': error_message
         }, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -113,10 +129,10 @@ def upload_profile_image_view(request):
             'profile_image': serializer.data['profile_image']
         }, status=status.HTTP_200_OK)
     
+    error_message = format_serializer_errors(serializer.errors)
     return Response({
         'status': 'error',
-        'message': 'Invalid image file.',
-        'errors': serializer.errors
+        'message': error_message
     }, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -148,10 +164,10 @@ def upload_verification_document_view(request):
             'aadhar_number': serializer.data.get('aadhar_number')
         }, status=status.HTTP_200_OK)
     
+    error_message = format_serializer_errors(serializer.errors)
     return Response({
         'status': 'error',
-        'message': 'Invalid document file.',
-        'errors': serializer.errors
+        'message': error_message
     }, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -188,10 +204,10 @@ def bank_details_view(request):
                 'bank_details': serializer.data
             }, status=status.HTTP_200_OK)
         
+        error_message = format_serializer_errors(serializer.errors)
         return Response({
             'status': 'error',
-            'message': 'Invalid bank details.',
-            'errors': serializer.errors
+            'message': error_message
         }, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -239,10 +255,10 @@ def social_media_accounts_view(request):
                 'account': SocialMediaAccountSerializer(account).data
             }, status=status.HTTP_201_CREATED)
         
+        error_message = format_serializer_errors(serializer.errors)
         return Response({
             'status': 'error',
-            'message': 'Invalid account data.',
-            'errors': serializer.errors
+            'message': error_message
         }, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -289,10 +305,10 @@ def social_media_account_detail_view(request, account_id):
                 'account': serializer.data
             }, status=status.HTTP_200_OK)
         
+        error_message = format_serializer_errors(serializer.errors)
         return Response({
             'status': 'error',
-            'message': 'Invalid account data.',
-            'errors': serializer.errors
+            'message': error_message
         }, status=status.HTTP_400_BAD_REQUEST)
 
     elif request.method == 'DELETE':
@@ -353,9 +369,9 @@ def profile_completion_status_view(request):
         'basic_info': {
             'first_name': bool(request.user.first_name),
             'last_name': bool(request.user.last_name),
-            'phone_number': bool(profile.phone_number),
+            'phone_number': bool(profile.user_profile.phone_number if profile.user_profile else False),
             'bio': bool(profile.bio),
-            'profile_image': bool(profile.profile_image),
+            'profile_image': bool(profile.user_profile.profile_image if profile.user_profile else False),
         },
         'social_accounts': {
             'has_accounts': profile.social_accounts.filter(is_active=True).exists(),
@@ -367,7 +383,7 @@ def profile_completion_status_view(request):
             'is_verified': profile.is_verified,
         },
         'address': {
-            'address': bool(profile.address),
+            'address': bool(profile.user_profile.address_line1 if profile.user_profile else False),
         },
         'bank_details': {
             'bank_account_number': bool(profile.bank_account_number),

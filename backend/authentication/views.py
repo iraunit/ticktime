@@ -31,6 +31,22 @@ from users.serializers import UserProfileSerializer
 logger = logging.getLogger(__name__)
 
 
+def format_serializer_errors(serializer_errors):
+    """Convert serializer errors to simple string messages."""
+    error_messages = []
+    for field, errors in serializer_errors.items():
+        if isinstance(errors, list):
+            for error in errors:
+                # Make field names user-friendly
+                friendly_field = field.replace('_', ' ').title()
+                error_messages.append(f"{friendly_field}: {error}")
+        else:
+            friendly_field = field.replace('_', ' ').title()
+            error_messages.append(f"{friendly_field}: {errors}")
+    
+    return '; '.join(error_messages) if error_messages else 'Invalid data provided.'
+
+
 @api_view(['GET'])
 @permission_classes([AllowAny])
 def csrf_token_view(request):
@@ -90,10 +106,10 @@ def login_view(request):
             'user': profile_serializer.data,
         }, status=status.HTTP_200_OK)
 
+    error_message = format_serializer_errors(serializer.errors)
     return Response({
         'status': 'error',
-        'message': 'Invalid credentials',
-        'errors': serializer.errors
+        'message': error_message
     }, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -164,7 +180,7 @@ def logout_view(request):
 def signup_view(request):
     """
     User registration endpoint for influencers.
-    Creates verified and active accounts for immediate login.
+    Creates verified and active accounts and automatically logs them in.
     """
     serializer = UserRegistrationSerializer(data=request.data)
     
@@ -172,27 +188,43 @@ def signup_view(request):
         try:
             user = serializer.save()
             
+            # Automatically log in the user
+            login(request, user)
+            
             profile_serializer = UserProfileSerializer(user, context={'request': request})
 
             return Response({
                 'status': 'success',
-                'message': 'Account created successfully! You can now log in.',
+                'message': 'Account created successfully! You are now logged in.',
                 'user_id': user.id,
                 'user': profile_serializer.data,
                 'requires_email_verification': False,
+                'auto_logged_in': True,
             }, status=status.HTTP_201_CREATED)
             
         except Exception as e:
             logger.error(f"User registration failed: {str(e)}")
+            # Check if it's a database constraint error
+            if 'UNIQUE constraint failed' in str(e):
+                if 'email' in str(e).lower():
+                    return Response({
+                        'status': 'error',
+                        'message': 'A user with this email already exists.'
+                    }, status=status.HTTP_400_BAD_REQUEST)
+                elif 'username' in str(e).lower():
+                    return Response({
+                        'status': 'error',
+                        'message': 'This username is already taken.'
+                    }, status=status.HTTP_400_BAD_REQUEST)
             return Response({
                 'status': 'error',
                 'message': 'Registration failed. Please try again.'
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     
+    error_message = format_serializer_errors(serializer.errors)
     return Response({
         'status': 'error',
-        'message': 'Invalid data provided.',
-        'errors': serializer.errors
+        'message': error_message
     }, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -201,33 +233,45 @@ def signup_view(request):
 @auth_rate_limit(requests_per_minute=3)
 @log_performance(threshold=2.0)
 def brand_signup_view(request):
-    """Brand registration endpoint which creates a brand user and logs them in."""
+    """Brand registration endpoint which creates a brand user and automatically logs them in."""
     serializer = BrandRegistrationSerializer(data=request.data)
     if serializer.is_valid():
         try:
             user = serializer.save()
-            # Issue tokens and return
-            # refresh = RefreshToken.for_user(user)
-            # access_token = refresh.access_token
+            
+            # Automatically log in the user
+            login(request, user)
+            
             profile_serializer = UserProfileSerializer(user, context={'request': request})
             return Response({
                 'status': 'success',
-                'message': 'Brand account created successfully.',
+                'message': 'Brand account created successfully! You are now logged in.',
                 'user_id': user.id,
-                # 'access': str(access_token),
-                # 'refresh': str(refresh),
                 'user': profile_serializer.data,
+                'auto_logged_in': True,
             }, status=status.HTTP_201_CREATED)
         except Exception as e:
             logger.error(f"Brand registration failed: {str(e)}")
+            # Check if it's a database constraint error
+            if 'UNIQUE constraint failed' in str(e):
+                if 'email' in str(e).lower():
+                    return Response({
+                        'status': 'error',
+                        'message': 'A user with this email already exists.'
+                    }, status=status.HTTP_400_BAD_REQUEST)
+                elif 'domain' in str(e).lower():
+                    return Response({
+                        'status': 'error',
+                        'message': 'A brand with this domain already exists.'
+                    }, status=status.HTTP_400_BAD_REQUEST)
             return Response({
                 'status': 'error',
                 'message': 'Brand registration failed. Please try again.'
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    error_message = format_serializer_errors(serializer.errors)
     return Response({
         'status': 'error',
-        'message': 'Invalid data provided.',
-        'errors': serializer.errors
+        'message': error_message
     }, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -310,10 +354,10 @@ def forgot_password_view(request):
                 'message': 'Failed to send password reset email. Please try again.'
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     
+    error_message = format_serializer_errors(serializer.errors)
     return Response({
         'status': 'error',
-        'message': 'Invalid email address.',
-        'errors': serializer.errors
+        'message': error_message
     }, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -354,10 +398,10 @@ def reset_password_view(request, uid, token):
             'message': 'Password reset successful. You can now login with your new password.'
         }, status=status.HTTP_200_OK)
     
+    error_message = format_serializer_errors(serializer.errors)
     return Response({
         'status': 'error',
-        'message': 'Invalid password data.',
-        'errors': serializer.errors
+        'message': error_message
     }, status=status.HTTP_400_BAD_REQUEST)
 
 

@@ -3,6 +3,7 @@
 import { Suspense } from "react";
 import { MainLayout } from "@/components/layout/main-layout";
 import { LoginForm } from "@/components/auth/login-form";
+import { Loader } from "@/components/ui/loader";
 import { Loader2 } from "@/lib/icons";
 
 export default function LoginPage() {

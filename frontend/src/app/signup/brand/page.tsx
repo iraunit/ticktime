@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import { MainLayout } from "@/components/layout/main-layout";
 import { BrandSignupForm } from "@/components/auth/brand-signup-form";
+import { Loader } from "@/components/ui/loader";
 import { Loader2 } from "@/lib/icons";
 
 export default function BrandSignupPage() {

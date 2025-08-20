@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Loader2, Building2, Camera, HiHandRaised } from "@/lib/icons";
 import { useAuth } from "@/hooks/use-auth";
+import { Loader } from "@/components/ui/loader";
 
 export default function SignupPage() {
   const router = useRouter();

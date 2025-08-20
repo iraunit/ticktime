@@ -150,6 +150,9 @@ api.interceptors.response.use(
     }
 
     const responseData = error.response?.data as Record<string, unknown>;
+    
+    // Backend now sends simple string error messages, so we don't need special handling
+    
     const apiError: ApiError = {
       status: 'error',
       message: (responseData?.message as string) || getDefaultErrorMessage(error.response?.status),

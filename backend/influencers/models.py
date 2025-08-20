@@ -1,7 +1,7 @@
 from django.db import models
 from django.core.validators import MinValueValidator, MaxValueValidator
 from common.models import INDUSTRY_CHOICES, PLATFORM_CHOICES, CONTENT_CATEGORIES
-from django.contrib.postgres.fields import ArrayField
+import json
 
 
 class InfluencerProfile(models.Model):
@@ -17,10 +17,10 @@ class InfluencerProfile(models.Model):
     industry = models.CharField(max_length=50, choices=INDUSTRY_CHOICES)
     
     # Categories the influencer specializes in
-    categories = ArrayField(
-        models.CharField(max_length=30, choices=CONTENT_CATEGORIES),
+    categories = models.JSONField(
         blank=True,
         null=True,
+        default=list,
         help_text='Content categories the influencer specializes in'
     )
     
