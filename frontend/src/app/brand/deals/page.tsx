@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { GlobalLoader } from "@/components/ui/global-loader";
+import { DealListSkeleton } from "@/components/ui/skeleton-layouts";
 import { toast } from "@/lib/toast";
 import { api } from "@/lib/api";
 import { 
@@ -308,19 +308,18 @@ export default function BrandDealsPage() {
         </div>
 
         {/* Content */}
-        {isLoading && (
-          <div className="grid gap-6">
-            {Array.from({ length: 3 }).map((_, i) => (
-                              <GlobalLoader key={i} />
-            ))}
-          </div>
-        )}
+        {isLoading && <DealListSkeleton />}
 
         {!isLoading && (viewMode === 'campaigns' ? campaigns.length === 0 : deals.length === 0) && (
           <Card className="p-12 text-center bg-gradient-to-br from-white via-white to-gray-50 border border-gray-200 shadow-md">
-            <GlobalLoader />
-            <div className="mt-8">
-              <p className="text-gray-500 mb-6">
+            <div className="flex flex-col items-center justify-center">
+              <div className="w-16 h-16 bg-gradient-to-r from-gray-200 to-gray-300 rounded-full flex items-center justify-center mb-4">
+                <HiDocument className="w-8 h-8 text-gray-400" />
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                {viewMode === 'campaigns' ? 'No Campaigns Found' : 'No Deals Found'}
+              </h3>
+              <p className="text-gray-500 mb-6 max-w-md">
                 {hasActiveFilters ? "Try adjusting your search criteria or filters." : "Start by creating campaigns and sending deals to influencers."}
               </p>
               <div className="flex items-center justify-center gap-3">

@@ -268,6 +268,112 @@ def brand_campaigns_view(request):
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
+def brand_deals_by_campaigns_view(request):
+    """
+    Get deals grouped by campaigns for the brand with filters.
+    """
+    brand_user = get_brand_user_or_403(request)
+    if not brand_user:
+        return Response({
+            'status': 'error',
+            'message': 'Brand profile not found.'
+        }, status=status.HTTP_404_NOT_FOUND)
+
+    # Get all campaigns for the brand that have deals
+    campaigns = Campaign.objects.filter(
+        brand=brand_user.brand,
+        deals__isnull=False
+    ).distinct().select_related('brand').prefetch_related('deals__influencer')
+
+    # Apply search filter
+    search = request.GET.get('search')
+    if search:
+        campaigns = campaigns.filter(
+            Q(title__icontains=search) |
+            Q(description__icontains=search) |
+            Q(deals__influencer__name__icontains=search) |
+            Q(deals__influencer__username__icontains=search)
+        ).distinct()
+
+    # Apply status filter
+    status_filter = request.GET.get('status')
+    if status_filter and status_filter != 'all':
+        campaigns = campaigns.filter(deals__status=status_filter).distinct()
+
+    # Apply ordering
+    ordering = request.GET.get('ordering', 'created_at_desc')
+    if ordering == 'created_at_desc':
+        campaigns = campaigns.order_by('-created_at')
+    elif ordering == 'created_at_asc':
+        campaigns = campaigns.order_by('created_at')
+    elif ordering == 'title_asc':
+        campaigns = campaigns.order_by('title')
+    elif ordering == 'title_desc':
+        campaigns = campaigns.order_by('-title')
+
+    # Pagination
+    page = int(request.GET.get('page', 1))
+    page_size = int(request.GET.get('page_size', 20))
+    paginator = Paginator(campaigns, page_size)
+    campaigns_page = paginator.get_page(page)
+
+    # Prepare response data
+    campaigns_data = []
+    for campaign in campaigns_page:
+        # Get deals for this campaign
+        campaign_deals = campaign.deals.all().select_related('influencer')
+        
+        # Apply status filter to deals if specified
+        if status_filter and status_filter != 'all':
+            campaign_deals = campaign_deals.filter(status=status_filter)
+        
+        # Apply search filter to deals if specified
+        if search:
+            campaign_deals = campaign_deals.filter(
+                Q(influencer__name__icontains=search) |
+                Q(influencer__username__icontains=search)
+            )
+
+        # Calculate campaign statistics
+        deals_count = campaign_deals.count()
+        completed_deals = campaign_deals.filter(status='completed').count()
+
+        # Serialize deals
+        from deals.serializers import DealListSerializer
+        deals_serializer = DealListSerializer(campaign_deals, many=True)
+
+        campaigns_data.append({
+            'id': campaign.id,
+            'title': campaign.title,
+            'description': campaign.description,
+            'deal_type': campaign.deal_type,
+            'cash_amount': campaign.cash_amount,
+            'product_value': campaign.product_value,
+            'application_deadline': campaign.application_deadline,
+            'campaign_start_date': campaign.campaign_start_date,
+            'campaign_end_date': campaign.campaign_end_date,
+            'is_active': campaign.is_active,
+            'created_at': campaign.created_at,
+            'deals_count': deals_count,
+            'completed_deals': completed_deals,
+            'total_value': campaign.total_value,
+            'deals': deals_serializer.data
+        })
+
+    return Response({
+        'status': 'success',
+        'campaigns': campaigns_data,
+        'pagination': {
+            'current_page': page,
+            'total_pages': paginator.num_pages,
+            'total_count': paginator.count,
+            'items_per_page': page_size
+        }
+    })
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def brand_deals_view(request):
     """
     Get all deals for the brand with filters.

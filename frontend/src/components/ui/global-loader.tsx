@@ -9,7 +9,7 @@ export function GlobalLoader({ isVisible = true, className = "" }: GlobalLoaderP
   if (!isVisible) return null;
 
   return (
-    <div className={`min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center ${className}`}>
+    <div className={`min-h-screen bg-gradient-to-br flex items-center justify-center ${className}`}>
       <div className="text-center">
         <div className="mb-6">
           <div className="flex space-x-3 mb-4">
@@ -25,20 +25,9 @@ export function GlobalLoader({ isVisible = true, className = "" }: GlobalLoaderP
             ))}
           </div>
         </div>
-        
-        
-        <div className="absolute inset-0 pointer-events-none">
-          <div className="absolute top-1/4 left-1/4 w-32 h-32 bg-red-100 rounded-full opacity-20 animate-pulse" style={{ animationDelay: '0.5s' }} />
-          <div className="absolute bottom-1/4 right-1/4 w-24 h-24 bg-orange-100 rounded-full opacity-20 animate-pulse" style={{ animationDelay: '1s' }} />
-        </div>
       </div>
     </div>
   );
-}
-
-// Full page loader variant
-export function FullPageLoader() {
-  return <GlobalLoader />;
 }
 
 // Overlay loader variant for modals and overlays

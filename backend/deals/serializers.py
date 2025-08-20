@@ -4,6 +4,27 @@ from django.utils import timezone
 from .models import Deal
 from campaigns.serializers import CampaignSerializer
 from messaging.models import Conversation
+from influencers.models import InfluencerProfile
+
+
+class SimpleInfluencerSerializer(serializers.ModelSerializer):
+    """
+    Simple serializer for influencer information in deal contexts.
+    """
+    name = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = InfluencerProfile
+        fields = ('id', 'username', 'name')
+    
+    def get_name(self, obj):
+        """Get full name from user."""
+        if obj.user.first_name and obj.user.last_name:
+            return f"{obj.user.first_name} {obj.user.last_name}"
+        elif obj.user.first_name:
+            return obj.user.first_name
+        else:
+            return obj.username
 
 
 class DealListSerializer(serializers.ModelSerializer):
@@ -11,16 +32,18 @@ class DealListSerializer(serializers.ModelSerializer):
     Serializer for deal list view with essential information.
     """
     campaign = CampaignSerializer(read_only=True)
+    influencer = SimpleInfluencerSerializer(read_only=True)
     status_display = serializers.CharField(source='get_status_display', read_only=True)
     is_active = serializers.ReadOnlyField()
     response_deadline_passed = serializers.ReadOnlyField()
     days_until_deadline = serializers.SerializerMethodField()
+    value = serializers.SerializerMethodField()
 
     class Meta:
         model = Deal
         fields = (
-            'id', 'campaign', 'status', 'status_display', 'is_active',
-            'response_deadline_passed', 'days_until_deadline',
+            'id', 'campaign', 'influencer', 'status', 'status_display', 'is_active',
+            'response_deadline_passed', 'days_until_deadline', 'value',
             'invited_at', 'responded_at', 'accepted_at', 'completed_at',
             'payment_status', 'brand_rating'
         )
@@ -34,6 +57,10 @@ class DealListSerializer(serializers.ModelSerializer):
             return None
         delta = obj.campaign.application_deadline - timezone.now()
         return max(0, delta.days)
+
+    def get_value(self, obj):
+        """Get the deal value from the campaign."""
+        return obj.campaign.total_value
 
 
 class DealDetailSerializer(serializers.ModelSerializer):

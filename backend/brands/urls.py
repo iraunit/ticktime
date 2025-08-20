@@ -14,6 +14,7 @@ urlpatterns = [
     # Campaign Management
     path('campaigns/', views.brand_campaigns_view, name='brand-campaigns'),
     path('deals/', views.brand_deals_view, name='brand-deals'),
+    path('deals/by-campaigns/', views.brand_deals_by_campaigns_view, name='brand-deals-by-campaigns'),
     path('deals/<int:deal_id>/content/', views.approve_reject_content_view, name='approve-reject-content'),
     
     # Influencer Management
