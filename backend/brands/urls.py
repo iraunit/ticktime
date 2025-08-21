@@ -26,5 +26,7 @@ urlpatterns = [
     path('bookmarks/', views.bookmarked_influencers_view, name='bookmarked-influencers'),
     
     # Analytics & Audit
+    path('analytics/overview/', views.brand_analytics_overview_view, name='brand-analytics-overview'),
+    path('analytics/campaigns/', views.brand_analytics_campaigns_view, name='brand-analytics-campaigns'),
     path('audit-logs/', views.brand_audit_logs_view, name='brand-audit-logs'),
 ]

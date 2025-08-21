@@ -1,16 +1,13 @@
 "use client";
 
 import { useEffect, useState } from 'react';
-import { GlobalLoader } from '@/components/ui/global-loader';
 
 interface HydrationBoundaryProps {
   children: React.ReactNode;
-  fallback?: React.ReactNode;
 }
 
 export function HydrationBoundary({ 
-  children, 
-  fallback = <GlobalLoader />
+  children 
 }: HydrationBoundaryProps) {
   const [isHydrated, setIsHydrated] = useState(false);
 
@@ -19,11 +16,7 @@ export function HydrationBoundary({
     setIsHydrated(true);
   }, []);
 
-  // Show fallback during server-side rendering and initial hydration
-  if (!isHydrated) {
-    return <>{fallback}</>;
-  }
-
-  // Render children after hydration is complete
+  // During SSR and initial hydration, render children normally
+  // This prevents hydration mismatches
   return <>{children}</>;
 } 

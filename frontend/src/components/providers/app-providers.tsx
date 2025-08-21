@@ -84,7 +84,8 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
-    if (!hasFetched) {
+    if (!hasFetched && typeof window !== 'undefined') {
+      // Only run on client side to prevent hydration mismatches
       // Prime CSRF cookie for session-authenticated requests (noop if already set)
       authApi.csrf().catch(() => {});
       // Fetch current user once on app mount
@@ -94,13 +95,14 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
 
   // In development, proactively unregister any existing service workers and clear caches
   useEffect(() => {
-    if (process.env.NODE_ENV === "development") {
-      if (typeof window !== "undefined" && "serviceWorker" in navigator) {
+    if (process.env.NODE_ENV === "development" && typeof window !== "undefined") {
+      // Only run on client side to prevent hydration mismatches
+      if ("serviceWorker" in navigator) {
         navigator.serviceWorker.getRegistrations().then((registrations) => {
           registrations.forEach((registration) => registration.unregister());
         }).catch(() => {});
       }
-      if (typeof window !== "undefined" && "caches" in window) {
+      if ("caches" in window) {
         caches.keys().then((keys) => {
           keys.forEach((key) => caches.delete(key));
         }).catch(() => {});

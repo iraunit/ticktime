@@ -791,3 +791,274 @@ def brand_conversation_messages_view(request, conversation_id):
             'message': 'Invalid message data.',
             'errors': serializer.errors
         }, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def brand_analytics_overview_view(request):
+    """
+    Get brand analytics overview with key metrics and trends.
+    """
+    brand_user = get_brand_user_or_403(request)
+    if not brand_user:
+        return Response({
+            'status': 'error',
+            'message': 'Brand profile not found.'
+        }, status=status.HTTP_404_NOT_FOUND)
+
+    if not brand_user.can_view_analytics:
+        return Response({
+            'status': 'error',
+            'message': 'You do not have permission to view analytics.'
+        }, status=status.HTTP_403_FORBIDDEN)
+
+    brand = brand_user.brand
+    time_range = request.GET.get('time_range', 'last_30_days')
+    
+    # Calculate date range based on time_range parameter
+    from datetime import datetime, timedelta
+    now = timezone.now()
+    
+    if time_range == 'last_7_days':
+        start_date = now - timedelta(days=7)
+    elif time_range == 'last_30_days':
+        start_date = now - timedelta(days=30)
+    elif time_range == 'last_90_days':
+        start_date = now - timedelta(days=90)
+    elif time_range == 'last_6_months':
+        start_date = now - timedelta(days=180)
+    elif time_range == 'last_year':
+        start_date = now - timedelta(days=365)
+    else:
+        start_date = now - timedelta(days=30)
+
+    # Get campaigns in date range
+    campaigns = brand.campaigns.filter(created_at__gte=start_date)
+    deals = Deal.objects.filter(
+        campaign__brand=brand,
+        invited_at__gte=start_date
+    )
+
+    # Calculate overall metrics
+    total_campaigns = campaigns.count()
+    total_investment = sum(campaign.cash_amount for campaign in campaigns)
+    
+    # Mock data for reach and engagement (in real app, this would come from actual analytics)
+    total_reach = sum(campaign.cash_amount * 100 for campaign in campaigns)  # Mock: 100x investment
+    total_engagement = sum(campaign.cash_amount * 10 for campaign in campaigns)  # Mock: 10x investment
+    avg_roi = 3.5  # Mock average ROI percentage
+    avg_engagement_rate = 2.8  # Mock average engagement rate
+
+    # Get top performing campaigns
+    top_campaigns = []
+    for campaign in campaigns[:5]:  # Top 5 campaigns
+        campaign_deals = deals.filter(campaign=campaign)
+        completed_deals = campaign_deals.filter(status='completed').count()
+        
+        top_campaigns.append({
+            'id': campaign.id,
+            'title': campaign.title,
+            'status': campaign.status,
+            'total_investment': campaign.cash_amount,
+            'total_reach': campaign.cash_amount * 100,  # Mock
+            'total_engagement': campaign.cash_amount * 10,  # Mock
+            'engagement_rate': 2.5 + (campaign.id % 3),  # Mock varying rates
+            'roi': 2.0 + (campaign.id % 4),  # Mock varying ROI
+            'influencers_count': campaign_deals.count(),
+            'completed_deals': completed_deals,
+            'pending_deals': campaign_deals.filter(status='invited').count(),
+        })
+
+    # Generate monthly trends (mock data)
+    monthly_trends = []
+    for i in range(6):  # Last 6 months
+        month_date = now - timedelta(days=30 * i)
+        monthly_trends.append({
+            'month': month_date.strftime('%B %Y'),
+            'investment': total_investment // 6 + (i * 1000),  # Mock varying investment
+            'reach': (total_investment // 6 + (i * 1000)) * 100,  # Mock reach
+            'engagement': (total_investment // 6 + (i * 1000)) * 10,  # Mock engagement
+            'roi': 2.0 + (i % 3),  # Mock varying ROI
+        })
+    monthly_trends.reverse()
+
+    # Mock demographics data
+    demographics = {
+        'genders': [
+            {'gender': 'Female', 'percentage': 65},
+            {'gender': 'Male', 'percentage': 35},
+        ],
+        'devices': [
+            {'device': 'Mobile', 'percentage': 75},
+            {'device': 'Desktop', 'percentage': 25},
+        ],
+        'locations': [
+            {'country': 'India', 'percentage': 45},
+            {'country': 'United States', 'percentage': 25},
+            {'country': 'United Kingdom', 'percentage': 15},
+            {'country': 'Canada', 'percentage': 10},
+            {'country': 'Australia', 'percentage': 5},
+        ],
+    }
+
+    return Response({
+        'status': 'success',
+        'analytics': {
+            'total_campaigns': total_campaigns,
+            'total_investment': total_investment,
+            'total_reach': total_reach,
+            'total_engagement': total_engagement,
+            'avg_roi': avg_roi,
+            'avg_engagement_rate': avg_engagement_rate,
+            'top_performing_campaigns': top_campaigns,
+            'monthly_trends': monthly_trends,
+            'demographics': demographics,
+        }
+    }, status=status.HTTP_200_OK)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def brand_analytics_campaigns_view(request):
+    """
+    Get detailed analytics for all brand campaigns.
+    """
+    brand_user = get_brand_user_or_403(request)
+    if not brand_user:
+        return Response({
+            'status': 'error',
+            'message': 'Brand profile not found.'
+        }, status=status.HTTP_404_NOT_FOUND)
+
+    if not brand_user.can_view_analytics:
+        return Response({
+            'status': 'error',
+            'message': 'You do not have permission to view analytics.'
+        }, status=status.HTTP_403_FORBIDDEN)
+
+    brand = brand_user.brand
+    time_range = request.GET.get('time_range', 'last_30_days')
+    
+    # Calculate date range based on time_range parameter
+    from datetime import datetime, timedelta
+    now = timezone.now()
+    
+    if time_range == 'last_7_days':
+        start_date = now - timedelta(days=7)
+    elif time_range == 'last_30_days':
+        start_date = now - timedelta(days=30)
+    elif time_range == 'last_90_days':
+        start_date = now - timedelta(days=90)
+    elif time_range == 'last_6_months':
+        start_date = now - timedelta(days=180)
+    elif time_range == 'last_year':
+        start_date = now - timedelta(days=365)
+    else:
+        start_date = now - timedelta(days=30)
+
+    # Get campaigns in date range
+    campaigns = brand.campaigns.filter(created_at__gte=start_date)
+    deals = Deal.objects.filter(
+        campaign__brand=brand,
+        invited_at__gte=start_date
+    )
+
+    campaign_analytics = []
+    for campaign in campaigns:
+        campaign_deals = deals.filter(campaign=campaign)
+        completed_deals = campaign_deals.filter(status='completed').count()
+        pending_deals = campaign_deals.filter(status='invited').count()
+        
+        # Mock analytics data for each campaign
+        total_reach = campaign.cash_amount * 100  # Mock: 100x investment
+        total_impressions = campaign.cash_amount * 500  # Mock: 500x investment
+        total_engagement = campaign.cash_amount * 10  # Mock: 10x investment
+        total_likes = campaign.cash_amount * 8  # Mock: 8x investment
+        total_comments = campaign.cash_amount * 1.5  # Mock: 1.5x investment
+        total_shares = campaign.cash_amount * 0.5  # Mock: 0.5x investment
+        total_saves = campaign.cash_amount * 0.2  # Mock: 0.2x investment
+        
+        # Calculate rates
+        conversion_rate = 2.5 + (campaign.id % 3)  # Mock varying rates
+        roi = 2.0 + (campaign.id % 4)  # Mock varying ROI
+        engagement_rate = 2.0 + (campaign.id % 2)  # Mock varying engagement
+        avg_cpm = 15 + (campaign.id % 10)  # Mock CPM
+        avg_cpe = 2 + (campaign.id % 3)  # Mock CPE
+
+        # Mock demographics
+        demographics = {
+            'age_groups': [
+                {'range': '18-24', 'percentage': 30 + (campaign.id % 20)},
+                {'range': '25-34', 'percentage': 40 + (campaign.id % 15)},
+                {'range': '35-44', 'percentage': 20 + (campaign.id % 10)},
+                {'range': '45+', 'percentage': 10 + (campaign.id % 5)},
+            ],
+            'genders': [
+                {'gender': 'Female', 'percentage': 60 + (campaign.id % 20)},
+                {'gender': 'Male', 'percentage': 40 - (campaign.id % 20)},
+            ],
+            'locations': [
+                {'country': 'India', 'percentage': 40 + (campaign.id % 20)},
+                {'country': 'United States', 'percentage': 25 + (campaign.id % 15)},
+                {'country': 'United Kingdom', 'percentage': 15 + (campaign.id % 10)},
+                {'country': 'Canada', 'percentage': 10 + (campaign.id % 5)},
+                {'country': 'Australia', 'percentage': 5 + (campaign.id % 5)},
+            ],
+            'devices': [
+                {'device': 'Mobile', 'percentage': 70 + (campaign.id % 20)},
+                {'device': 'Desktop', 'percentage': 30 - (campaign.id % 20)},
+            ],
+        }
+
+        # Mock performance timeline
+        performance_timeline = []
+        for i in range(7):  # Last 7 days
+            day_date = now - timedelta(days=i)
+            performance_timeline.append({
+                'date': day_date.strftime('%Y-%m-%d'),
+                'reach': total_reach // 7 + (i * 100),
+                'engagement': total_engagement // 7 + (i * 10),
+                'impressions': total_impressions // 7 + (i * 500),
+            })
+        performance_timeline.reverse()
+
+        # Mock top performing content
+        top_performing_content = []
+        for i in range(3):  # Top 3 content pieces
+            top_performing_content.append({
+                'influencer_name': f'Influencer {campaign.id}-{i+1}',
+                'content_type': ['post', 'story', 'reel'][i % 3],
+                'reach': total_reach // 3 + (i * 1000),
+                'engagement_rate': engagement_rate + (i * 0.5),
+                'platform': ['Instagram', 'TikTok', 'YouTube'][i % 3],
+            })
+
+        campaign_analytics.append({
+            'id': campaign.id,
+            'title': campaign.title,
+            'status': campaign.status,
+            'total_investment': campaign.cash_amount,
+            'total_reach': total_reach,
+            'total_impressions': total_impressions,
+            'total_engagement': total_engagement,
+            'total_likes': total_likes,
+            'total_comments': total_comments,
+            'total_shares': total_shares,
+            'total_saves': total_saves,
+            'conversion_rate': conversion_rate,
+            'roi': roi,
+            'engagement_rate': engagement_rate,
+            'influencers_count': campaign_deals.count(),
+            'completed_deals': completed_deals,
+            'pending_deals': pending_deals,
+            'avg_cpm': avg_cpm,
+            'avg_cpe': avg_cpe,
+            'demographics': demographics,
+            'performance_timeline': performance_timeline,
+            'top_performing_content': top_performing_content,
+        })
+
+    return Response({
+        'status': 'success',
+        'campaigns': campaign_analytics,
+    }, status=status.HTTP_200_OK)

@@ -352,6 +352,548 @@ def toggle_social_account_status_view(request, account_id):
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
+@user_rate_limit(requests_per_minute=30)
+@cache_response(timeout=300)  # 5 minute cache
+def influencer_search_view(request):
+    """
+    Advanced influencer search with comprehensive filtering and platform-specific features.
+    """
+    from django.db.models import Q, Avg, Count, F, Case, When, Value, IntegerField
+    from django.core.paginator import Paginator
+    from brands.models import BookmarkedInfluencer
+    from datetime import datetime, timedelta
+    
+    # Get query parameters
+    search = request.GET.get('search', '').strip()
+    platform = request.GET.get('platform', 'all')
+    location = request.GET.get('location', '')
+    gender = request.GET.get('gender', '')
+    follower_range = request.GET.get('follower_range', '')
+    categories = request.GET.get('categories', '').split(',') if request.GET.get('categories') else []
+    industry = request.GET.get('industry', '')
+    sort_by = request.GET.get('sort_by', 'followers')
+    sort_order = request.GET.get('sort_order', 'desc')
+    page = int(request.GET.get('page', 1))
+    page_size = int(request.GET.get('page_size', 50))
+    
+    # Platform-specific filters
+    influence_score_min = request.GET.get('influence_score_min')
+    faster_responses = request.GET.get('faster_responses', '').lower() == 'true'
+    commerce_ready = request.GET.get('commerce_ready', '').lower() == 'true'
+    campaign_ready = request.GET.get('campaign_ready', '').lower() == 'true'
+    barter_ready = request.GET.get('barter_ready', '').lower() == 'true'
+    instagram_verified = request.GET.get('instagram_verified', '').lower() == 'true'
+    has_instagram = request.GET.get('has_instagram', '').lower() == 'true'
+    has_youtube = request.GET.get('has_youtube', '').lower() == 'true'
+    
+    # Content and bio keywords
+    caption_keywords = request.GET.get('caption_keywords', '').strip()
+    bio_keywords = request.GET.get('bio_keywords', '').strip()
+    
+    # Advanced filters
+    min_followers = request.GET.get('min_followers')
+    max_followers = request.GET.get('max_followers')
+    min_engagement = request.GET.get('min_engagement')
+    max_engagement = request.GET.get('max_engagement')
+    min_rating = request.GET.get('min_rating')
+    max_rating = request.GET.get('max_rating')
+    
+    # Location filters
+    country = request.GET.get('country', '')
+    state = request.GET.get('state', '')
+    city = request.GET.get('city', '')
+    
+    # Audience filters
+    audience_gender = request.GET.get('audience_gender', '')
+    audience_age_range = request.GET.get('audience_age_range', '')
+    audience_location = request.GET.get('audience_location', '')
+    audience_interest = request.GET.get('audience_interest', '')
+    audience_language = request.GET.get('audience_language', '')
+    
+    # Performance filters
+    min_avg_likes = request.GET.get('min_avg_likes')
+    min_avg_views = request.GET.get('min_avg_views')
+    min_avg_comments = request.GET.get('min_avg_comments')
+    last_posted_within = request.GET.get('last_posted_within', '')  # days
+    
+    # Start with all influencer profiles
+    queryset = InfluencerProfile.objects.select_related('user').prefetch_related(
+        'social_accounts'
+    ).filter(is_active=True)
+    
+    # Apply search filter
+    if search:
+        queryset = queryset.filter(
+            Q(user__first_name__icontains=search) |
+            Q(user__last_name__icontains=search) |
+            Q(user__username__icontains=search) |
+            Q(bio__icontains=search) |
+            Q(industry__icontains=search) |
+            Q(social_accounts__handle__icontains=search) |
+            Q(content_keywords__contains=[search]) |
+            Q(bio_keywords__contains=[search])
+        ).distinct()
+    
+    # Apply platform filter
+    if platform and platform != 'all':
+        queryset = queryset.filter(social_accounts__platform=platform, social_accounts__is_active=True)
+    
+    # Apply location filters
+    if country:
+        queryset = queryset.filter(country__icontains=country)
+    if state:
+        queryset = queryset.filter(state__icontains=state)
+    if city:
+        queryset = queryset.filter(city__icontains=city)
+    if location:  # Legacy location filter
+        queryset = queryset.filter(
+            Q(city__icontains=location) |
+            Q(state__icontains=location) |
+            Q(country__icontains=location)
+        )
+    
+    # Apply gender filter
+    if gender:
+        queryset = queryset.filter(gender=gender)
+    
+    # Apply follower range filter
+    if follower_range:
+        if follower_range == '1K - 10K':
+            queryset = queryset.filter(total_followers__gte=1000, total_followers__lt=10000)
+        elif follower_range == '10K - 50K':
+            queryset = queryset.filter(total_followers__gte=10000, total_followers__lt=50000)
+        elif follower_range == '50K - 100K':
+            queryset = queryset.filter(total_followers__gte=50000, total_followers__lt=100000)
+        elif follower_range == '100K - 500K':
+            queryset = queryset.filter(total_followers__gte=100000, total_followers__lt=500000)
+        elif follower_range == '500K - 1M':
+            queryset = queryset.filter(total_followers__gte=500000, total_followers__lt=1000000)
+        elif follower_range == '1M - 5M':
+            queryset = queryset.filter(total_followers__gte=1000000, total_followers__lt=5000000)
+        elif follower_range == '5M+':
+            queryset = queryset.filter(total_followers__gte=5000000)
+    
+    # Apply custom follower range
+    if min_followers:
+        try:
+            min_followers = int(min_followers)
+            queryset = queryset.filter(total_followers__gte=min_followers)
+        except ValueError:
+            pass
+    
+    if max_followers:
+        try:
+            max_followers = int(max_followers)
+            queryset = queryset.filter(total_followers__lte=max_followers)
+        except ValueError:
+            pass
+    
+    # Apply industry filter
+    if industry:
+        queryset = queryset.filter(industry=industry)
+    
+    # Apply categories filter
+    if categories and categories[0]:
+        queryset = queryset.filter(categories__overlap=categories)
+    
+    # Apply platform-specific filters
+    if influence_score_min:
+        try:
+            influence_score_min = float(influence_score_min)
+            queryset = queryset.filter(influence_score__gte=influence_score_min)
+        except ValueError:
+            pass
+    
+    if faster_responses:
+        queryset = queryset.filter(faster_responses=True)
+    
+    if commerce_ready:
+        queryset = queryset.filter(commerce_ready=True)
+    
+    if campaign_ready:
+        queryset = queryset.filter(campaign_ready=True)
+    
+    if barter_ready:
+        queryset = queryset.filter(barter_ready=True)
+    
+    if instagram_verified:
+        queryset = queryset.filter(instagram_verified=True)
+    
+    if has_instagram:
+        queryset = queryset.filter(has_instagram=True)
+    
+    if has_youtube:
+        queryset = queryset.filter(has_youtube=True)
+    
+    # Apply content and bio keyword filters
+    if caption_keywords:
+        queryset = queryset.filter(content_keywords__contains=[caption_keywords])
+    
+    if bio_keywords:
+        queryset = queryset.filter(bio_keywords__contains=[bio_keywords])
+    
+    # Apply engagement filters
+    if min_engagement:
+        try:
+            min_engagement = float(min_engagement)
+            queryset = queryset.filter(average_engagement_rate__gte=min_engagement)
+        except ValueError:
+            pass
+    
+    if max_engagement:
+        try:
+            max_engagement = float(max_engagement)
+            queryset = queryset.filter(average_engagement_rate__lte=max_engagement)
+        except ValueError:
+            pass
+    
+    # Apply rating filters
+    if min_rating:
+        try:
+            min_rating = float(min_rating)
+            queryset = queryset.filter(avg_rating__gte=min_rating)
+        except ValueError:
+            pass
+    
+    if max_rating:
+        try:
+            max_rating = float(max_rating)
+            queryset = queryset.filter(avg_rating__lte=max_rating)
+        except ValueError:
+            pass
+    
+    # Apply performance filters
+    if min_avg_likes:
+        try:
+            min_avg_likes = int(min_avg_likes)
+            queryset = queryset.filter(social_accounts__average_likes__gte=min_avg_likes)
+        except ValueError:
+            pass
+    
+    if min_avg_views:
+        try:
+            min_avg_views = int(min_avg_views)
+            queryset = queryset.filter(social_accounts__average_video_views__gte=min_avg_views)
+        except ValueError:
+            pass
+    
+    if min_avg_comments:
+        try:
+            min_avg_comments = int(min_avg_comments)
+            queryset = queryset.filter(social_accounts__average_comments__gte=min_avg_comments)
+        except ValueError:
+            pass
+    
+    # Apply last posted filter
+    if last_posted_within:
+        try:
+            days = int(last_posted_within)
+            cutoff_date = datetime.now() - timedelta(days=days)
+            queryset = queryset.filter(social_accounts__last_posted_at__gte=cutoff_date)
+        except ValueError:
+            pass
+    
+    # Apply audience filters
+    if audience_gender:
+        queryset = queryset.filter(audience_gender_distribution__contains={audience_gender: {'$gt': 0}})
+    
+    if audience_age_range:
+        queryset = queryset.filter(audience_age_distribution__contains={audience_age_range: {'$gt': 0}})
+    
+    if audience_location:
+        queryset = queryset.filter(audience_locations__contains=[audience_location])
+    
+    if audience_interest:
+        queryset = queryset.filter(audience_interests__contains=[audience_interest])
+    
+    if audience_language:
+        queryset = queryset.filter(audience_languages__contains=[audience_language])
+    
+    # Apply sorting
+    order_prefix = '' if sort_order == 'asc' else '-'
+    
+    if sort_by == 'followers':
+        queryset = queryset.order_by(f'{order_prefix}total_followers')
+    elif sort_by == 'subscribers':
+        queryset = queryset.order_by(f'{order_prefix}total_followers')  # Same as followers for now
+    elif sort_by == 'engagement':
+        queryset = queryset.order_by(f'{order_prefix}average_engagement_rate')
+    elif sort_by == 'rating':
+        queryset = queryset.order_by(f'{order_prefix}avg_rating')
+    elif sort_by == 'influence_score':
+        queryset = queryset.order_by(f'{order_prefix}influence_score')
+    elif sort_by == 'avg_likes':
+        queryset = queryset.order_by(f'{order_prefix}social_accounts__average_likes')
+    elif sort_by == 'avg_views':
+        queryset = queryset.order_by(f'{order_prefix}social_accounts__average_video_views')
+    elif sort_by == 'avg_comments':
+        queryset = queryset.order_by(f'{order_prefix}social_accounts__average_comments')
+    elif sort_by == 'posts':
+        queryset = queryset.order_by(f'{order_prefix}social_accounts__posts_count')
+    elif sort_by == 'recently_active':
+        queryset = queryset.order_by(f'{order_prefix}social_accounts__last_posted_at')
+    elif sort_by == 'growth_rate':
+        queryset = queryset.order_by(f'{order_prefix}social_accounts__follower_growth_rate')
+    else:
+        queryset = queryset.order_by(f'{order_prefix}total_followers')
+    
+    # Pagination
+    paginator = Paginator(queryset, page_size)
+    page_obj = paginator.get_page(page)
+    
+    # Serialize results
+    results = []
+    for profile in page_obj:
+        # Get primary social media account for the selected platform
+        primary_account = None
+        if platform and platform != 'all':
+            primary_account = profile.social_accounts.filter(
+                platform=platform, is_active=True
+            ).first()
+        else:
+            # Get the account with highest followers
+            primary_account = profile.social_accounts.filter(
+                is_active=True
+            ).order_by('-followers_count').first()
+        
+        if not primary_account:
+            continue
+            
+        # Check if bookmarked by current user
+        is_bookmarked = False
+        try:
+            brand_user = request.user.brand_user
+            if brand_user:
+                is_bookmarked = BookmarkedInfluencer.objects.filter(
+                    brand=brand_user.brand,
+                    influencer=profile
+                ).exists()
+        except:
+            pass
+        
+        # Get platform-specific metrics
+        platform_metrics = {}
+        if platform == 'instagram':
+            platform_metrics = {
+                'avg_image_likes': primary_account.average_image_likes or 0,
+                'avg_image_comments': primary_account.average_image_comments or 0,
+                'avg_reel_plays': primary_account.average_reel_plays or 0,
+                'avg_reel_likes': primary_account.average_reel_likes or 0,
+                'avg_reel_comments': primary_account.average_reel_comments or 0,
+            }
+        elif platform == 'youtube':
+            platform_metrics = {
+                'subscribers_count': primary_account.subscribers_count or 0,
+                'avg_video_views': primary_account.average_video_views or 0,
+                'avg_shorts_plays': primary_account.average_shorts_plays or 0,
+                'avg_shorts_likes': primary_account.average_shorts_likes or 0,
+                'avg_shorts_comments': primary_account.average_shorts_comments or 0,
+            }
+        
+        influencer_data = {
+            'id': profile.id,
+            'username': profile.user.username,
+            'full_name': f"{profile.user.first_name} {profile.user.last_name}".strip(),
+            'industry': profile.industry or '',
+            'bio': profile.bio or '',
+            'profile_image': profile.profile_image.url if profile.profile_image else None,
+            'is_verified': profile.is_verified,
+            'total_followers': primary_account.followers_count or 0,
+            'avg_engagement': profile.average_engagement_rate or 0,
+            'collaboration_count': profile.collaboration_count or 0,
+            'avg_rating': profile.avg_rating or 0,
+            'platforms': list(profile.social_accounts.filter(is_active=True).values_list('platform', flat=True)),
+            'location': profile.location_display,
+            'country': profile.country,
+            'state': profile.state,
+            'city': profile.city,
+            'gender': profile.gender,
+            'age_range': profile.age_range,
+            'influence_score': profile.influence_score or 0,
+            'response_time': profile.response_time,
+            'faster_responses': profile.faster_responses,
+            'contact_availability': profile.contact_availability,
+            'commerce_ready': profile.commerce_ready,
+            'campaign_ready': profile.campaign_ready,
+            'barter_ready': profile.barter_ready,
+            'instagram_verified': profile.instagram_verified,
+            'has_instagram': profile.has_instagram,
+            'has_youtube': profile.has_youtube,
+            'brand_safety_score': profile.brand_safety_score or 0,
+            'content_quality_score': profile.content_quality_score or 0,
+            'rate_per_post': profile.rate_per_post,
+            'avg_likes': primary_account.average_likes or 0,
+            'avg_views': primary_account.average_video_views or 0,
+            'avg_comments': primary_account.average_comments or 0,
+            'posts_count': primary_account.posts_count or 0,
+            'last_posted_at': primary_account.last_posted_at,
+            'follower_growth_rate': primary_account.follower_growth_rate or 0,
+            'subscriber_growth_rate': primary_account.subscriber_growth_rate or 0,
+            'avg_cpm': primary_account.avg_cpm or 0,
+            'post_performance_score': primary_account.post_performance_score or 0,
+            'is_bookmarked': is_bookmarked,
+            'categories': profile.categories or [],
+            'content_keywords': profile.content_keywords or [],
+            'bio_keywords': profile.bio_keywords or [],
+            'audience_gender_distribution': profile.audience_gender_distribution or {},
+            'audience_age_distribution': profile.audience_age_distribution or {},
+            'audience_locations': profile.audience_locations or [],
+            'audience_interests': profile.audience_interests or [],
+            'audience_languages': profile.audience_languages or [],
+            'platform_metrics': platform_metrics,
+            'created_at': profile.created_at,
+            'updated_at': profile.updated_at,
+        }
+        
+        results.append(influencer_data)
+    
+    return Response({
+        'status': 'success',
+        'results': results,
+        'pagination': {
+            'page': page,
+            'page_size': page_size,
+            'total_pages': paginator.num_pages,
+            'total_count': paginator.count,
+            'has_next': page_obj.has_next(),
+            'has_previous': page_obj.has_previous(),
+        }
+    }, status=status.HTTP_200_OK)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+@user_rate_limit(requests_per_minute=10)
+def bookmark_influencer_view(request, influencer_id):
+    """
+    Bookmark or unbookmark an influencer.
+    """
+    from brands.models import BookmarkedInfluencer
+    
+    try:
+        brand_user = request.user.brand_user
+        if not brand_user:
+            return Response({
+                'status': 'error',
+                'message': 'Brand profile not found.'
+            }, status=status.HTTP_404_NOT_FOUND)
+        
+        influencer = get_object_or_404(InfluencerProfile, id=influencer_id)
+        
+        # Check if already bookmarked
+        existing_bookmark = BookmarkedInfluencer.objects.filter(
+            brand=brand_user.brand,
+            influencer=influencer
+        ).first()
+        
+        if existing_bookmark:
+            # Unbookmark
+            existing_bookmark.delete()
+            return Response({
+                'status': 'success',
+                'message': 'Influencer removed from bookmarks.',
+                'is_bookmarked': False
+            }, status=status.HTTP_200_OK)
+        else:
+            # Bookmark
+            BookmarkedInfluencer.objects.create(
+                brand=brand_user.brand,
+                influencer=influencer,
+                user=request.user
+            )
+            return Response({
+                'status': 'success',
+                'message': 'Influencer bookmarked successfully.',
+                'is_bookmarked': True
+            }, status=status.HTTP_201_CREATED)
+            
+    except Exception as e:
+        logger.error(f"Error bookmarking influencer: {e}")
+        return Response({
+            'status': 'error',
+            'message': 'Failed to bookmark influencer.'
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+@user_rate_limit(requests_per_minute=30)
+def influencer_filters_view(request):
+    """
+    Get available filter options for influencer search.
+    """
+    from django.db.models import Count, Min, Max
+    
+    # Get unique locations
+    locations = InfluencerProfile.objects.filter(
+        is_active=True, location__isnull=False
+    ).exclude(location='').values_list('location', flat=True).distinct()
+    
+    # Get follower ranges
+    follower_stats = InfluencerProfile.objects.filter(
+        is_active=True, total_followers__gt=0
+    ).aggregate(
+        min_followers=Min('total_followers'),
+        max_followers=Max('total_followers')
+    )
+    
+    # Get rating ranges
+    rating_stats = InfluencerProfile.objects.filter(
+        is_active=True, avg_rating__gt=0
+    ).aggregate(
+        min_rating=Min('avg_rating'),
+        max_rating=Max('avg_rating')
+    )
+    
+    # Get unique categories
+    all_categories = []
+    for profile in InfluencerProfile.objects.filter(is_active=True, categories__isnull=False):
+        if profile.categories:
+            all_categories.extend(profile.categories)
+    unique_categories = list(set(all_categories))
+    
+    return Response({
+        'status': 'success',
+        'filters': {
+            'locations': sorted(list(locations)),
+            'follower_ranges': [
+                {'label': 'All', 'min': 0, 'max': 999999999},
+                {'label': '1K - 10K', 'min': 1000, 'max': 10000},
+                {'label': '10K - 50K', 'min': 10000, 'max': 50000},
+                {'label': '50K - 100K', 'min': 50000, 'max': 100000},
+                {'label': '100K - 500K', 'min': 100000, 'max': 500000},
+                {'label': '500K - 1M', 'min': 500000, 'max': 1000000},
+                {'label': '1M - 5M', 'min': 1000000, 'max': 5000000},
+                {'label': '5M+', 'min': 5000000, 'max': 999999999}
+            ],
+            'rating_ranges': [
+                {'label': 'All', 'min': 0, 'max': 5},
+                {'label': '4+', 'min': 4, 'max': 5},
+                {'label': '4.5+', 'min': 4.5, 'max': 5},
+                {'label': '5.0', 'min': 5, 'max': 5}
+            ],
+            'categories': sorted(unique_categories),
+            'platforms': [choice[0] for choice in PLATFORM_CHOICES],
+            'genders': ['Male', 'Female', 'Other'],
+            'sort_options': [
+                {'value': 'influence_score', 'label': 'Influence Score'},
+                {'value': 'subscribers', 'label': 'Subscribers'},
+                {'value': 'avg_likes', 'label': 'Average Likes'},
+                {'value': 'avg_views', 'label': 'Average Views'},
+                {'value': 'avg_comments', 'label': 'Average Comments'},
+                {'value': 'engagement', 'label': 'Engagement Rate'}
+            ]
+        },
+        'stats': {
+            'total_influencers': InfluencerProfile.objects.filter(is_active=True).count(),
+            'follower_stats': follower_stats,
+            'score_stats': score_stats
+        }
+    }, status=status.HTTP_200_OK)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def profile_completion_status_view(request):
     """
     Get profile completion status and missing fields.

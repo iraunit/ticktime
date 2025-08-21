@@ -1,38 +1,110 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Slider } from "@/components/ui/slider";
-import { Checkbox } from "@/components/ui/checkbox";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { 
   HiMagnifyingGlass, 
-  HiAdjustmentsHorizontal, 
   HiBookmark,
   HiEye,
   HiUserPlus,
   HiCheckBadge,
-  HiXMark,
-  HiFunnel,
   HiArrowPath,
   HiStar,
-  HiMapPin
+  HiMapPin,
+  HiPlay,
+  HiHeart,
+  HiChatBubbleLeftRight,
+  HiEnvelope,
+  HiPhone,
+  HiGlobeAlt,
+  HiPlus,
+  HiChevronDown,
+  HiChevronUp,
+  HiAdjustmentsHorizontal,
+  HiFunnel,
+  HiSparkles,
+  HiUsers,
+  HiClock,
+  HiCalendar
 } from "react-icons/hi2";
+import { HiX } from "react-icons/hi";
+import { 
+  FaYoutube, 
+  FaInstagram, 
+  FaTiktok, 
+  FaTwitter, 
+  FaFacebook, 
+  FaLinkedin, 
+  FaSnapchat, 
+  FaPinterest 
+} from "react-icons/fa";
 import { api } from "@/lib/api";
 import { toast } from "@/lib/toast";
 import { GlobalLoader } from "@/components/ui/global-loader";
 
-// Platform icons mapping
-const platformIcons: { [key: string]: string } = {
-  instagram: "📷",
-  youtube: "📺", 
-  tiktok: "🎵",
-  twitter: "🐦",
-  linkedin: "💼",
-  facebook: "👥"
+// Platform configuration with real icons
+const platformConfig = {
+  youtube: { 
+    icon: FaYoutube, 
+    color: "text-red-600", 
+    bg: "bg-red-50", 
+    border: "border-red-200",
+    gradient: "from-red-500 to-red-600"
+  },
+  instagram: { 
+    icon: FaInstagram, 
+    color: "text-pink-600", 
+    bg: "bg-pink-50", 
+    border: "border-pink-200",
+    gradient: "from-pink-500 to-purple-500"
+  },
+  tiktok: { 
+    icon: FaTiktok, 
+    color: "text-gray-800", 
+    bg: "bg-gray-50", 
+    border: "border-gray-200",
+    gradient: "from-gray-800 to-gray-900"
+  },
+  twitter: { 
+    icon: FaTwitter, 
+    color: "text-blue-500", 
+    bg: "bg-blue-50", 
+    border: "border-blue-200",
+    gradient: "from-blue-400 to-blue-500"
+  },
+  facebook: { 
+    icon: FaFacebook, 
+    color: "text-blue-600", 
+    bg: "bg-blue-50", 
+    border: "border-blue-200",
+    gradient: "from-blue-600 to-blue-700"
+  },
+  linkedin: { 
+    icon: FaLinkedin, 
+    color: "text-blue-700", 
+    bg: "bg-blue-50", 
+    border: "border-blue-200",
+    gradient: "from-blue-700 to-blue-800"
+  },
+  snapchat: { 
+    icon: FaSnapchat, 
+    color: "text-yellow-500", 
+    bg: "bg-yellow-50", 
+    border: "border-yellow-200",
+    gradient: "from-yellow-400 to-yellow-500"
+  },
+  pinterest: { 
+    icon: FaPinterest, 
+    color: "text-red-500", 
+    bg: "bg-red-50", 
+    border: "border-red-200",
+    gradient: "from-red-500 to-red-600"
+  }
 };
 
 interface Influencer {
@@ -50,194 +122,244 @@ interface Influencer {
   platforms: string[];
   location: string;
   rate_per_post?: number;
-  rate_per_reel?: number;
-  rate_per_story?: number;
-  languages?: string[];
+  avg_likes?: number;
+  avg_views?: number;
+  avg_comments?: number;
+  total_videos?: number;
+  categories?: string[];
+  gender?: string;
+  is_bookmarked?: boolean;
+  platform_handle?: string;
+  platform_url?: string;
+  platform_bio?: string;
+  last_active?: string;
+  engagement_rate?: number;
+  posts_count?: number;
 }
 
+// Real categories from your backend
+const categoryOptions = [
+  "Fashion", "Beauty", "Fitness", "Health", "Food", "Cooking", "Travel", 
+  "Lifestyle", "Technology", "Gaming", "Music", "Dance", "Comedy", 
+  "Education", "Business", "Finance", "Parenting", "Pets", "Sports", 
+  "Art", "Photography", "Entertainment", "News", "Politics", "Other"
+];
+
+const followerRanges = [
+  { label: "All Followers", min: 0, max: 999999999 },
+  { label: "1K - 10K", min: 1000, max: 10000 },
+  { label: "10K - 50K", min: 10000, max: 50000 },
+  { label: "50K - 100K", min: 50000, max: 100000 },
+  { label: "100K - 500K", min: 100000, max: 500000 },
+  { label: "500K - 1M", min: 500000, max: 1000000 },
+  { label: "1M - 5M", min: 1000000, max: 5000000 },
+  { label: "5M+", min: 5000000, max: 999999999 }
+];
+
 const industryOptions = [
-  { value: "all", label: "All Industries" },
-  { value: "fashion_beauty", label: "Fashion & Beauty" },
-  { value: "tech_gaming", label: "Tech & Gaming" },
-  { value: "fitness_health", label: "Fitness & Health" },
-  { value: "food_lifestyle", label: "Food & Lifestyle" },
-  { value: "travel", label: "Travel & Adventure" },
-  { value: "business_finance", label: "Business & Finance" },
-  { value: "entertainment", label: "Entertainment" },
-  { value: "education", label: "Education" },
-  { value: "parenting_family", label: "Parenting & Family" },
-];
-
-const platformOptions = [
-  { value: "instagram", label: "Instagram", color: "from-pink-500 to-red-500" },
-  { value: "youtube", label: "YouTube", color: "from-red-500 to-red-600" },
-  { value: "tiktok", label: "TikTok", color: "from-black to-gray-800" },
-  { value: "twitter", label: "Twitter", color: "from-blue-400 to-blue-500" },
-  { value: "linkedin", label: "LinkedIn", color: "from-blue-600 to-blue-700" },
-  { value: "facebook", label: "Facebook", color: "from-blue-500 to-blue-600" },
-];
-
-const locationOptions = [
-  "All Locations",
-  "Mumbai, India",
-  "Delhi, India", 
-  "Bangalore, India",
-  "Chennai, India",
-  "Kolkata, India",
-  "Pune, India",
-  "Hyderabad, India",
-  "USA",
-  "UK",
-  "Canada",
-  "Australia"
+  "Fashion & Beauty", "Food & Lifestyle", "Tech & Gaming", "Fitness & Health",
+  "Travel", "Entertainment", "Education", "Business & Finance", "Other"
 ];
 
 export default function InfluencerSearchPage() {
   const [influencers, setInfluencers] = useState<Influencer[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const [page, setPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState("");
   const [showFilters, setShowFilters] = useState(false);
+  const [selectedInfluencer, setSelectedInfluencer] = useState<Influencer | null>(null);
   
-  // Enhanced filter states
-  const [industryFilter, setIndustryFilter] = useState("all");
-  const [followerRange, setFollowerRange] = useState([1000, 5000000]);
-  const [engagementRange, setEngagementRange] = useState([1, 15]);
-  const [rateRange, setRateRange] = useState([1000, 100000]);
-  const [verifiedOnly, setVerifiedOnly] = useState(false);
-  const [platforms, setPlatforms] = useState<string[]>([]);
-  const [exclusivePlatform, setExclusivePlatform] = useState("all");
-  const [locationFilter, setLocationFilter] = useState("All Locations");
-  const [minRating, setMinRating] = useState(0);
-  const [minCollaborations, setMinCollaborations] = useState(0);
-  const [sortBy, setSortBy] = useState("relevance");
+  // Filter states
+  const [selectedPlatform, setSelectedPlatform] = useState("all");
+  const [locationFilter, setLocationFilter] = useState("All");
+  const [genderFilter, setGenderFilter] = useState("All");
+  const [followerRange, setFollowerRange] = useState("All Followers");
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [selectedIndustry, setSelectedIndustry] = useState("All");
+  const [sortBy, setSortBy] = useState("followers");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
+  
+  const observer = useRef<IntersectionObserver>();
+
+  // Infinite scroll setup
+  const lastInfluencerElementRef = useCallback((node: HTMLTableRowElement | null) => {
+    if (isLoading || typeof window === 'undefined') return;
+    if (observer.current) observer.current.disconnect();
+    observer.current = new IntersectionObserver(entries => {
+      if (entries[0].isIntersecting && hasMore) {
+        setPage((prevPage) => prevPage + 1);
+      }
+    });
+    if (node) observer.current.observe(node);
+  }, [isLoading, hasMore, page]);
 
   // Load influencers from API
-  const fetchInfluencers = async () => {
-    setIsLoading(true);
+  const fetchInfluencers = useCallback(async (pageNum = 1, append = false) => {
+    if (pageNum === 1) setIsLoading(true);
+    
     try {
-              const response = await api.get('/influencers/search/', {
+      const response = await api.get('/influencers/search/', {
         params: {
+          page: pageNum,
           search: searchTerm,
-          industry: industryFilter !== 'all' ? industryFilter : undefined,
-          min_followers: followerRange[0],
-          max_followers: followerRange[1],
-          min_engagement: engagementRange[0],
-          max_engagement: engagementRange[1],
-          min_rate: rateRange[0],
-          max_rate: rateRange[1],
-          verified_only: verifiedOnly,
-          platforms: platforms.length > 0 ? platforms.join(',') : undefined,
-          exclusive_platform: exclusivePlatform !== 'all' ? exclusivePlatform : undefined,
-          location: locationFilter !== 'All Locations' ? locationFilter : undefined,
-          min_rating: minRating > 0 ? minRating : undefined,
-          min_collaborations: minCollaborations > 0 ? minCollaborations : undefined,
+          platform: selectedPlatform,
+          location: locationFilter !== 'All' ? locationFilter : undefined,
+          gender: genderFilter !== 'All' ? genderFilter : undefined,
+          follower_range: followerRange !== 'All Followers' ? followerRange : undefined,
+          categories: selectedCategories.length > 0 ? selectedCategories.join(',') : undefined,
+          industry: selectedIndustry !== 'All' ? selectedIndustry : undefined,
           sort_by: sortBy,
+          sort_order: sortOrder,
         }
       });
-      setInfluencers(response.data.results || []);
-    } catch (error) {
-      console.error('Failed to fetch influencers:', error);
+      
+      const newInfluencers = response.data.results || [];
+      setInfluencers(prev => append ? [...prev, ...newInfluencers] : newInfluencers);
+      setHasMore(newInfluencers.length === 20);
+    } catch (error: any) {
+      console.error('Failed to fetch influencers:', {
+        error,
+        message: error instanceof Error ? error.message : 'Unknown error',
+        status: error?.response?.status,
+        data: error?.response?.data,
+        url: error?.config?.url,
+        params: error?.config?.params
+      });
       toast.error('Failed to load influencers. Please try again.');
-      setInfluencers([]);
     } finally {
       setIsLoading(false);
+    }
+  }, [searchTerm, selectedPlatform, locationFilter, genderFilter, followerRange, selectedCategories, selectedIndustry, sortBy, sortOrder]);
+
+  // Bookmark influencer
+  const handleBookmark = async (influencerId: number) => {
+    try {
+      const response = await api.post(`/influencers/bookmark/${influencerId}/`);
+      if (response.data.is_bookmarked) {
+        toast.success("Influencer bookmarked successfully!");
+      } else {
+        toast.success("Influencer removed from bookmarks!");
+      }
+      // Refresh the list to update bookmark status
+      fetchInfluencers(1, false);
+    } catch (error) {
+      console.error('Failed to bookmark influencer:', error);
+      toast.error('Failed to bookmark influencer. Please try again.');
     }
   };
 
   useEffect(() => {
-    fetchInfluencers();
-  }, [searchTerm, industryFilter, followerRange, engagementRange, rateRange, verifiedOnly, platforms, exclusivePlatform, locationFilter, minRating, minCollaborations, sortBy]);
+    setPage(1);
+    fetchInfluencers(1, false);
+  }, [fetchInfluencers]);
 
-  const formatFollowers = (count: number) => {
-    if (count >= 1000000) return `${(count / 1000000).toFixed(1)}M`;
-    if (count >= 1000) return `${(count / 1000).toFixed(1)}K`;
-    return count.toString();
+  useEffect(() => {
+    if (page > 1) {
+      fetchInfluencers(page, true);
+    }
+  }, [page, fetchInfluencers]);
+
+  const formatNumber = (num: number) => {
+    if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
+    if (num >= 1000) return `${(num / 1000).toFixed(1)}K`;
+    return num.toString();
   };
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat("en-IN", {
-      style: "currency",
-      currency: "INR",
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(amount);
+  const handleSort = (column: string) => {
+    if (sortBy === column) {
+      setSortOrder(sortOrder === "asc" ? "desc" : "asc");
+    } else {
+      setSortBy(column);
+      setSortOrder("desc");
+    }
+  };
+
+  const SortIcon = ({ column }: { column: string }) => {
+    if (sortBy !== column) return <HiChevronDown className="w-4 h-4 text-gray-400" />;
+    return sortOrder === "asc" ? <HiChevronUp className="w-4 h-4" /> : <HiChevronDown className="w-4 h-4" />;
   };
 
   const hasActiveFilters = useMemo(() => {
     return searchTerm !== "" || 
-           industryFilter !== "all" || 
-           followerRange[0] !== 1000 || 
-           followerRange[1] !== 5000000 ||
-           engagementRange[0] !== 1 || 
-           engagementRange[1] !== 15 ||
-           rateRange[0] !== 1000 || 
-           rateRange[1] !== 100000 ||
-           verifiedOnly || 
-           platforms.length > 0 ||
-           exclusivePlatform !== "all" ||
-           locationFilter !== "All Locations" ||
-           minRating > 0 ||
-           minCollaborations > 0 ||
-           sortBy !== "relevance";
-  }, [searchTerm, industryFilter, followerRange, engagementRange, rateRange, verifiedOnly, platforms, exclusivePlatform, locationFilter, minRating, minCollaborations, sortBy]);
+           selectedPlatform !== "all" ||
+           locationFilter !== "All" || 
+           genderFilter !== "All" ||
+           followerRange !== "All Followers" ||
+           selectedCategories.length > 0 ||
+           selectedIndustry !== "All";
+  }, [searchTerm, selectedPlatform, locationFilter, genderFilter, followerRange, selectedCategories, selectedIndustry]);
 
   const clearAllFilters = () => {
     setSearchTerm("");
-    setIndustryFilter("all");
-    setFollowerRange([1000, 5000000]);
-    setEngagementRange([1, 15]);
-    setRateRange([1000, 100000]);
-    setVerifiedOnly(false);
-    setPlatforms([]);
-    setExclusivePlatform("all");
-    setLocationFilter("All Locations");
-    setMinRating(0);
-    setMinCollaborations(0);
-    setSortBy("relevance");
+    setSelectedPlatform("all");
+    setLocationFilter("All");
+    setGenderFilter("All");
+    setFollowerRange("All Followers");
+    setSelectedCategories([]);
+    setSelectedIndustry("All");
   };
 
-  const handlePlatformToggle = (platform: string) => {
-    setPlatforms(prev => 
-      prev.includes(platform) 
-        ? prev.filter(p => p !== platform)
-        : [...prev, platform]
+  const handleCategoryToggle = (category: string) => {
+    setSelectedCategories(prev => 
+      prev.includes(category) 
+        ? prev.filter(c => c !== category)
+        : [...prev, category]
+    );
+  };
+
+  const handleContact = (influencer: Influencer) => {
+    toast.success(`Contacting ${influencer.full_name}...`);
+  };
+
+  const handleAddToCampaign = (influencer: Influencer) => {
+    toast.success(`${influencer.full_name} added to campaign!`);
+  };
+
+  const PlatformIcon = ({ platform }: { platform: string }) => {
+    const config = platformConfig[platform as keyof typeof platformConfig];
+    if (!config) return null;
+    
+    const IconComponent = config.icon;
+    return (
+      <div className={`w-8 h-8 ${config.bg} ${config.border} border rounded-lg flex items-center justify-center`}>
+        <IconComponent className={`w-4 h-4 ${config.color}`} />
+      </div>
     );
   };
 
   return (
-    <div className="min-h-screen">
-      <div className="container mx-auto px-4 py-4 max-w-7xl">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100">
+      <div className="container mx-auto px-4 py-6 max-w-7xl">
         {/* Header */}
-        <div className="relative mb-6">
-          <div className="absolute inset-0 bg-gradient-to-r from-purple-500/5 via-blue-500/5 to-green-500/5 rounded-xl -m-2"></div>
-          
-          <div className="relative flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 p-4">
+        <div className="mb-8">
+          <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-bold bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 bg-clip-text text-transparent mb-1">
-                Discover Influencers
+              <h1 className="text-3xl font-bold bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 bg-clip-text text-transparent mb-2">
+                Discover Creators
               </h1>
-              <p className="text-sm text-gray-600 max-w-2xl">
-                Find the perfect creators for your campaigns with advanced filtering and comprehensive profiles.
+              <p className="text-gray-600 max-w-2xl">
+                Find the perfect influencers for your brand. Filter by platform, audience size, and content categories to discover creators who align with your campaign goals.
               </p>
             </div>
             
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-4">
               <div className="text-right hidden sm:block">
-                <p className="text-xs text-gray-500">Found</p>
-                <p className="text-xs font-medium text-gray-700">
-                  {influencers.length} influencers
+                <p className="text-sm text-gray-500">Found</p>
+                <p className="text-lg font-semibold text-gray-900">
+                  {influencers.length} creators
                 </p>
               </div>
               <Button 
                 variant="outline" 
                 size="sm"
                 onClick={() => setShowFilters(!showFilters)}
-                className="border border-gray-200 hover:border-purple-300 hover:bg-purple-50 transition-all duration-200 rounded-lg px-4 py-2"
+                className="border-2 border-indigo-200 hover:border-indigo-300 hover:bg-indigo-50 transition-all duration-200"
               >
-                <HiAdjustmentsHorizontal className="h-4 w-4 mr-1" />
+                <HiFunnel className="h-4 w-4 mr-2" />
                 Filters
                 {hasActiveFilters && (
-                  <Badge className="ml-2 bg-purple-100 text-purple-800 px-1.5 py-0.5 text-xs">
+                  <Badge className="ml-2 bg-indigo-100 text-indigo-800 px-2 py-0.5 text-xs">
                     Active
                   </Badge>
                 )}
@@ -246,408 +368,586 @@ export default function InfluencerSearchPage() {
           </div>
         </div>
 
-        {/* Enhanced Search and Filters */}
-        <Card className="mb-6 bg-gradient-to-br from-white via-white to-gray-50 border border-gray-200 shadow-md">
-          <div className="p-4">
+        {/* Search and Quick Filters */}
+        <Card className="mb-6 bg-white border-2 border-gray-100 shadow-lg">
+          <div className="p-6">
             {/* Search Bar */}
-            <div className="relative mb-4">
-              <HiMagnifyingGlass className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+            <div className="relative mb-6">
+              <HiMagnifyingGlass className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
               <Input
-                placeholder="Search by name, username, bio, or keywords..."
+                placeholder="Search creators by name, username, or content keywords..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 h-12 text-base border-gray-200 focus:border-purple-300 focus:ring-purple-200"
+                className="pl-12 h-14 text-lg border-2 border-gray-200 focus:border-indigo-300 focus:ring-indigo-200 rounded-xl"
               />
               {searchTerm && (
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={() => setSearchTerm("")}
-                  className="absolute right-2 top-1/2 transform -translate-y-1/2 hover:bg-gray-100"
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 hover:bg-gray-100 rounded-full"
                 >
-                  <HiXMark className="h-4 w-4" />
+                  <HiX className="h-4 w-4" />
                 </Button>
               )}
             </div>
 
-            {/* Quick Sort */}
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-4">
-                <div className="flex items-center gap-2">
-                  <HiFunnel className="h-4 w-4 text-gray-600" />
-                  <span className="text-sm font-medium text-gray-700">Sort by:</span>
-                </div>
-                <Select value={sortBy} onValueChange={setSortBy}>
-                  <SelectTrigger className="w-48 border-gray-200">
-                    <SelectValue />
+            {/* Quick Filters Row */}
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+              {/* Platform Selector */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-700">Platform</label>
+                <Select value={selectedPlatform} onValueChange={setSelectedPlatform}>
+                  <SelectTrigger className="border-2 border-gray-200 hover:border-indigo-300">
+                    <SelectValue placeholder="All Platforms" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="relevance">Relevance</SelectItem>
-                    <SelectItem value="followers_desc">Most Followers</SelectItem>
-                    <SelectItem value="followers_asc">Least Followers</SelectItem>
-                    <SelectItem value="engagement_desc">Highest Engagement</SelectItem>
-                    <SelectItem value="engagement_asc">Lowest Engagement</SelectItem>
-                    <SelectItem value="rating_desc">Highest Rated</SelectItem>
-                    <SelectItem value="rate_asc">Lowest Rates</SelectItem>
-                    <SelectItem value="rate_desc">Highest Rates</SelectItem>
+                    <SelectItem value="all">All Platforms</SelectItem>
+                    <SelectItem value="instagram">Instagram</SelectItem>
+                    <SelectItem value="youtube">YouTube</SelectItem>
+                    <SelectItem value="tiktok">TikTok</SelectItem>
+                    <SelectItem value="twitter">Twitter</SelectItem>
+                    <SelectItem value="facebook">Facebook</SelectItem>
+                    <SelectItem value="linkedin">LinkedIn</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
-              
+
+              {/* Industry */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-700">Industry</label>
+                <Select value={selectedIndustry} onValueChange={setSelectedIndustry}>
+                  <SelectTrigger className="border-2 border-gray-200 hover:border-indigo-300">
+                    <SelectValue placeholder="All Industries" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="All">All Industries</SelectItem>
+                    {industryOptions.map(industry => (
+                      <SelectItem key={industry} value={industry}>{industry}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Followers */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-700">Followers</label>
+                <Select value={followerRange} onValueChange={setFollowerRange}>
+                  <SelectTrigger className="border-2 border-gray-200 hover:border-indigo-300">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {followerRanges.map(range => (
+                      <SelectItem key={range.label} value={range.label}>{range.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Sort By */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-700">Sort By</label>
+                <Select value={sortBy} onValueChange={setSortBy}>
+                  <SelectTrigger className="border-2 border-gray-200 hover:border-indigo-300">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="followers">Followers</SelectItem>
+                    <SelectItem value="engagement">Engagement</SelectItem>
+                    <SelectItem value="rating">Rating</SelectItem>
+                    <SelectItem value="posts">Posts</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Clear Filters */}
               {hasActiveFilters && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={clearAllFilters}
-                  className="text-red-600 border-red-200 hover:bg-red-50 hover:border-red-300"
-                >
-                  <HiXMark className="h-4 w-4 mr-1" />
-                  Clear All Filters
-                </Button>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-700">&nbsp;</label>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={clearAllFilters}
+                    className="w-full text-red-600 border-red-200 hover:bg-red-50 hover:border-red-300"
+                  >
+                    <HiX className="h-4 w-4 mr-1" />
+                    Clear All
+                  </Button>
+                </div>
               )}
             </div>
+          </div>
+        </Card>
 
-            {/* Advanced Filters Panel */}
-            {showFilters && (
-              <div className="pt-4 border-t border-gray-200">
-                <div className="grid gap-6">
-                  {/* Platform-Specific Filters */}
-                  <div className="space-y-4">
-                    <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                      <div className="w-1 h-5 bg-gradient-to-b from-blue-500 to-purple-500 rounded-full"></div>
-                      Platform Filters
-                    </h3>
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      {/* Multi-Platform Selection */}
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-3">
-                          Active Platforms (Any of selected)
-                        </label>
-                        <div className="grid grid-cols-2 gap-2">
-                          {platformOptions.map(platform => (
-                            <div 
-                              key={platform.value}
-                              className={`relative cursor-pointer transition-all duration-200 rounded-lg border-2 p-3 ${
-                                platforms.includes(platform.value)
-                                  ? `bg-gradient-to-r ${platform.color} text-white border-transparent shadow-md`
-                                  : 'border-gray-200 hover:border-gray-300 bg-white'
-                              }`}
-                              onClick={() => handlePlatformToggle(platform.value)}
-                            >
-                              <div className="flex items-center space-x-2">
-                                <div className="text-lg">{platformIcons[platform.value]}</div>
-                                <span className="text-sm font-medium">{platform.label}</span>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
+        {/* Advanced Filters Panel */}
+        {showFilters && (
+          <Card className="mb-6 bg-white border-2 border-gray-100 shadow-lg">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
+                  <HiSparkles className="w-5 h-5 text-indigo-600" />
+                  Advanced Filters
+                </h3>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowFilters(false)}
+                >
+                  <HiX className="w-4 h-4" />
+                </Button>
+              </div>
+              
+              <div className="grid gap-6">
+                {/* Categories */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-3">
+                    Content Categories
+                  </label>
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                    {categoryOptions.map(category => (
+                      <div
+                        key={category}
+                        className={`px-4 py-3 rounded-xl border-2 cursor-pointer transition-all ${
+                          selectedCategories.includes(category)
+                            ? 'bg-indigo-50 border-indigo-300 text-indigo-700'
+                            : 'bg-gray-50 border-gray-200 hover:border-gray-300'
+                        }`}
+                        onClick={() => handleCategoryToggle(category)}
+                      >
+                        <span className="text-sm font-medium">{category}</span>
                       </div>
-
-                      {/* Exclusive Platform Filter */}
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-3">
-                          Platform Exclusivity (Only this platform)
-                        </label>
-                        <Select value={exclusivePlatform} onValueChange={setExclusivePlatform}>
-                          <SelectTrigger className="border-gray-200">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="all">All Platforms</SelectItem>
-                            {platformOptions.map(platform => (
-                              <SelectItem key={platform.value} value={platform.value}>
-                                {platformIcons[platform.value]} {platform.label} Only
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Audience & Engagement Filters */}
-                  <div className="space-y-4">
-                    <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                      <div className="w-1 h-5 bg-gradient-to-b from-green-500 to-blue-500 rounded-full"></div>
-                      Audience & Engagement
-                    </h3>
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                      {/* Followers Range */}
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Followers: {formatFollowers(followerRange[0])} - {formatFollowers(followerRange[1])}
-                        </label>
-                        <Slider
-                          value={followerRange}
-                          onValueChange={setFollowerRange}
-                          max={5000000}
-                          min={1000}
-                          step={1000}
-                          className="w-full"
-                        />
-                      </div>
-
-                      {/* Engagement Range */}
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Engagement: {engagementRange[0]}% - {engagementRange[1]}%
-                        </label>
-                        <Slider
-                          value={engagementRange}
-                          onValueChange={setEngagementRange}
-                          max={15}
-                          min={0.1}
-                          step={0.1}
-                          className="w-full"
-                        />
-                      </div>
-
-                      {/* Rate Range */}
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Rate: {formatCurrency(rateRange[0])} - {formatCurrency(rateRange[1])}
-                        </label>
-                        <Slider
-                          value={rateRange}
-                          onValueChange={setRateRange}
-                          max={100000}
-                          min={1000}
-                          step={1000}
-                          className="w-full"
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Quality & Location Filters */}
-                  <div className="space-y-4">
-                    <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                      <div className="w-1 h-5 bg-gradient-to-b from-purple-500 to-pink-500 rounded-full"></div>
-                      Quality & Location
-                    </h3>
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                      {/* Industry */}
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Industry
-                        </label>
-                        <Select value={industryFilter} onValueChange={setIndustryFilter}>
-                          <SelectTrigger className="border-gray-200">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {industryOptions.map(option => (
-                              <SelectItem key={option.value} value={option.value}>
-                                {option.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                      {/* Location */}
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Location
-                        </label>
-                        <Select value={locationFilter} onValueChange={setLocationFilter}>
-                          <SelectTrigger className="border-gray-200">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {locationOptions.map(location => (
-                              <SelectItem key={location} value={location}>
-                                {location}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                      {/* Min Rating */}
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Minimum Rating: {minRating > 0 ? minRating : 'Any'}
-                        </label>
-                        <Slider
-                          value={[minRating]}
-                          onValueChange={(value) => setMinRating(value[0])}
-                          max={5}
-                          min={0}
-                          step={0.5}
-                          className="w-full"
-                        />
-                      </div>
-
-                      {/* Min Collaborations */}
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Min Collaborations: {minCollaborations > 0 ? minCollaborations : 'Any'}
-                        </label>
-                        <Slider
-                          value={[minCollaborations]}
-                          onValueChange={(value) => setMinCollaborations(value[0])}
-                          max={50}
-                          min={0}
-                          step={1}
-                          className="w-full"
-                        />
-                      </div>
-                    </div>
-
-                    {/* Verified Only Checkbox */}
-                    <div className="flex items-center space-x-2 pt-2">
-                      <Checkbox
-                        id="verified"
-                        checked={verifiedOnly}
-                        onCheckedChange={(checked) => setVerifiedOnly(checked === true)}
-                      />
-                      <label htmlFor="verified" className="text-sm font-medium text-gray-700 flex items-center gap-1">
-                        <HiCheckBadge className="w-4 h-4 text-blue-500" />
-                        Verified accounts only
-                      </label>
-                    </div>
+                    ))}
                   </div>
                 </div>
+
+                {/* Additional Filters */}
+                <div className="grid md:grid-cols-3 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-gray-700">Location</label>
+                    <Select value={locationFilter} onValueChange={setLocationFilter}>
+                      <SelectTrigger className="border-2 border-gray-200">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="All">All Locations</SelectItem>
+                        <SelectItem value="India">India</SelectItem>
+                        <SelectItem value="USA">USA</SelectItem>
+                        <SelectItem value="UK">UK</SelectItem>
+                        <SelectItem value="Canada">Canada</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-gray-700">Gender</label>
+                    <Select value={genderFilter} onValueChange={setGenderFilter}>
+                      <SelectTrigger className="border-2 border-gray-200">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="All">All</SelectItem>
+                        <SelectItem value="Male">Male</SelectItem>
+                        <SelectItem value="Female">Female</SelectItem>
+                        <SelectItem value="Other">Other</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-gray-700">Sort Order</label>
+                    <Select value={sortOrder} onValueChange={(value: "asc" | "desc") => setSortOrder(value)}>
+                      <SelectTrigger className="border-2 border-gray-200">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="desc">Highest First</SelectItem>
+                        <SelectItem value="asc">Lowest First</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex gap-3 pt-4 border-t border-gray-200">
+                  <Button
+                    variant="outline"
+                    onClick={clearAllFilters}
+                    className="flex-1"
+                  >
+                    Reset All
+                  </Button>
+                  <Button
+                    onClick={() => setShowFilters(false)}
+                    className="flex-1 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white"
+                  >
+                    <HiSparkles className="w-4 h-4 mr-2" />
+                    Apply Filters
+                  </Button>
+                </div>
               </div>
-            )}
+            </div>
+          </Card>
+        )}
+
+        {/* Table View */}
+        <Card className="bg-white border-2 border-gray-100 shadow-lg overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gradient-to-r from-gray-50 to-gray-100 border-b-2 border-gray-200">
+                <tr>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
+                    Creator Profile
+                  </th>
+                  <th 
+                    className="px-6 py-4 text-left text-sm font-semibold text-gray-900 cursor-pointer hover:bg-gray-200 transition-colors"
+                    onClick={() => handleSort('rating')}
+                  >
+                    <div className="flex items-center gap-2">
+                      <HiStar className="w-4 h-4 text-yellow-500" />
+                      Rating
+                      <SortIcon column="rating" />
+                    </div>
+                  </th>
+                  <th 
+                    className="px-6 py-4 text-left text-sm font-semibold text-gray-900 cursor-pointer hover:bg-gray-200 transition-colors"
+                    onClick={() => handleSort('followers')}
+                  >
+                    <div className="flex items-center gap-2">
+                      <HiUsers className="w-4 h-4 text-blue-500" />
+                      Followers
+                      <SortIcon column="followers" />
+                    </div>
+                  </th>
+                  <th 
+                    className="px-6 py-4 text-left text-sm font-semibold text-gray-900 cursor-pointer hover:bg-gray-200 transition-colors"
+                    onClick={() => handleSort('engagement')}
+                  >
+                    <div className="flex items-center gap-2">
+                      <HiHeart className="w-4 h-4 text-red-500" />
+                      Engagement
+                      <SortIcon column="engagement" />
+                    </div>
+                  </th>
+                  <th 
+                    className="px-6 py-4 text-left text-sm font-semibold text-gray-900 cursor-pointer hover:bg-gray-200 transition-colors"
+                    onClick={() => handleSort('posts')}
+                  >
+                    <div className="flex items-center gap-2">
+                      <HiPlay className="w-4 h-4 text-green-500" />
+                      Posts
+                      <SortIcon column="posts" />
+                    </div>
+                  </th>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
+                    <div className="flex items-center gap-2">
+                      <HiMapPin className="w-4 h-4 text-purple-500" />
+                      Location
+                    </div>
+                  </th>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
+                    Categories
+                  </th>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {influencers.map((influencer, index) => (
+                  <tr 
+                    key={influencer.id} 
+                    className="hover:bg-gradient-to-r hover:from-indigo-50 hover:to-purple-50 transition-all duration-200"
+                    ref={index === influencers.length - 1 ? lastInfluencerElementRef : null}
+                  >
+                    <td className="px-6 py-6">
+                      <div className="flex items-center gap-4">
+                        <div className="relative">
+                          <div className="w-12 h-12 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full overflow-hidden border-2 border-white shadow-lg">
+                            {influencer.profile_image ? (
+                              <img
+                                src={influencer.profile_image}
+                                alt={influencer.full_name}
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center text-white font-bold text-lg">
+                                {influencer.full_name.charAt(0)}
+                              </div>
+                            )}
+                          </div>
+                          {influencer.is_verified && (
+                            <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-blue-500 border-2 border-white rounded-full flex items-center justify-center">
+                              <HiCheckBadge className="w-3 h-3 text-white" />
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <h3 className="font-semibold text-gray-900 truncate">{influencer.full_name}</h3>
+                          </div>
+                          <p className="text-sm text-gray-500 mb-2">@{influencer.username}</p>
+                          <div className="flex items-center gap-2">
+                            {influencer.platforms.slice(0, 3).map(platform => (
+                              <PlatformIcon key={platform} platform={platform} />
+                            ))}
+                            {influencer.platforms.length > 3 && (
+                              <Badge variant="secondary" className="text-xs">
+                                +{influencer.platforms.length - 3} more
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-6">
+                      <div className="flex items-center gap-2">
+                        <HiStar className="w-4 h-4 text-yellow-500 fill-current" />
+                        <span className="font-semibold text-gray-900">
+                          {influencer.avg_rating?.toFixed(1) || "N/A"}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-6">
+                      <span className="font-semibold text-gray-900">
+                        {formatNumber(influencer.total_followers)}
+                      </span>
+                    </td>
+                    <td className="px-6 py-6">
+                      <span className="font-semibold text-gray-900">
+                        {influencer.engagement_rate?.toFixed(1) || influencer.avg_engagement?.toFixed(1) || "N/A"}%
+                      </span>
+                    </td>
+                    <td className="px-6 py-6">
+                      <span className="font-semibold text-gray-900">
+                        {formatNumber(influencer.posts_count || 0)}
+                      </span>
+                    </td>
+                    <td className="px-6 py-6">
+                      <span className="text-gray-600">{influencer.location || "N/A"}</span>
+                    </td>
+                    <td className="px-6 py-6">
+                      <div className="flex flex-wrap gap-1">
+                        {influencer.categories?.slice(0, 2).map(category => (
+                          <Badge key={category} variant="secondary" className="text-xs bg-gray-100 text-gray-700">
+                            {category}
+                          </Badge>
+                        ))}
+                        {influencer.categories && influencer.categories.length > 2 && (
+                          <Badge variant="secondary" className="text-xs bg-gray-100 text-gray-700">
+                            +{influencer.categories.length - 2} more
+                          </Badge>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-6 py-6">
+                      <div className="flex items-center gap-2">
+                        <Dialog>
+                          <DialogTrigger asChild>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setSelectedInfluencer(influencer)}
+                              className="bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100"
+                            >
+                              <HiEye className="w-4 h-4 mr-1" />
+                              View
+                            </Button>
+                          </DialogTrigger>
+                          <DialogContent className="max-w-4xl">
+                            <DialogHeader>
+                              <DialogTitle className="text-2xl font-bold text-gray-900">
+                                Creator Profile
+                              </DialogTitle>
+                            </DialogHeader>
+                            {selectedInfluencer && (
+                              <div className="space-y-6">
+                                {/* Profile Header */}
+                                <div className="flex items-start gap-6">
+                                  <div className="relative">
+                                    <div className="w-24 h-24 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full overflow-hidden border-4 border-white shadow-xl">
+                                      {selectedInfluencer.profile_image ? (
+                                        <img
+                                          src={selectedInfluencer.profile_image}
+                                          alt={selectedInfluencer.full_name}
+                                          className="w-full h-full object-cover"
+                                        />
+                                      ) : (
+                                        <div className="w-full h-full flex items-center justify-center text-white font-bold text-3xl">
+                                          {selectedInfluencer.full_name.charAt(0)}
+                                        </div>
+                                      )}
+                                    </div>
+                                    {selectedInfluencer.is_verified && (
+                                      <div className="absolute -bottom-2 -right-2 w-8 h-8 bg-blue-500 border-4 border-white rounded-full flex items-center justify-center">
+                                        <HiCheckBadge className="w-4 h-4 text-white" />
+                                      </div>
+                                    )}
+                                  </div>
+                                  <div className="flex-1">
+                                    <div className="flex items-center gap-3 mb-3">
+                                      <h2 className="text-2xl font-bold text-gray-900">{selectedInfluencer.full_name}</h2>
+                                    </div>
+                                    <p className="text-gray-600 mb-3">@{selectedInfluencer.username}</p>
+                                    <p className="text-gray-700 mb-4">{selectedInfluencer.bio || "No bio available"}</p>
+                                    <div className="flex items-center gap-3">
+                                      {selectedInfluencer.platforms.map(platform => (
+                                        <PlatformIcon key={platform} platform={platform} />
+                                      ))}
+                                    </div>
+                                  </div>
+                                  <div className="flex gap-3">
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => handleBookmark(selectedInfluencer.id)}
+                                      className={selectedInfluencer.is_bookmarked ? "bg-blue-50 border-blue-200 text-blue-700" : ""}
+                                    >
+                                      <HiBookmark className={`w-4 h-4 mr-1 ${selectedInfluencer.is_bookmarked ? "fill-current" : ""}`} />
+                                      {selectedInfluencer.is_bookmarked ? "Bookmarked" : "Bookmark"}
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      onClick={() => handleAddToCampaign(selectedInfluencer)}
+                                      className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white"
+                                    >
+                                      <HiPlus className="w-4 h-4 mr-1" />
+                                      Add to Campaign
+                                    </Button>
+                                  </div>
+                                </div>
+
+                                {/* Stats Grid */}
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                  <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-4 rounded-xl border border-blue-200">
+                                    <div className="flex items-center gap-2 mb-2">
+                                      <HiUsers className="w-5 h-5 text-blue-600" />
+                                      <span className="text-sm font-medium text-blue-700">Followers</span>
+                                    </div>
+                                    <p className="text-2xl font-bold text-blue-900">
+                                      {formatNumber(selectedInfluencer.total_followers)}
+                                    </p>
+                                  </div>
+                                  <div className="bg-gradient-to-br from-green-50 to-green-100 p-4 rounded-xl border border-green-200">
+                                    <div className="flex items-center gap-2 mb-2">
+                                      <HiHeart className="w-5 h-5 text-green-600" />
+                                      <span className="text-sm font-medium text-green-700">Engagement</span>
+                                    </div>
+                                    <p className="text-2xl font-bold text-green-900">
+                                      {selectedInfluencer.engagement_rate?.toFixed(1) || selectedInfluencer.avg_engagement?.toFixed(1) || "N/A"}%
+                                    </p>
+                                  </div>
+                                  <div className="bg-gradient-to-br from-purple-50 to-purple-100 p-4 rounded-xl border border-purple-200">
+                                    <div className="flex items-center gap-2 mb-2">
+                                      <HiPlay className="w-5 h-5 text-purple-600" />
+                                      <span className="text-sm font-medium text-purple-700">Posts</span>
+                                    </div>
+                                    <p className="text-2xl font-bold text-purple-900">
+                                      {formatNumber(selectedInfluencer.posts_count || 0)}
+                                    </p>
+                                  </div>
+                                  <div className="bg-gradient-to-br from-yellow-50 to-yellow-100 p-4 rounded-xl border border-yellow-200">
+                                    <div className="flex items-center gap-2 mb-2">
+                                      <HiStar className="w-5 h-5 text-yellow-600 fill-current" />
+                                      <span className="text-sm font-medium text-yellow-700">Rating</span>
+                                    </div>
+                                    <p className="text-2xl font-bold text-yellow-900">
+                                      {selectedInfluencer.avg_rating?.toFixed(1) || "N/A"}
+                                    </p>
+                                  </div>
+                                </div>
+
+                                {/* Contact Actions */}
+                                <div className="flex gap-3 pt-6 border-t border-gray-200">
+                                  <Button
+                                    variant="outline"
+                                    onClick={() => handleContact(selectedInfluencer)}
+                                    className="flex-1 border-2 border-green-200 text-green-700 hover:bg-green-50"
+                                  >
+                                    <HiEnvelope className="w-4 h-4 mr-2" />
+                                    Send Message
+                                  </Button>
+                                  <Button
+                                    variant="outline"
+                                    onClick={() => handleContact(selectedInfluencer)}
+                                    className="flex-1 border-2 border-blue-200 text-blue-700 hover:bg-blue-50"
+                                  >
+                                    <HiPhone className="w-4 h-4 mr-2" />
+                                    Contact
+                                  </Button>
+                                  <Button
+                                    variant="outline"
+                                    onClick={() => window.open(`https://${selectedInfluencer.platform_handle}`, '_blank')}
+                                    className="flex-1 border-2 border-purple-200 text-purple-700 hover:bg-purple-50"
+                                  >
+                                    <HiGlobeAlt className="w-4 h-4 mr-2" />
+                                    View Profile
+                                  </Button>
+                                </div>
+                              </div>
+                            )}
+                          </DialogContent>
+                        </Dialog>
+                        
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleBookmark(influencer.id)}
+                          className={influencer.is_bookmarked ? "text-blue-600" : ""}
+                        >
+                          <HiBookmark className={`w-4 h-4 ${influencer.is_bookmarked ? "fill-current" : ""}`} />
+                        </Button>
+                        
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleContact(influencer)}
+                          className="text-green-600 hover:text-green-700"
+                        >
+                          <HiEnvelope className="w-4 h-4" />
+                        </Button>
+                        
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleAddToCampaign(influencer)}
+                          className="text-purple-600 hover:text-purple-700"
+                        >
+                          <HiPlus className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </Card>
 
         {/* Loading State */}
         {isLoading && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {Array.from({ length: 6 }).map((_, i) => (
-                              <GlobalLoader key={i} />
-            ))}
-          </div>
-        )}
-
-        {/* Influencer Grid */}
-        {!isLoading && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {influencers.map((influencer) => (
-              <Card 
-                key={influencer.id} 
-                className="p-6 bg-gradient-to-br from-white via-white to-gray-50 border border-gray-200 shadow-md hover:shadow-lg transition-all duration-200 transform hover:-translate-y-1"
-              >
-                <div className="flex items-start justify-between mb-4">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-12 h-12 bg-gradient-to-br from-gray-200 to-gray-300 rounded-full overflow-hidden">
-                      {influencer.profile_image ? (
-                        <img
-                          src={influencer.profile_image}
-                          alt={influencer.full_name}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-gray-500 font-bold">
-                          {influencer.full_name.charAt(0)}
-                        </div>
-                      )}
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <h3 className="font-semibold text-gray-900">@{influencer.username}</h3>
-                        {influencer.is_verified && (
-                          <HiCheckBadge className="w-4 h-4 text-blue-500" />
-                        )}
-                      </div>
-                      <p className="text-sm text-gray-600">{influencer.full_name}</p>
-                    </div>
-                  </div>
-                  <Button variant="ghost" size="sm" className="hover:bg-red-50 hover:text-red-600">
-                    <HiBookmark className="w-4 h-4" />
-                  </Button>
-                </div>
-
-                <p className="text-sm text-gray-600 mb-4 line-clamp-3">{influencer.bio}</p>
-
-                <div className="space-y-4">
-                  {/* Stats */}
-                  <div className="grid grid-cols-2 gap-4 text-sm">
-                    <div className="bg-gradient-to-br from-blue-50 to-indigo-50 p-3 rounded-lg">
-                      <p className="text-gray-500 text-xs">Followers</p>
-                      <p className="font-bold text-blue-600">{formatFollowers(influencer.total_followers)}</p>
-                    </div>
-                    <div className="bg-gradient-to-br from-green-50 to-emerald-50 p-3 rounded-lg">
-                      <p className="text-gray-500 text-xs">Engagement</p>
-                      <p className="font-bold text-green-600">{influencer.avg_engagement}%</p>
-                    </div>
-                    <div className="bg-gradient-to-br from-purple-50 to-pink-50 p-3 rounded-lg">
-                      <p className="text-gray-500 text-xs">Collaborations</p>
-                      <p className="font-bold text-purple-600">{influencer.collaboration_count}</p>
-                    </div>
-                    <div className="bg-gradient-to-br from-yellow-50 to-orange-50 p-3 rounded-lg">
-                      <p className="text-gray-500 text-xs">Rating</p>
-                      <p className="font-bold text-orange-600 flex items-center">
-                        <HiStar className="w-3 h-3 mr-1" />
-                        {influencer.avg_rating}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Platform Tags */}
-                  <div className="flex flex-wrap gap-2">
-                    <Badge variant="secondary" className="text-xs bg-gradient-to-r from-gray-100 to-gray-200">
-                      {industryOptions.find(i => i.value === influencer.industry)?.label || influencer.industry}
-                    </Badge>
-                    {influencer.platforms.map(platform => (
-                      <Badge 
-                        key={platform} 
-                        variant="outline" 
-                        className="text-xs border-gray-300"
-                      >
-                        {platformIcons[platform]} {platform}
-                      </Badge>
-                    ))}
-                  </div>
-
-                  {/* Location & Rate */}
-                  <div className="flex items-center justify-between text-xs text-gray-500">
-                    <div className="flex items-center gap-1">
-                      <HiMapPin className="w-3 h-3" />
-                      {influencer.location}
-                    </div>
-                    {influencer.rate_per_post && (
-                      <div className="font-medium text-gray-700">
-                        From {formatCurrency(influencer.rate_per_post)}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Actions */}
-                  <div className="flex gap-2 pt-2">
-                    <Button size="sm" className="flex-1 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white shadow-md">
-                      <HiUserPlus className="w-4 h-4 mr-1" />
-                      Invite
-                    </Button>
-                    <Button variant="outline" size="sm" className="border-gray-300 hover:bg-gray-50">
-                      <HiEye className="w-4 h-4" />
-                    </Button>
-                  </div>
-                </div>
-              </Card>
-            ))}
+          <div className="flex justify-center py-8">
+            <GlobalLoader />
           </div>
         )}
 
         {/* Empty State */}
         {!isLoading && influencers.length === 0 && (
-          <Card className="p-12 text-center bg-gradient-to-br from-white via-white to-gray-50 border border-gray-200 shadow-md">
-            <GlobalLoader />
-            <div className="mt-8">
-              <p className="text-gray-500 mb-4">
-                Try adjusting your search criteria or filters to find more creators.
-              </p>
-              <Button variant="outline" onClick={clearAllFilters} className="border-blue-200 hover:bg-blue-50 hover:border-blue-300">
-                <HiArrowPath className="w-4 h-4 mr-2" />
-                Reset All Filters
-              </Button>
+          <Card className="p-12 text-center bg-white border-2 border-gray-100 shadow-lg">
+            <div className="w-20 h-20 bg-gradient-to-br from-indigo-100 to-purple-100 rounded-full flex items-center justify-center mx-auto mb-6">
+              <HiSparkles className="w-10 h-10 text-indigo-600" />
             </div>
+            <h3 className="text-xl font-semibold text-gray-900 mb-3">No creators found</h3>
+            <p className="text-gray-600 mb-6 max-w-md mx-auto">
+              Try adjusting your search criteria or filters to discover amazing creators for your campaigns.
+            </p>
+            <Button 
+              variant="outline" 
+              onClick={clearAllFilters}
+              className="border-2 border-indigo-200 text-indigo-700 hover:bg-indigo-50"
+            >
+              <HiArrowPath className="w-4 h-4 mr-2" />
+              Reset All Filters
+            </Button>
           </Card>
         )}
       </div>
