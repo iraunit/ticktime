@@ -61,6 +61,29 @@ class InfluencerProfile(models.Model):
         help_text='Influencer influence score (0-10)'
     )
     
+    # Enhanced scoring system
+    platform_score = models.DecimalField(
+        max_digits=3, 
+        decimal_places=2, 
+        validators=[MinValueValidator(0), MaxValueValidator(10)],
+        null=True, 
+        blank=True,
+        help_text='Overall platform performance score (0-10)'
+    )
+    
+    # Interaction metrics
+    average_interaction = models.CharField(max_length=20, blank=True, help_text='Average interactions per post (e.g., "1.7k")')
+    average_views = models.CharField(max_length=20, blank=True, help_text='Average views per post (e.g., "181.3k")')
+    average_dislikes = models.CharField(max_length=20, blank=True, help_text='Average dislikes per post')
+    
+    # Available platforms list
+    available_platforms = models.JSONField(
+        blank=True,
+        null=True,
+        default=list,
+        help_text='List of platforms where influencer is active'
+    )
+    
     # Response and availability
     response_time = models.CharField(max_length=50, blank=True, default='')
     faster_responses = models.BooleanField(default=False)
@@ -256,6 +279,10 @@ class SocialMediaAccount(models.Model):
     average_comments = models.IntegerField(validators=[MinValueValidator(0)], default=0)
     average_shares = models.IntegerField(validators=[MinValueValidator(0)], default=0)
     
+    # Platform-specific handles and profile links
+    platform_handle = models.CharField(max_length=100, blank=True, help_text='Platform-specific handle (e.g., @username)')
+    platform_profile_link = models.URLField(blank=True, help_text='Direct link to platform profile')
+    
     # Platform-specific metrics
     # Instagram specific
     average_image_likes = models.IntegerField(validators=[MinValueValidator(0)], default=0)
@@ -270,6 +297,21 @@ class SocialMediaAccount(models.Model):
     average_shorts_likes = models.IntegerField(validators=[MinValueValidator(0)], default=0)
     average_shorts_comments = models.IntegerField(validators=[MinValueValidator(0)], default=0)
     subscribers_count = models.IntegerField(validators=[MinValueValidator(0)], default=0)
+    
+    # Facebook specific
+    page_likes = models.IntegerField(validators=[MinValueValidator(0)], default=0)
+    page_followers = models.IntegerField(validators=[MinValueValidator(0)], default=0)
+    
+    # Twitter specific
+    twitter_followers = models.IntegerField(validators=[MinValueValidator(0)], default=0)
+    twitter_following = models.IntegerField(validators=[MinValueValidator(0)], default=0)
+    tweets_count = models.IntegerField(validators=[MinValueValidator(0)], default=0)
+    
+    # TikTok specific
+    tiktok_followers = models.IntegerField(validators=[MinValueValidator(0)], default=0)
+    tiktok_following = models.IntegerField(validators=[MinValueValidator(0)], default=0)
+    tiktok_likes = models.IntegerField(validators=[MinValueValidator(0)], default=0)
+    tiktok_videos = models.IntegerField(validators=[MinValueValidator(0)], default=0)
     
     # Growth metrics
     follower_growth_rate = models.DecimalField(
@@ -372,3 +414,38 @@ class InfluencerAudienceInsight(models.Model):
     class Meta:
         db_table = 'influencer_audience_insights'
         unique_together = ['influencer', 'platform']
+
+
+class InfluencerCategoryScore(models.Model):
+    """
+    Scored categories for influencers with relevance scores
+    """
+    influencer = models.ForeignKey(
+        InfluencerProfile,
+        on_delete=models.CASCADE,
+        related_name='category_scores'
+    )
+    category_name = models.CharField(max_length=100)
+    score = models.DecimalField(
+        max_digits=5, 
+        decimal_places=2,
+        validators=[MinValueValidator(0), MaxValueValidator(100)],
+        help_text='Category relevance score (0-100)'
+    )
+    is_flag = models.BooleanField(default=False, help_text='Flagged category for special attention')
+    is_primary = models.BooleanField(default=False, help_text='Primary category for the influencer')
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'influencer_category_scores'
+        unique_together = ['influencer', 'category_name']
+        indexes = [
+            models.Index(fields=['category_name']),
+            models.Index(fields=['score']),
+            models.Index(fields=['is_primary']),
+        ]
+
+    def __str__(self):
+        return f"{self.influencer.username} - {self.category_name} ({self.score}%)"

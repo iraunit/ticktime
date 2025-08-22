@@ -2,13 +2,14 @@ from rest_framework import serializers
 from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
 from django.utils import timezone
-from .models import InfluencerProfile, SocialMediaAccount
+from .models import InfluencerProfile, SocialMediaAccount, InfluencerCategoryScore
 from common.models import (
     INDUSTRY_CHOICES, PLATFORM_CHOICES, DEAL_STATUS_CHOICES, 
     DEAL_TYPE_CHOICES, CONTENT_TYPE_CHOICES
 )
 import re
 import json
+from django.db import models
 
 
 class InfluencerProfileSerializer(serializers.ModelSerializer):
@@ -396,3 +397,219 @@ class BankDetailsSerializer(serializers.ModelSerializer):
                     "Account holder name can only contain letters, spaces, and dots."
                 )
         return value
+
+
+class SocialMediaAccountSerializer(serializers.ModelSerializer):
+    """Serializer for social media accounts with platform-specific data"""
+    
+    class Meta:
+        model = SocialMediaAccount
+        fields = (
+            'id', 'platform', 'handle', 'profile_url', 'platform_handle', 'platform_profile_link',
+            'followers_count', 'following_count', 'posts_count', 'engagement_rate',
+            'average_likes', 'average_comments', 'average_shares',
+            'subscribers_count', 'page_likes', 'page_followers',
+            'twitter_followers', 'twitter_following', 'tweets_count',
+            'tiktok_followers', 'tiktok_following', 'tiktok_likes', 'tiktok_videos',
+            'average_video_views', 'average_reel_plays', 'verified', 'is_active',
+            'last_posted_at', 'follower_growth_rate'
+        )
+
+
+class CategoryScoreSerializer(serializers.ModelSerializer):
+    """Serializer for category scores"""
+    
+    class Meta:
+        model = InfluencerCategoryScore
+        fields = ('category_name', 'score', 'is_flag', 'is_primary')
+
+
+class InfluencerSearchSerializer(serializers.ModelSerializer):
+    """
+    Enhanced serializer for influencer search with competitor-like structure
+    """
+    id = serializers.IntegerField()
+    name = serializers.SerializerMethodField()
+    handle = serializers.CharField(source='username')
+    profile_image = serializers.SerializerMethodField()
+    original_profile_image = serializers.SerializerMethodField()
+    categories = CategoryScoreSerializer(source='category_scores', many=True, read_only=True)
+    location = serializers.SerializerMethodField()
+    score = serializers.SerializerMethodField()
+    is_verified = serializers.BooleanField()
+    available_platforms = serializers.SerializerMethodField()
+    
+    # Platform-specific data
+    twitter_followers = serializers.SerializerMethodField()
+    twitter_handle = serializers.SerializerMethodField()
+    twitter_profile_link = serializers.SerializerMethodField()
+    youtube_subscribers = serializers.SerializerMethodField()
+    youtube_handle = serializers.SerializerMethodField()
+    youtube_profile_link = serializers.SerializerMethodField()
+    facebook_page_likes = serializers.SerializerMethodField()
+    facebook_handle = serializers.SerializerMethodField()
+    facebook_profile_link = serializers.SerializerMethodField()
+    
+    # Interaction metrics
+    average_interaction = serializers.CharField(read_only=True)
+    average_comments = serializers.SerializerMethodField()
+    average_likes = serializers.SerializerMethodField()
+    average_dislikes = serializers.CharField(read_only=True)
+    average_views = serializers.CharField(read_only=True)
+    
+    # Legacy fields for compatibility
+    full_name = serializers.SerializerMethodField()
+    platforms = serializers.SerializerMethodField()
+    total_followers = serializers.ReadOnlyField()
+    avg_engagement = serializers.ReadOnlyField()
+    avg_rating = serializers.DecimalField(max_digits=3, decimal_places=2, read_only=True)
+    engagement_rate = serializers.ReadOnlyField()
+    posts_count = serializers.SerializerMethodField()
+    is_bookmarked = serializers.SerializerMethodField()
+
+    class Meta:
+        model = InfluencerProfile
+        fields = (
+            'id', 'name', 'handle', 'profile_image', 'original_profile_image',
+            'categories', 'location', 'score', 'is_verified', 'available_platforms',
+            'twitter_followers', 'twitter_handle', 'twitter_profile_link',
+            'youtube_subscribers', 'youtube_handle', 'youtube_profile_link',
+            'facebook_page_likes', 'facebook_handle', 'facebook_profile_link',
+            'average_interaction', 'average_comments', 'average_likes', 'average_dislikes', 'average_views',
+            # Legacy fields
+            'full_name', 'platforms', 'total_followers', 'avg_engagement', 'avg_rating',
+            'engagement_rate', 'posts_count', 'is_bookmarked'
+        )
+
+    def get_name(self, obj):
+        """Get full name of the influencer"""
+        return f"{obj.user.first_name} {obj.user.last_name}".strip() or obj.username
+
+    def get_profile_image(self, obj):
+        """Get profile image URL"""
+        if obj.user_profile and obj.user_profile.profile_image:
+            return obj.user_profile.profile_image.url
+        return None
+
+    def get_original_profile_image(self, obj):
+        """Get original profile image URL (same as profile_image for now)"""
+        return self.get_profile_image(obj)
+
+    def get_location(self, obj):
+        """Get formatted location"""
+        return obj.location_display or ''
+
+    def get_score(self, obj):
+        """Get platform score"""
+        if obj.platform_score:
+            return f"{obj.platform_score:.2f}"
+        return "0.00"
+
+    def get_available_platforms(self, obj):
+        """Get list of available platforms"""
+        if obj.available_platforms:
+            return obj.available_platforms
+        # Fallback to checking social accounts
+        return list(obj.social_accounts.filter(is_active=True).values_list('platform', flat=True))
+
+    def get_twitter_followers(self, obj):
+        """Get Twitter followers count"""
+        twitter_account = obj.social_accounts.filter(platform='twitter', is_active=True).first()
+        if twitter_account:
+            return self._format_number(twitter_account.twitter_followers or twitter_account.followers_count)
+        return "0"
+
+    def get_twitter_handle(self, obj):
+        """Get Twitter handle"""
+        twitter_account = obj.social_accounts.filter(platform='twitter', is_active=True).first()
+        return twitter_account.platform_handle or twitter_account.handle if twitter_account else ""
+
+    def get_twitter_profile_link(self, obj):
+        """Get Twitter profile link"""
+        twitter_account = obj.social_accounts.filter(platform='twitter', is_active=True).first()
+        return twitter_account.platform_profile_link or f"https://twitter.com/{twitter_account.handle}" if twitter_account else ""
+
+    def get_youtube_subscribers(self, obj):
+        """Get YouTube subscribers count"""
+        youtube_account = obj.social_accounts.filter(platform='youtube', is_active=True).first()
+        if youtube_account:
+            return self._format_number(youtube_account.subscribers_count or youtube_account.followers_count)
+        return "0"
+
+    def get_youtube_handle(self, obj):
+        """Get YouTube handle"""
+        youtube_account = obj.social_accounts.filter(platform='youtube', is_active=True).first()
+        return youtube_account.platform_handle or youtube_account.handle if youtube_account else ""
+
+    def get_youtube_profile_link(self, obj):
+        """Get YouTube profile link"""
+        youtube_account = obj.social_accounts.filter(platform='youtube', is_active=True).first()
+        return youtube_account.platform_profile_link or f"https://youtube.com/channel/{youtube_account.handle}" if youtube_account else ""
+
+    def get_facebook_page_likes(self, obj):
+        """Get Facebook page likes"""
+        facebook_account = obj.social_accounts.filter(platform='facebook', is_active=True).first()
+        if facebook_account:
+            return self._format_number(facebook_account.page_likes or facebook_account.followers_count)
+        return "0"
+
+    def get_facebook_handle(self, obj):
+        """Get Facebook handle"""
+        facebook_account = obj.social_accounts.filter(platform='facebook', is_active=True).first()
+        return facebook_account.platform_handle or facebook_account.handle if facebook_account else ""
+
+    def get_facebook_profile_link(self, obj):
+        """Get Facebook profile link"""
+        facebook_account = obj.social_accounts.filter(platform='facebook', is_active=True).first()
+        return facebook_account.platform_profile_link or f"https://facebook.com/{facebook_account.handle}" if facebook_account else ""
+
+    def get_average_comments(self, obj):
+        """Get average comments across all platforms"""
+        active_accounts = obj.social_accounts.filter(is_active=True)
+        if active_accounts.exists():
+            avg_comments = active_accounts.aggregate(avg=models.Avg('average_comments'))['avg']
+            return str(int(avg_comments)) if avg_comments else "0"
+        return "0"
+
+    def get_average_likes(self, obj):
+        """Get average likes across all platforms"""
+        active_accounts = obj.social_accounts.filter(is_active=True)
+        if active_accounts.exists():
+            avg_likes = active_accounts.aggregate(avg=models.Avg('average_likes'))['avg']
+            return self._format_number(int(avg_likes)) if avg_likes else "0"
+        return "0"
+
+    def get_full_name(self, obj):
+        """Legacy field for compatibility"""
+        return self.get_name(obj)
+
+    def get_platforms(self, obj):
+        """Legacy field for compatibility"""
+        return self.get_available_platforms(obj)
+
+    def get_posts_count(self, obj):
+        """Get total posts count across all platforms"""
+        active_accounts = obj.social_accounts.filter(is_active=True)
+        if active_accounts.exists():
+            total_posts = active_accounts.aggregate(total=models.Sum('posts_count'))['total']
+            return total_posts or 0
+        return 0
+
+    def get_is_bookmarked(self, obj):
+        """Check if influencer is bookmarked by current user"""
+        request = self.context.get('request')
+        if request and request.user.is_authenticated:
+            from brands.models import BookmarkedInfluencer
+            return BookmarkedInfluencer.objects.filter(
+                bookmarked_by=request.user,
+                influencer=obj
+            ).exists()
+        return False
+
+    def _format_number(self, num):
+        """Format number to K, M format"""
+        if num >= 1000000:
+            return f"{num/1000000:.1f}m"
+        elif num >= 1000:
+            return f"{num/1000:.1f}k"
+        return str(num)

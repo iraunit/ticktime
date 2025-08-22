@@ -5,6 +5,7 @@ from rest_framework.response import Response
 import logging
 from django.contrib.auth.models import User
 from django.conf import settings
+from django.db import models
 
 logger = logging.getLogger(__name__)
 from django.shortcuts import get_object_or_404
@@ -416,10 +417,13 @@ def influencer_search_view(request):
     min_avg_comments = request.GET.get('min_avg_comments')
     last_posted_within = request.GET.get('last_posted_within', '')  # days
     
-    # Start with all influencer profiles
+    # Start with all influencer profiles and annotate computed fields
     queryset = InfluencerProfile.objects.select_related('user').prefetch_related(
         'social_accounts'
-    ).filter(is_active=True)
+    ).filter(user__is_active=True).annotate(
+        total_followers_annotated=models.Sum('social_accounts__followers_count', filter=models.Q(social_accounts__is_active=True)),
+        average_engagement_rate_annotated=models.Avg('social_accounts__engagement_rate', filter=models.Q(social_accounts__is_active=True))
+    )
     
     # Apply search filter
     if search:
@@ -459,32 +463,32 @@ def influencer_search_view(request):
     # Apply follower range filter
     if follower_range:
         if follower_range == '1K - 10K':
-            queryset = queryset.filter(total_followers__gte=1000, total_followers__lt=10000)
+            queryset = queryset.filter(total_followers_annotated__gte=1000, total_followers_annotated__lt=10000)
         elif follower_range == '10K - 50K':
-            queryset = queryset.filter(total_followers__gte=10000, total_followers__lt=50000)
+            queryset = queryset.filter(total_followers_annotated__gte=10000, total_followers_annotated__lt=50000)
         elif follower_range == '50K - 100K':
-            queryset = queryset.filter(total_followers__gte=50000, total_followers__lt=100000)
+            queryset = queryset.filter(total_followers_annotated__gte=50000, total_followers_annotated__lt=100000)
         elif follower_range == '100K - 500K':
-            queryset = queryset.filter(total_followers__gte=100000, total_followers__lt=500000)
+            queryset = queryset.filter(total_followers_annotated__gte=100000, total_followers_annotated__lt=500000)
         elif follower_range == '500K - 1M':
-            queryset = queryset.filter(total_followers__gte=500000, total_followers__lt=1000000)
+            queryset = queryset.filter(total_followers_annotated__gte=500000, total_followers_annotated__lt=1000000)
         elif follower_range == '1M - 5M':
-            queryset = queryset.filter(total_followers__gte=1000000, total_followers__lt=5000000)
+            queryset = queryset.filter(total_followers_annotated__gte=1000000, total_followers_annotated__lt=5000000)
         elif follower_range == '5M+':
-            queryset = queryset.filter(total_followers__gte=5000000)
-    
+            queryset = queryset.filter(total_followers_annotated__gte=5000000)
+
     # Apply custom follower range
     if min_followers:
         try:
             min_followers = int(min_followers)
-            queryset = queryset.filter(total_followers__gte=min_followers)
+            queryset = queryset.filter(total_followers_annotated__gte=min_followers)
         except ValueError:
             pass
-    
+
     if max_followers:
         try:
             max_followers = int(max_followers)
-            queryset = queryset.filter(total_followers__lte=max_followers)
+            queryset = queryset.filter(total_followers_annotated__lte=max_followers)
         except ValueError:
             pass
     
@@ -536,14 +540,14 @@ def influencer_search_view(request):
     if min_engagement:
         try:
             min_engagement = float(min_engagement)
-            queryset = queryset.filter(average_engagement_rate__gte=min_engagement)
+            queryset = queryset.filter(average_engagement_rate_annotated__gte=min_engagement)
         except ValueError:
             pass
-    
+
     if max_engagement:
         try:
             max_engagement = float(max_engagement)
-            queryset = queryset.filter(average_engagement_rate__lte=max_engagement)
+            queryset = queryset.filter(average_engagement_rate_annotated__lte=max_engagement)
         except ValueError:
             pass
     
@@ -613,11 +617,11 @@ def influencer_search_view(request):
     order_prefix = '' if sort_order == 'asc' else '-'
     
     if sort_by == 'followers':
-        queryset = queryset.order_by(f'{order_prefix}total_followers')
+        queryset = queryset.order_by(f'{order_prefix}total_followers_annotated')
     elif sort_by == 'subscribers':
-        queryset = queryset.order_by(f'{order_prefix}total_followers')  # Same as followers for now
+        queryset = queryset.order_by(f'{order_prefix}total_followers_annotated')  # Same as followers for now
     elif sort_by == 'engagement':
-        queryset = queryset.order_by(f'{order_prefix}average_engagement_rate')
+        queryset = queryset.order_by(f'{order_prefix}average_engagement_rate_annotated')
     elif sort_by == 'rating':
         queryset = queryset.order_by(f'{order_prefix}avg_rating')
     elif sort_by == 'influence_score':
@@ -635,117 +639,16 @@ def influencer_search_view(request):
     elif sort_by == 'growth_rate':
         queryset = queryset.order_by(f'{order_prefix}social_accounts__follower_growth_rate')
     else:
-        queryset = queryset.order_by(f'{order_prefix}total_followers')
+        queryset = queryset.order_by(f'{order_prefix}total_followers_annotated')
     
     # Pagination
     paginator = Paginator(queryset, page_size)
     page_obj = paginator.get_page(page)
     
-    # Serialize results
-    results = []
-    for profile in page_obj:
-        # Get primary social media account for the selected platform
-        primary_account = None
-        if platform and platform != 'all':
-            primary_account = profile.social_accounts.filter(
-                platform=platform, is_active=True
-            ).first()
-        else:
-            # Get the account with highest followers
-            primary_account = profile.social_accounts.filter(
-                is_active=True
-            ).order_by('-followers_count').first()
-        
-        if not primary_account:
-            continue
-            
-        # Check if bookmarked by current user
-        is_bookmarked = False
-        try:
-            brand_user = request.user.brand_user
-            if brand_user:
-                is_bookmarked = BookmarkedInfluencer.objects.filter(
-                    brand=brand_user.brand,
-                    influencer=profile
-                ).exists()
-        except:
-            pass
-        
-        # Get platform-specific metrics
-        platform_metrics = {}
-        if platform == 'instagram':
-            platform_metrics = {
-                'avg_image_likes': primary_account.average_image_likes or 0,
-                'avg_image_comments': primary_account.average_image_comments or 0,
-                'avg_reel_plays': primary_account.average_reel_plays or 0,
-                'avg_reel_likes': primary_account.average_reel_likes or 0,
-                'avg_reel_comments': primary_account.average_reel_comments or 0,
-            }
-        elif platform == 'youtube':
-            platform_metrics = {
-                'subscribers_count': primary_account.subscribers_count or 0,
-                'avg_video_views': primary_account.average_video_views or 0,
-                'avg_shorts_plays': primary_account.average_shorts_plays or 0,
-                'avg_shorts_likes': primary_account.average_shorts_likes or 0,
-                'avg_shorts_comments': primary_account.average_shorts_comments or 0,
-            }
-        
-        influencer_data = {
-            'id': profile.id,
-            'username': profile.user.username,
-            'full_name': f"{profile.user.first_name} {profile.user.last_name}".strip(),
-            'industry': profile.industry or '',
-            'bio': profile.bio or '',
-            'profile_image': profile.profile_image.url if profile.profile_image else None,
-            'is_verified': profile.is_verified,
-            'total_followers': primary_account.followers_count or 0,
-            'avg_engagement': profile.average_engagement_rate or 0,
-            'collaboration_count': profile.collaboration_count or 0,
-            'avg_rating': profile.avg_rating or 0,
-            'platforms': list(profile.social_accounts.filter(is_active=True).values_list('platform', flat=True)),
-            'location': profile.location_display,
-            'country': profile.country,
-            'state': profile.state,
-            'city': profile.city,
-            'gender': profile.gender,
-            'age_range': profile.age_range,
-            'influence_score': profile.influence_score or 0,
-            'response_time': profile.response_time,
-            'faster_responses': profile.faster_responses,
-            'contact_availability': profile.contact_availability,
-            'commerce_ready': profile.commerce_ready,
-            'campaign_ready': profile.campaign_ready,
-            'barter_ready': profile.barter_ready,
-            'instagram_verified': profile.instagram_verified,
-            'has_instagram': profile.has_instagram,
-            'has_youtube': profile.has_youtube,
-            'brand_safety_score': profile.brand_safety_score or 0,
-            'content_quality_score': profile.content_quality_score or 0,
-            'rate_per_post': profile.rate_per_post,
-            'avg_likes': primary_account.average_likes or 0,
-            'avg_views': primary_account.average_video_views or 0,
-            'avg_comments': primary_account.average_comments or 0,
-            'posts_count': primary_account.posts_count or 0,
-            'last_posted_at': primary_account.last_posted_at,
-            'follower_growth_rate': primary_account.follower_growth_rate or 0,
-            'subscriber_growth_rate': primary_account.subscriber_growth_rate or 0,
-            'avg_cpm': primary_account.avg_cpm or 0,
-            'post_performance_score': primary_account.post_performance_score or 0,
-            'is_bookmarked': is_bookmarked,
-            'categories': profile.categories or [],
-            'content_keywords': profile.content_keywords or [],
-            'bio_keywords': profile.bio_keywords or [],
-            'audience_gender_distribution': profile.audience_gender_distribution or {},
-            'audience_age_distribution': profile.audience_age_distribution or {},
-            'audience_locations': profile.audience_locations or [],
-            'audience_interests': profile.audience_interests or [],
-            'audience_languages': profile.audience_languages or [],
-            'platform_metrics': platform_metrics,
-            'created_at': profile.created_at,
-            'updated_at': profile.updated_at,
-        }
-        
-        results.append(influencer_data)
+    # Serialize results using enhanced serializer
+    from .serializers import InfluencerSearchSerializer
+    serializer = InfluencerSearchSerializer(page_obj, many=True, context={'request': request})
+    results = serializer.data
     
     return Response({
         'status': 'success',
@@ -799,7 +702,7 @@ def bookmark_influencer_view(request, influencer_id):
             BookmarkedInfluencer.objects.create(
                 brand=brand_user.brand,
                 influencer=influencer,
-                user=request.user
+                bookmarked_by=request.user
             )
             return Response({
                 'status': 'success',
@@ -826,28 +729,40 @@ def influencer_filters_view(request):
     
     # Get unique locations
     locations = InfluencerProfile.objects.filter(
-        is_active=True, location__isnull=False
-    ).exclude(location='').values_list('location', flat=True).distinct()
+        user__is_active=True
+    ).exclude(
+        models.Q(city='') & models.Q(state='') & models.Q(country='')
+    ).values_list('city', flat=True).distinct()
     
     # Get follower ranges
     follower_stats = InfluencerProfile.objects.filter(
-        is_active=True, total_followers__gt=0
-    ).aggregate(
-        min_followers=Min('total_followers'),
-        max_followers=Max('total_followers')
+        user__is_active=True
+    ).annotate(
+        total_followers_annotated=models.Sum('social_accounts__followers_count', filter=models.Q(social_accounts__is_active=True))
+    ).filter(total_followers_annotated__gt=0).aggregate(
+        min_followers=Min('total_followers_annotated'),
+        max_followers=Max('total_followers_annotated')
     )
     
     # Get rating ranges
     rating_stats = InfluencerProfile.objects.filter(
-        is_active=True, avg_rating__gt=0
+        user__is_active=True, avg_rating__gt=0
     ).aggregate(
         min_rating=Min('avg_rating'),
         max_rating=Max('avg_rating')
     )
     
+    # Get influence score ranges
+    score_stats = InfluencerProfile.objects.filter(
+        user__is_active=True, influence_score__gt=0
+    ).aggregate(
+        min_score=Min('influence_score'),
+        max_score=Max('influence_score')
+    )
+    
     # Get unique categories
     all_categories = []
-    for profile in InfluencerProfile.objects.filter(is_active=True, categories__isnull=False):
+    for profile in InfluencerProfile.objects.filter(user__is_active=True, categories__isnull=False):
         if profile.categories:
             all_categories.extend(profile.categories)
     unique_categories = list(set(all_categories))
@@ -885,7 +800,7 @@ def influencer_filters_view(request):
             ]
         },
         'stats': {
-            'total_influencers': InfluencerProfile.objects.filter(is_active=True).count(),
+            'total_influencers': InfluencerProfile.objects.filter(user__is_active=True).count(),
             'follower_stats': follower_stats,
             'score_stats': score_stats
         }

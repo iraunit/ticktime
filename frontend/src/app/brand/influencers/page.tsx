@@ -1,12 +1,13 @@
 "use client";
 
-import { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
 import { 
   HiMagnifyingGlass, 
   HiBookmark,
@@ -30,7 +31,9 @@ import {
   HiSparkles,
   HiUsers,
   HiClock,
-  HiCalendar
+  HiCalendar,
+  HiEyeSlash,
+  HiEye as HiEyeOpen
 } from "react-icons/hi2";
 import { HiX } from "react-icons/hi";
 import { 
@@ -135,9 +138,50 @@ interface Influencer {
   last_active?: string;
   engagement_rate?: number;
   posts_count?: number;
+  
+  // Enhanced fields from competitor analysis
+  name?: string;
+  handle?: string;
+  original_profile_image?: string;
+  score?: string;
+  available_platforms?: string[];
+  
+  // Platform-specific data
+  twitter_followers?: string;
+  twitter_handle?: string;
+  twitter_profile_link?: string;
+  youtube_subscribers?: string;
+  youtube_handle?: string;
+  youtube_profile_link?: string;
+  facebook_page_likes?: string;
+  facebook_handle?: string;
+  facebook_profile_link?: string;
+  
+  // Interaction metrics
+  average_interaction?: string;
+  average_dislikes?: string;
+  
+  // Scored categories
+  category_scores?: Array<{
+    category_name: string;
+    score: string;
+    is_flag: number;
+    is_primary: boolean;
+  }>;
 }
 
-// Real categories from your backend
+// Column configuration
+const columnConfig = {
+  creator: { key: 'creator', label: 'Creator Profile', visible: true, sortable: false },
+  rating: { key: 'rating', label: 'Rating', visible: true, sortable: true },
+  followers: { key: 'followers', label: 'Followers', visible: true, sortable: true },
+  engagement: { key: 'engagement', label: 'Engagement', visible: true, sortable: true },
+  posts: { key: 'posts', label: 'Posts', visible: true, sortable: true },
+  location: { key: 'location', label: 'Location', visible: true, sortable: false },
+  categories: { key: 'categories', label: 'Categories', visible: true, sortable: false },
+  actions: { key: 'actions', label: 'Actions', visible: true, sortable: false }
+};
+
 const categoryOptions = [
   "Fashion", "Beauty", "Fitness", "Health", "Food", "Cooking", "Travel", 
   "Lifestyle", "Technology", "Gaming", "Music", "Dance", "Comedy", 
@@ -166,9 +210,20 @@ export default function InfluencerSearchPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
   const [searchTerm, setSearchTerm] = useState("");
   const [showFilters, setShowFilters] = useState(false);
+  const [showColumnSettings, setShowColumnSettings] = useState(false);
   const [selectedInfluencer, setSelectedInfluencer] = useState<Influencer | null>(null);
+  
+  // Column visibility state
+  const [visibleColumns, setVisibleColumns] = useState<Record<string, boolean>>(() => {
+    const saved = localStorage.getItem('influencer-table-columns');
+    return saved ? JSON.parse(saved) : Object.fromEntries(
+      Object.entries(columnConfig).map(([key, config]: [string, any]) => [key, config.visible])
+    );
+  });
   
   // Filter states
   const [selectedPlatform, setSelectedPlatform] = useState("all");
@@ -179,20 +234,11 @@ export default function InfluencerSearchPage() {
   const [selectedIndustry, setSelectedIndustry] = useState("All");
   const [sortBy, setSortBy] = useState("followers");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
-  
-  const observer = useRef<IntersectionObserver>();
 
-  // Infinite scroll setup
-  const lastInfluencerElementRef = useCallback((node: HTMLTableRowElement | null) => {
-    if (isLoading || typeof window === 'undefined') return;
-    if (observer.current) observer.current.disconnect();
-    observer.current = new IntersectionObserver(entries => {
-      if (entries[0].isIntersecting && hasMore) {
-        setPage((prevPage) => prevPage + 1);
-      }
-    });
-    if (node) observer.current.observe(node);
-  }, [isLoading, hasMore, page]);
+  // Save column visibility to localStorage
+  useEffect(() => {
+    localStorage.setItem('influencer-table-columns', JSON.stringify(visibleColumns));
+  }, [visibleColumns]);
 
   // Load influencers from API
   const fetchInfluencers = useCallback(async (pageNum = 1, append = false) => {
@@ -215,17 +261,15 @@ export default function InfluencerSearchPage() {
       });
       
       const newInfluencers = response.data.results || [];
+      const pagination = response.data.pagination || {};
+      
       setInfluencers(prev => append ? [...prev, ...newInfluencers] : newInfluencers);
-      setHasMore(newInfluencers.length === 20);
+      setHasMore(pagination.has_next || false);
+      setPage(pagination.page || pageNum);
+      setTotalPages(pagination.total_pages || 1);
+      setTotalCount(pagination.total_count || 0);
     } catch (error: any) {
-      console.error('Failed to fetch influencers:', {
-        error,
-        message: error instanceof Error ? error.message : 'Unknown error',
-        status: error?.response?.status,
-        data: error?.response?.data,
-        url: error?.config?.url,
-        params: error?.config?.params
-      });
+      console.error('Failed to fetch influencers:', error);
       toast.error('Failed to load influencers. Please try again.');
     } finally {
       setIsLoading(false);
@@ -241,7 +285,6 @@ export default function InfluencerSearchPage() {
       } else {
         toast.success("Influencer removed from bookmarks!");
       }
-      // Refresh the list to update bookmark status
       fetchInfluencers(1, false);
     } catch (error) {
       console.error('Failed to bookmark influencer:', error);
@@ -253,12 +296,6 @@ export default function InfluencerSearchPage() {
     setPage(1);
     fetchInfluencers(1, false);
   }, [fetchInfluencers]);
-
-  useEffect(() => {
-    if (page > 1) {
-      fetchInfluencers(page, true);
-    }
-  }, [page, fetchInfluencers]);
 
   const formatNumber = (num: number) => {
     if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
@@ -276,8 +313,8 @@ export default function InfluencerSearchPage() {
   };
 
   const SortIcon = ({ column }: { column: string }) => {
-    if (sortBy !== column) return <HiChevronDown className="w-4 h-4 text-gray-400" />;
-    return sortOrder === "asc" ? <HiChevronUp className="w-4 h-4" /> : <HiChevronDown className="w-4 h-4" />;
+    if (sortBy !== column) return <HiChevronDown className="w-3 h-3 text-gray-400" />;
+    return sortOrder === "asc" ? <HiChevronUp className="w-3 h-3" /> : <HiChevronDown className="w-3 h-3" />;
   };
 
   const hasActiveFilters = useMemo(() => {
@@ -316,50 +353,72 @@ export default function InfluencerSearchPage() {
     toast.success(`${influencer.full_name} added to campaign!`);
   };
 
+  const handleLoadMore = () => {
+    const nextPage = page + 1;
+    setPage(nextPage);
+    fetchInfluencers(nextPage, true);
+  };
+
+  const toggleColumnVisibility = (columnKey: string) => {
+    setVisibleColumns((prev: Record<string, boolean>) => ({
+      ...prev,
+      [columnKey]: !prev[columnKey]
+    }));
+  };
+
   const PlatformIcon = ({ platform }: { platform: string }) => {
     const config = platformConfig[platform as keyof typeof platformConfig];
     if (!config) return null;
     
     const IconComponent = config.icon;
     return (
-      <div className={`w-8 h-8 ${config.bg} ${config.border} border rounded-lg flex items-center justify-center`}>
-        <IconComponent className={`w-4 h-4 ${config.color}`} />
+      <div className={`w-6 h-6 ${config.bg} ${config.border} border rounded-md flex items-center justify-center`}>
+        <IconComponent className={`w-3 h-3 ${config.color}`} />
       </div>
     );
   };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100">
-      <div className="container mx-auto px-4 py-6 max-w-7xl">
-        {/* Header */}
-        <div className="mb-8">
+      <div className="container mx-auto px-4 py-4 max-w-7xl">
+        {/* Compact Header */}
+        <div className="mb-4">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-bold bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 bg-clip-text text-transparent mb-2">
+              <h1 className="text-2xl font-bold bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 bg-clip-text text-transparent">
                 Discover Creators
               </h1>
-              <p className="text-gray-600 max-w-2xl">
-                Find the perfect influencers for your brand. Filter by platform, audience size, and content categories to discover creators who align with your campaign goals.
+              <p className="text-sm text-gray-600">
+                Find the perfect influencers for your brand. Filter by platform, audience size, and content categories.
               </p>
             </div>
             
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
               <div className="text-right hidden sm:block">
-                <p className="text-sm text-gray-500">Found</p>
-                <p className="text-lg font-semibold text-gray-900">
-                  {influencers.length} creators
+                <p className="text-xs text-gray-500">Found</p>
+                <p className="text-sm font-semibold text-gray-900">
+                  {totalCount} creators
                 </p>
               </div>
               <Button 
                 variant="outline" 
                 size="sm"
-                onClick={() => setShowFilters(!showFilters)}
-                className="border-2 border-indigo-200 hover:border-indigo-300 hover:bg-indigo-50 transition-all duration-200"
+                onClick={() => setShowColumnSettings(!showColumnSettings)}
+                className="border border-gray-300 hover:border-gray-400"
               >
-                <HiFunnel className="h-4 w-4 mr-2" />
+                <HiEyeSlash className="h-4 w-4 mr-1" />
+                Columns
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => setShowFilters(!showFilters)}
+                className="border border-gray-300 hover:border-gray-400"
+              >
+                <HiFunnel className="h-4 w-4 mr-1" />
                 Filters
                 {hasActiveFilters && (
-                  <Badge className="ml-2 bg-indigo-100 text-indigo-800 px-2 py-0.5 text-xs">
+                  <Badge className="ml-1 bg-indigo-100 text-indigo-800 px-1 py-0 text-xs">
                     Active
                   </Badge>
                 )}
@@ -368,37 +427,69 @@ export default function InfluencerSearchPage() {
           </div>
         </div>
 
-        {/* Search and Quick Filters */}
-        <Card className="mb-6 bg-white border-2 border-gray-100 shadow-lg">
-          <div className="p-6">
+        {/* Column Settings Panel */}
+        {showColumnSettings && (
+          <Card className="mb-3 bg-white border border-gray-200 shadow-sm">
+            <div className="p-3">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-semibold text-gray-900">Column Visibility</h3>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowColumnSettings(false)}
+                >
+                  <HiX className="w-4 h-4" />
+                </Button>
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                {Object.entries(columnConfig).map(([key, config]) => (
+                  <div key={key} className="flex items-center space-x-2">
+                    <Checkbox
+                      id={key}
+                      checked={visibleColumns[key]}
+                      onCheckedChange={() => toggleColumnVisibility(key)}
+                    />
+                    <label htmlFor={key} className="text-sm text-gray-700">
+                      {config.label}
+                    </label>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </Card>
+        )}
+
+        {/* Compact Search and Filters */}
+        <Card className="mb-3 bg-white border border-gray-200 shadow-sm">
+          <div className="p-3">
             {/* Search Bar */}
-            <div className="relative mb-6">
-              <HiMagnifyingGlass className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+            <div className="relative mb-3">
+              <HiMagnifyingGlass className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
               <Input
-                placeholder="Search creators by name, username, or content keywords..."
+                placeholder="Search creators by name, username, or keywords..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-12 h-14 text-lg border-2 border-gray-200 focus:border-indigo-300 focus:ring-indigo-200 rounded-xl"
+                className="pl-10 h-10 text-sm border border-gray-300 focus:border-indigo-300 focus:ring-indigo-200 rounded-lg"
               />
               {searchTerm && (
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={() => setSearchTerm("")}
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 hover:bg-gray-100 rounded-full"
+                  className="absolute right-2 top-1/2 transform -translate-y-1/2 hover:bg-gray-100 rounded-full h-6 w-6 p-0"
                 >
-                  <HiX className="h-4 w-4" />
+                  <HiX className="h-3 w-3" />
                 </Button>
               )}
             </div>
 
             {/* Quick Filters Row */}
-            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2">
               {/* Platform Selector */}
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700">Platform</label>
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-gray-700">Platform</label>
                 <Select value={selectedPlatform} onValueChange={setSelectedPlatform}>
-                  <SelectTrigger className="border-2 border-gray-200 hover:border-indigo-300">
+                  <SelectTrigger className="h-8 text-xs border border-gray-300">
                     <SelectValue placeholder="All Platforms" />
                   </SelectTrigger>
                   <SelectContent>
@@ -414,10 +505,10 @@ export default function InfluencerSearchPage() {
               </div>
 
               {/* Industry */}
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700">Industry</label>
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-gray-700">Industry</label>
                 <Select value={selectedIndustry} onValueChange={setSelectedIndustry}>
-                  <SelectTrigger className="border-2 border-gray-200 hover:border-indigo-300">
+                  <SelectTrigger className="h-8 text-xs border border-gray-300">
                     <SelectValue placeholder="All Industries" />
                   </SelectTrigger>
                   <SelectContent>
@@ -430,10 +521,10 @@ export default function InfluencerSearchPage() {
               </div>
 
               {/* Followers */}
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700">Followers</label>
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-gray-700">Followers</label>
                 <Select value={followerRange} onValueChange={setFollowerRange}>
-                  <SelectTrigger className="border-2 border-gray-200 hover:border-indigo-300">
+                  <SelectTrigger className="h-8 text-xs border border-gray-300">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -445,10 +536,10 @@ export default function InfluencerSearchPage() {
               </div>
 
               {/* Sort By */}
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700">Sort By</label>
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-gray-700">Sort By</label>
                 <Select value={sortBy} onValueChange={setSortBy}>
-                  <SelectTrigger className="border-2 border-gray-200 hover:border-indigo-300">
+                  <SelectTrigger className="h-8 text-xs border border-gray-300">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -462,15 +553,15 @@ export default function InfluencerSearchPage() {
 
               {/* Clear Filters */}
               {hasActiveFilters && (
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700">&nbsp;</label>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-gray-700">&nbsp;</label>
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={clearAllFilters}
-                    className="w-full text-red-600 border-red-200 hover:bg-red-50 hover:border-red-300"
+                    className="w-full h-8 text-xs text-red-600 border-red-200 hover:bg-red-50"
                   >
-                    <HiX className="h-4 w-4 mr-1" />
+                    <HiX className="h-3 w-3 mr-1" />
                     Clear All
                   </Button>
                 </div>
@@ -481,11 +572,11 @@ export default function InfluencerSearchPage() {
 
         {/* Advanced Filters Panel */}
         {showFilters && (
-          <Card className="mb-6 bg-white border-2 border-gray-100 shadow-lg">
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
-                  <HiSparkles className="w-5 h-5 text-indigo-600" />
+          <Card className="mb-3 bg-white border border-gray-200 shadow-sm">
+            <div className="p-3">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
+                  <HiSparkles className="w-4 h-4 text-indigo-600" />
                   Advanced Filters
                 </h3>
                 <Button
@@ -497,35 +588,35 @@ export default function InfluencerSearchPage() {
                 </Button>
               </div>
               
-              <div className="grid gap-6">
+              <div className="grid gap-3">
                 {/* Categories */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-3">
+                  <label className="block text-xs font-medium text-gray-700 mb-2">
                     Content Categories
                   </label>
-                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                  <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
                     {categoryOptions.map(category => (
                       <div
                         key={category}
-                        className={`px-4 py-3 rounded-xl border-2 cursor-pointer transition-all ${
+                        className={`px-2 py-1 rounded-md border cursor-pointer transition-all text-xs ${
                           selectedCategories.includes(category)
                             ? 'bg-indigo-50 border-indigo-300 text-indigo-700'
                             : 'bg-gray-50 border-gray-200 hover:border-gray-300'
                         }`}
                         onClick={() => handleCategoryToggle(category)}
                       >
-                        <span className="text-sm font-medium">{category}</span>
+                        {category}
                       </div>
                     ))}
                   </div>
                 </div>
 
                 {/* Additional Filters */}
-                <div className="grid md:grid-cols-3 gap-4">
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-gray-700">Location</label>
+                <div className="grid md:grid-cols-3 gap-2">
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-gray-700">Location</label>
                     <Select value={locationFilter} onValueChange={setLocationFilter}>
-                      <SelectTrigger className="border-2 border-gray-200">
+                      <SelectTrigger className="h-8 text-xs border border-gray-300">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -538,10 +629,10 @@ export default function InfluencerSearchPage() {
                     </Select>
                   </div>
 
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-gray-700">Gender</label>
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-gray-700">Gender</label>
                     <Select value={genderFilter} onValueChange={setGenderFilter}>
-                      <SelectTrigger className="border-2 border-gray-200">
+                      <SelectTrigger className="h-8 text-xs border border-gray-300">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -553,10 +644,10 @@ export default function InfluencerSearchPage() {
                     </Select>
                   </div>
 
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-gray-700">Sort Order</label>
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-gray-700">Sort Order</label>
                     <Select value={sortOrder} onValueChange={(value: "asc" | "desc") => setSortOrder(value)}>
-                      <SelectTrigger className="border-2 border-gray-200">
+                      <SelectTrigger className="h-8 text-xs border border-gray-300">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -566,356 +657,373 @@ export default function InfluencerSearchPage() {
                     </Select>
                   </div>
                 </div>
-
-                {/* Action Buttons */}
-                <div className="flex gap-3 pt-4 border-t border-gray-200">
-                  <Button
-                    variant="outline"
-                    onClick={clearAllFilters}
-                    className="flex-1"
-                  >
-                    Reset All
-                  </Button>
-                  <Button
-                    onClick={() => setShowFilters(false)}
-                    className="flex-1 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white"
-                  >
-                    <HiSparkles className="w-4 h-4 mr-2" />
-                    Apply Filters
-                  </Button>
-                </div>
               </div>
             </div>
           </Card>
         )}
 
-        {/* Table View */}
-        <Card className="bg-white border-2 border-gray-100 shadow-lg overflow-hidden">
+        {/* Compact Table View */}
+        <Card className="bg-white border border-gray-200 shadow-sm overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full">
-              <thead className="bg-gradient-to-r from-gray-50 to-gray-100 border-b-2 border-gray-200">
+              <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
-                  <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
-                    Creator Profile
-                  </th>
-                  <th 
-                    className="px-6 py-4 text-left text-sm font-semibold text-gray-900 cursor-pointer hover:bg-gray-200 transition-colors"
-                    onClick={() => handleSort('rating')}
-                  >
-                    <div className="flex items-center gap-2">
-                      <HiStar className="w-4 h-4 text-yellow-500" />
-                      Rating
-                      <SortIcon column="rating" />
-                    </div>
-                  </th>
-                  <th 
-                    className="px-6 py-4 text-left text-sm font-semibold text-gray-900 cursor-pointer hover:bg-gray-200 transition-colors"
-                    onClick={() => handleSort('followers')}
-                  >
-                    <div className="flex items-center gap-2">
-                      <HiUsers className="w-4 h-4 text-blue-500" />
-                      Followers
-                      <SortIcon column="followers" />
-                    </div>
-                  </th>
-                  <th 
-                    className="px-6 py-4 text-left text-sm font-semibold text-gray-900 cursor-pointer hover:bg-gray-200 transition-colors"
-                    onClick={() => handleSort('engagement')}
-                  >
-                    <div className="flex items-center gap-2">
-                      <HiHeart className="w-4 h-4 text-red-500" />
-                      Engagement
-                      <SortIcon column="engagement" />
-                    </div>
-                  </th>
-                  <th 
-                    className="px-6 py-4 text-left text-sm font-semibold text-gray-900 cursor-pointer hover:bg-gray-200 transition-colors"
-                    onClick={() => handleSort('posts')}
-                  >
-                    <div className="flex items-center gap-2">
-                      <HiPlay className="w-4 h-4 text-green-500" />
-                      Posts
-                      <SortIcon column="posts" />
-                    </div>
-                  </th>
-                  <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
-                    <div className="flex items-center gap-2">
-                      <HiMapPin className="w-4 h-4 text-purple-500" />
-                      Location
-                    </div>
-                  </th>
-                  <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
-                    Categories
-                  </th>
-                  <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
-                    Actions
-                  </th>
+                  {visibleColumns.creator && (
+                    <th className="px-3 py-2 text-left text-xs font-semibold text-gray-900">
+                      Creator Profile
+                    </th>
+                  )}
+                  {visibleColumns.rating && (
+                    <th 
+                      className="px-3 py-2 text-left text-xs font-semibold text-gray-900 cursor-pointer hover:bg-gray-100 transition-colors"
+                      onClick={() => handleSort('rating')}
+                    >
+                      <div className="flex items-center gap-1">
+                        <HiStar className="w-3 h-3 text-yellow-500" />
+                        Rating
+                        <SortIcon column="rating" />
+                      </div>
+                    </th>
+                  )}
+                  {visibleColumns.followers && (
+                    <th 
+                      className="px-3 py-2 text-left text-xs font-semibold text-gray-900 cursor-pointer hover:bg-gray-100 transition-colors"
+                      onClick={() => handleSort('followers')}
+                    >
+                      <div className="flex items-center gap-1">
+                        <HiUsers className="w-3 h-3 text-blue-500" />
+                        Followers
+                        <SortIcon column="followers" />
+                      </div>
+                    </th>
+                  )}
+                  {visibleColumns.engagement && (
+                    <th 
+                      className="px-3 py-2 text-left text-xs font-semibold text-gray-900 cursor-pointer hover:bg-gray-100 transition-colors"
+                      onClick={() => handleSort('engagement')}
+                    >
+                      <div className="flex items-center gap-1">
+                        <HiHeart className="w-3 h-3 text-red-500" />
+                        Engagement
+                        <SortIcon column="engagement" />
+                      </div>
+                    </th>
+                  )}
+                  {visibleColumns.posts && (
+                    <th 
+                      className="px-3 py-2 text-left text-xs font-semibold text-gray-900 cursor-pointer hover:bg-gray-100 transition-colors"
+                      onClick={() => handleSort('posts')}
+                    >
+                      <div className="flex items-center gap-1">
+                        <HiPlay className="w-3 h-3 text-green-500" />
+                        Posts
+                        <SortIcon column="posts" />
+                      </div>
+                    </th>
+                  )}
+                  {visibleColumns.location && (
+                    <th className="px-3 py-2 text-left text-xs font-semibold text-gray-900">
+                      <div className="flex items-center gap-1">
+                        <HiMapPin className="w-3 h-3 text-purple-500" />
+                        Location
+                      </div>
+                    </th>
+                  )}
+                  {visibleColumns.categories && (
+                    <th className="px-3 py-2 text-left text-xs font-semibold text-gray-900">
+                      Categories
+                    </th>
+                  )}
+                  {visibleColumns.actions && (
+                    <th className="px-3 py-2 text-left text-xs font-semibold text-gray-900">
+                      Actions
+                    </th>
+                  )}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-200">
-                {influencers.map((influencer, index) => (
+              <tbody className="divide-y divide-gray-100">
+                {influencers.map((influencer) => (
                   <tr 
                     key={influencer.id} 
-                    className="hover:bg-gradient-to-r hover:from-indigo-50 hover:to-purple-50 transition-all duration-200"
-                    ref={index === influencers.length - 1 ? lastInfluencerElementRef : null}
+                    className="hover:bg-gray-50 transition-colors"
                   >
-                    <td className="px-6 py-6">
-                      <div className="flex items-center gap-4">
-                        <div className="relative">
-                          <div className="w-12 h-12 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full overflow-hidden border-2 border-white shadow-lg">
-                            {influencer.profile_image ? (
-                              <img
-                                src={influencer.profile_image}
-                                alt={influencer.full_name}
-                                className="w-full h-full object-cover"
-                              />
-                            ) : (
-                              <div className="w-full h-full flex items-center justify-center text-white font-bold text-lg">
-                                {influencer.full_name.charAt(0)}
+                    {visibleColumns.creator && (
+                      <td className="px-3 py-2">
+                        <div className="flex items-center gap-2">
+                          <div className="relative">
+                            <div className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full overflow-hidden border border-white shadow-sm">
+                              {influencer.profile_image ? (
+                                <img
+                                  src={influencer.profile_image}
+                                  alt={influencer.full_name}
+                                  className="w-full h-full object-cover"
+                                />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center text-white font-bold text-sm">
+                                  {influencer.full_name.charAt(0)}
+                                </div>
+                              )}
+                            </div>
+                            {influencer.is_verified && (
+                              <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-blue-500 border border-white rounded-full flex items-center justify-center">
+                                <HiCheckBadge className="w-2 h-2 text-white" />
                               </div>
                             )}
                           </div>
-                          {influencer.is_verified && (
-                            <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-blue-500 border-2 border-white rounded-full flex items-center justify-center">
-                              <HiCheckBadge className="w-3 h-3 text-white" />
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-1 mb-0.5">
+                              <h3 className="font-medium text-gray-900 truncate text-sm">{influencer.full_name}</h3>
                             </div>
+                            <p className="text-xs text-gray-500 mb-1">@{influencer.username}</p>
+                            <div className="flex items-center gap-1">
+                              {influencer.platforms.slice(0, 2).map(platform => (
+                                <PlatformIcon key={platform} platform={platform} />
+                              ))}
+                              {influencer.platforms.length > 2 && (
+                                <Badge variant="secondary" className="text-xs px-1 py-0">
+                                  +{influencer.platforms.length - 2}
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+                    )}
+                    {visibleColumns.rating && (
+                      <td className="px-3 py-2">
+                        <div className="flex items-center gap-1">
+                          <HiStar className="w-3 h-3 text-yellow-500 fill-current" />
+                          <span className="font-medium text-gray-900 text-sm">
+                            {influencer.score || (typeof influencer.avg_rating === 'number' ? influencer.avg_rating.toFixed(1) : "N/A")}
+                          </span>
+                        </div>
+                      </td>
+                    )}
+                    {visibleColumns.followers && (
+                      <td className="px-3 py-2">
+                        <span className="font-medium text-gray-900 text-sm">
+                          {formatNumber(influencer.total_followers)}
+                        </span>
+                      </td>
+                    )}
+                    {visibleColumns.engagement && (
+                      <td className="px-3 py-2">
+                        <span className="font-medium text-gray-900 text-sm">
+                          {(typeof influencer.engagement_rate === 'number' ? influencer.engagement_rate.toFixed(1) : null) ||
+                           (typeof influencer.avg_engagement === 'number' ? influencer.avg_engagement.toFixed(1) : null) ||
+                           "N/A"}%
+                        </span>
+                      </td>
+                    )}
+                    {visibleColumns.posts && (
+                      <td className="px-3 py-2">
+                        <span className="font-medium text-gray-900 text-sm">
+                          {formatNumber(influencer.posts_count || 0)}
+                        </span>
+                      </td>
+                    )}
+                    {visibleColumns.location && (
+                      <td className="px-3 py-2">
+                        <span className="text-gray-600 text-sm">{influencer.location || "N/A"}</span>
+                      </td>
+                    )}
+                    {visibleColumns.categories && (
+                      <td className="px-3 py-2">
+                        <div className="flex flex-wrap gap-1">
+                          {influencer.categories?.slice(0, 1).map(category => (
+                            <Badge key={category} variant="secondary" className="text-xs bg-gray-100 text-gray-700 px-1 py-0">
+                              {category}
+                            </Badge>
+                          ))}
+                          {influencer.categories && influencer.categories.length > 1 && (
+                            <Badge variant="secondary" className="text-xs bg-gray-100 text-gray-700 px-1 py-0">
+                              +{influencer.categories.length - 1}
+                            </Badge>
                           )}
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1">
-                            <h3 className="font-semibold text-gray-900 truncate">{influencer.full_name}</h3>
-                          </div>
-                          <p className="text-sm text-gray-500 mb-2">@{influencer.username}</p>
-                          <div className="flex items-center gap-2">
-                            {influencer.platforms.slice(0, 3).map(platform => (
-                              <PlatformIcon key={platform} platform={platform} />
-                            ))}
-                            {influencer.platforms.length > 3 && (
-                              <Badge variant="secondary" className="text-xs">
-                                +{influencer.platforms.length - 3} more
-                              </Badge>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-6">
-                      <div className="flex items-center gap-2">
-                        <HiStar className="w-4 h-4 text-yellow-500 fill-current" />
-                        <span className="font-semibold text-gray-900">
-                          {influencer.avg_rating?.toFixed(1) || "N/A"}
-                        </span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-6">
-                      <span className="font-semibold text-gray-900">
-                        {formatNumber(influencer.total_followers)}
-                      </span>
-                    </td>
-                    <td className="px-6 py-6">
-                      <span className="font-semibold text-gray-900">
-                        {influencer.engagement_rate?.toFixed(1) || influencer.avg_engagement?.toFixed(1) || "N/A"}%
-                      </span>
-                    </td>
-                    <td className="px-6 py-6">
-                      <span className="font-semibold text-gray-900">
-                        {formatNumber(influencer.posts_count || 0)}
-                      </span>
-                    </td>
-                    <td className="px-6 py-6">
-                      <span className="text-gray-600">{influencer.location || "N/A"}</span>
-                    </td>
-                    <td className="px-6 py-6">
-                      <div className="flex flex-wrap gap-1">
-                        {influencer.categories?.slice(0, 2).map(category => (
-                          <Badge key={category} variant="secondary" className="text-xs bg-gray-100 text-gray-700">
-                            {category}
-                          </Badge>
-                        ))}
-                        {influencer.categories && influencer.categories.length > 2 && (
-                          <Badge variant="secondary" className="text-xs bg-gray-100 text-gray-700">
-                            +{influencer.categories.length - 2} more
-                          </Badge>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-6 py-6">
-                      <div className="flex items-center gap-2">
-                        <Dialog>
-                          <DialogTrigger asChild>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => setSelectedInfluencer(influencer)}
-                              className="bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100"
-                            >
-                              <HiEye className="w-4 h-4 mr-1" />
-                              View
-                            </Button>
-                          </DialogTrigger>
-                          <DialogContent className="max-w-4xl">
-                            <DialogHeader>
-                              <DialogTitle className="text-2xl font-bold text-gray-900">
-                                Creator Profile
-                              </DialogTitle>
-                            </DialogHeader>
-                            {selectedInfluencer && (
-                              <div className="space-y-6">
-                                {/* Profile Header */}
-                                <div className="flex items-start gap-6">
-                                  <div className="relative">
-                                    <div className="w-24 h-24 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full overflow-hidden border-4 border-white shadow-xl">
-                                      {selectedInfluencer.profile_image ? (
-                                        <img
-                                          src={selectedInfluencer.profile_image}
-                                          alt={selectedInfluencer.full_name}
-                                          className="w-full h-full object-cover"
-                                        />
-                                      ) : (
-                                        <div className="w-full h-full flex items-center justify-center text-white font-bold text-3xl">
-                                          {selectedInfluencer.full_name.charAt(0)}
+                      </td>
+                    )}
+                    {visibleColumns.actions && (
+                      <td className="px-3 py-2">
+                        <div className="flex items-center gap-1">
+                          <Dialog>
+                            <DialogTrigger asChild>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setSelectedInfluencer(influencer)}
+                                className="h-6 px-2 text-xs bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100"
+                              >
+                                <HiEye className="w-3 h-3 mr-1" />
+                                View
+                              </Button>
+                            </DialogTrigger>
+                            <DialogContent className="max-w-4xl">
+                              <DialogHeader>
+                                <DialogTitle className="text-2xl font-bold text-gray-900">
+                                  Creator Profile
+                                </DialogTitle>
+                              </DialogHeader>
+                              {selectedInfluencer && (
+                                <div className="space-y-6">
+                                  {/* Profile Header */}
+                                  <div className="flex items-start gap-6">
+                                    <div className="relative">
+                                      <div className="w-24 h-24 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full overflow-hidden border-4 border-white shadow-xl">
+                                        {selectedInfluencer.profile_image ? (
+                                          <img
+                                            src={selectedInfluencer.profile_image}
+                                            alt={selectedInfluencer.full_name}
+                                            className="w-full h-full object-cover"
+                                          />
+                                        ) : (
+                                          <div className="w-full h-full flex items-center justify-center text-white font-bold text-3xl">
+                                            {selectedInfluencer.full_name.charAt(0)}
+                                          </div>
+                                        )}
+                                      </div>
+                                      {selectedInfluencer.is_verified && (
+                                        <div className="absolute -bottom-2 -right-2 w-8 h-8 bg-blue-500 border-4 border-white rounded-full flex items-center justify-center">
+                                          <HiCheckBadge className="w-4 h-4 text-white" />
                                         </div>
                                       )}
                                     </div>
-                                    {selectedInfluencer.is_verified && (
-                                      <div className="absolute -bottom-2 -right-2 w-8 h-8 bg-blue-500 border-4 border-white rounded-full flex items-center justify-center">
-                                        <HiCheckBadge className="w-4 h-4 text-white" />
+                                    <div className="flex-1">
+                                      <div className="flex items-center gap-3 mb-3">
+                                        <h2 className="text-2xl font-bold text-gray-900">{selectedInfluencer.full_name}</h2>
                                       </div>
-                                    )}
-                                  </div>
-                                  <div className="flex-1">
-                                    <div className="flex items-center gap-3 mb-3">
-                                      <h2 className="text-2xl font-bold text-gray-900">{selectedInfluencer.full_name}</h2>
+                                      <p className="text-gray-600 mb-3">@{selectedInfluencer.username}</p>
+                                      <p className="text-gray-700 mb-4">{selectedInfluencer.bio || "No bio available"}</p>
+                                      <div className="flex items-center gap-3">
+                                        {selectedInfluencer.platforms.map(platform => (
+                                          <PlatformIcon key={platform} platform={platform} />
+                                        ))}
+                                      </div>
                                     </div>
-                                    <p className="text-gray-600 mb-3">@{selectedInfluencer.username}</p>
-                                    <p className="text-gray-700 mb-4">{selectedInfluencer.bio || "No bio available"}</p>
-                                    <div className="flex items-center gap-3">
-                                      {selectedInfluencer.platforms.map(platform => (
-                                        <PlatformIcon key={platform} platform={platform} />
-                                      ))}
+                                    <div className="flex gap-3">
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => handleBookmark(selectedInfluencer.id)}
+                                        className={selectedInfluencer.is_bookmarked ? "bg-blue-50 border-blue-200 text-blue-700" : ""}
+                                      >
+                                        <HiBookmark className={`w-4 h-4 mr-1 ${selectedInfluencer.is_bookmarked ? "fill-current" : ""}`} />
+                                        {selectedInfluencer.is_bookmarked ? "Bookmarked" : "Bookmark"}
+                                      </Button>
+                                      <Button
+                                        size="sm"
+                                        onClick={() => handleAddToCampaign(selectedInfluencer)}
+                                        className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white"
+                                      >
+                                        <HiPlus className="w-4 h-4 mr-1" />
+                                        Add to Campaign
+                                      </Button>
                                     </div>
                                   </div>
-                                  <div className="flex gap-3">
+
+                                  {/* Stats Grid */}
+                                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                    <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-4 rounded-xl border border-blue-200">
+                                      <div className="flex items-center gap-2 mb-2">
+                                        <HiUsers className="w-5 h-5 text-blue-600" />
+                                        <span className="text-sm font-medium text-blue-700">Followers</span>
+                                      </div>
+                                      <p className="text-2xl font-bold text-blue-900">
+                                        {formatNumber(selectedInfluencer.total_followers)}
+                                      </p>
+                                    </div>
+                                    <div className="bg-gradient-to-br from-green-50 to-green-100 p-4 rounded-xl border border-green-200">
+                                      <div className="flex items-center gap-2 mb-2">
+                                        <HiHeart className="w-5 h-5 text-green-600" />
+                                        <span className="text-sm font-medium text-green-700">Engagement</span>
+                                      </div>
+                                      <p className="text-2xl font-bold text-green-900">
+                                        {(typeof selectedInfluencer.engagement_rate === 'number' ? selectedInfluencer.engagement_rate.toFixed(1) : null) ||
+                                         (typeof selectedInfluencer.avg_engagement === 'number' ? selectedInfluencer.avg_engagement.toFixed(1) : null) ||
+                                         "N/A"}%
+                                      </p>
+                                    </div>
+                                    <div className="bg-gradient-to-br from-purple-50 to-purple-100 p-4 rounded-xl border border-purple-200">
+                                      <div className="flex items-center gap-2 mb-2">
+                                        <HiPlay className="w-5 h-5 text-purple-600" />
+                                        <span className="text-sm font-medium text-purple-700">Posts</span>
+                                      </div>
+                                      <p className="text-2xl font-bold text-purple-900">
+                                        {formatNumber(selectedInfluencer.posts_count || 0)}
+                                      </p>
+                                    </div>
+                                    <div className="bg-gradient-to-br from-yellow-50 to-yellow-100 p-4 rounded-xl border border-yellow-200">
+                                      <div className="flex items-center gap-2 mb-2">
+                                        <HiStar className="w-5 h-5 text-yellow-600 fill-current" />
+                                        <span className="text-sm font-medium text-yellow-700">Rating</span>
+                                      </div>
+                                      <p className="text-2xl font-bold text-yellow-900">
+                                        {typeof selectedInfluencer.avg_rating === 'number' ? selectedInfluencer.avg_rating.toFixed(1) : "N/A"}
+                                      </p>
+                                    </div>
+                                  </div>
+
+                                  {/* Contact Actions */}
+                                  <div className="flex gap-3 pt-6 border-t border-gray-200">
                                     <Button
                                       variant="outline"
-                                      size="sm"
-                                      onClick={() => handleBookmark(selectedInfluencer.id)}
-                                      className={selectedInfluencer.is_bookmarked ? "bg-blue-50 border-blue-200 text-blue-700" : ""}
+                                      onClick={() => handleContact(selectedInfluencer)}
+                                      className="flex-1 border-2 border-green-200 text-green-700 hover:bg-green-50"
                                     >
-                                      <HiBookmark className={`w-4 h-4 mr-1 ${selectedInfluencer.is_bookmarked ? "fill-current" : ""}`} />
-                                      {selectedInfluencer.is_bookmarked ? "Bookmarked" : "Bookmark"}
+                                      <HiEnvelope className="w-4 h-4 mr-2" />
+                                      Send Message
                                     </Button>
                                     <Button
-                                      size="sm"
-                                      onClick={() => handleAddToCampaign(selectedInfluencer)}
-                                      className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white"
+                                      variant="outline"
+                                      onClick={() => handleContact(selectedInfluencer)}
+                                      className="flex-1 border-2 border-blue-200 text-blue-700 hover:bg-blue-50"
                                     >
-                                      <HiPlus className="w-4 h-4 mr-1" />
-                                      Add to Campaign
+                                      <HiPhone className="w-4 h-4 mr-2" />
+                                      Contact
+                                    </Button>
+                                    <Button
+                                      variant="outline"
+                                      onClick={() => window.open(`https://${selectedInfluencer.platform_handle}`, '_blank')}
+                                      className="flex-1 border-2 border-purple-200 text-purple-700 hover:bg-purple-50"
+                                    >
+                                      <HiGlobeAlt className="w-4 h-4 mr-2" />
+                                      View Profile
                                     </Button>
                                   </div>
                                 </div>
-
-                                {/* Stats Grid */}
-                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                                  <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-4 rounded-xl border border-blue-200">
-                                    <div className="flex items-center gap-2 mb-2">
-                                      <HiUsers className="w-5 h-5 text-blue-600" />
-                                      <span className="text-sm font-medium text-blue-700">Followers</span>
-                                    </div>
-                                    <p className="text-2xl font-bold text-blue-900">
-                                      {formatNumber(selectedInfluencer.total_followers)}
-                                    </p>
-                                  </div>
-                                  <div className="bg-gradient-to-br from-green-50 to-green-100 p-4 rounded-xl border border-green-200">
-                                    <div className="flex items-center gap-2 mb-2">
-                                      <HiHeart className="w-5 h-5 text-green-600" />
-                                      <span className="text-sm font-medium text-green-700">Engagement</span>
-                                    </div>
-                                    <p className="text-2xl font-bold text-green-900">
-                                      {selectedInfluencer.engagement_rate?.toFixed(1) || selectedInfluencer.avg_engagement?.toFixed(1) || "N/A"}%
-                                    </p>
-                                  </div>
-                                  <div className="bg-gradient-to-br from-purple-50 to-purple-100 p-4 rounded-xl border border-purple-200">
-                                    <div className="flex items-center gap-2 mb-2">
-                                      <HiPlay className="w-5 h-5 text-purple-600" />
-                                      <span className="text-sm font-medium text-purple-700">Posts</span>
-                                    </div>
-                                    <p className="text-2xl font-bold text-purple-900">
-                                      {formatNumber(selectedInfluencer.posts_count || 0)}
-                                    </p>
-                                  </div>
-                                  <div className="bg-gradient-to-br from-yellow-50 to-yellow-100 p-4 rounded-xl border border-yellow-200">
-                                    <div className="flex items-center gap-2 mb-2">
-                                      <HiStar className="w-5 h-5 text-yellow-600 fill-current" />
-                                      <span className="text-sm font-medium text-yellow-700">Rating</span>
-                                    </div>
-                                    <p className="text-2xl font-bold text-yellow-900">
-                                      {selectedInfluencer.avg_rating?.toFixed(1) || "N/A"}
-                                    </p>
-                                  </div>
-                                </div>
-
-                                {/* Contact Actions */}
-                                <div className="flex gap-3 pt-6 border-t border-gray-200">
-                                  <Button
-                                    variant="outline"
-                                    onClick={() => handleContact(selectedInfluencer)}
-                                    className="flex-1 border-2 border-green-200 text-green-700 hover:bg-green-50"
-                                  >
-                                    <HiEnvelope className="w-4 h-4 mr-2" />
-                                    Send Message
-                                  </Button>
-                                  <Button
-                                    variant="outline"
-                                    onClick={() => handleContact(selectedInfluencer)}
-                                    className="flex-1 border-2 border-blue-200 text-blue-700 hover:bg-blue-50"
-                                  >
-                                    <HiPhone className="w-4 h-4 mr-2" />
-                                    Contact
-                                  </Button>
-                                  <Button
-                                    variant="outline"
-                                    onClick={() => window.open(`https://${selectedInfluencer.platform_handle}`, '_blank')}
-                                    className="flex-1 border-2 border-purple-200 text-purple-700 hover:bg-purple-50"
-                                  >
-                                    <HiGlobeAlt className="w-4 h-4 mr-2" />
-                                    View Profile
-                                  </Button>
-                                </div>
-                              </div>
-                            )}
-                          </DialogContent>
-                        </Dialog>
-                        
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleBookmark(influencer.id)}
-                          className={influencer.is_bookmarked ? "text-blue-600" : ""}
-                        >
-                          <HiBookmark className={`w-4 h-4 ${influencer.is_bookmarked ? "fill-current" : ""}`} />
-                        </Button>
-                        
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleContact(influencer)}
-                          className="text-green-600 hover:text-green-700"
-                        >
-                          <HiEnvelope className="w-4 h-4" />
-                        </Button>
-                        
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleAddToCampaign(influencer)}
-                          className="text-purple-600 hover:text-purple-700"
-                        >
-                          <HiPlus className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    </td>
+                              )}
+                            </DialogContent>
+                          </Dialog>
+                          
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleBookmark(influencer.id)}
+                            className={`h-6 w-6 p-0 ${influencer.is_bookmarked ? "text-blue-600" : ""}`}
+                          >
+                            <HiBookmark className={`w-3 h-3 ${influencer.is_bookmarked ? "fill-current" : ""}`} />
+                          </Button>
+                          
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleContact(influencer)}
+                            className="h-6 w-6 p-0 text-green-600 hover:text-green-700"
+                          >
+                            <HiEnvelope className="w-3 h-3" />
+                          </Button>
+                          
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleAddToCampaign(influencer)}
+                            className="h-6 w-6 p-0 text-purple-600 hover:text-purple-700"
+                          >
+                            <HiPlus className="w-3 h-3" />
+                          </Button>
+                        </div>
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>
@@ -925,30 +1033,47 @@ export default function InfluencerSearchPage() {
 
         {/* Loading State */}
         {isLoading && (
-          <div className="flex justify-center py-8">
+          <div className="flex justify-center py-4">
             <GlobalLoader />
           </div>
         )}
 
         {/* Empty State */}
         {!isLoading && influencers.length === 0 && (
-          <Card className="p-12 text-center bg-white border-2 border-gray-100 shadow-lg">
-            <div className="w-20 h-20 bg-gradient-to-br from-indigo-100 to-purple-100 rounded-full flex items-center justify-center mx-auto mb-6">
-              <HiSparkles className="w-10 h-10 text-indigo-600" />
+          <Card className="p-8 text-center bg-white border border-gray-200 shadow-sm">
+            <div className="w-16 h-16 bg-gradient-to-br from-indigo-100 to-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <HiSparkles className="w-8 h-8 text-indigo-600" />
             </div>
-            <h3 className="text-xl font-semibold text-gray-900 mb-3">No creators found</h3>
-            <p className="text-gray-600 mb-6 max-w-md mx-auto">
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">No creators found</h3>
+            <p className="text-gray-600 mb-4 max-w-md mx-auto">
               Try adjusting your search criteria or filters to discover amazing creators for your campaigns.
             </p>
             <Button 
               variant="outline" 
               onClick={clearAllFilters}
-              className="border-2 border-indigo-200 text-indigo-700 hover:bg-indigo-50"
+              className="border border-indigo-200 text-indigo-700 hover:bg-indigo-50"
             >
               <HiArrowPath className="w-4 h-4 mr-2" />
               Reset All Filters
             </Button>
           </Card>
+        )}
+
+        {/* Load More Button - Only show when there are results and more pages available */}
+        {!isLoading && influencers.length > 0 && hasMore && (
+          <div className="flex flex-col items-center mt-6 mb-4 space-y-3">
+            <div className="text-sm text-gray-600">
+              Showing {influencers.length} of {totalCount} creators (Page {page} of {totalPages})
+            </div>
+            <Button
+              onClick={handleLoadMore}
+              size="lg"
+              className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white shadow-lg hover:shadow-xl transition-all duration-200 px-8 py-3"
+            >
+              <HiArrowPath className="w-5 h-5 mr-2" />
+              Load More Creators
+            </Button>
+          </div>
         )}
       </div>
     </div>
