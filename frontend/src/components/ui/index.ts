@@ -19,8 +19,8 @@ export * from './slider';
 // Enhanced components
 export * from './error-boundary';
 export * from './error-display';
-export * from './loading-spinner';
-export * from './loader';
+export * from './global-loader';
+export * from './optimized-image';
 
 export * from './skeleton-layouts';
 export * from './file-upload';

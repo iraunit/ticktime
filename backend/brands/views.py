@@ -111,6 +111,28 @@ def brand_dashboard_view(request):
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
+def brand_profile_view(request):
+    """
+    Get brand profile information.
+    """
+    brand_user = get_brand_user_or_403(request)
+    if not brand_user:
+        return Response({
+            'status': 'error',
+            'message': 'Brand profile not found.'
+        }, status=status.HTTP_404_NOT_FOUND)
+
+    brand = brand_user.brand
+    serializer = BrandSerializer(brand)
+    
+    return Response({
+        'status': 'success',
+        'brand': serializer.data
+    })
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def brand_team_view(request):
     """
     Get team members for the brand.
@@ -843,13 +865,13 @@ def brand_analytics_overview_view(request):
     total_campaigns = campaigns.count()
     total_investment = sum(campaign.cash_amount for campaign in campaigns)
     
-    # Mock data for reach and engagement (in real app, this would come from actual analytics)
-    total_reach = sum(campaign.cash_amount * 100 for campaign in campaigns)  # Mock: 100x investment
-    total_engagement = sum(campaign.cash_amount * 10 for campaign in campaigns)  # Mock: 10x investment
-    avg_roi = 3.5  # Mock average ROI percentage
-    avg_engagement_rate = 2.8  # Mock average engagement rate
+    # Initialize analytics data - will be populated when real analytics are implemented
+    total_reach = 0
+    total_engagement = 0
+    avg_roi = 0
+    avg_engagement_rate = 0
 
-    # Get top performing campaigns
+    # Get top performing campaigns (real data only)
     top_campaigns = []
     for campaign in campaigns[:5]:  # Top 5 campaigns
         campaign_deals = deals.filter(campaign=campaign)
@@ -860,45 +882,23 @@ def brand_analytics_overview_view(request):
             'title': campaign.title,
             'status': campaign.status,
             'total_investment': campaign.cash_amount,
-            'total_reach': campaign.cash_amount * 100,  # Mock
-            'total_engagement': campaign.cash_amount * 10,  # Mock
-            'engagement_rate': 2.5 + (campaign.id % 3),  # Mock varying rates
-            'roi': 2.0 + (campaign.id % 4),  # Mock varying ROI
+            'total_reach': 0,  # Will be populated when real analytics are implemented
+            'total_engagement': 0,  # Will be populated when real analytics are implemented
+            'engagement_rate': 0,  # Will be populated when real analytics are implemented
+            'roi': 0,  # Will be populated when real analytics are implemented
             'influencers_count': campaign_deals.count(),
             'completed_deals': completed_deals,
             'pending_deals': campaign_deals.filter(status='invited').count(),
         })
 
-    # Generate monthly trends (mock data)
+    # Generate monthly trends (empty for now - will be populated when real analytics are implemented)
     monthly_trends = []
-    for i in range(6):  # Last 6 months
-        month_date = now - timedelta(days=30 * i)
-        monthly_trends.append({
-            'month': month_date.strftime('%B %Y'),
-            'investment': total_investment // 6 + (i * 1000),  # Mock varying investment
-            'reach': (total_investment // 6 + (i * 1000)) * 100,  # Mock reach
-            'engagement': (total_investment // 6 + (i * 1000)) * 10,  # Mock engagement
-            'roi': 2.0 + (i % 3),  # Mock varying ROI
-        })
-    monthly_trends.reverse()
 
-    # Mock demographics data
+    # Demographics data (empty for now - will be populated when real analytics are implemented)
     demographics = {
-        'genders': [
-            {'gender': 'Female', 'percentage': 65},
-            {'gender': 'Male', 'percentage': 35},
-        ],
-        'devices': [
-            {'device': 'Mobile', 'percentage': 75},
-            {'device': 'Desktop', 'percentage': 25},
-        ],
-        'locations': [
-            {'country': 'India', 'percentage': 45},
-            {'country': 'United States', 'percentage': 25},
-            {'country': 'United Kingdom', 'percentage': 15},
-            {'country': 'Canada', 'percentage': 10},
-            {'country': 'Australia', 'percentage': 5},
-        ],
+        'genders': [],
+        'devices': [],
+        'locations': [],
     }
 
     return Response({
@@ -969,69 +969,35 @@ def brand_analytics_campaigns_view(request):
         completed_deals = campaign_deals.filter(status='completed').count()
         pending_deals = campaign_deals.filter(status='invited').count()
         
-        # Mock analytics data for each campaign
-        total_reach = campaign.cash_amount * 100  # Mock: 100x investment
-        total_impressions = campaign.cash_amount * 500  # Mock: 500x investment
-        total_engagement = campaign.cash_amount * 10  # Mock: 10x investment
-        total_likes = campaign.cash_amount * 8  # Mock: 8x investment
-        total_comments = campaign.cash_amount * 1.5  # Mock: 1.5x investment
-        total_shares = campaign.cash_amount * 0.5  # Mock: 0.5x investment
-        total_saves = campaign.cash_amount * 0.2  # Mock: 0.2x investment
+        # Analytics data for each campaign (will be populated when real analytics are implemented)
+        total_reach = 0
+        total_impressions = 0
+        total_engagement = 0
+        total_likes = 0
+        total_comments = 0
+        total_shares = 0
+        total_saves = 0
         
-        # Calculate rates
-        conversion_rate = 2.5 + (campaign.id % 3)  # Mock varying rates
-        roi = 2.0 + (campaign.id % 4)  # Mock varying ROI
-        engagement_rate = 2.0 + (campaign.id % 2)  # Mock varying engagement
-        avg_cpm = 15 + (campaign.id % 10)  # Mock CPM
-        avg_cpe = 2 + (campaign.id % 3)  # Mock CPE
+        # Calculate rates (will be populated when real analytics are implemented)
+        conversion_rate = 0
+        roi = 0
+        engagement_rate = 0
+        avg_cpm = 0
+        avg_cpe = 0
 
-        # Mock demographics
+        # Demographics (empty for now - will be populated when real analytics are implemented)
         demographics = {
-            'age_groups': [
-                {'range': '18-24', 'percentage': 30 + (campaign.id % 20)},
-                {'range': '25-34', 'percentage': 40 + (campaign.id % 15)},
-                {'range': '35-44', 'percentage': 20 + (campaign.id % 10)},
-                {'range': '45+', 'percentage': 10 + (campaign.id % 5)},
-            ],
-            'genders': [
-                {'gender': 'Female', 'percentage': 60 + (campaign.id % 20)},
-                {'gender': 'Male', 'percentage': 40 - (campaign.id % 20)},
-            ],
-            'locations': [
-                {'country': 'India', 'percentage': 40 + (campaign.id % 20)},
-                {'country': 'United States', 'percentage': 25 + (campaign.id % 15)},
-                {'country': 'United Kingdom', 'percentage': 15 + (campaign.id % 10)},
-                {'country': 'Canada', 'percentage': 10 + (campaign.id % 5)},
-                {'country': 'Australia', 'percentage': 5 + (campaign.id % 5)},
-            ],
-            'devices': [
-                {'device': 'Mobile', 'percentage': 70 + (campaign.id % 20)},
-                {'device': 'Desktop', 'percentage': 30 - (campaign.id % 20)},
-            ],
+            'age_groups': [],
+            'genders': [],
+            'locations': [],
+            'devices': [],
         }
 
-        # Mock performance timeline
+        # Performance timeline (empty for now - will be populated when real analytics are implemented)
         performance_timeline = []
-        for i in range(7):  # Last 7 days
-            day_date = now - timedelta(days=i)
-            performance_timeline.append({
-                'date': day_date.strftime('%Y-%m-%d'),
-                'reach': total_reach // 7 + (i * 100),
-                'engagement': total_engagement // 7 + (i * 10),
-                'impressions': total_impressions // 7 + (i * 500),
-            })
-        performance_timeline.reverse()
 
-        # Mock top performing content
+        # Top performing content (empty for now - will be populated when real analytics are implemented)
         top_performing_content = []
-        for i in range(3):  # Top 3 content pieces
-            top_performing_content.append({
-                'influencer_name': f'Influencer {campaign.id}-{i+1}',
-                'content_type': ['post', 'story', 'reel'][i % 3],
-                'reach': total_reach // 3 + (i * 1000),
-                'engagement_rate': engagement_rate + (i * 0.5),
-                'platform': ['Instagram', 'TikTok', 'YouTube'][i % 3],
-            })
 
         campaign_analytics.append({
             'id': campaign.id,

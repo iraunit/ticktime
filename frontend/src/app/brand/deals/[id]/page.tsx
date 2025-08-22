@@ -27,8 +27,8 @@ import {
   HiPhoto,
   HiVideoCamera,
   HiEye,
-  HiThumbUp,
-  HiThumbDown,
+  HiHandThumbUp,
+  HiHandThumbDown,
   HiStar,
   HiArrowPath,
   HiDocumentText,
@@ -96,7 +96,7 @@ const statusSteps = [
   { id: 'goods_sent', label: 'Goods Sent', icon: HiTruck, color: 'indigo' },
   { id: 'goods_received', label: 'Goods Received', icon: HiGift, color: 'purple' },
   { id: 'content_submitted', label: 'Content Submitted', icon: HiPhoto, color: 'pink' },
-  { id: 'content_approved', label: 'Content Approved', icon: HiThumbUp, color: 'emerald' },
+  { id: 'content_approved', label: 'Content Approved', icon: HiHandThumbUp, color: 'emerald' },
   { id: 'completed', label: 'Deal Completed', icon: HiCheckCircle, color: 'green' }
 ];
 
@@ -437,7 +437,7 @@ export default function DealDetailsPage() {
                         disabled={isUpdating}
                         className="bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700"
                       >
-                        {isUpdating ? <InlineLoader size="sm" className="mr-2" /> : <HiStar className="w-4 h-4 mr-2" />}
+                        {isUpdating ? <InlineLoader className="mr-2" /> : <HiStar className="w-4 h-4 mr-2" />}
                         Shortlist Deal
                       </Button>
                     </div>
@@ -481,7 +481,7 @@ export default function DealDetailsPage() {
                           disabled={isUpdating || !trackingNumber || !deliveryAddress}
                           className="bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700"
                         >
-                          {isUpdating ? <InlineLoader size="sm" className="mr-2" /> : <HiTruck className="w-4 h-4 mr-2" />}
+                          {isUpdating ? <InlineLoader className="mr-2" /> : <HiTruck className="w-4 h-4 mr-2" />}
                           Mark as Sent
                         </Button>
                       </div>
@@ -506,7 +506,7 @@ export default function DealDetailsPage() {
                         variant="outline"
                         className="border-purple-300 hover:bg-purple-50"
                       >
-                        {isUpdating ? <InlineLoader size="sm" className="mr-2" /> : <HiGift className="w-4 h-4 mr-2" />}
+                        {isUpdating ? <InlineLoader className="mr-2" /> : <HiGift className="w-4 h-4 mr-2" />}
                         Mark as Received (Override)
                       </Button>
                     </div>
@@ -568,7 +568,7 @@ export default function DealDetailsPage() {
                           disabled={isUpdating}
                           className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700"
                         >
-                          {isUpdating ? <InlineLoader size="sm" className="mr-2" /> : <HiCheckCircle className="w-4 h-4 mr-2" />}
+                          {isUpdating ? <InlineLoader className="mr-2" /> : <HiCheckCircle className="w-4 h-4 mr-2" />}
                           Complete Deal
                         </Button>
                       </div>
@@ -585,7 +585,7 @@ export default function DealDetailsPage() {
                       variant="outline"
                       className="text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
                     >
-                      {isUpdating ? <InlineLoader size="sm" className="mr-2" /> : <HiXCircle className="w-4 h-4 mr-2" />}
+                                                {isUpdating ? <InlineLoader className="mr-2" /> : <HiXCircle className="w-4 h-4 mr-2" />}
                       Cancel Deal
                     </Button>
                   </div>
@@ -643,7 +643,7 @@ export default function DealDetailsPage() {
                             <Dialog>
                               <DialogTrigger asChild>
                                 <Button size="sm" className="bg-green-500 hover:bg-green-600">
-                                  <HiThumbUp className="w-4 h-4 mr-1" />
+                                  <HiHandThumbUp className="w-4 h-4 mr-1" />
                                   Approve
                                 </Button>
                               </DialogTrigger>
@@ -665,7 +665,7 @@ export default function DealDetailsPage() {
                                     disabled={isUpdating}
                                     className="w-full"
                                   >
-                                    {isUpdating ? <InlineLoader size="sm" className="mr-2" /> : null}
+                                    {isUpdating ? <InlineLoader className="mr-2" /> : null}
                                     Approve Content
                                   </Button>
                                 </div>
@@ -675,7 +675,7 @@ export default function DealDetailsPage() {
                             <Dialog>
                               <DialogTrigger asChild>
                                 <Button size="sm" variant="outline" className="text-red-600 hover:text-red-700">
-                                  <HiThumbDown className="w-4 h-4 mr-1" />
+                                  <HiHandThumbDown className="w-4 h-4 mr-1" />
                                   Reject
                                 </Button>
                               </DialogTrigger>
@@ -703,7 +703,7 @@ export default function DealDetailsPage() {
                                     variant="outline"
                                     className="w-full text-red-600 hover:text-red-700"
                                   >
-                                    {isUpdating ? <InlineLoader size="sm" className="mr-2" /> : null}
+                                    {isUpdating ? <InlineLoader className="mr-2" /> : null}
                                     Reject Content
                                   </Button>
                                 </div>

@@ -25,10 +25,8 @@ import {
   HiPhone,
   HiGlobeAlt,
   HiPlus,
-  HiCrown,
   HiChevronDown,
-  HiChevronUp,
-  HiFilter
+  HiChevronUp
 } from "react-icons/hi2";
 import { api } from "@/lib/api";
 import { toast } from "@/lib/toast";
@@ -107,10 +105,10 @@ export default function EnhancedInfluencerSearchPage() {
   const [sortBy, setSortBy] = useState("subscribers");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   
-  const observer = useRef<IntersectionObserver>();
+  const observer = useRef<IntersectionObserver | null>(null);
 
   // Infinite scroll setup
-  const lastInfluencerElementRef = useCallback((node: HTMLDivElement) => {
+  const lastInfluencerElementRef = useCallback((node: HTMLTableRowElement | null) => {
     if (isLoading) return;
     if (observer.current) observer.current.disconnect();
     observer.current = new IntersectionObserver(entries => {
@@ -258,7 +256,7 @@ export default function EnhancedInfluencerSearchPage() {
                 onClick={() => setShowFilters(!showFilters)}
                 className="border border-gray-200 hover:border-orange-300 hover:bg-orange-50"
               >
-                <HiFilter className="h-4 w-4 mr-1" />
+                <HiFunnel className="h-4 w-4 mr-1" />
                 All Filters
                 {hasActiveFilters && (
                   <Badge className="ml-2 bg-orange-100 text-orange-800 px-1.5 py-0.5 text-xs">
@@ -480,7 +478,7 @@ export default function EnhancedInfluencerSearchPage() {
                     onClick={() => setShowFilters(false)}
                     className="flex-1 bg-orange-500 hover:bg-orange-600 text-white"
                   >
-                    <HiCrown className="w-4 h-4 mr-2" />
+                    <HiStar className="w-4 h-4 mr-2" />
                     SHOW PROFILES
                   </Button>
                 </div>

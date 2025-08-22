@@ -222,7 +222,7 @@ export function LoginForm() {
                     >
                       {isSubmitting || isLoading ? (
                         <>
-                          <InlineLoader size="sm" className="mr-2" />
+                          <InlineLoader className="mr-2" />
                           Signing in...
                         </>
                       ) : (

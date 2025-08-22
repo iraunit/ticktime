@@ -17,6 +17,7 @@ import {
   HiCog6Tooth,
   HiDocumentText
 } from "react-icons/hi2";
+import { api } from "@/lib/api";
 
 interface TeamMember {
   id: number;
@@ -48,9 +49,26 @@ interface AuditLog {
   created_at: string;
 }
 
+interface Brand {
+  id: number;
+  name: string;
+  domain: string;
+  logo?: string;
+  description: string;
+  website: string;
+  industry: string;
+  contact_email: string;
+  is_verified: boolean;
+  rating: number;
+  total_campaigns: number;
+  created_at: string;
+  updated_at: string;
+}
+
 export default function BrandSettingsPage() {
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
+  const [brand, setBrand] = useState<Brand | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [showInviteDialog, setShowInviteDialog] = useState(false);
   
@@ -60,78 +78,40 @@ export default function BrandSettingsPage() {
   const [inviteLastName, setInviteLastName] = useState("");
   const [inviteRole, setInviteRole] = useState("viewer");
 
+  // Brand form state
+  const [brandName, setBrandName] = useState("");
+  const [brandIndustry, setBrandIndustry] = useState("");
+  const [brandDescription, setBrandDescription] = useState("");
+  const [brandWebsite, setBrandWebsite] = useState("");
+  const [brandContactEmail, setBrandContactEmail] = useState("");
+
   useEffect(() => {
-    // TODO: Replace with actual API calls
     const fetchData = async () => {
       setIsLoading(true);
       try {
-        // Simulate API calls
-        setTimeout(() => {
-          setTeamMembers([
-            {
-              id: 1,
-              user: {
-                first_name: "John",
-                last_name: "Doe",
-                email: "john@company.com"
-              },
-              role: "owner",
-              is_active: true,
-              joined_at: "2024-01-01T00:00:00Z",
-              last_activity: "2024-02-15T10:30:00Z",
-              can_create_campaigns: true,
-              can_manage_users: true,
-              can_approve_content: true,
-              can_view_analytics: true
-            },
-            {
-              id: 2,
-              user: {
-                first_name: "Sarah",
-                last_name: "Smith",
-                email: "sarah@company.com"
-              },
-              role: "manager",
-              is_active: true,
-              joined_at: "2024-01-15T00:00:00Z",
-              last_activity: "2024-02-14T15:45:00Z",
-              can_create_campaigns: true,
-              can_manage_users: false,
-              can_approve_content: true,
-              can_view_analytics: true
-            }
-          ]);
-
-          setAuditLogs([
-            {
-              id: 1,
-              user: {
-                first_name: "John",
-                last_name: "Doe",
-                email: "john@company.com"
-              },
-              action: "campaign_created",
-              action_display: "Campaign Created",
-              description: "Created campaign 'Summer Fashion 2024'",
-              created_at: "2024-02-15T10:00:00Z"
-            },
-            {
-              id: 2,
-              user: {
-                first_name: "Sarah",
-                last_name: "Smith",
-                email: "sarah@company.com"
-              },
-              action: "content_approved",
-              action_display: "Content Approved",
-              description: "Approved content for deal #123",
-              created_at: "2024-02-14T16:30:00Z"
-            }
-          ]);
-
-          setIsLoading(false);
-        }, 1000);
+        // Fetch brand profile, team members and audit logs from API
+        const [brandResponse, teamResponse, auditResponse] = await Promise.all([
+          api.get('/brands/profile/').catch(() => ({ data: { brand: null } })),
+          api.get('/brands/team/').catch(() => ({ data: { team_members: [] } })),
+          api.get('/brands/audit-logs/').catch(() => ({ data: { logs: [] } }))
+        ]);
+        
+        if (brandResponse.data.brand) {
+          setBrand(brandResponse.data.brand);
+          setBrandName(brandResponse.data.brand.name);
+          setBrandIndustry(brandResponse.data.brand.industry);
+          setBrandDescription(brandResponse.data.brand.description);
+          setBrandWebsite(brandResponse.data.brand.website);
+          setBrandContactEmail(brandResponse.data.brand.contact_email);
+        }
+        
+        setTeamMembers(teamResponse.data.team_members || []);
+        setAuditLogs(auditResponse.data.logs || []);
       } catch (error) {
+        console.error('Error fetching data:', error);
+        setTeamMembers([]);
+        setAuditLogs([]);
+      } finally {
         setIsLoading(false);
       }
     };
@@ -375,6 +355,16 @@ export default function BrandSettingsPage() {
         <TabsContent value="settings" className="space-y-6">
           <div>
             <h2 className="text-xl font-semibold text-gray-900 mb-4">Brand Information</h2>
+            {brand && (
+              <div className="flex items-center gap-2 mb-4">
+                <Badge variant={brand.is_verified ? "default" : "secondary"}>
+                  {brand.is_verified ? "Verified" : "Unverified"}
+                </Badge>
+                <span className="text-sm text-gray-500">
+                  Rating: {brand.rating}/5 • {brand.total_campaigns} campaigns
+                </span>
+              </div>
+            )}
           </div>
 
           <Card className="p-6">
@@ -384,17 +374,30 @@ export default function BrandSettingsPage() {
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Brand Name
                   </label>
-                  <Input placeholder="Your Brand Name" />
+                  <Input 
+                    value={brandName}
+                    onChange={(e) => setBrandName(e.target.value)}
+                    placeholder="Your Brand Name" 
+                  />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Industry
                   </label>
-                  <Select>
+                  <Select value={brandIndustry} onValueChange={setBrandIndustry}>
+                    <option value="">Select Industry</option>
                     <option value="fashion_beauty">Fashion & Beauty</option>
                     <option value="tech_gaming">Tech & Gaming</option>
                     <option value="fitness_health">Fitness & Health</option>
                     <option value="food_lifestyle">Food & Lifestyle</option>
+                    <option value="travel">Travel</option>
+                    <option value="education">Education</option>
+                    <option value="finance">Finance</option>
+                    <option value="automotive">Automotive</option>
+                    <option value="home_garden">Home & Garden</option>
+                    <option value="sports">Sports</option>
+                    <option value="entertainment">Entertainment</option>
+                    <option value="other">Other</option>
                   </Select>
                 </div>
               </div>
@@ -407,6 +410,8 @@ export default function BrandSettingsPage() {
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   rows={3}
                   placeholder="Brief description of your brand..."
+                  value={brandDescription}
+                  onChange={(e) => setBrandDescription(e.target.value)}
                 />
               </div>
 
@@ -415,13 +420,21 @@ export default function BrandSettingsPage() {
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Website
                   </label>
-                  <Input placeholder="https://yourbrand.com" />
+                  <Input 
+                    value={brandWebsite}
+                    onChange={(e) => setBrandWebsite(e.target.value)}
+                    placeholder="https://yourbrand.com" 
+                  />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Contact Email
                   </label>
-                  <Input placeholder="contact@yourbrand.com" />
+                  <Input 
+                    value={brandContactEmail}
+                    onChange={(e) => setBrandContactEmail(e.target.value)}
+                    placeholder="contact@yourbrand.com" 
+                  />
                 </div>
               </div>
 

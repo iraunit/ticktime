@@ -22,11 +22,13 @@ import {
 import { useBrandDashboard } from "@/hooks/use-brand-dashboard";
 import { useUserContext } from "@/components/providers/app-providers";
 import { toast } from "@/lib/toast";
-import { GlobalLoader } from "@/components/ui/global-loader";
+
+import { useRouter } from "next/navigation";
 
 export default function BrandDashboard() {
   const { user } = useUserContext();
   const { stats, recentDeals } = useBrandDashboard();
+  const router = useRouter();
 
   // Remove auto-refresh to prevent infinite loops on API errors
 
@@ -34,6 +36,23 @@ export default function BrandDashboard() {
     stats.refetch();
     recentDeals.refetch();
     toast.success("Dashboard refreshed");
+  };
+
+  // Quick action handlers
+  const handleCreateCampaign = () => {
+    router.push('/brand/campaigns/create');
+  };
+
+  const handleSearchInfluencers = () => {
+    router.push('/brand/influencers');
+  };
+
+  const handleReviewContent = () => {
+    router.push('/brand/reviews');
+  };
+
+  const handleViewAnalytics = () => {
+    router.push('/brand/analytics');
   };
 
   // Show error toasts when API calls fail
@@ -47,7 +66,7 @@ export default function BrandDashboard() {
   }, [stats.error, recentDeals.error]);
 
   // Error handling - show loading state instead of full error page
-  const hasError = stats.error || recentDeals.error;
+  // const hasError = stats.error || recentDeals.error;
 
   const userName = user?.first_name || user?.brand_profile?.brand_name || 'Brand';
   const currentHour = new Date().getHours();
@@ -165,19 +184,34 @@ export default function BrandDashboard() {
             </div>
             <Card className="p-6 bg-gradient-to-br from-white via-white to-gray-50 border border-gray-200 shadow-md">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <Button className="w-full justify-start bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white shadow-md">
+                <Button 
+                  onClick={handleCreateCampaign}
+                  className="w-full justify-start bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white shadow-md"
+                >
                   <HiMegaphone className="w-4 h-4 mr-2" />
                   Create Campaign
                 </Button>
-                <Button variant="outline" className="w-full justify-start border-purple-200 hover:bg-purple-50 hover:border-purple-300">
+                <Button 
+                  onClick={handleSearchInfluencers}
+                  variant="outline" 
+                  className="w-full justify-start border-purple-200 hover:bg-purple-50 hover:border-purple-300"
+                >
                   <HiUsers className="w-4 h-4 mr-2" />
                   Search Influencers
                 </Button>
-                <Button variant="outline" className="w-full justify-start border-orange-200 hover:bg-orange-50 hover:border-orange-300">
+                <Button 
+                  onClick={handleReviewContent}
+                  variant="outline" 
+                  className="w-full justify-start border-orange-200 hover:bg-orange-50 hover:border-orange-300"
+                >
                   <HiEye className="w-4 h-4 mr-2" />
                   Review Content ({brandStats.pending_content || 0})
                 </Button>
-                <Button variant="outline" className="w-full justify-start border-green-200 hover:bg-green-50 hover:border-green-300">
+                <Button 
+                  onClick={handleViewAnalytics}
+                  variant="outline" 
+                  className="w-full justify-start border-green-200 hover:bg-green-50 hover:border-green-300"
+                >
                   <HiChartBar className="w-4 h-4 mr-2" />
                   View Analytics
                 </Button>

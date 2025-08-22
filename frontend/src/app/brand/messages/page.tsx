@@ -168,7 +168,7 @@ export default function BrandMessagesPage() {
   };
 
   const getStatusBadge = (status: string) => {
-    const statusColors = {
+    const statusColors: Record<string, string> = {
       pending: 'bg-yellow-100 text-yellow-800',
       accepted: 'bg-green-100 text-green-800',
       content_submitted: 'bg-blue-100 text-blue-800',

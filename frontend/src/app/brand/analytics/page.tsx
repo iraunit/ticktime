@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -15,18 +15,15 @@ import {
   HiUsers,
   HiEye,
   HiHeart,
-  HiChatBubbleLeft,
   HiShare,
-  HiCheckCircle,
-  HiClock,
   HiArrowTrendingUp,
-  HiArrowTrendingDown,
   HiArrowPath,
   HiCalendarDays,
   HiGlobeAsiaAustralia,
   HiDevicePhoneMobile,
   HiComputerDesktop,
-  HiUserGroup
+  HiUserGroup,
+  HiMegaphone
 } from "react-icons/hi2";
 
 interface CampaignAnalytics {
@@ -100,7 +97,7 @@ export default function BrandAnalyticsPage() {
   const [timeRange, setTimeRange] = useState("last_30_days");
   const [activeTab, setActiveTab] = useState("overview");
 
-  const fetchOverallAnalytics = async () => {
+  const fetchOverallAnalytics = useCallback(async () => {
     setIsLoading(true);
     try {
       const response = await api.get('/brands/analytics/overview/', {
@@ -113,9 +110,9 @@ export default function BrandAnalyticsPage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [timeRange]);
 
-  const fetchCampaignAnalytics = async () => {
+  const fetchCampaignAnalytics = useCallback(async () => {
     setIsLoading(true);
     try {
       const response = await api.get('/brands/analytics/campaigns/', {
@@ -128,12 +125,12 @@ export default function BrandAnalyticsPage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [timeRange]);
 
   useEffect(() => {
     fetchOverallAnalytics();
     fetchCampaignAnalytics();
-  }, [timeRange]);
+  }, [timeRange, fetchOverallAnalytics, fetchCampaignAnalytics]);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat("en-IN", {
@@ -398,8 +395,17 @@ export default function BrandAnalyticsPage() {
               </>
             ) : (
               <div className="text-center py-12">
-                <GlobalLoader />
-                <p className="text-gray-500 mt-4">Start creating campaigns to see analytics.</p>
+                <div className="w-16 h-16 bg-gradient-to-br from-gray-100 to-gray-200 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <HiChartBar className="w-8 h-8 text-gray-400" />
+                </div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">No Analytics Data</h3>
+                <p className="text-gray-500 mb-4">Start creating and running campaigns to see your analytics.</p>
+                <Button 
+                  onClick={() => window.location.href = '/brand/campaigns/create'}
+                  className="bg-blue-600 hover:bg-blue-700 text-white"
+                >
+                  Create Your First Campaign
+                </Button>
               </div>
             )}
           </TabsContent>
@@ -552,8 +558,17 @@ export default function BrandAnalyticsPage() {
               </div>
             ) : (
               <div className="text-center py-12">
-                <GlobalLoader />
-                <p className="text-gray-500 mt-4">Create and launch campaigns to see detailed analytics.</p>
+                <div className="w-16 h-16 bg-gradient-to-br from-gray-100 to-gray-200 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <HiMegaphone className="w-8 h-8 text-gray-400" />
+                </div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">No Campaign Analytics</h3>
+                <p className="text-gray-500 mb-4">Create and launch campaigns to see detailed analytics.</p>
+                <Button 
+                  onClick={() => window.location.href = '/brand/campaigns/create'}
+                  className="bg-blue-600 hover:bg-blue-700 text-white"
+                >
+                  Create Campaign
+                </Button>
               </div>
             )}
           </TabsContent>
@@ -667,8 +682,17 @@ export default function BrandAnalyticsPage() {
               </div>
             ) : (
               <div className="text-center py-12">
-                <GlobalLoader />
-                <p className="text-gray-500 mt-4">Complete some campaigns to see audience insights.</p>
+                <div className="w-16 h-16 bg-gradient-to-br from-gray-100 to-gray-200 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <HiUserGroup className="w-8 h-8 text-gray-400" />
+                </div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">No Audience Data</h3>
+                <p className="text-gray-500 mb-4">Complete some campaigns to see audience insights.</p>
+                <Button 
+                  onClick={() => window.location.href = '/brand/campaigns/create'}
+                  className="bg-blue-600 hover:bg-blue-700 text-white"
+                >
+                  Start Campaign
+                </Button>
               </div>
             )}
           </TabsContent>

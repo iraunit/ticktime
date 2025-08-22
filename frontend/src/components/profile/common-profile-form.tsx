@@ -39,8 +39,14 @@ export function CommonProfileForm({ initialData, onSubmit, isLoading }: CommonPr
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleImageChange = (imageUrl: string | null) => {
-    setFormData(prev => ({ ...prev, profileImage: imageUrl }));
+  const handleImageChange = (file: File) => {
+    // Convert file to data URL for preview
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const imageUrl = e.target?.result as string;
+      setFormData(prev => ({ ...prev, profileImage: imageUrl }));
+    };
+    reader.readAsDataURL(file);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -54,8 +60,8 @@ export function CommonProfileForm({ initialData, onSubmit, isLoading }: CommonPr
         <div className="space-y-6">
           <div className="flex justify-center mb-4">
             <ImageUpload
-              value={formData.profileImage}
-              onChange={handleImageChange}
+              currentImage={formData.profileImage}
+              onImageSelect={handleImageChange}
               className="w-32 h-32"
             />
           </div>

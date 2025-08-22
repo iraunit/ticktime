@@ -20,7 +20,7 @@ import {
   HiUsers,
   HiMagnifyingGlass,
   HiCheck,
-  HiX,
+  HiXMark,
   HiEye,
   HiHeart,
   HiChevronLeft,
@@ -910,7 +910,7 @@ export default function CreateCampaignPage() {
                 >
                   {isSubmitting ? (
                     <>
-                      <InlineLoader size="sm" />
+                      <InlineLoader className="mr-2" />
                       Creating Campaign...
                     </>
                   ) : (

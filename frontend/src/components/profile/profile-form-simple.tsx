@@ -121,7 +121,7 @@ export function ProfileForm({ profile }: ProfileFormProps) {
             <div className="space-y-2">
               <label className="text-sm font-medium">Profile Image</label>
               <ImageUpload
-                currentImage={profile?.profile_image}
+                currentImage={profile?.user_profile?.profile_image}
                 onImageSelect={setProfileImage}
                 onImageRemove={() => setProfileImage(null)}
               />

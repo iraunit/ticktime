@@ -7,6 +7,9 @@ urlpatterns = [
     # Brand Dashboard
     path('dashboard/', views.brand_dashboard_view, name='brand-dashboard'),
     
+    # Brand Profile
+    path('profile/', views.brand_profile_view, name='brand-profile'),
+    
     # Team Management
     path('team/', views.brand_team_view, name='brand-team'),
     path('team/invite/', views.invite_brand_user_view, name='invite-brand-user'),

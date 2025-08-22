@@ -21,7 +21,7 @@ export function EmailVerificationForm({ token }: EmailVerificationFormProps) {
       try {
         const response = await authApi.verifyEmail(token);
         setStatus('success');
-        setMessage(response.message || 'Email verified successfully!');
+        setMessage(response.data?.message || 'Email verified successfully!');
       } catch (error: any) {
         setStatus('error');
         setMessage((error as any)?.response?.data?.message || 'Email verification failed. The link may be invalid or expired.');

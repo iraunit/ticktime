@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { AutoSaveForm } from '@/components/ui/enhanced-form';
@@ -251,11 +252,11 @@ export function ProfileForm({ profile }: ProfileFormProps) {
                     }`}
                     onClick={isEditing ? () => document.getElementById('profile-image-input')?.click() : undefined}
                   >
-                    {profile?.profile_image || profileImage ? (
+                    {profile?.user_profile?.profile_image || profileImage ? (
                       <>
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
-                          src={profileImage ? URL.createObjectURL(profileImage) : getMediaUrl(profile?.profile_image)}
+                          src={profileImage ? URL.createObjectURL(profileImage) : getMediaUrl(profile?.user_profile?.profile_image)}
                           alt="Profile"
                           className="w-full h-full object-cover"
                         />
@@ -282,7 +283,7 @@ export function ProfileForm({ profile }: ProfileFormProps) {
                   </div>
 
                   {/* Remove button - only show if image exists and editing */}
-                  {(profile?.profile_image || profileImage) && isEditing && (
+                  {(profile?.user_profile?.profile_image || profileImage) && isEditing && (
                     <button
                       type="button"
                       onClick={(e) => {
@@ -301,7 +302,7 @@ export function ProfileForm({ profile }: ProfileFormProps) {
                 <div className="flex-1">
                   <p className="text-sm text-gray-600 mb-1">
                     {isEditing 
-                      ? `Click on the image to ${profile?.profile_image ? 'change' : 'upload'} your profile photo`
+                      ? `Click on the image to ${profile?.user_profile?.profile_image ? 'change' : 'upload'} your profile photo`
                       : 'Your profile photo'
                     }
                   </p>
@@ -491,15 +492,18 @@ export function ProfileForm({ profile }: ProfileFormProps) {
                 <div className="mt-4">
                   <FormLabel>Content Categories</FormLabel>
                   <div className="flex flex-wrap gap-2 mt-2">
-                    {form.getValues().categories?.length ? (
-                      form.getValues().categories.map((category) => (
-                        <Badge key={category} className="bg-red-100 text-red-800">
-                          {category}
-                        </Badge>
-                      ))
-                    ) : (
-                      <p className="text-sm text-gray-500">No categories selected</p>
-                    )}
+                    {(() => {
+                      const categories = form.getValues().categories;
+                      return categories && categories.length > 0 ? (
+                        categories.map((category) => (
+                          <Badge key={category} className="bg-red-100 text-red-800">
+                            {category}
+                          </Badge>
+                        ))
+                      ) : (
+                        <p className="text-sm text-gray-500">No categories selected</p>
+                      );
+                    })()}
                   </div>
                 </div>
               )}

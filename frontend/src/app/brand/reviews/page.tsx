@@ -22,8 +22,8 @@ import {
   HiArrowPath,
   HiPencil,
   HiEye,
-  HiThumbUp,
-  HiThumbDown,
+  HiHandThumbUp,
+  HiHandThumbDown,
   HiExclamationTriangle
 } from "react-icons/hi2";
 
@@ -272,7 +272,7 @@ export default function BrandReviewsPage() {
                     </div>
                   </div>
                   <div className="p-3 bg-green-100 rounded-lg">
-                    <HiThumbUp className="w-6 h-6 text-green-600" />
+                    <HiHandThumbUp className="w-6 h-6 text-green-600" />
                   </div>
                 </div>
               </CardContent>
