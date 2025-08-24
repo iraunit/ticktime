@@ -5,10 +5,32 @@ from influencers.serializers import InfluencerProfileSerializer
 
 
 class BrandSerializer(serializers.ModelSerializer):
+    logo = serializers.SerializerMethodField()
+    
     class Meta:
         model = Brand
         fields = '__all__'
         read_only_fields = ('id', 'rating', 'total_campaigns', 'is_verified')
+    
+    def get_logo(self, obj):
+        if obj.logo:
+            request = self.context.get('request')
+            if request:
+                # Manually construct the full URL
+                scheme = request.scheme
+                host = request.get_host()
+                logo_url = obj.logo.url.lstrip('/')
+                return f"{scheme}://{host}/{logo_url}"
+            # Fallback: construct URL manually if no request context
+            from django.conf import settings
+            if hasattr(settings, 'SITE_URL'):
+                # Remove leading slash if SITE_URL ends with one
+                logo_url = obj.logo.url.lstrip('/')
+                site_url = settings.SITE_URL.rstrip('/')
+                return f"{site_url}/{logo_url}"
+            else:
+                return obj.logo.url
+        return None
 
 
 class UserProfileSerializer(serializers.ModelSerializer):

@@ -10,10 +10,11 @@ from django.contrib.auth.models import User
 
 from .models import Brand, BrandUser, BrandAuditLog, BookmarkedInfluencer
 from .serializers import (
-    BrandDashboardSerializer, BrandTeamSerializer, BrandUserInviteSerializer,
-    BrandAuditLogSerializer, BookmarkedInfluencerSerializer
+    BrandSerializer, BrandDashboardSerializer, BrandTeamSerializer, BrandUserInviteSerializer,
+    BrandAuditLogSerializer, BookmarkedInfluencerSerializer, UserProfileSerializer
 )
 from campaigns.models import Campaign
+from campaigns.serializers import CampaignCreateSerializer
 from deals.models import Deal
 from influencers.models import InfluencerProfile
 from messaging.models import Conversation
@@ -149,6 +150,11 @@ def brand_team_view(request):
         is_active=True
     ).select_related('user').order_by('-role', 'user__first_name')
 
+    # Ensure UserProfile exists for all team members
+    from users.models import UserProfile
+    for team_member in team_members:
+        UserProfile.objects.get_or_create(user=team_member.user)
+
     serializer = BrandTeamSerializer(team_members, many=True)
     
     return Response({
@@ -194,6 +200,10 @@ def invite_brand_user_view(request):
                 last_name=last_name,
                 is_active=False  # Will be activated when they accept invitation
             )
+            
+            # Create UserProfile for the new user
+            from users.models import UserProfile
+            UserProfile.objects.create(user=user)
 
         # Create brand user association
         BrandUser.objects.create(
@@ -224,11 +234,11 @@ def invite_brand_user_view(request):
     }, status=status.HTTP_400_BAD_REQUEST)
 
 
-@api_view(['GET'])
+@api_view(['GET', 'POST'])
 @permission_classes([IsAuthenticated])
 def brand_campaigns_view(request):
     """
-    Get all campaigns for the brand with filters.
+    Get all campaigns for the brand with filters (GET) or create a new campaign (POST).
     """
     brand_user = get_brand_user_or_403(request)
     if not brand_user:
@@ -237,6 +247,57 @@ def brand_campaigns_view(request):
             'message': 'Brand profile not found.'
         }, status=status.HTTP_404_NOT_FOUND)
 
+    if request.method == 'POST':
+        # Create new campaign
+        # Check if user has permission to create campaigns
+        if not brand_user.can_create_campaigns:
+            return Response({
+                'status': 'error',
+                'message': 'You do not have permission to create campaigns.'
+            }, status=status.HTTP_403_FORBIDDEN)
+
+        serializer = CampaignCreateSerializer(data=request.data)
+        if serializer.is_valid():
+            try:
+                # Create the campaign
+                campaign = serializer.save(
+                    brand=brand_user.brand,
+                    created_by=request.user
+                )
+                
+                # Log the action
+                log_brand_action(
+                    brand_user.brand,
+                    request.user,
+                    'campaign_created',
+                    f"Created campaign: {campaign.title}",
+                    {'campaign_id': campaign.id, 'campaign_title': campaign.title}
+                )
+                
+                return Response({
+                    'status': 'success',
+                    'message': 'Campaign created successfully.',
+                    'campaign': {
+                        'id': campaign.id,
+                        'title': campaign.title,
+                        'created_at': campaign.created_at
+                    }
+                }, status=status.HTTP_201_CREATED)
+                
+            except Exception as e:
+                return Response({
+                    'status': 'error',
+                    'message': 'Failed to create campaign.',
+                    'error': str(e)
+                }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+        return Response({
+            'status': 'error',
+            'message': 'Invalid campaign data.',
+            'errors': serializer.errors
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+    # GET request - list campaigns
     campaigns = brand_user.brand.campaigns.all()
 
     # Apply search filter
@@ -286,6 +347,115 @@ def brand_campaigns_view(request):
             'total_count': paginator.count
         }
     })
+
+
+@api_view(['GET', 'PATCH', 'DELETE'])
+@permission_classes([IsAuthenticated])
+def campaign_detail_view(request, campaign_id):
+    """
+    Get, update, or delete a specific campaign.
+    """
+    brand_user = get_brand_user_or_403(request)
+    if not brand_user:
+        return Response({
+            'status': 'error',
+            'message': 'Brand profile not found.'
+        }, status=status.HTTP_404_NOT_FOUND)
+
+    try:
+        campaign = Campaign.objects.get(id=campaign_id, brand=brand_user.brand)
+    except Campaign.DoesNotExist:
+        return Response({
+            'status': 'error',
+            'message': 'Campaign not found.'
+        }, status=status.HTTP_404_NOT_FOUND)
+
+    if request.method == 'GET':
+        from campaigns.serializers import CampaignSerializer
+        serializer = CampaignSerializer(campaign)
+        return Response({
+            'status': 'success',
+            'campaign': serializer.data
+        })
+
+    elif request.method == 'PATCH':
+        # Check if user has permission to edit campaigns
+        if not brand_user.can_edit_campaigns:
+            return Response({
+                'status': 'error',
+                'message': 'You do not have permission to edit campaigns.'
+            }, status=status.HTTP_403_FORBIDDEN)
+
+        serializer = CampaignCreateSerializer(campaign, data=request.data, partial=True)
+        if serializer.is_valid():
+            try:
+                updated_campaign = serializer.save()
+                
+                # Log the action
+                log_brand_action(
+                    brand_user.brand,
+                    request.user,
+                    'campaign_updated',
+                    f"Updated campaign: {updated_campaign.title}",
+                    {'campaign_id': updated_campaign.id, 'campaign_title': updated_campaign.title}
+                )
+                
+                from campaigns.serializers import CampaignSerializer
+                campaign_serializer = CampaignSerializer(updated_campaign)
+                return Response({
+                    'status': 'success',
+                    'message': 'Campaign updated successfully.',
+                    'campaign': campaign_serializer.data
+                })
+                
+            except Exception as e:
+                return Response({
+                    'status': 'error',
+                    'message': 'Failed to update campaign.',
+                    'error': str(e)
+                }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+        return Response({
+            'status': 'error',
+            'message': 'Invalid campaign data.',
+            'errors': serializer.errors
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+    elif request.method == 'DELETE':
+        # Check if user has permission to delete campaigns
+        if not brand_user.can_delete_campaigns:
+            return Response({
+                'status': 'error',
+                'message': 'You do not have permission to delete campaigns.'
+            }, status=status.HTTP_403_FORBIDDEN)
+
+        try:
+            campaign_title = campaign.title
+            campaign.delete()
+            
+            # Log the action
+            log_brand_action(
+                brand_user.brand,
+                request.user,
+                'campaign_deleted',
+                f"Deleted campaign: {campaign_title}",
+                {'campaign_title': campaign_title}
+            )
+            
+            return Response({
+                'status': 'success',
+                'message': 'Campaign deleted successfully.'
+            })
+            
+        except Exception as e:
+            return Response({
+                'status': 'error',
+                'message': 'Failed to delete campaign.',
+                'error': str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+
 
 
 @api_view(['GET'])
@@ -1028,3 +1198,582 @@ def brand_analytics_campaigns_view(request):
         'status': 'success',
         'campaigns': campaign_analytics,
     }, status=status.HTTP_200_OK)
+
+
+@api_view(['PUT'])
+@permission_classes([IsAuthenticated])
+def update_brand_profile_view(request):
+    """
+    Update brand profile information (excluding sensitive fields like domain).
+    """
+    brand_user = get_brand_user_or_403(request)
+    if not brand_user or not brand_user.can_manage_users:
+        return Response({
+            'status': 'error',
+            'message': 'You do not have permission to update brand settings.'
+        }, status=status.HTTP_403_FORBIDDEN)
+
+    brand = brand_user.brand
+    
+    # Only allow updating non-sensitive fields
+    allowed_fields = ['name', 'description', 'website', 'industry', 'contact_email']
+    update_data = {k: v for k, v in request.data.items() if k in allowed_fields}
+    
+    # Handle logo upload
+    if 'logo' in request.FILES:
+        logo_file = request.FILES['logo']
+        # Validate file type
+        allowed_types = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
+        if logo_file.content_type not in allowed_types:
+            return Response({
+                'status': 'error',
+                'message': 'Invalid file type. Please upload a JPEG, PNG, WebP, or GIF image.'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Validate file size (5MB max)
+        if logo_file.size > 5 * 1024 * 1024:
+            return Response({
+                'status': 'error',
+                'message': 'File size too large. Please upload an image smaller than 5MB.'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Update brand logo field using Django's ImageField
+        brand.logo = logo_file
+        # Don't add to update_data since we're directly setting the field
+    
+    if not update_data:
+        return Response({
+            'status': 'error',
+            'message': 'No valid fields to update.'
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+    # Validate email if being updated
+    if 'contact_email' in update_data:
+        from django.core.validators import validate_email
+        try:
+            validate_email(update_data['contact_email'])
+        except:
+            return Response({
+                'status': 'error',
+                'message': 'Invalid email format.'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+    # Update brand
+    for field, value in update_data.items():
+        setattr(brand, field, value)
+    
+    brand.save()
+
+    # Log action
+    log_brand_action(
+        brand, 
+        request.user, 
+        'brand_updated',
+        f"Updated brand profile: {', '.join(update_data.keys())}",
+        {'updated_fields': list(update_data.keys())}
+    )
+
+    serializer = BrandSerializer(brand, context={'request': request})
+    return Response({
+        'status': 'success',
+        'message': 'Brand profile updated successfully.',
+        'brand': serializer.data
+    })
+
+
+@api_view(['PUT'])
+@permission_classes([IsAuthenticated])
+def update_team_member_role_view(request, user_id):
+    """
+    Update a team member's role.
+    """
+    brand_user = get_brand_user_or_403(request)
+    if not brand_user or not brand_user.can_manage_users:
+        return Response({
+            'status': 'error',
+            'message': 'You do not have permission to manage team members.'
+        }, status=status.HTTP_403_FORBIDDEN)
+
+    try:
+        team_member = BrandUser.objects.get(
+            id=user_id,
+            brand=brand_user.brand,
+            is_active=True
+        )
+    except BrandUser.DoesNotExist:
+        return Response({
+            'status': 'error',
+            'message': 'Team member not found.'
+        }, status=status.HTTP_404_NOT_FOUND)
+
+    # Prevent changing owner role
+    if team_member.role == 'owner':
+        return Response({
+            'status': 'error',
+            'message': 'Cannot change owner role.'
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+    # Prevent non-owners from promoting to admin/owner
+    new_role = request.data.get('role')
+    if new_role in ['owner', 'admin'] and brand_user.role not in ['owner']:
+        return Response({
+            'status': 'error',
+            'message': 'Only brand owners can assign admin roles.'
+        }, status=status.HTTP_403_FORBIDDEN)
+
+    old_role = team_member.role
+    team_member.role = new_role
+    team_member.save()
+
+    # Log action
+    log_brand_action(
+        brand_user.brand,
+        request.user,
+        'user_role_changed',
+        f"Changed {team_member.user.email} role from {old_role} to {new_role}",
+        {
+            'user_id': team_member.user.id,
+            'user_email': team_member.user.email,
+            'old_role': old_role,
+            'new_role': new_role
+        }
+    )
+
+    # Ensure UserProfile exists for the team member
+    from users.models import UserProfile
+    UserProfile.objects.get_or_create(user=team_member.user)
+
+    serializer = BrandTeamSerializer(team_member)
+    return Response({
+        'status': 'success',
+        'message': 'Team member role updated successfully.',
+        'team_member': serializer.data
+    })
+
+
+@api_view(['DELETE'])
+@permission_classes([IsAuthenticated])
+def remove_team_member_view(request, user_id):
+    """
+    Remove a team member from the brand.
+    """
+    brand_user = get_brand_user_or_403(request)
+    if not brand_user or not brand_user.can_manage_users:
+        return Response({
+            'status': 'error',
+            'message': 'You do not have permission to manage team members.'
+        }, status=status.HTTP_403_FORBIDDEN)
+
+    try:
+        team_member = BrandUser.objects.get(
+            id=user_id,
+            brand=brand_user.brand,
+            is_active=True
+        )
+    except BrandUser.DoesNotExist:
+        return Response({
+            'status': 'error',
+            'message': 'Team member not found.'
+        }, status=status.HTTP_404_NOT_FOUND)
+
+    # Prevent removing owner
+    if team_member.role == 'owner':
+        return Response({
+            'status': 'error',
+            'message': 'Cannot remove brand owner.'
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+    # Prevent removing yourself
+    if team_member.user == request.user:
+        return Response({
+            'status': 'error',
+            'message': 'Cannot remove yourself from the team.'
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+    user_email = team_member.user.email
+    team_member.is_active = False
+    team_member.save()
+
+    # Log action
+    log_brand_action(
+        brand_user.brand,
+        request.user,
+        'user_removed',
+        f"Removed {user_email} from team",
+        {
+            'user_id': team_member.user.id,
+            'user_email': user_email,
+            'role': team_member.role
+        }
+    )
+
+    return Response({
+        'status': 'success',
+        'message': 'Team member removed successfully.'
+    })
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_users_by_domain_view(request):
+    """
+    Get all users with the same email domain as the brand owner.
+    """
+    brand_user = get_brand_user_or_403(request)
+    if not brand_user or not brand_user.can_manage_users:
+        return Response({
+            'status': 'error',
+            'message': 'You do not have permission to view team members.'
+        }, status=status.HTTP_403_FORBIDDEN)
+
+    # Get the brand's domain
+    brand_domain = brand_user.brand.domain
+    
+    # Find all users with the same email domain
+    users = User.objects.filter(
+        email__endswith=f"@{brand_domain}",
+        is_active=True
+    ).exclude(
+        brand_user__brand=brand_user.brand
+    ).order_by('first_name', 'last_name')
+
+    # Pagination
+    page = int(request.GET.get('page', 1))
+    page_size = int(request.GET.get('page_size', 20))
+    paginator = Paginator(users, page_size)
+    users_page = paginator.get_page(page)
+
+    # Ensure UserProfile exists for all users
+    from users.models import UserProfile
+    for user in users_page:
+        UserProfile.objects.get_or_create(user=user)
+
+    serializer = UserProfileSerializer(users_page, many=True)
+
+    return Response({
+        'status': 'success',
+        'users': serializer.data,
+        'domain': brand_domain,
+        'pagination': {
+            'current_page': page,
+            'total_pages': paginator.num_pages,
+            'total_count': paginator.count
+        }
+    })
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def add_influencers_to_campaign_view(request, campaign_id):
+    """
+    Add influencers to a specific campaign.
+    """
+    brand_user = get_brand_user_or_403(request)
+    if not brand_user:
+        return Response({
+            'status': 'error',
+            'message': 'Brand profile not found.'
+        }, status=status.HTTP_404_NOT_FOUND)
+
+    try:
+        campaign = Campaign.objects.get(id=campaign_id, brand=brand_user.brand)
+    except Campaign.DoesNotExist:
+        return Response({
+            'status': 'error',
+            'message': 'Campaign not found.'
+        }, status=status.HTTP_404_NOT_FOUND)
+
+    # Check if user has permission to manage campaigns
+    if not brand_user.can_create_campaigns:
+        return Response({
+            'status': 'error',
+            'message': 'You do not have permission to manage campaigns.'
+        }, status=status.HTTP_403_FORBIDDEN)
+
+    influencer_ids = request.data.get('influencer_ids', [])
+    if not influencer_ids:
+        return Response({
+            'status': 'error',
+            'message': 'No influencers provided.'
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+    # Validate influencer IDs
+    try:
+        influencers = InfluencerProfile.objects.filter(id__in=influencer_ids)
+        if len(influencers) != len(influencer_ids):
+            return Response({
+                'status': 'error',
+                'message': 'Some influencers not found.'
+            }, status=status.HTTP_400_BAD_REQUEST)
+    except:
+        return Response({
+            'status': 'error',
+            'message': 'Invalid influencer IDs.'
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+    # Add influencers to campaign (create deals)
+    created_deals = []
+    existing_deals = []
+    
+    for influencer in influencers:
+        # Check if deal already exists
+        existing_deal = Deal.objects.filter(campaign=campaign, influencer=influencer).first()
+        if existing_deal:
+            existing_deals.append({
+                'influencer_id': influencer.id,
+                'influencer_name': influencer.full_name or influencer.username,
+                'deal_id': existing_deal.id
+            })
+        else:
+            # Create new deal
+            deal = Deal.objects.create(
+                campaign=campaign,
+                influencer=influencer,
+                status='invited',
+                invited_by=request.user,
+                invited_at=timezone.now()
+            )
+            created_deals.append({
+                'influencer_id': influencer.id,
+                'influencer_name': influencer.full_name or influencer.username,
+                'deal_id': deal.id
+            })
+
+    # Log action
+    log_brand_action(
+        brand_user.brand,
+        request.user,
+        'influencers_added_to_campaign',
+        f"Added {len(created_deals)} influencers to campaign: {campaign.title}",
+        {
+            'campaign_id': campaign.id,
+            'campaign_title': campaign.title,
+            'created_deals': len(created_deals),
+            'existing_deals': len(existing_deals)
+        }
+    )
+
+    return Response({
+        'status': 'success',
+        'message': f'Successfully added {len(created_deals)} influencers to campaign.',
+        'created_deals': created_deals,
+        'existing_deals': existing_deals
+    })
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def send_message_to_influencer_view(request, influencer_id):
+    """
+    Send a message to an influencer (creates a conversation if it doesn't exist).
+    """
+    brand_user = get_brand_user_or_403(request)
+    if not brand_user:
+        return Response({
+            'status': 'error',
+            'message': 'Brand profile not found.'
+        }, status=status.HTTP_404_NOT_FOUND)
+
+    try:
+        influencer = InfluencerProfile.objects.get(id=influencer_id)
+    except InfluencerProfile.DoesNotExist:
+        return Response({
+            'status': 'error',
+            'message': 'Influencer not found.'
+        }, status=status.HTTP_404_NOT_FOUND)
+
+    # Check if there's an existing deal with this influencer
+    existing_deal = Deal.objects.filter(
+        campaign__brand=brand_user.brand,
+        influencer=influencer
+    ).first()
+
+    if not existing_deal:
+        return Response({
+            'status': 'error',
+            'message': 'No existing deal found with this influencer. Please add them to a campaign first.'
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+    # Get or create conversation for the deal
+    conversation, created = Conversation.objects.get_or_create(
+        deal=existing_deal,
+        defaults={}
+    )
+
+    # Create message
+    from messaging.models import Message
+    from messaging.serializers import MessageSerializer
+    
+    message_data = {
+        'content': request.data.get('content', ''),
+        'sender_type': 'brand',
+        'sender_user': request.user.id
+    }
+    
+    serializer = MessageSerializer(data=message_data)
+    if serializer.is_valid():
+        message = serializer.save(
+            conversation=conversation,
+            sender_type='brand',
+            sender_user=request.user
+        )
+        
+        # Update conversation timestamp
+        conversation.updated_at = timezone.now()
+        conversation.save()
+        
+        # Log action
+        log_brand_action(
+            brand_user.brand,
+            request.user,
+            'message_sent_to_influencer',
+            f"Sent message to {influencer.username}",
+            {
+                'influencer_id': influencer.id,
+                'influencer_username': influencer.username,
+                'conversation_id': conversation.id,
+                'message_id': message.id,
+                'deal_id': existing_deal.id
+            }
+        )
+        
+        return Response({
+            'status': 'success',
+            'message': 'Message sent successfully.',
+            'conversation_id': conversation.id,
+            'deal_id': existing_deal.id,
+            'message': MessageSerializer(message, context={'request': request}).data
+        })
+    
+    return Response({
+        'status': 'error',
+        'message': 'Invalid message data.',
+        'errors': serializer.errors
+    }, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_campaigns_for_influencer_view(request):
+    """
+    Get all campaigns for the brand that can be used to add influencers.
+    """
+    brand_user = get_brand_user_or_403(request)
+    if not brand_user:
+        return Response({
+            'status': 'error',
+            'message': 'Brand profile not found.'
+        }, status=status.HTTP_404_NOT_FOUND)
+
+    # Get active campaigns
+    campaigns = Campaign.objects.filter(
+        brand=brand_user.brand,
+        is_active=True,
+        application_deadline__gte=timezone.now()
+    ).order_by('-created_at')
+
+    # Serialize campaigns
+    from campaigns.serializers import CampaignListSerializer
+    serializer = CampaignListSerializer(campaigns, many=True)
+
+    return Response({
+        'status': 'success',
+        'campaigns': serializer.data
+    })
+
+
+@api_view(['DELETE'])
+@permission_classes([IsAuthenticated])
+def remove_bookmark_view(request, influencer_id):
+    """
+    Remove an influencer from bookmarks.
+    """
+    brand_user = get_brand_user_or_403(request)
+    if not brand_user:
+        return Response({
+            'status': 'error',
+            'message': 'Brand profile not found.'
+        }, status=status.HTTP_404_NOT_FOUND)
+
+    try:
+        bookmark = BookmarkedInfluencer.objects.get(
+            brand=brand_user.brand,
+            influencer_id=influencer_id
+        )
+        bookmark.delete()
+        
+        # Log action
+        log_brand_action(
+            brand_user.brand,
+            request.user,
+            'influencer_unbookmarked',
+            f"Removed {bookmark.influencer.username} from bookmarks",
+            {'influencer_id': influencer_id, 'influencer_username': bookmark.influencer.username}
+        )
+        
+        return Response({
+            'status': 'success',
+            'message': 'Influencer removed from bookmarks.'
+        })
+    except BookmarkedInfluencer.DoesNotExist:
+        return Response({
+            'status': 'error',
+            'message': 'Bookmark not found.'
+        }, status=status.HTTP_404_NOT_FOUND)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_brand_settings_view(request):
+    """
+    Get comprehensive brand settings data including team, audit logs, and brand info.
+    """
+    brand_user = get_brand_user_or_403(request)
+    if not brand_user:
+        return Response({
+            'status': 'error',
+            'message': 'Brand profile not found.'
+        }, status=status.HTTP_404_NOT_FOUND)
+
+    brand = brand_user.brand
+
+    # Get team members
+    team_members = BrandUser.objects.filter(
+        brand=brand,
+        is_active=True
+    ).select_related('user').order_by('-role', 'user__first_name')
+
+    # Ensure UserProfile exists for all team members
+    from users.models import UserProfile
+    for team_member in team_members:
+        UserProfile.objects.get_or_create(user=team_member.user)
+
+    # Get recent audit logs (last 50)
+    audit_logs = BrandAuditLog.objects.filter(
+        brand=brand
+    ).select_related('user').order_by('-created_at')[:50]
+
+    # Ensure UserProfile exists for all audit log users
+    for audit_log in audit_logs:
+        UserProfile.objects.get_or_create(user=audit_log.user)
+
+    # Serialize data
+    brand_serializer = BrandSerializer(brand, context={'request': request})
+    team_serializer = BrandTeamSerializer(team_members, many=True)
+    audit_serializer = BrandAuditLogSerializer(audit_logs, many=True)
+
+
+    
+    return Response({
+        'status': 'success',
+        'brand': brand_serializer.data,
+        'team_members': team_serializer.data,
+        'audit_logs': audit_serializer.data,
+        'user_permissions': {
+            'can_manage_users': brand_user.can_manage_users,
+            'can_create_campaigns': brand_user.can_create_campaigns,
+            'can_approve_content': brand_user.can_approve_content,
+            'can_view_analytics': brand_user.can_view_analytics,
+            'role': brand_user.role
+        }
+    })

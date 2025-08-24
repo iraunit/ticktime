@@ -414,7 +414,11 @@ export default function DealDetailsPage() {
                 
                 <div>
                   <label className="text-sm text-gray-500">Content Requirements</label>
-                  <p className="text-sm text-gray-700 mt-1">{deal.campaign.content_requirements}</p>
+                  <p className="text-sm text-gray-700 mt-1">
+                  {typeof deal.campaign.content_requirements === 'string' 
+                    ? deal.campaign.content_requirements 
+                    : deal.campaign.content_requirements?.description || 'No content requirements specified'}
+                </p>
                 </div>
               </CardContent>
             </Card>

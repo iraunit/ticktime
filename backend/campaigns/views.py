@@ -10,7 +10,7 @@ from datetime import datetime
 
 from common.decorators import user_rate_limit, cache_response
 from .models import Campaign
-from .serializers import CampaignSerializer
+from .serializers import CampaignSerializer, CampaignCreateSerializer
 
 
 class CampaignPagination(PageNumberPagination):
@@ -20,6 +20,67 @@ class CampaignPagination(PageNumberPagination):
     page_size = 20
     page_size_query_param = 'page_size'
     max_page_size = 100
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+@user_rate_limit(requests_per_minute=10)
+def create_campaign_view(request):
+    """
+    Create a new campaign for the authenticated brand user.
+    """
+    # Check if user is a brand user
+    try:
+        brand_user = request.user.brand_user
+        if not brand_user:
+            return Response({
+                'status': 'error',
+                'message': 'Only brand users can create campaigns.'
+            }, status=status.HTTP_403_FORBIDDEN)
+    except:
+        return Response({
+            'status': 'error',
+            'message': 'Brand profile not found.'
+        }, status=status.HTTP_404_NOT_FOUND)
+
+    # Check if user has permission to create campaigns
+    if not brand_user.can_create_campaigns:
+        return Response({
+            'status': 'error',
+            'message': 'You do not have permission to create campaigns.'
+        }, status=status.HTTP_403_FORBIDDEN)
+
+    serializer = CampaignCreateSerializer(data=request.data)
+    if serializer.is_valid():
+        try:
+            # Create the campaign
+            campaign = serializer.save(
+                brand=brand_user.brand,
+                created_by=request.user
+            )
+            
+            return Response({
+                'status': 'success',
+                'message': 'Campaign created successfully.',
+                'campaign': {
+                    'id': campaign.id,
+                    'title': campaign.title,
+                    'created_at': campaign.created_at
+                }
+            }, status=status.HTTP_201_CREATED)
+            
+        except Exception as e:
+            return Response({
+                'status': 'error',
+                'message': 'Failed to create campaign.',
+                'error': str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+    return Response({
+        'status': 'error',
+        'message': 'Invalid campaign data.',
+        'errors': serializer.errors
+    }, status=status.HTTP_400_BAD_REQUEST)
 
 
 @api_view(['GET'])

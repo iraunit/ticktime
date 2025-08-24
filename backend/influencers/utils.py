@@ -19,15 +19,19 @@ class LocationManager:
         cached_data = cache.get(cache_key)
         
         if cached_data:
+            print(f"Returning cached data for pincode {pincode}")
             return cached_data
         
         try:
             # Using India Post API (free service)
             url = f"https://api.postalpincode.in/pincode/{pincode}"
+            print(f"Fetching data from: {url}")
             response = requests.get(url, timeout=5)
+            print(f"Response status: {response.status_code}")
             
             if response.status_code == 200:
                 data = response.json()
+                print(f"API response: {data}")
                 if data and data[0]['Status'] == 'Success':
                     post_office = data[0]['PostOffice'][0]
                     location_data = {
@@ -37,10 +41,15 @@ class LocationManager:
                         'pincode': pincode,
                         'area': post_office['Name']
                     }
+                    print(f"Location data created: {location_data}")
                     
                     # Cache for 24 hours
                     cache.set(cache_key, location_data, 86400)
                     return location_data
+                else:
+                    print(f"API returned error status: {data[0]['Status'] if data else 'No data'}")
+            else:
+                print(f"API request failed with status: {response.status_code}")
         except Exception as e:
             print(f"Error fetching pincode data: {e}")
         

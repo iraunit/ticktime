@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSidebar } from "@/contexts/sidebar-context";
+import { useState, useEffect } from "react";
 import { 
   HiHome, 
   HiUsers, 
@@ -13,6 +14,7 @@ import {
   HiCog6Tooth,
   HiDocumentText
 } from "react-icons/hi2";
+import { api } from "@/lib/api";
 
 const navigation = [
   { name: 'Dashboard', href: '/brand', icon: HiHome },
@@ -28,6 +30,25 @@ const navigation = [
 export function BrandSidebar() {
   const pathname = usePathname();
   const { isCollapsed, isHoverExpanded, setIsHoverExpanded } = useSidebar();
+  const [brandLogo, setBrandLogo] = useState<string | null>(null);
+  const [brandName, setBrandName] = useState<string>("TickTime");
+
+  // Fetch brand data for logo and name
+  useEffect(() => {
+    const fetchBrandData = async () => {
+      try {
+        const response = await api.get('/brands/settings/');
+        if (response.data.status === 'success') {
+          setBrandLogo(response.data.brand.logo);
+          setBrandName(response.data.brand.name || "TickTime");
+        }
+      } catch (error) {
+        console.error('Error fetching brand data for sidebar:', error);
+      }
+    };
+
+    fetchBrandData();
+  }, []);
 
   // Determine if sidebar should appear expanded (either manually or by hover)
   const isExpanded = !isCollapsed || isHoverExpanded;
@@ -63,9 +84,28 @@ export function BrandSidebar() {
           
           {/* Logo - Always visible */}
           <div className="relative group flex-shrink-0">
-            <div className="w-9 h-9 bg-gradient-to-br from-red-500 via-orange-500 to-red-600 rounded-xl flex items-center justify-center shadow-lg group-hover:shadow-xl transition-all duration-300 transform group-hover:scale-105">
-              <span className="text-white font-bold text-sm">T</span>
-            </div>
+            {brandLogo ? (
+              <div className="w-9 h-9 rounded-xl overflow-hidden shadow-lg group-hover:shadow-xl transition-all duration-300 transform group-hover:scale-105">
+                <img 
+                  src={brandLogo} 
+                  alt={`${brandName} logo`}
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    // Fallback to default logo if image fails to load
+                    e.currentTarget.style.display = 'none';
+                    e.currentTarget.nextElementSibling?.classList.remove('hidden');
+                  }}
+                />
+                {/* Fallback logo */}
+                <div className="hidden w-full h-full bg-gradient-to-br from-red-500 via-orange-500 to-red-600 flex items-center justify-center">
+                  <span className="text-white font-bold text-sm">{brandName.charAt(0)}</span>
+                </div>
+              </div>
+            ) : (
+              <div className="w-9 h-9 bg-gradient-to-br from-red-500 via-orange-500 to-red-600 rounded-xl flex items-center justify-center shadow-lg group-hover:shadow-xl transition-all duration-300 transform group-hover:scale-105">
+                <span className="text-white font-bold text-sm">{brandName.charAt(0)}</span>
+              </div>
+            )}
             {/* Logo Glow Effect */}
             <div className="absolute inset-0 bg-gradient-to-br from-red-400 to-orange-500 rounded-xl opacity-0 group-hover:opacity-20 blur-sm transition-opacity duration-300"></div>
           </div>
@@ -74,7 +114,7 @@ export function BrandSidebar() {
           {isExpanded && (
             <div className="ml-3 flex items-center min-w-0 animate-in slide-in-from-left-2 duration-300">
               <h1 className="text-lg font-bold bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 bg-clip-text text-transparent truncate">
-                TickTime
+                {brandName}
               </h1>
             </div>
           )}

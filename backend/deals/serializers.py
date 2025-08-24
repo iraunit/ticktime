@@ -11,13 +11,25 @@ class SimpleInfluencerSerializer(serializers.ModelSerializer):
     """
     Simple serializer for influencer information in deal contexts.
     """
-    name = serializers.SerializerMethodField()
+    full_name = serializers.SerializerMethodField()
+    followers_count = serializers.ReadOnlyField()
+    engagement_rate = serializers.ReadOnlyField()
+    rating = serializers.ReadOnlyField()
+    categories = serializers.ReadOnlyField()
+    platforms = serializers.ReadOnlyField()
+    is_verified = serializers.ReadOnlyField()
     
     class Meta:
         model = InfluencerProfile
-        fields = ('id', 'username', 'name')
+        fields = (
+            'id', 'username', 'full_name', 'profile_picture', 'bio', 
+            'followers_count', 'following_count', 'total_likes', 
+            'engagement_rate', 'categories', 'platforms', 'location',
+            'email', 'phone', 'website', 'is_verified', 'rating',
+            'total_campaigns', 'completed_campaigns'
+        )
     
-    def get_name(self, obj):
+    def get_full_name(self, obj):
         """Get full name from user."""
         if obj.user.first_name and obj.user.last_name:
             return f"{obj.user.first_name} {obj.user.last_name}"
@@ -38,6 +50,9 @@ class DealListSerializer(serializers.ModelSerializer):
     response_deadline_passed = serializers.ReadOnlyField()
     days_until_deadline = serializers.SerializerMethodField()
     value = serializers.SerializerMethodField()
+    conversation = serializers.SerializerMethodField()
+    last_message = serializers.SerializerMethodField()
+    unread_count = serializers.SerializerMethodField()
 
     class Meta:
         model = Deal
@@ -45,7 +60,10 @@ class DealListSerializer(serializers.ModelSerializer):
             'id', 'campaign', 'influencer', 'status', 'status_display', 'is_active',
             'response_deadline_passed', 'days_until_deadline', 'value',
             'invited_at', 'responded_at', 'accepted_at', 'completed_at',
-            'payment_status', 'brand_rating'
+            'payment_status', 'payment_date', 'brand_rating', 'brand_review',
+            'influencer_rating', 'influencer_review', 'rejection_reason',
+            'negotiation_notes', 'custom_terms_agreed', 'conversation',
+            'last_message', 'unread_count'
         )
         read_only_fields = ('id', 'invited_at', 'responded_at', 'accepted_at', 'completed_at')
 
@@ -61,6 +79,49 @@ class DealListSerializer(serializers.ModelSerializer):
     def get_value(self, obj):
         """Get the deal value from the campaign."""
         return obj.campaign.total_value
+    
+    def get_conversation(self, obj):
+        """Get conversation information if it exists."""
+        try:
+            conversation = obj.conversation
+            return {
+                'id': conversation.id,
+                'unread_count_for_brand': conversation.unread_count_for_brand,
+                'unread_count_for_influencer': conversation.unread_count_for_influencer,
+            }
+        except:
+            return None
+    
+    def get_last_message(self, obj):
+        """Get the last message in the conversation if it exists."""
+        try:
+            last_message = obj.conversation.last_message
+            if last_message:
+                return {
+                    'id': last_message.id,
+                    'sender_type': last_message.sender_type,
+                    'sender_user': {
+                        'id': last_message.sender_user.id,
+                        'username': last_message.sender_user.username,
+                        'full_name': f"{last_message.sender_user.first_name} {last_message.sender_user.last_name}".strip() or last_message.sender_user.username,
+                    },
+                    'content': last_message.content,
+                    'file_attachment': last_message.file_attachment.url if last_message.file_attachment else None,
+                    'file_name': last_message.file_name,
+                    'read_by_brand': last_message.read_by_brand,
+                    'read_by_influencer': last_message.read_by_influencer,
+                    'created_at': last_message.created_at,
+                }
+        except:
+            pass
+        return None
+    
+    def get_unread_count(self, obj):
+        """Get unread message count for the brand."""
+        try:
+            return obj.conversation.unread_count_for_brand
+        except:
+            return 0
 
 
 class DealDetailSerializer(serializers.ModelSerializer):

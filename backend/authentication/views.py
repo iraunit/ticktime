@@ -99,6 +99,10 @@ def login_view(request):
             # Use default project settings for expiry (rolling 15 days)
             request.session.set_expiry(settings.SESSION_COOKIE_AGE)
 
+        # Ensure UserProfile exists for the user
+        from users.models import UserProfile
+        UserProfile.objects.get_or_create(user=user)
+
         profile_serializer = UserProfileSerializer(user, context={'request': request})
         return Response({
             'status': 'success',
@@ -191,6 +195,10 @@ def signup_view(request):
             # Automatically log in the user
             login(request, user)
             
+            # Ensure UserProfile exists for the user
+            from users.models import UserProfile
+            UserProfile.objects.get_or_create(user=user)
+            
             profile_serializer = UserProfileSerializer(user, context={'request': request})
 
             return Response({
@@ -241,6 +249,10 @@ def brand_signup_view(request):
             
             # Automatically log in the user
             login(request, user)
+            
+            # Ensure UserProfile exists for the user
+            from users.models import UserProfile
+            UserProfile.objects.get_or_create(user=user)
             
             profile_serializer = UserProfileSerializer(user, context={'request': request})
             return Response({
@@ -411,7 +423,13 @@ def user_profile_view(request):
     """
     Get current user profile information.
     """
-    serializer = UserProfileSerializer(request.user, context={'request': request})
+    user = request.user
+    
+    # Ensure UserProfile exists for the user
+    from users.models import UserProfile
+    UserProfile.objects.get_or_create(user=user)
+    
+    serializer = UserProfileSerializer(user, context={'request': request})
     return Response({
         'status': 'success',
         'user': serializer.data

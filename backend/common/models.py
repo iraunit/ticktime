@@ -56,9 +56,9 @@ PLATFORM_CHOICES = [
 
 # Deal type choices
 DEAL_TYPE_CHOICES = [
-    ('paid', 'Paid'),
-    ('barter', 'Barter'),
-    ('hybrid', 'Hybrid'),
+    ('cash', 'Cash Payment'),
+    ('product', 'Product Only'),
+    ('hybrid', 'Cash + Product'),
 ]
 
 # Deal status choices

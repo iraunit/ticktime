@@ -2,12 +2,14 @@ from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from rest_framework.parsers import MultiPartParser, FormParser
 from django.contrib.auth.models import User
 from django.shortcuts import get_object_or_404
 import logging
 
 from common.decorators import user_rate_limit, log_performance
 from .serializers import UserProfileSerializer, UserUpdateSerializer
+from influencers.utils import LocationManager
 
 logger = logging.getLogger(__name__)
 
@@ -20,10 +22,18 @@ def user_profile_view(request):
     """
     Get or update basic user profile information.
     """
+    # Set parsers for file upload support
+    if request.method in ['PUT', 'PATCH']:
+        request.parsers = [MultiPartParser(), FormParser()]
+    
     user = request.user
 
     if request.method == 'GET':
-        serializer = UserProfileSerializer(user)
+        # Ensure UserProfile exists for the user
+        from users.models import UserProfile
+        UserProfile.objects.get_or_create(user=user)
+        
+        serializer = UserProfileSerializer(user, context={'request': request})
         return Response({
             'status': 'success',
             'user': serializer.data
@@ -41,7 +51,7 @@ def user_profile_view(request):
             serializer.save()
             
             # Return updated user data
-            updated_user = UserProfileSerializer(user)
+            updated_user = UserProfileSerializer(user, context={'request': request})
             return Response({
                 'status': 'success',
                 'message': 'User profile updated successfully.',
@@ -88,6 +98,61 @@ def user_info_view(request):
         'status': 'success',
         'user_info': user_info
     }, status=status.HTTP_200_OK)
+
+
+@api_view(['GET'])
+# @permission_classes([IsAuthenticated])  # Temporarily commented out for testing
+# @user_rate_limit(requests_per_minute=20)  # Temporarily commented out for testing
+def location_data_view(request):
+    """
+    Get location data for address forms (cities, states, pincode lookup).
+    """
+    data_type = request.GET.get('type', 'cities')
+    country = request.GET.get('country', 'India')
+    
+    if data_type == 'cities':
+        cities = LocationManager.get_popular_cities(country)
+        return Response({
+            'status': 'success',
+            'data': cities
+        }, status=status.HTTP_200_OK)
+    
+    elif data_type == 'states':
+        states = LocationManager.get_states(country)
+        return Response({
+            'status': 'success',
+            'data': states
+        }, status=status.HTTP_200_OK)
+    
+    elif data_type == 'pincode':
+        pincode = request.GET.get('pincode')
+        logger.info(f"Pincode lookup requested for: {pincode}")
+        
+        if not pincode:
+            return Response({
+                'status': 'error',
+                'message': 'Pincode parameter is required.'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        location_data = LocationManager.get_location_from_pincode(pincode)
+        logger.info(f"Location data result: {location_data}")
+        
+        if location_data:
+            return Response({
+                'status': 'success',
+                'data': location_data
+            }, status=status.HTTP_200_OK)
+        else:
+            return Response({
+                'status': 'error',
+                'message': 'Could not find location data for this pincode.'
+            }, status=status.HTTP_404_NOT_FOUND)
+    
+    else:
+        return Response({
+            'status': 'error',
+            'message': 'Invalid data type. Use: cities, states, or pincode.'
+        }, status=status.HTTP_400_BAD_REQUEST)
 
 
 @api_view(['POST'])

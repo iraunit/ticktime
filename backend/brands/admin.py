@@ -13,7 +13,7 @@ class BrandAdmin(admin.ModelAdmin):
             'fields': ('name', 'domain', 'logo', 'description', 'industry')
         }),
         ('Contact Information', {
-            'fields': ('contact_email', 'contact_phone', 'country_code', 'website', 'address')
+            'fields': ('contact_email', 'website')
         }),
         ('Status & Metrics', {
             'fields': ('is_verified', 'rating', 'total_campaigns')

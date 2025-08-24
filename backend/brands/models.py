@@ -116,6 +116,8 @@ class BrandAuditLog(models.Model):
     ACTION_CHOICES = [
         ('user_invited', 'User Invited'),
         ('user_role_changed', 'User Role Changed'),
+        ('user_removed', 'User Removed'),
+        ('brand_updated', 'Brand Updated'),
         ('campaign_created', 'Campaign Created'),
         ('campaign_updated', 'Campaign Updated'),
         ('deal_created', 'Deal Created'),

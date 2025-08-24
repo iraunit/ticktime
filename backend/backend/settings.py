@@ -375,3 +375,6 @@ PERFORMANCE_MONITORING = {
     "ENABLE_QUERY_LOGGING": DEBUG,
     "MAX_QUERY_COUNT": 50,  # Alert if more than 50 queries per request
 }
+
+# Site URL for absolute URL generation
+SITE_URL = os.environ.get("SITE_URL", "http://localhost:8000")

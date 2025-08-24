@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
+from .models import UserProfile, GENDER_CHOICES
 import re
 
 
@@ -18,18 +19,35 @@ class UserProfileSerializer(serializers.ModelSerializer):
     
     # Influencer profile details if user is an influencer
     influencer_profile = serializers.SerializerMethodField()
+    
+    # UserProfile fields
+    profile_image = serializers.SerializerMethodField()
+    phone_number = serializers.SerializerMethodField()
+    country_code = serializers.SerializerMethodField()
+    phone_verified = serializers.SerializerMethodField()
+    email_verified = serializers.SerializerMethodField()
+    gender = serializers.SerializerMethodField()
+    country = serializers.SerializerMethodField()
+    state = serializers.SerializerMethodField()
+    city = serializers.SerializerMethodField()
+    zipcode = serializers.SerializerMethodField()
+    address_line1 = serializers.SerializerMethodField()
+    address_line2 = serializers.SerializerMethodField()
 
     class Meta:
         model = User
         fields = (
             'id', 'username', 'email', 'first_name', 'last_name', 'full_name',
             'date_joined', 'last_login', 'is_active', 'has_influencer_profile',
-            'has_brand_profile', 'account_type', 'brand_profile', 'influencer_profile'
+            'has_brand_profile', 'account_type', 'brand_profile', 'influencer_profile',
+            'profile_image', 'phone_number', 'country_code', 'phone_verified', 
+            'email_verified', 'gender', 'country', 'state', 'city', 'zipcode',
+            'address_line1', 'address_line2'
         )
         read_only_fields = (
-            'id', 'username', 'date_joined', 'last_login', 'is_active',
+            'id', 'username', 'email', 'date_joined', 'last_login', 'is_active',
             'has_influencer_profile', 'has_brand_profile', 'account_type',
-            'brand_profile', 'influencer_profile'
+            'brand_profile', 'influencer_profile', 'phone_verified', 'email_verified'
         )
 
     def get_has_influencer_profile(self, obj):
@@ -74,32 +92,104 @@ class UserProfileSerializer(serializers.ModelSerializer):
                 'is_verified': profile.is_verified,
             }
         return None
+    
+    # UserProfile getter methods
+    def get_profile_image(self, obj):
+        """Get profile image URL."""
+        if hasattr(obj, 'user_profile') and obj.user_profile.profile_image:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.user_profile.profile_image.url)
+            return obj.user_profile.profile_image.url
+        return None
+    
+    def get_phone_number(self, obj):
+        """Get phone number."""
+        if hasattr(obj, 'user_profile'):
+            return obj.user_profile.phone_number
+        return ''
+    
+    def get_country_code(self, obj):
+        """Get country code."""
+        if hasattr(obj, 'user_profile'):
+            return obj.user_profile.country_code
+        return '+91'
+    
+    def get_phone_verified(self, obj):
+        """Get phone verification status."""
+        if hasattr(obj, 'user_profile'):
+            return obj.user_profile.phone_verified
+        return False
+    
+    def get_email_verified(self, obj):
+        """Get email verification status."""
+        if hasattr(obj, 'user_profile'):
+            return obj.user_profile.email_verified
+        return False
+    
+    def get_gender(self, obj):
+        """Get gender."""
+        if hasattr(obj, 'user_profile'):
+            return obj.user_profile.gender
+        return None
+    
+    def get_country(self, obj):
+        """Get country."""
+        if hasattr(obj, 'user_profile'):
+            return obj.user_profile.country
+        return ''
+    
+    def get_state(self, obj):
+        """Get state."""
+        if hasattr(obj, 'user_profile'):
+            return obj.user_profile.state
+        return ''
+    
+    def get_city(self, obj):
+        """Get city."""
+        if hasattr(obj, 'user_profile'):
+            return obj.user_profile.city
+        return ''
+    
+    def get_zipcode(self, obj):
+        """Get zipcode."""
+        if hasattr(obj, 'user_profile'):
+            return obj.user_profile.zipcode
+        return ''
+    
+    def get_address_line1(self, obj):
+        """Get address line 1."""
+        if hasattr(obj, 'user_profile'):
+            return obj.user_profile.address_line1
+        return ''
+    
+    def get_address_line2(self, obj):
+        """Get address line 2."""
+        if hasattr(obj, 'user_profile'):
+            return obj.user_profile.address_line2
+        return ''
 
 
 class UserUpdateSerializer(serializers.ModelSerializer):
     """
-    Serializer for updating basic user information.
+    Serializer for updating basic user information and profile details.
     """
+    # UserProfile fields
+    phone_number = serializers.CharField(required=False, allow_blank=True, max_length=15)
+    country_code = serializers.CharField(required=False, allow_blank=True, max_length=5)
+    gender = serializers.ChoiceField(choices=GENDER_CHOICES, required=False, allow_blank=True)
+    country = serializers.CharField(required=False, allow_blank=True, max_length=100)
+    state = serializers.CharField(required=False, allow_blank=True, max_length=100)
+    city = serializers.CharField(required=False, allow_blank=True, max_length=100)
+    zipcode = serializers.CharField(required=False, allow_blank=True, max_length=20)
+    address_line1 = serializers.CharField(required=False, allow_blank=True, max_length=255)
+    address_line2 = serializers.CharField(required=False, allow_blank=True, max_length=255)
+    profile_image = serializers.ImageField(required=False, allow_null=True)
+    
     class Meta:
         model = User
-        fields = ('first_name', 'last_name', 'email')
-
-    def validate_email(self, value):
-        """Validate email is unique and properly formatted."""
-        if value:
-            # Check if email is being changed
-            if self.instance and self.instance.email == value:
-                return value
-            
-            # Check if email is already taken by another user
-            if User.objects.filter(email=value).exists():
-                raise serializers.ValidationError("This email address is already in use.")
-            
-            # Basic email format validation (Django's EmailField handles most of this)
-            if not re.match(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', value):
-                raise serializers.ValidationError("Please enter a valid email address.")
-        
-        return value
+        fields = ('first_name', 'last_name', 'phone_number', 'country_code', 'gender', 
+                 'country', 'state', 'city', 'zipcode', 'address_line1', 'address_line2', 'profile_image')
 
     def validate_first_name(self, value):
         """Validate first name format."""
@@ -136,6 +226,47 @@ class UserUpdateSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError("Last name cannot be longer than 30 characters.")
         
         return value.strip() if value else value
+    
+    def validate_phone_number(self, value):
+        """Validate phone number format."""
+        if value:
+            # Remove all non-digit characters
+            digits_only = re.sub(r'\D', '', value)
+            if len(digits_only) < 7 or len(digits_only) > 15:
+                raise serializers.ValidationError("Phone number must be between 7 and 15 digits.")
+        return value
+    
+    def validate_country_code(self, value):
+        """Validate country code format."""
+        if value:
+            if not re.match(r'^\+[1-9]\d{0,3}$', value):
+                raise serializers.ValidationError("Country code must be in format +XXX (e.g., +1, +44, +91).")
+        return value
+    
+    def update(self, instance, validated_data):
+        """Update user and user profile data."""
+        # Update User model fields
+        if 'first_name' in validated_data:
+            instance.first_name = validated_data['first_name']
+        if 'last_name' in validated_data:
+            instance.last_name = validated_data['last_name']
+        
+        instance.save()
+        
+        # Get or create UserProfile
+        user_profile, created = UserProfile.objects.get_or_create(user=instance)
+        
+        # Update UserProfile fields
+        profile_fields = ['phone_number', 'country_code', 'gender', 'country', 'state', 
+                         'city', 'zipcode', 'address_line1', 'address_line2', 'profile_image']
+        
+        for field in profile_fields:
+            if field in validated_data:
+                setattr(user_profile, field, validated_data[field])
+        
+        user_profile.save()
+        
+        return instance
 
 
 class UserInfoSerializer(serializers.ModelSerializer):

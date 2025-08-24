@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -48,15 +49,18 @@ interface Campaign {
 }
 
 export default function BrandCampaignsPage() {
+  const router = useRouter();
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [sortBy, setSortBy] = useState("created_at_desc");
+  const [debugInfo, setDebugInfo] = useState<any>(null);
 
   const fetchCampaigns = async () => {
     setIsLoading(true);
     try {
+      console.log('Fetching campaigns...');
       const response = await api.get('/brands/campaigns/', {
         params: {
           search: searchTerm || undefined,
@@ -64,7 +68,9 @@ export default function BrandCampaignsPage() {
           ordering: sortBy,
         }
       });
+      console.log('Campaigns response:', response.data);
       setCampaigns(response.data.campaigns || []);
+      setDebugInfo(response.data);
     } catch (error) {
       console.error('Failed to fetch campaigns:', error);
       toast.error('Failed to load campaigns. Please try again.');
@@ -115,6 +121,42 @@ export default function BrandCampaignsPage() {
 
   const hasActiveFilters = searchTerm !== "" || statusFilter !== "all" || sortBy !== "created_at_desc";
 
+  const createTestCampaign = async () => {
+    try {
+      const testCampaign = {
+        title: "Test Campaign",
+        description: "This is a test campaign for development",
+        objectives: "Test objectives for development",
+        deal_type: "cash",
+        cash_amount: 1000,
+        product_value: 0,
+        total_value: 1000,
+        product_name: "Test Product",
+        product_description: "A test product for development",
+        product_quantity: 1,
+        platforms_required: ["instagram", "youtube"],
+        content_requirements: "Test content requirements",
+        content_count: 1,
+        special_instructions: "Test instructions",
+        application_deadline: "2024-12-31T23:59:59Z",
+        content_creation_start: "2024-01-01T00:00:00Z",
+        content_creation_end: "2024-01-31T23:59:59Z",
+        submission_deadline: "2024-01-31T23:59:59Z",
+        campaign_start_date: "2024-02-01T00:00:00Z",
+        campaign_end_date: "2024-02-28T23:59:59Z"
+      };
+
+      const response = await api.post('/brands/campaigns/', testCampaign);
+      if (response.data.status === 'success') {
+        toast.success('Test campaign created successfully!');
+        fetchCampaigns();
+      }
+    } catch (error: any) {
+      console.error('Failed to create test campaign:', error);
+      toast.error('Failed to create test campaign. Please try again.');
+    }
+  };
+
   return (
     <div className="min-h-screen">
       <div className="container mx-auto px-4 py-4 max-w-7xl">
@@ -141,6 +183,7 @@ export default function BrandCampaignsPage() {
               </div>
               <Button 
                 size="sm"
+                onClick={() => router.push('/brand/campaigns/create')}
                 className="bg-gradient-to-r from-red-500 to-orange-600 hover:from-red-600 hover:to-orange-700 text-white shadow-md"
               >
                 <HiPlus className="h-4 w-4 mr-1" />
@@ -298,14 +341,21 @@ export default function BrandCampaignsPage() {
                     </div>
 
                     <div className="flex items-center gap-2 ml-4">
-                      <Button variant="ghost" size="sm" className="hover:bg-red-50 hover:text-red-600">
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="hover:bg-blue-50 hover:text-blue-600"
+                        onClick={() => router.push(`/brand/campaigns/${campaign.id}`)}
+                      >
                         <HiEye className="w-4 h-4" />
                       </Button>
-                      <Button variant="ghost" size="sm" className="hover:bg-green-50 hover:text-green-600">
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="hover:bg-green-50 hover:text-green-600"
+                        onClick={() => router.push(`/brand/campaigns/${campaign.id}`)}
+                      >
                         <HiPencilSquare className="w-4 h-4" />
-                      </Button>
-                      <Button variant="ghost" size="sm" className="hover:bg-red-50 hover:text-red-600">
-                        <HiTrash className="w-4 h-4" />
                       </Button>
                     </div>
                   </div>
@@ -391,15 +441,44 @@ export default function BrandCampaignsPage() {
                 Clear Filters
               </Button>
             )}
-            <Button className="bg-gradient-to-r from-red-500 to-orange-600 hover:from-red-600 hover:to-orange-700 text-white">
+            <Button 
+              onClick={() => router.push('/brand/campaigns/create')}
+              className="bg-gradient-to-r from-red-500 to-orange-600 hover:from-red-600 hover:to-orange-700 text-white"
+            >
               <HiPlus className="w-4 h-4 mr-2" />
               Create First Campaign
             </Button>
+            <Button 
+              variant="outline"
+              onClick={fetchCampaigns}
+              className="border-blue-200 text-blue-700 hover:bg-blue-50"
+            >
+              <HiArrowPath className="w-4 h-4 mr-2" />
+              Refresh
+            </Button>
+            <Button 
+              variant="outline"
+              onClick={createTestCampaign}
+              className="border-green-200 text-green-700 hover:bg-green-50"
+            >
+              <HiPlus className="w-4 h-4 mr-2" />
+              Create Test Campaign
+            </Button>
           </div>
         </div>
+        
+        {/* Debug Information */}
+        {debugInfo && (
+          <div className="mt-4 p-4 bg-gray-100 rounded-lg">
+            <h4 className="text-sm font-medium text-gray-700 mb-2">Debug Information:</h4>
+            <pre className="text-xs text-gray-600 overflow-auto">
+              {JSON.stringify(debugInfo, null, 2)}
+            </pre>
+          </div>
+        )}
       </Card>
     )}
       </div>
-    </div>
-  );
-} 
+         </div>
+   );
+ } 

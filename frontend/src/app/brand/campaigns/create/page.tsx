@@ -35,20 +35,6 @@ import {
   HiDevicePhoneMobile
 } from "react-icons/hi2";
 
-interface Influencer {
-  id: number;
-  name: string;
-  username: string;
-  followers: number;
-  engagement_rate: number;
-  avg_rating: number;
-  rate_per_post: number;
-  platforms: string[];
-  profile_image?: string;
-  location: string;
-  industry: string;
-}
-
 interface CampaignData {
   title: string;
   description: string;
@@ -73,7 +59,6 @@ interface CampaignData {
   target_audience_age_max: number;
   target_audience_gender: string;
   target_audience_location: string;
-  selected_influencers: number[];
 }
 
 const platforms = [
@@ -104,6 +89,7 @@ export default function CreateCampaignPage() {
   const router = useRouter();
   const [currentStep, setCurrentStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formErrors, setFormErrors] = useState<string[]>([]);
   
   // Campaign form data
   const [campaignData, setCampaignData] = useState<CampaignData>({
@@ -129,63 +115,15 @@ export default function CreateCampaignPage() {
     target_audience_age_min: 18,
     target_audience_age_max: 65,
     target_audience_gender: 'all',
-    target_audience_location: '',
-    selected_influencers: []
-  });
-
-  // Influencer search and selection
-  const [influencers, setInfluencers] = useState<Influencer[]>([]);
-  const [selectedInfluencers, setSelectedInfluencers] = useState<Influencer[]>([]);
-  const [isLoadingInfluencers, setIsLoadingInfluencers] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [influencerFilters, setInfluencerFilters] = useState({
-    platform: 'all',
-    min_followers: 1000,
-    max_followers: 5000000,
-    min_engagement: 1,
-    max_engagement: 15,
-    location: 'all'
+    target_audience_location: ''
   });
 
   const steps = [
     { id: 1, title: 'Campaign Details', description: 'Basic campaign information' },
     { id: 2, title: 'Deal Structure', description: 'Compensation and deliverables' },
     { id: 3, title: 'Timeline', description: 'Important dates and deadlines' },
-    { id: 4, title: 'Select Influencers', description: 'Find and add influencers' },
-    { id: 5, title: 'Review & Launch', description: 'Final review and submission' }
+    { id: 4, title: 'Review & Launch', description: 'Final review and submission' }
   ];
-
-  const fetchInfluencers = async () => {
-    setIsLoadingInfluencers(true);
-    try {
-      const response = await api.get('/influencers/search/', {
-        params: {
-          search: searchTerm || undefined,
-          platform: influencerFilters.platform !== 'all' ? influencerFilters.platform : undefined,
-          min_followers: influencerFilters.min_followers,
-          max_followers: influencerFilters.max_followers,
-          min_engagement: influencerFilters.min_engagement,
-          max_engagement: influencerFilters.max_engagement,
-          location: influencerFilters.location !== 'all' ? influencerFilters.location : undefined,
-        }
-      });
-      setInfluencers(response.data.results || []);
-    } catch (error: any) {
-      console.error('Failed to fetch influencers:', error);
-      toast.error('Failed to load influencers.');
-    } finally {
-      setIsLoadingInfluencers(false);
-    }
-  };
-
-  useEffect(() => {
-    if (currentStep === 4) {
-      const timeoutId = setTimeout(() => {
-        fetchInfluencers();
-      }, searchTerm ? 500 : 0);
-      return () => clearTimeout(timeoutId);
-    }
-  }, [currentStep, searchTerm, influencerFilters]);
 
   const handleInputChange = (field: string, value: any) => {
     setCampaignData(prev => ({ ...prev, [field]: value }));
@@ -200,23 +138,6 @@ export default function CreateCampaignPage() {
     }));
   };
 
-  const handleInfluencerSelect = (influencer: Influencer) => {
-    const isSelected = selectedInfluencers.some(inf => inf.id === influencer.id);
-    if (isSelected) {
-      setSelectedInfluencers(prev => prev.filter(inf => inf.id !== influencer.id));
-    } else {
-      setSelectedInfluencers(prev => [...prev, influencer]);
-    }
-  };
-
-  const calculateEstimatedCost = () => {
-    return selectedInfluencers.reduce((total, inf) => total + inf.rate_per_post, 0);
-  };
-
-  const calculateEstimatedReach = () => {
-    return selectedInfluencers.reduce((total, inf) => total + inf.followers, 0);
-  };
-
   const validateStep = (step: number) => {
     switch (step) {
       case 1:
@@ -225,18 +146,61 @@ export default function CreateCampaignPage() {
         return campaignData.platforms_required.length > 0 && campaignData.content_requirements;
       case 3:
         return campaignData.application_deadline && campaignData.campaign_start_date && campaignData.campaign_end_date;
-      case 4:
-        return selectedInfluencers.length > 0;
       default:
         return true;
     }
   };
 
+  const getStepValidationMessage = (step: number) => {
+    switch (step) {
+      case 1:
+        const missingFields = [];
+        if (!campaignData.title) missingFields.push('Campaign Title');
+        if (!campaignData.description) missingFields.push('Campaign Description');
+        if (!campaignData.objectives) missingFields.push('Campaign Objectives');
+        return missingFields.length > 0 ? `Please fill in: ${missingFields.join(', ')}` : null;
+      case 2:
+        const missingFields2 = [];
+        if (campaignData.platforms_required.length === 0) missingFields2.push('Required Platforms');
+        if (!campaignData.content_requirements) missingFields2.push('Content Requirements');
+        
+        // Check deal type specific requirements
+        if (campaignData.deal_type === 'cash' && (!campaignData.cash_amount || campaignData.cash_amount <= 0)) {
+          missingFields2.push('Cash Amount (must be greater than 0)');
+        } else if (campaignData.deal_type === 'product' && (!campaignData.product_name || !campaignData.product_value)) {
+          missingFields2.push('Product Name and Value');
+        } else if (campaignData.deal_type === 'hybrid') {
+          const hasCash = campaignData.cash_amount && campaignData.cash_amount > 0;
+          const hasProduct = campaignData.product_name && campaignData.product_value;
+          if (!hasCash && !hasProduct) {
+            missingFields2.push('Either Cash Amount or Product Details');
+          }
+        }
+        
+        return missingFields2.length > 0 ? `Please fill in: ${missingFields2.join(', ')}` : null;
+      case 3:
+        const missingFields3 = [];
+        if (!campaignData.application_deadline) missingFields3.push('Application Deadline');
+        if (!campaignData.campaign_start_date) missingFields3.push('Campaign Start Date');
+        if (!campaignData.campaign_end_date) missingFields3.push('Campaign End Date');
+        return missingFields3.length > 0 ? `Please fill in: ${missingFields3.join(', ')}` : null;
+      default:
+        return null;
+    }
+  };
+
   const handleNext = () => {
-    if (validateStep(currentStep)) {
-      setCurrentStep(prev => Math.min(prev + 1, 5));
+    const validationErrors = validateStepData(currentStep);
+    
+    if (validationErrors.length === 0) {
+      setCurrentStep(prev => Math.min(prev + 1, 4));
+      setFormErrors([]); // Clear any previous errors
     } else {
-      toast.error('Please fill in all required fields before proceeding.');
+      setFormErrors(validationErrors);
+      // Show each error as a separate toast
+      validationErrors.forEach(error => {
+        toast.error(error);
+      });
     }
   };
 
@@ -245,18 +209,89 @@ export default function CreateCampaignPage() {
   };
 
   const handleSubmit = async () => {
+    // Run frontend validation first
+    const validationErrors = validateStepData(1).concat(
+      validateStepData(2),
+      validateStepData(3)
+    );
+    
+    if (validationErrors.length > 0) {
+      setFormErrors(validationErrors);
+      validationErrors.forEach(error => {
+        toast.error(error);
+      });
+      return;
+    }
+    
     setIsSubmitting(true);
+    setFormErrors([]); // Clear previous errors
+    
     try {
-              const response = await api.post('/brands/campaigns/', {
-        ...campaignData,
-        selected_influencers: selectedInfluencers.map(inf => inf.id)
+      const response = await api.post('/brands/campaigns/', {
+        ...campaignData
       });
       
       toast.success('Campaign created successfully!');
       router.push(`/brand/campaigns/${response.data.campaign.id}`);
     } catch (error: any) {
       console.error('Failed to create campaign:', error);
-      toast.error(error.response?.data?.message || 'Failed to create campaign.');
+      
+      // Handle different types of errors
+      if (error.response?.data?.errors) {
+        // Field-specific validation errors
+        const errorMessages = [];
+        Object.entries(error.response.data.errors).forEach(([field, messages]) => {
+          if (field === 'non_field_errors') {
+            // Handle non-field errors (general validation errors)
+            if (Array.isArray(messages)) {
+              errorMessages.push(...messages);
+            } else {
+              errorMessages.push(messages);
+            }
+          } else {
+            // Handle field-specific errors
+            if (Array.isArray(messages)) {
+              errorMessages.push(`${field}: ${messages.join(', ')}`);
+            } else {
+              errorMessages.push(`${field}: ${messages}`);
+            }
+          }
+        });
+        
+        if (errorMessages.length > 0) {
+          setFormErrors(errorMessages);
+          // Show each error as a separate toast
+          errorMessages.forEach(errorMsg => {
+            toast.error(errorMsg);
+          });
+        } else {
+          toast.error(error.response?.data?.message || 'Failed to create campaign.');
+        }
+      } else if (error.response?.data?.message) {
+        // General error message from backend
+        setFormErrors([error.response.data.message]);
+        toast.error(error.response.data.message);
+      } else if (error.response?.status === 403) {
+        const message = 'You do not have permission to create campaigns.';
+        setFormErrors([message]);
+        toast.error(message);
+      } else if (error.response?.status === 404) {
+        const message = 'Brand profile not found. Please complete your brand profile first.';
+        setFormErrors([message]);
+        toast.error(message);
+      } else if (error.response?.status === 500) {
+        const message = 'Server error. Please try again later.';
+        setFormErrors([message]);
+        toast.error(message);
+      } else if (error.code === 'NETWORK_ERROR' || error.message?.includes('Network Error')) {
+        const message = 'Network error. Please check your connection and try again.';
+        setFormErrors([message]);
+        toast.error(message);
+      } else {
+        const message = 'Failed to create campaign. Please try again.';
+        setFormErrors([message]);
+        toast.error(message);
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -271,10 +306,143 @@ export default function CreateCampaignPage() {
     }).format(amount);
   };
 
-  const formatFollowers = (count: number) => {
-    if (count >= 1000000) return `${(count / 1000000).toFixed(1)}M`;
-    if (count >= 1000) return `${(count / 1000).toFixed(1)}K`;
-    return count.toString();
+  const isFieldRequired = (fieldName: string) => {
+    switch (fieldName) {
+      case 'title':
+      case 'description':
+      case 'objectives':
+      case 'deal_type':
+      case 'platforms_required':
+      case 'content_requirements':
+      case 'application_deadline':
+      case 'campaign_start_date':
+      case 'campaign_end_date':
+        return true;
+      default:
+        return false;
+    }
+  };
+
+  const getFieldError = (fieldName: string) => {
+    if (!isFieldRequired(fieldName)) return null;
+    
+    const value = campaignData[fieldName as keyof typeof campaignData];
+    if (fieldName === 'platforms_required') {
+      return Array.isArray(value) && value.length === 0 ? 'Required' : null;
+    }
+    return !value ? 'Required' : null;
+  };
+
+  const getDateValidationError = (fieldName: string) => {
+    if (fieldName === 'campaign_start_date' && campaignData.campaign_start_date && campaignData.campaign_end_date) {
+      const startDate = new Date(campaignData.campaign_start_date);
+      const endDate = new Date(campaignData.campaign_end_date);
+      if (startDate >= endDate) {
+        return 'Start date must be before end date';
+      }
+    }
+    
+    if (fieldName === 'campaign_end_date' && campaignData.campaign_start_date && campaignData.campaign_end_date) {
+      const startDate = new Date(campaignData.campaign_start_date);
+      const endDate = new Date(campaignData.campaign_end_date);
+      if (startDate >= endDate) {
+        return 'End date must be after start date';
+      }
+    }
+    
+    if (fieldName === 'application_deadline' && campaignData.application_deadline && campaignData.campaign_start_date) {
+      const deadline = new Date(campaignData.application_deadline);
+      const startDate = new Date(campaignData.campaign_start_date);
+      if (deadline >= startDate) {
+        return 'Deadline must be before campaign start';
+      }
+    }
+    
+    return null;
+  };
+
+  // Frontend validation functions
+  const validateDates = () => {
+    const errors: string[] = [];
+    
+    if (campaignData.campaign_start_date && campaignData.campaign_end_date) {
+      const startDate = new Date(campaignData.campaign_start_date);
+      const endDate = new Date(campaignData.campaign_end_date);
+      
+      if (startDate >= endDate) {
+        errors.push('Campaign end date must be after start date.');
+      }
+    }
+    
+    if (campaignData.application_deadline && campaignData.campaign_start_date) {
+      const deadline = new Date(campaignData.application_deadline);
+      const startDate = new Date(campaignData.campaign_start_date);
+      
+      if (deadline >= startDate) {
+        errors.push('Application deadline must be before campaign start date.');
+      }
+    }
+    
+    return errors;
+  };
+
+  const validateDealType = () => {
+    const errors: string[] = [];
+    
+    if (campaignData.deal_type === 'cash') {
+      if (!campaignData.cash_amount || campaignData.cash_amount <= 0) {
+        errors.push('Cash amount is required and must be greater than 0 for cash deals.');
+      }
+    } else if (campaignData.deal_type === 'product') {
+      if (!campaignData.product_name || !campaignData.product_value) {
+        errors.push('Product name and value are required for product deals.');
+      }
+    } else if (campaignData.deal_type === 'hybrid') {
+      const hasCash = campaignData.cash_amount && campaignData.cash_amount > 0;
+      const hasProduct = campaignData.product_name && campaignData.product_value;
+      if (!hasCash && !hasProduct) {
+        errors.push('Either cash amount or product details are required for hybrid deals.');
+      }
+    }
+    
+    return errors;
+  };
+
+  const validateStepData = (step: number) => {
+    const errors: string[] = [];
+    
+    switch (step) {
+      case 1:
+        if (!campaignData.title?.trim()) errors.push('Campaign title is required.');
+        if (!campaignData.description?.trim()) errors.push('Campaign description is required.');
+        if (!campaignData.objectives?.trim()) errors.push('Campaign objectives are required.');
+        break;
+        
+      case 2:
+        if (campaignData.platforms_required.length === 0) {
+          errors.push('At least one platform is required.');
+        }
+        if (!campaignData.content_requirements?.trim()) {
+          errors.push('Content requirements are required.');
+        }
+        errors.push(...validateDealType());
+        break;
+        
+      case 3:
+        if (!campaignData.application_deadline) {
+          errors.push('Application deadline is required.');
+        }
+        if (!campaignData.campaign_start_date) {
+          errors.push('Campaign start date is required.');
+        }
+        if (!campaignData.campaign_end_date) {
+          errors.push('Campaign end date is required.');
+        }
+        errors.push(...validateDates());
+        break;
+    }
+    
+    return errors;
   };
 
   return (
@@ -329,6 +497,20 @@ export default function CreateCampaignPage() {
         {/* Step Content */}
         <Card className="shadow-lg border-0 bg-white">
           <CardContent className="p-8">
+            {/* Error Display */}
+            {formErrors.length > 0 && (
+              <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+                <h4 className="text-sm font-medium text-red-800 mb-2">Please fix the following errors:</h4>
+                <ul className="text-sm text-red-700 space-y-1">
+                  {formErrors.map((error, index) => (
+                    <li key={index} className="flex items-start">
+                      <span className="mr-2">•</span>
+                      <span>{error}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
             {/* Step 1: Campaign Details */}
             {currentStep === 1 && (
               <div className="space-y-6">
@@ -343,8 +525,11 @@ export default function CreateCampaignPage() {
                         placeholder="Enter a compelling campaign title"
                         value={campaignData.title}
                         onChange={(e) => handleInputChange('title', e.target.value)}
-                        className="w-full"
+                        className={`w-full ${getFieldError('title') ? 'border-red-500 focus:border-red-500 focus:ring-red-200' : ''}`}
                       />
+                      {getFieldError('title') && (
+                        <p className="mt-1 text-sm text-red-600">{getFieldError('title')}</p>
+                      )}
                     </div>
                     
                     <div>
@@ -355,8 +540,11 @@ export default function CreateCampaignPage() {
                         placeholder="Describe your campaign, brand, and what you're looking for"
                         value={campaignData.description}
                         onChange={(e) => handleInputChange('description', e.target.value)}
-                        className="w-full h-32"
+                        className={`w-full h-32 ${getFieldError('description') ? 'border-red-500 focus:border-red-500 focus:ring-red-200' : ''}`}
                       />
+                      {getFieldError('description') && (
+                        <p className="mt-1 text-sm text-red-600">{getFieldError('description')}</p>
+                      )}
                     </div>
                     
                     <div>
@@ -367,8 +555,11 @@ export default function CreateCampaignPage() {
                         placeholder="What are your goals? (e.g., brand awareness, sales, engagement)"
                         value={campaignData.objectives}
                         onChange={(e) => handleInputChange('objectives', e.target.value)}
-                        className="w-full h-24"
+                        className={`w-full h-24 ${getFieldError('objectives') ? 'border-red-500 focus:border-red-500 focus:ring-red-200' : ''}`}
                       />
+                      {getFieldError('objectives') && (
+                        <p className="mt-1 text-sm text-red-600">{getFieldError('objectives')}</p>
+                      )}
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -593,7 +784,13 @@ export default function CreateCampaignPage() {
                         type="datetime-local"
                         value={campaignData.application_deadline}
                         onChange={(e) => handleInputChange('application_deadline', e.target.value)}
+                        className={`w-full ${getFieldError('application_deadline') || getDateValidationError('application_deadline') ? 'border-red-500 focus:border-red-500 focus:ring-red-200' : ''}`}
                       />
+                      {(getFieldError('application_deadline') || getDateValidationError('application_deadline')) && (
+                        <p className="mt-1 text-sm text-red-600">
+                          {getFieldError('application_deadline') || getDateValidationError('application_deadline')}
+                        </p>
+                      )}
                     </div>
 
                     <div>
@@ -637,7 +834,13 @@ export default function CreateCampaignPage() {
                         type="date"
                         value={campaignData.campaign_start_date}
                         onChange={(e) => handleInputChange('campaign_start_date', e.target.value)}
+                        className={`w-full ${getFieldError('campaign_start_date') || getDateValidationError('campaign_start_date') ? 'border-red-500 focus:border-red-500 focus:ring-red-200' : ''}`}
                       />
+                      {(getFieldError('campaign_start_date') || getDateValidationError('campaign_start_date')) && (
+                        <p className="mt-1 text-sm text-red-600">
+                          {getFieldError('campaign_start_date') || getDateValidationError('campaign_start_date')}
+                        </p>
+                      )}
                     </div>
 
                     <div>
@@ -648,152 +851,21 @@ export default function CreateCampaignPage() {
                         type="date"
                         value={campaignData.campaign_end_date}
                         onChange={(e) => handleInputChange('campaign_end_date', e.target.value)}
+                        className={`w-full ${getFieldError('campaign_end_date') || getDateValidationError('campaign_end_date') ? 'border-red-500 focus:border-red-500 focus:ring-red-200' : ''}`}
                       />
+                      {(getFieldError('campaign_end_date') || getDateValidationError('campaign_end_date')) && (
+                        <p className="mt-1 text-sm text-red-600">
+                          {getFieldError('campaign_end_date') || getDateValidationError('campaign_end_date')}
+                        </p>
+                      )}
                     </div>
                   </div>
                 </div>
               </div>
             )}
 
-            {/* Step 4: Select Influencers */}
+            {/* Step 4: Review & Launch */}
             {currentStep === 4 && (
-              <div className="space-y-6">
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Find & Select Influencers</h3>
-                  
-                  {/* Search and Filters */}
-                  <div className="bg-gray-50 p-4 rounded-lg mb-6">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <div className="md:col-span-2">
-                        <div className="relative">
-                          <HiMagnifyingGlass className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                          <Input
-                            placeholder="Search influencers by name, username, or niche..."
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            className="pl-10"
-                          />
-                        </div>
-                      </div>
-                      
-                      <Select 
-                        value={influencerFilters.platform} 
-                        onValueChange={(value) => setInfluencerFilters(prev => ({ ...prev, platform: value }))}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Platform" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">All Platforms</SelectItem>
-                          <SelectItem value="instagram">Instagram</SelectItem>
-                          <SelectItem value="youtube">YouTube</SelectItem>
-                          <SelectItem value="tiktok">TikTok</SelectItem>
-                          <SelectItem value="twitter">Twitter</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-
-                  {/* Selected Influencers Summary */}
-                  {selectedInfluencers.length > 0 && (
-                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-                      <h4 className="font-medium text-blue-900 mb-2">Selected Influencers ({selectedInfluencers.length})</h4>
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-                        <div>
-                          <span className="text-blue-700">Estimated Cost:</span>
-                          <span className="font-semibold ml-2">{formatCurrency(calculateEstimatedCost())}</span>
-                        </div>
-                        <div>
-                          <span className="text-blue-700">Estimated Reach:</span>
-                          <span className="font-semibold ml-2">{formatFollowers(calculateEstimatedReach())}</span>
-                        </div>
-                        <div>
-                          <span className="text-blue-700">Avg. Engagement:</span>
-                          <span className="font-semibold ml-2">
-                            {(selectedInfluencers.reduce((sum, inf) => sum + inf.engagement_rate, 0) / selectedInfluencers.length).toFixed(1)}%
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Influencers List */}
-                  {isLoadingInfluencers ? (
-                    <div className="grid gap-4">
-                      {Array.from({ length: 4 }).map((_, i) => (
-                        <GlobalLoader key={i} />
-                      ))}
-                    </div>
-                  ) : influencers.length > 0 ? (
-                    <div className="space-y-4 max-h-96 overflow-y-auto">
-                      {influencers.map((influencer) => {
-                        const isSelected = selectedInfluencers.some(inf => inf.id === influencer.id);
-                        return (
-                          <div 
-                            key={influencer.id} 
-                            className={`border rounded-lg p-4 cursor-pointer transition-colors ${
-                              isSelected ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-300'
-                            }`}
-                            onClick={() => handleInfluencerSelect(influencer)}
-                          >
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-4">
-                                <div className="w-12 h-12 bg-gradient-to-r from-purple-500 to-pink-600 rounded-full flex items-center justify-center">
-                                  <span className="text-white font-bold">
-                                    {influencer.name.charAt(0)}
-                                  </span>
-                                </div>
-                                
-                                <div>
-                                  <h4 className="font-semibold text-gray-900">{influencer.name}</h4>
-                                  <p className="text-sm text-gray-600">{influencer.username}</p>
-                                  <div className="flex items-center gap-2 mt-1">
-                                    {influencer.platforms.slice(0, 3).map((platform) => (
-                                      <Badge key={platform} variant="outline" className="text-xs">
-                                        {platform}
-                                      </Badge>
-                                    ))}
-                                  </div>
-                                </div>
-                              </div>
-                              
-                              <div className="flex items-center gap-6">
-                                <div className="text-center">
-                                  <p className="text-sm text-gray-500">Followers</p>
-                                  <p className="font-semibold">{formatFollowers(influencer.followers)}</p>
-                                </div>
-                                <div className="text-center">
-                                  <p className="text-sm text-gray-500">Engagement</p>
-                                  <p className="font-semibold">{influencer.engagement_rate}%</p>
-                                </div>
-                                <div className="text-center">
-                                  <p className="text-sm text-gray-500">Rate</p>
-                                  <p className="font-semibold">{formatCurrency(influencer.rate_per_post)}</p>
-                                </div>
-                                
-                                <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${
-                                  isSelected ? 'bg-blue-500 border-blue-500' : 'border-gray-300'
-                                }`}>
-                                  {isSelected && <HiCheck className="w-4 h-4 text-white" />}
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  ) : (
-                    <div className="text-center py-8">
-                      <GlobalLoader />
-                      <p className="text-gray-500 mt-2">Try adjusting your search criteria.</p>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* Step 5: Review & Launch */}
-            {currentStep === 5 && (
               <div className="space-y-6">
                 <div>
                   <h3 className="text-lg font-semibold text-gray-900 mb-4">Review Campaign</h3>
@@ -830,35 +902,32 @@ export default function CreateCampaignPage() {
                       </CardContent>
                     </Card>
 
-                    {/* Selected Influencers Summary */}
+                    {/* Next Steps */}
                     <Card className="border border-gray-200">
                       <CardHeader>
-                        <CardTitle className="text-lg">Selected Influencers ({selectedInfluencers.length})</CardTitle>
+                        <CardTitle className="text-lg">Next Steps</CardTitle>
                       </CardHeader>
                       <CardContent className="space-y-3">
-                        <div className="grid grid-cols-2 gap-4 text-sm">
-                          <div>
-                            <span className="text-gray-500">Total Cost:</span>
-                            <p className="font-semibold">{formatCurrency(calculateEstimatedCost())}</p>
-                          </div>
-                          <div>
-                            <span className="text-gray-500">Total Reach:</span>
-                            <p className="font-semibold">{formatFollowers(calculateEstimatedReach())}</p>
-                          </div>
+                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                          <h4 className="font-medium text-blue-900 mb-2">After Campaign Creation</h4>
+                          <p className="text-sm text-blue-700 mb-3">
+                            Once your campaign is created, you can:
+                          </p>
+                          <ul className="text-sm text-blue-700 space-y-1">
+                            <li>• Search and invite influencers from the Influencers page</li>
+                            <li>• Add influencers to your campaign</li>
+                            <li>• Manage applications and collaborations</li>
+                          </ul>
                         </div>
                         
-                        <div className="space-y-2 max-h-32 overflow-y-auto">
-                          {selectedInfluencers.slice(0, 5).map(influencer => (
-                            <div key={influencer.id} className="flex items-center justify-between text-sm">
-                              <span>{influencer.name}</span>
-                              <span className="text-gray-500">{formatFollowers(influencer.followers)}</span>
-                            </div>
-                          ))}
-                          {selectedInfluencers.length > 5 && (
-                            <p className="text-xs text-gray-500">
-                              +{selectedInfluencers.length - 5} more influencers
-                            </p>
-                          )}
+                        <div className="text-center">
+                          <Button
+                            onClick={() => router.push('/brand/influencers')}
+                            variant="outline"
+                            className="w-full"
+                          >
+                            Go to Influencer Search
+                          </Button>
                         </div>
                       </CardContent>
                     </Card>
@@ -867,7 +936,7 @@ export default function CreateCampaignPage() {
                   <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
                     <h4 className="font-medium text-yellow-800 mb-2">Ready to Launch?</h4>
                     <p className="text-sm text-yellow-700">
-                      Once you create this campaign, invitation emails will be sent to all selected influencers. 
+                      Once you create this campaign, you'll be able to search and invite influencers from the Influencers page. 
                       Make sure all details are correct before proceeding.
                     </p>
                   </div>
@@ -893,7 +962,7 @@ export default function CreateCampaignPage() {
                 </span>
               </div>
 
-              {currentStep < 5 ? (
+              {currentStep < 4 ? (
                 <Button
                   onClick={handleNext}
                   disabled={!validateStep(currentStep)}

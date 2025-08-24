@@ -5,6 +5,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -33,7 +34,8 @@ import {
   HiClock,
   HiCalendar,
   HiEyeSlash,
-  HiEye as HiEyeOpen
+  HiEye as HiEyeOpen,
+  HiCheck
 } from "react-icons/hi2";
 import { HiX } from "react-icons/hi";
 import { 
@@ -216,6 +218,17 @@ export default function InfluencerSearchPage() {
   const [showFilters, setShowFilters] = useState(false);
   const [showColumnSettings, setShowColumnSettings] = useState(false);
   const [selectedInfluencer, setSelectedInfluencer] = useState<Influencer | null>(null);
+  const [selectedInfluencers, setSelectedInfluencers] = useState<Set<number>>(new Set());
+  const [showCampaignDialog, setShowCampaignDialog] = useState(false);
+  const [showMessageDialog, setShowMessageDialog] = useState(false);
+  const [messageInfluencer, setMessageInfluencer] = useState<Influencer | null>(null);
+  const [messageContent, setMessageContent] = useState("");
+  const [campaigns, setCampaigns] = useState<any[]>([]);
+  const [selectedCampaigns, setSelectedCampaigns] = useState<Set<string>>(new Set());
+  const [isLoadingActions, setIsLoadingActions] = useState(false);
+  const [showCampaignSelectionInMessage, setShowCampaignSelectionInMessage] = useState(false);
+  const [useDropdownForCampaigns, setUseDropdownForCampaigns] = useState(false);
+  const [campaignSearchTerm, setCampaignSearchTerm] = useState("");
   
   // Column visibility state
   const [visibleColumns, setVisibleColumns] = useState<Record<string, boolean>>(() => {
@@ -279,17 +292,183 @@ export default function InfluencerSearchPage() {
   // Bookmark influencer
   const handleBookmark = async (influencerId: number) => {
     try {
-      const response = await api.post(`/influencers/bookmark/${influencerId}/`);
-      if (response.data.is_bookmarked) {
+      const response = await api.post(`/brands/influencers/${influencerId}/bookmark/`);
+      if (response.data.status === 'success') {
         toast.success("Influencer bookmarked successfully!");
-      } else {
-        toast.success("Influencer removed from bookmarks!");
+        // Update local state immediately
+        setInfluencers(prev => prev.map(influencer => 
+          influencer.id === influencerId 
+            ? { ...influencer, is_bookmarked: true }
+            : influencer
+        ));
       }
-      fetchInfluencers(1, false);
     } catch (error) {
       console.error('Failed to bookmark influencer:', error);
       toast.error('Failed to bookmark influencer. Please try again.');
     }
+  };
+
+  // Remove bookmark
+  const handleRemoveBookmark = async (influencerId: number) => {
+    try {
+      const response = await api.delete(`/brands/influencers/${influencerId}/unbookmark/`);
+      if (response.data.status === 'success') {
+        toast.success("Influencer removed from bookmarks!");
+        // Update local state immediately
+        setInfluencers(prev => prev.map(influencer => 
+          influencer.id === influencerId 
+            ? { ...influencer, is_bookmarked: false }
+            : influencer
+        ));
+      }
+    } catch (error) {
+      console.error('Failed to remove bookmark:', error);
+      toast.error('Failed to remove bookmark. Please try again.');
+    }
+  };
+
+  // Fetch campaigns for adding influencers
+  const fetchCampaigns = async () => {
+    try {
+      console.log('Fetching campaigns for influencers...');
+      const response = await api.get('/brands/campaigns/');
+      console.log('Campaigns for influencers response:', response.data);
+      const campaignsData = response.data.campaigns || [];
+      setCampaigns(campaignsData);
+      
+      // Use dropdown if more than 10 campaigns
+      setUseDropdownForCampaigns(campaignsData.length > 10);
+    } catch (error) {
+      console.error('Failed to fetch campaigns:', error);
+      toast.error('Failed to load campaigns. Please try again.');
+    }
+  };
+
+  // Handle influencer selection
+  const handleInfluencerSelect = (influencerId: number) => {
+    setSelectedInfluencers(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(influencerId)) {
+        newSet.delete(influencerId);
+      } else {
+        newSet.add(influencerId);
+      }
+      return newSet;
+    });
+  };
+
+  // Add selected influencers to campaigns
+  const handleAddToCampaigns = async () => {
+    if (selectedCampaigns.size === 0 || selectedInfluencers.size === 0) {
+      toast.error('Please select campaigns and influencers.');
+      return;
+    }
+
+    setIsLoadingActions(true);
+    try {
+      const influencerIds = Array.from(selectedInfluencers);
+      let successCount = 0;
+      let errorCount = 0;
+
+      // Add influencers to each selected campaign
+      for (const campaignId of selectedCampaigns) {
+        try {
+          const response = await api.post(`/brands/campaigns/${campaignId}/add-influencers/`, {
+            influencer_ids: influencerIds
+          });
+
+          if (response.data.status === 'success') {
+            successCount++;
+          }
+        } catch (error: any) {
+          console.error(`Failed to add influencers to campaign ${campaignId}:`, error);
+          errorCount++;
+        }
+      }
+
+      if (successCount > 0) {
+        toast.success(`Successfully added influencers to ${successCount} campaign${successCount > 1 ? 's' : ''}.`);
+        if (errorCount > 0) {
+          toast.error(`Failed to add to ${errorCount} campaign${errorCount > 1 ? 's' : ''}.`);
+        }
+        setSelectedInfluencers(new Set());
+        setShowCampaignDialog(false);
+        setSelectedCampaigns(new Set());
+        fetchInfluencers(1, false);
+      } else {
+        toast.error('Failed to add influencers to any campaigns. Please try again.');
+      }
+    } catch (error: any) {
+      console.error('Failed to add influencers to campaigns:', error);
+      toast.error('Failed to add influencers to campaigns. Please try again.');
+    } finally {
+      setIsLoadingActions(false);
+    }
+  };
+
+  // Handle campaign selection
+  const handleCampaignSelect = (campaignId: string) => {
+    setSelectedCampaigns(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(campaignId)) {
+        newSet.delete(campaignId);
+      } else {
+        newSet.add(campaignId);
+      }
+      return newSet;
+    });
+  };
+
+  // Send message to influencer
+  const handleSendMessage = async () => {
+    if (!messageInfluencer || !messageContent.trim()) {
+      toast.error('Please enter a message.');
+      return;
+    }
+
+    setIsLoadingActions(true);
+    try {
+      const response = await api.post(`/brands/influencers/${messageInfluencer.id}/message/`, {
+        content: messageContent
+      });
+
+      if (response.data.status === 'success') {
+        toast.success('Message sent successfully!');
+        setMessageContent("");
+        setShowMessageDialog(false);
+        setMessageInfluencer(null);
+      }
+    } catch (error: any) {
+      console.error('Failed to send message:', error);
+      const errorMessage = error.response?.data?.message || 'Failed to send message. Please try again.';
+      
+      // Check if it's the campaign requirement error
+      if (errorMessage.includes('No existing deal found with this influencer')) {
+        setShowCampaignSelectionInMessage(true);
+      } else {
+        toast.error(errorMessage);
+      }
+    } finally {
+      setIsLoadingActions(false);
+    }
+  };
+
+  // Open message dialog
+  const openMessageDialog = (influencer: Influencer) => {
+    setMessageInfluencer(influencer);
+    setMessageContent("");
+    setShowMessageDialog(true);
+  };
+
+  // Open campaign dialog
+  const openCampaignDialog = () => {
+    if (selectedInfluencers.size === 0) {
+      toast.error('Please select influencers first.');
+      return;
+    }
+    fetchCampaigns();
+    setShowCampaignDialog(true);
+    setCampaignSearchTerm(""); // Clear search when opening
   };
 
   useEffect(() => {
@@ -349,7 +528,7 @@ export default function InfluencerSearchPage() {
     toast.success(`Contacting ${influencer.full_name}...`);
   };
 
-  const handleAddToCampaign = (influencer: Influencer) => {
+  const handleAddToCampaignOld = (influencer: Influencer) => {
     toast.success(`${influencer.full_name} added to campaign!`);
   };
 
@@ -662,12 +841,62 @@ export default function InfluencerSearchPage() {
           </Card>
         )}
 
+        {/* Bulk Actions Bar */}
+        {selectedInfluencers.size > 0 && (
+          <Card className="mb-3 bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-200 shadow-sm">
+            <div className="p-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2">
+                    <HiCheck className="w-5 h-5 text-indigo-600" />
+                    <span className="text-sm font-medium text-indigo-900">
+                      {selectedInfluencers.size} influencer{selectedInfluencers.size !== 1 ? 's' : ''} selected
+                    </span>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setSelectedInfluencers(new Set())}
+                    className="text-indigo-600 hover:text-indigo-700 hover:bg-indigo-100"
+                  >
+                    <HiX className="w-4 h-4" />
+                    Clear
+                  </Button>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={openCampaignDialog}
+                    className="border-indigo-200 text-indigo-700 hover:bg-indigo-50"
+                  >
+                    <HiPlus className="w-4 h-4 mr-1" />
+                    Add to Campaigns
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </Card>
+        )}
+
         {/* Compact Table View */}
         <Card className="bg-white border border-gray-200 shadow-sm overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-900">
+                    <Checkbox
+                      checked={selectedInfluencers.size === influencers.length && influencers.length > 0}
+                      onCheckedChange={(checked) => {
+                        if (checked) {
+                          setSelectedInfluencers(new Set(influencers.map(i => i.id)));
+                        } else {
+                          setSelectedInfluencers(new Set());
+                        }
+                      }}
+                    />
+                  </th>
                   {visibleColumns.creator && (
                     <th className="px-3 py-2 text-left text-xs font-semibold text-gray-900">
                       Creator Profile
@@ -747,6 +976,12 @@ export default function InfluencerSearchPage() {
                     key={influencer.id} 
                     className="hover:bg-gray-50 transition-colors"
                   >
+                    <td className="px-3 py-2">
+                      <Checkbox
+                        checked={selectedInfluencers.has(influencer.id)}
+                        onCheckedChange={(checked) => handleInfluencerSelect(influencer.id)}
+                      />
+                    </td>
                     {visibleColumns.creator && (
                       <td className="px-3 py-2">
                         <div className="flex items-center gap-2">
@@ -910,11 +1145,11 @@ export default function InfluencerSearchPage() {
                                         <HiBookmark className={`w-4 h-4 mr-1 ${selectedInfluencer.is_bookmarked ? "fill-current" : ""}`} />
                                         {selectedInfluencer.is_bookmarked ? "Bookmarked" : "Bookmark"}
                                       </Button>
-                                      <Button
-                                        size="sm"
-                                        onClick={() => handleAddToCampaign(selectedInfluencer)}
-                                        className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white"
-                                      >
+                                                                              <Button
+                                          size="sm"
+                                          onClick={() => handleAddToCampaignOld(selectedInfluencer)}
+                                          className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white"
+                                        >
                                         <HiPlus className="w-4 h-4 mr-1" />
                                         Add to Campaign
                                       </Button>
@@ -967,7 +1202,7 @@ export default function InfluencerSearchPage() {
                                   <div className="flex gap-3 pt-6 border-t border-gray-200">
                                     <Button
                                       variant="outline"
-                                      onClick={() => handleContact(selectedInfluencer)}
+                                      onClick={() => openMessageDialog(selectedInfluencer)}
                                       className="flex-1 border-2 border-green-200 text-green-700 hover:bg-green-50"
                                     >
                                       <HiEnvelope className="w-4 h-4 mr-2" />
@@ -975,11 +1210,14 @@ export default function InfluencerSearchPage() {
                                     </Button>
                                     <Button
                                       variant="outline"
-                                      onClick={() => handleContact(selectedInfluencer)}
+                                      onClick={() => {
+                                        setSelectedInfluencers(new Set([selectedInfluencer.id]));
+                                        openCampaignDialog();
+                                      }}
                                       className="flex-1 border-2 border-blue-200 text-blue-700 hover:bg-blue-50"
                                     >
-                                      <HiPhone className="w-4 h-4 mr-2" />
-                                      Contact
+                                      <HiPlus className="w-4 h-4 mr-2" />
+                                      Add to Campaign
                                     </Button>
                                     <Button
                                       variant="outline"
@@ -998,8 +1236,8 @@ export default function InfluencerSearchPage() {
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => handleBookmark(influencer.id)}
-                            className={`h-6 w-6 p-0 ${influencer.is_bookmarked ? "text-blue-600" : ""}`}
+                            onClick={() => influencer.is_bookmarked ? handleRemoveBookmark(influencer.id) : handleBookmark(influencer.id)}
+                            className={`h-6 w-6 p-0 ${influencer.is_bookmarked ? "text-blue-600" : "text-gray-400 hover:text-blue-600"}`}
                           >
                             <HiBookmark className={`w-3 h-3 ${influencer.is_bookmarked ? "fill-current" : ""}`} />
                           </Button>
@@ -1007,7 +1245,7 @@ export default function InfluencerSearchPage() {
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => handleContact(influencer)}
+                            onClick={() => openMessageDialog(influencer)}
                             className="h-6 w-6 p-0 text-green-600 hover:text-green-700"
                           >
                             <HiEnvelope className="w-3 h-3" />
@@ -1016,8 +1254,12 @@ export default function InfluencerSearchPage() {
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => handleAddToCampaign(influencer)}
+                            onClick={() => {
+                              setSelectedInfluencers(new Set([influencer.id]));
+                              openCampaignDialog();
+                            }}
                             className="h-6 w-6 p-0 text-purple-600 hover:text-purple-700"
+                            title="Add to campaigns"
                           >
                             <HiPlus className="w-3 h-3" />
                           </Button>
@@ -1075,6 +1317,295 @@ export default function InfluencerSearchPage() {
             </Button>
           </div>
         )}
+
+        {/* Campaign Selection Dialog */}
+        <Dialog open={showCampaignDialog} onOpenChange={setShowCampaignDialog}>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle className="text-xl font-bold text-gray-900">
+                Add to Campaigns
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Select Campaigns ({selectedCampaigns.size} selected)
+                  </label>
+                  {campaigns.length > 5 && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setUseDropdownForCampaigns(!useDropdownForCampaigns)}
+                      className="text-xs text-blue-600 hover:text-blue-800"
+                    >
+                      {useDropdownForCampaigns ? 'Show Cards' : 'Show Dropdown'}
+                    </Button>
+                  )}
+                </div>
+                
+                {useDropdownForCampaigns ? (
+                  // Multi-select dropdown for many campaigns
+                  <div className="space-y-3">
+                    {/* Search input for campaigns */}
+                    <div className="relative">
+                      <HiMagnifyingGlass className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                      <Input
+                        placeholder="Search campaigns..."
+                        value={campaignSearchTerm}
+                        onChange={(e) => setCampaignSearchTerm(e.target.value)}
+                        className="pl-10"
+                      />
+                    </div>
+                    
+                    <div className="relative">
+                      <Select
+                        onValueChange={(value) => {
+                          if (value === 'select-all') {
+                            // Select all filtered campaigns
+                            const filteredCampaigns = campaigns.filter(campaign =>
+                              campaign.title.toLowerCase().includes(campaignSearchTerm.toLowerCase())
+                            );
+                            const allCampaignIds = filteredCampaigns.map(c => c.id.toString());
+                            setSelectedCampaigns(new Set(allCampaignIds));
+                          } else if (value === 'clear-all') {
+                            // Clear all selections
+                            setSelectedCampaigns(new Set());
+                          } else {
+                            // Toggle individual campaign
+                            handleCampaignSelect(value);
+                          }
+                        }}
+                      >
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Select campaigns..." />
+                        </SelectTrigger>
+                        <SelectContent className="max-h-60">
+                          <SelectItem value="select-all" className="font-medium text-blue-600">
+                            ✓ Select All Filtered Campaigns
+                          </SelectItem>
+                          <SelectItem value="clear-all" className="font-medium text-red-600">
+                            ✗ Clear All Selections
+                          </SelectItem>
+                          <div className="border-t border-gray-200 my-2"></div>
+                          {campaigns
+                            .filter(campaign =>
+                              campaign.title.toLowerCase().includes(campaignSearchTerm.toLowerCase())
+                            )
+                            .map(campaign => (
+                              <SelectItem 
+                                key={campaign.id} 
+                                value={campaign.id.toString()}
+                                className="flex items-center justify-between"
+                              >
+                                <div className="flex items-center space-x-2">
+                                  <div className={`w-3 h-3 rounded border ${selectedCampaigns.has(campaign.id.toString()) ? 'bg-blue-500 border-blue-500' : 'border-gray-300'}`}>
+                                    {selectedCampaigns.has(campaign.id.toString()) && (
+                                      <div className="w-1 h-1 bg-white rounded-full mx-auto mt-0.5"></div>
+                                    )}
+                                  </div>
+                                  <span>{campaign.title}</span>
+                                </div>
+                                <span className="text-xs text-gray-500 ml-2">
+                                  {campaign.deal_type_display} • ₹{campaign.total_value?.toLocaleString() || '0'}
+                                </span>
+                              </SelectItem>
+                            ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    
+                    {/* Selected campaigns summary */}
+                    {selectedCampaigns.size > 0 && (
+                      <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                        <p className="text-sm font-medium text-blue-800 mb-2">
+                          Selected Campaigns ({selectedCampaigns.size}):
+                        </p>
+                        <div className="space-y-1">
+                          {Array.from(selectedCampaigns).map(campaignId => {
+                            const campaign = campaigns.find(c => c.id.toString() === campaignId);
+                            return campaign ? (
+                              <div key={campaignId} className="flex items-center justify-between text-sm">
+                                <span className="text-blue-700">{campaign.title}</span>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleCampaignSelect(campaignId)}
+                                  className="h-4 w-4 p-0 text-blue-600 hover:text-blue-800"
+                                >
+                                  <HiX className="w-3 h-3" />
+                                </Button>
+                              </div>
+                            ) : null;
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  // Card-based selection for few campaigns
+                  <div className="max-h-60 overflow-y-auto space-y-2">
+                    {campaigns.map(campaign => (
+                      <div
+                        key={campaign.id}
+                        className="flex items-center space-x-3 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer"
+                        onClick={() => handleCampaignSelect(campaign.id.toString())}
+                      >
+                        <Checkbox
+                          checked={selectedCampaigns.has(campaign.id.toString())}
+                          onCheckedChange={() => handleCampaignSelect(campaign.id.toString())}
+                        />
+                        <div className="flex-1">
+                          <p className="font-medium text-gray-900">{campaign.title}</p>
+                          <p className="text-sm text-gray-500">
+                            {campaign.deal_type_display} • {campaign.total_value ? `₹${campaign.total_value.toLocaleString()}` : 'No budget'}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+              
+              <div className="text-sm text-gray-600">
+                <p>Selected influencers: {selectedInfluencers.size}</p>
+                <p className="text-xs text-gray-500 mt-1">
+                  {Array.from(selectedInfluencers).map(id => {
+                    const influencer = influencers.find(i => i.id === id);
+                    return influencer?.full_name || influencer?.username;
+                  }).join(', ')}
+                </p>
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowCampaignDialog(false)}
+                  className="flex-1"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleAddToCampaigns}
+                  disabled={selectedCampaigns.size === 0 || isLoadingActions}
+                  className="flex-1 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white"
+                >
+                  {isLoadingActions ? (
+                    <>
+                      <HiArrowPath className="w-4 h-4 mr-2 animate-spin" />
+                      Adding...
+                    </>
+                  ) : (
+                    <>
+                      <HiPlus className="w-4 h-4 mr-2" />
+                      Add to {selectedCampaigns.size} Campaign{selectedCampaigns.size !== 1 ? 's' : ''}
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Message Dialog */}
+        <Dialog open={showMessageDialog} onOpenChange={setShowMessageDialog}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle className="text-xl font-bold text-gray-900">
+                Send Message
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              {messageInfluencer && (
+                <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                  <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full overflow-hidden">
+                    {messageInfluencer.profile_image ? (
+                      <img
+                        src={messageInfluencer.profile_image}
+                        alt={messageInfluencer.full_name}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-white font-bold text-sm">
+                        {messageInfluencer.full_name.charAt(0)}
+                      </div>
+                    )}
+                  </div>
+                  <div>
+                    <p className="font-medium text-gray-900">{messageInfluencer.full_name}</p>
+                    <p className="text-sm text-gray-500">@{messageInfluencer.username}</p>
+                  </div>
+                </div>
+              )}
+              
+              {showCampaignSelectionInMessage && (
+                <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                  <p className="text-sm text-blue-800 mb-2">
+                    This influencer needs to be added to a campaign first to send messages.
+                  </p>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setShowMessageDialog(false);
+                      setShowCampaignSelectionInMessage(false);
+                      setSelectedInfluencers(new Set([messageInfluencer?.id || 0]));
+                      setShowCampaignDialog(true);
+                    }}
+                    className="text-blue-700 border-blue-300 hover:bg-blue-100"
+                  >
+                    <HiPlus className="w-4 h-4 mr-1" />
+                    Add to Campaign First
+                  </Button>
+                </div>
+              )}
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Message
+                </label>
+                <Textarea
+                  value={messageContent}
+                  onChange={(e) => setMessageContent(e.target.value)}
+                  placeholder="Type your message here..."
+                  className="min-h-[100px]"
+                />
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setShowMessageDialog(false);
+                    setShowCampaignSelectionInMessage(false);
+                  }}
+                  className="flex-1"
+                >
+                  Cancel
+                </Button>
+                {!showCampaignSelectionInMessage && (
+                  <Button
+                    onClick={handleSendMessage}
+                    disabled={!messageContent.trim() || isLoadingActions}
+                    className="flex-1 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white"
+                  >
+                    {isLoadingActions ? (
+                      <>
+                        <HiArrowPath className="w-4 h-4 mr-2 animate-spin" />
+                        Sending...
+                      </>
+                    ) : (
+                      <>
+                        <HiEnvelope className="w-4 h-4 mr-2" />
+                        Send Message
+                      </>
+                    )}
+                  </Button>
+                )}
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );
