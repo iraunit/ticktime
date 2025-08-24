@@ -239,21 +239,21 @@ export default function CreateCampaignPage() {
       // Handle different types of errors
       if (error.response?.data?.errors) {
         // Field-specific validation errors
-        const errorMessages = [];
+        const errorMessages: string[] = [];
         Object.entries(error.response.data.errors).forEach(([field, messages]) => {
           if (field === 'non_field_errors') {
             // Handle non-field errors (general validation errors)
             if (Array.isArray(messages)) {
-              errorMessages.push(...messages);
+              errorMessages.push(...(messages as string[]));
             } else {
-              errorMessages.push(messages);
+              errorMessages.push(String(messages));
             }
           } else {
             // Handle field-specific errors
             if (Array.isArray(messages)) {
-              errorMessages.push(`${field}: ${messages.join(', ')}`);
+              errorMessages.push(`${field}: ${(messages as string[]).join(', ')}`);
             } else {
-              errorMessages.push(`${field}: ${messages}`);
+              errorMessages.push(`${field}: ${String(messages)}`);
             }
           }
         });
