@@ -195,10 +195,7 @@ const followerRanges = [
   { label: "5M+", min: 5000000, max: 999999999 }
 ];
 
-const industryOptions = [
-  "Fashion & Beauty", "Food & Lifestyle", "Tech & Gaming", "Fitness & Health",
-  "Travel", "Entertainment", "Education", "Business & Finance", "Other"
-];
+type IndustryOption = { key: string; name: string };
 
 export default function InfluencerSearchPage() {
   const [influencers, setInfluencers] = useState<Influencer[]>([]);
@@ -239,6 +236,7 @@ export default function InfluencerSearchPage() {
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [categoryOptions, setCategoryOptions] = useState<string[]>([]);
   const [selectedIndustry, setSelectedIndustry] = useState("All");
+  const [industries, setIndustries] = useState<IndustryOption[]>([]);
   const [sortBy, setSortBy] = useState("followers");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
 
@@ -466,20 +464,21 @@ export default function InfluencerSearchPage() {
   };
 
   useEffect(() => {
-    // Load canonical categories from backend
-    api.get('/common/categories/').then(res => {
-      const cats = (res.data?.categories || []).map((c: any) => c.name);
-      setCategoryOptions(cats);
-    }).catch(() => {});
-    
-    // Initialize from query params (e.g., categories=cat1,cat2)
+    // Initialize from query params
     try {
       const params = new URLSearchParams(window.location.search);
+      const ind = params.get('industry');
+      if (ind) setSelectedIndustry(ind);
       const cats = params.get('categories');
-      if (cats) {
-        setSelectedCategories(cats.split(',').filter(Boolean));
-      }
+      if (cats) setSelectedCategories(cats.split(',').filter(Boolean));
     } catch {}
+    // Load industries for dropdown
+    api.get('/common/industries/').then(res => {
+      setIndustries(res.data?.industries || []);
+    }).catch(() => {});
+  }, []);
+
+  useEffect(() => {
     setPage(1);
     fetchInfluencers(1, false);
   }, [fetchInfluencers]);
@@ -700,8 +699,8 @@ export default function InfluencerSearchPage() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="All">All Industries</SelectItem>
-                    {industryOptions.map(industry => (
-                      <SelectItem key={industry} value={industry}>{industry}</SelectItem>
+                    {industries.map((ind) => (
+                      <SelectItem key={ind.key} value={ind.key}>{ind.name}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>

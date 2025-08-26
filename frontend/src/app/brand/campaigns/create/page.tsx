@@ -66,7 +66,7 @@ interface CampaignData {
   submission_deadline: string;
   campaign_live_date: string;
   target_influencers: number;
-  categories: string[];
+  industry: string;
   execution_mode: 'manual' | 'hybrid' | 'managed';
   application_deadline_visible_to_influencers: boolean;
   target_audience_age_min: number;
@@ -126,7 +126,7 @@ export default function CreateCampaignPage() {
   const [currentStep, setCurrentStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formErrors, setFormErrors] = useState<string[]>([]);
-  const [categories, setCategories] = useState<Array<{ id: number; key: string; name: string }>>([]);
+  const [industries, setIndustries] = useState<Array<{ key: string; name: string }>>([]);
   
   // Campaign form data
   const [campaignData, setCampaignData] = useState<CampaignData>({
@@ -144,7 +144,7 @@ export default function CreateCampaignPage() {
     submission_deadline: '',
     campaign_live_date: '',
     target_influencers: 1,
-    categories: [],
+    industry: '',
     execution_mode: 'manual',
     application_deadline_visible_to_influencers: true,
     target_audience_age_min: 18,
@@ -262,36 +262,18 @@ export default function CreateCampaignPage() {
     setFormErrors([]); // Clear previous errors
     
     try {
-      // Send category IDs (PKs) - backend now handles both IDs and keys
-      const categoryIds = (campaignData.categories || [])
-        .map((key) => categories.find((c) => c.key === key)?.id)
-        .filter((id): id is number => typeof id === 'number');
-
       const payload = {
         ...campaignData,
-        // Convert content_requirements to string; backend converts to dict
         content_requirements: campaignData.content_requirements,
-        // If no category IDs found, send the keys instead
-        categories: categoryIds.length > 0 ? categoryIds : campaignData.categories,
       };
-
-      console.log('Campaign payload being sent:', payload);
-      console.log('Available categories:', categories);
-      console.log('Selected category keys:', campaignData.categories);
-      console.log('Mapped category IDs:', categoryIds);
 
       const response = await api.post('/campaigns/create/', payload);
       
       toast.success('Campaign created successfully!');
-      // Redirect to influencer search with selected categories pre-filtered
-      const cats = (campaignData.categories || []).join(',');
-      router.push(`/brand/influencers${cats ? `?categories=${encodeURIComponent(cats)}` : ''}`);
+      // Redirect to influencer search with selected industry pre-filtered
+      const ind = campaignData.industry;
+      router.push(`/brand/influencers${ind ? `?industry=${encodeURIComponent(ind)}` : ''}`);
     } catch (error: any) {
-      console.error('Failed to create campaign:', error);
-      console.error('Error response data:', error?.response?.data);
-      console.error('Error status:', error?.response?.status);
-      console.error('Error details:', error?.details);
-
       // Helper: always convert backend payload or ApiError into flat string messages
       const normalizeErrorMessages = (err: any): string[] => {
         const messages: string[] = [];
@@ -359,8 +341,6 @@ export default function CreateCampaignPage() {
         } else {
         errorMessages.forEach((msg) => toast.error(`${msg} Please fix and try again.`));
       }
-      
-      console.log('Final error messages being shown:', errorMessages);
     } finally {
       setIsSubmitting(false);
     }
@@ -380,6 +360,7 @@ export default function CreateCampaignPage() {
       case 'title':
       case 'description':
       case 'objectives':
+      case 'industry':
       case 'deal_type':
       case 'platforms_required':
       case 'content_requirements':
@@ -484,6 +465,7 @@ export default function CreateCampaignPage() {
         if (!campaignData.title?.trim()) errors.push('Campaign title is required.');
         if (!campaignData.description?.trim()) errors.push('Campaign description is required.');
         if (!campaignData.objectives?.trim()) errors.push('Campaign objectives are required.');
+        if (!campaignData.industry?.trim()) errors.push('Industry is required.');
         break;
         
       case 2:
@@ -523,7 +505,7 @@ export default function CreateCampaignPage() {
       campaign_live_date: addDays(15),
       submission_deadline: addDays(7)
     }));
-    api.get('/common/categories/').then(res => setCategories(res.data.categories || [])).catch(() => {});
+    api.get('/common/industries/').then(res => setIndustries(res.data.industries || [])).catch(() => {});
   }, []);
 
   return (
@@ -736,36 +718,23 @@ export default function CreateCampaignPage() {
                     </div>
                   </div>
                   
-                  {/* Categories Section */}
-                  <div className="space-y-4">
+                  {/* Industry */}
+                  <div className="space-y-2">
                     <label className="flex items-center gap-2 text-sm font-semibold text-gray-800">
                       <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></div>
-                      Content Categories
+                      Industry
                     </label>
-                    <div className="flex flex-wrap gap-2">
-                      {categories.map((category) => {
-                        const isSelected = campaignData.categories.includes(category.key);
-                        return (
-                          <button
-                            key={category.key}
-                            onClick={() => {
-                              const newCategories = isSelected
-                                ? campaignData.categories.filter(c => c !== category.key)
-                                : [...campaignData.categories, category.key];
-                              handleInputChange('categories', newCategories);
-                            }}
-                            className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
-                              isSelected
-                                ? 'bg-gradient-to-r from-emerald-500 to-green-500 text-white shadow-md'
-                                : 'bg-white border-2 border-gray-200 text-gray-700 hover:border-emerald-300 hover:bg-emerald-50'
-                            }`}
-                          >
-                            {category.name}
-                          </button>
-                        );
-                      })}
-                    </div>
-                    <p className="text-xs text-gray-500">Select categories that match your campaign content</p>
+                    <Select value={campaignData.industry} onValueChange={(v) => handleInputChange('industry', v)}>
+                      <SelectTrigger className={`h-12 text-base border-2 ${getFieldError('industry') ? 'border-red-400 focus:border-red-500 focus:ring-red-100' : 'border-gray-200 focus:border-emerald-400 focus:ring-emerald-100'}`}>
+                        <SelectValue placeholder="Select industry" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {industries.map((i) => (
+                          <SelectItem key={i.key} value={i.key}>{i.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-gray-500">Choose the primary industry for this campaign</p>
                   </div>
                 </div>
               </div>
@@ -1258,24 +1227,13 @@ export default function CreateCampaignPage() {
                         
                         <div className="flex items-start justify-between py-3 border-b border-gray-100 last:border-b-0">
                           <div>
-                            <span className="text-sm font-medium text-gray-700">Categories</span>
-                            <p className="text-sm text-gray-500 mt-1">Content categories for this campaign</p>
+                            <span className="text-sm font-medium text-gray-700">Industry</span>
+                            <p className="text-sm text-gray-500 mt-1">Primary industry for this campaign</p>
                           </div>
                           <div className="text-right">
-                            <div className="flex gap-2 flex-wrap justify-end">
-                              {campaignData.categories.length > 0 ? (
-                                campaignData.categories
-                                  .map(key => categories.find(c => c.key === key)?.name || key)
-                                  .sort((a, b) => a.localeCompare(b))
-                                  .map(name => (
-                                    <span key={name} className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800 border border-gray-200">
-                                      {name}
-                                    </span>
-                                ))
-                              ) : (
-                                <span className="text-sm text-gray-400">None selected</span>
-                              )}
-                            </div>
+                            <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800 border border-gray-200">
+                              {industries.find(i => i.key === campaignData.industry)?.name || 'Not selected'}
+                            </span>
                           </div>
                         </div>
                       </div>

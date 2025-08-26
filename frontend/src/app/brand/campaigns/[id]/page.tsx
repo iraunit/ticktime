@@ -80,7 +80,8 @@ interface Campaign {
   days_until_deadline: number;
   created_at: string;
   brand_name: string;
-  categories?: string[];
+  industry?: string;
+  industry_display?: string;
   execution_mode?: 'manual' | 'hybrid' | 'managed' | string;
   target_influencers?: number;
   application_deadline_visible_to_influencers?: boolean;
@@ -835,15 +836,13 @@ export default function CampaignDetailPage() {
                           </p>
                         </div>
                         
-                        {campaign.categories && campaign.categories.length > 0 && (
+                        {campaign.industry_display && (
                           <div>
-                            <h4 className="font-medium text-gray-900 mb-2">Categories</h4>
+                            <h4 className="font-medium text-gray-900 mb-2">Industry</h4>
                             <div className="flex flex-wrap gap-2">
-                              {campaign.categories.map((cat) => (
-                                <Badge key={cat} variant="secondary" className="text-xs bg-gray-100 text-gray-700 px-2 py-0.5 capitalize">
-                                  {cat}
-                                </Badge>
-                              ))}
+                              <Badge variant="secondary" className="text-xs bg-gray-100 text-gray-700 px-2 py-0.5 capitalize">
+                                {campaign.industry_display}
+                              </Badge>
                             </div>
                           </div>
                         )}

@@ -36,11 +36,11 @@ class Migration(migrations.Migration):
         ),
         
         # Add campaign_live_date field
-        migrations.AddField(
-            model_name='campaign',
-            name='campaign_live_date',
-            field=models.DateTimeField(blank=True, null=True),
-        ),
+        # migrations.AddField(
+        #     model_name='campaign',
+        #     name='campaign_live_date',
+        #     field=models.DateTimeField(blank=True, null=True),
+        # ),
         
         # Update indexes
         migrations.AlterIndexTogether(
