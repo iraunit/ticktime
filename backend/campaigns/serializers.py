@@ -22,18 +22,16 @@ class IndustryField(serializers.Field):
 
     def to_internal_value(self, data):
         if isinstance(data, int):
+            # Just validate the ID exists and return it
             try:
-                return {'industry_category': Category.objects.get(id=data)}
+                Category.objects.get(id=data)
+                return data
             except Category.DoesNotExist:
                 raise serializers.ValidationError('Invalid category id.')
         if isinstance(data, str):
-            # Accept category key; look up FK and also keep legacy string
-            try:
-                cat = Category.objects.get(key=data)
-                return {'industry_category': cat, 'industry': data}
-            except Category.DoesNotExist:
-                # If unknown key, just keep the text in legacy field
-                return {'industry': data}
+            # Accept category key and return it (validation happens in update method)
+            safe_text = data[:50] if len(data) > 50 else data
+            return safe_text
         raise serializers.ValidationError('Industry must be a category id (int) or key (str).')
 
 
@@ -63,6 +61,35 @@ class CampaignCreateSerializer(serializers.ModelSerializer):
             'campaign_live_date': {'required': True},
             'submission_deadline': {'required': False},
         }
+
+    def update(self, instance, validated_data):
+        # Handle industry field specially to avoid JSON serialization issues
+        industry_data = validated_data.pop('industry', None)
+        
+        # Update all other fields normally
+        instance = super().update(instance, validated_data)
+        
+        # Handle industry field
+        if industry_data is not None:
+            if isinstance(industry_data, int):
+                try:
+                    category = Category.objects.get(id=industry_data)
+                    instance.industry_category = category
+                    instance.industry = category.key
+                except Category.DoesNotExist:
+                    pass
+            elif isinstance(industry_data, str):
+                try:
+                    category = Category.objects.get(key=industry_data)
+                    instance.industry_category = category
+                    instance.industry = industry_data
+                except Category.DoesNotExist:
+                    # Just set the string value
+                    instance.industry = industry_data[:50]
+                    instance.industry_category = None
+        
+        instance.save()
+        return instance
 
     def to_internal_value(self, data):
         """
@@ -109,10 +136,36 @@ class CampaignCreateSerializer(serializers.ModelSerializer):
         return data
 
     def create(self, validated_data):
+        # Handle industry field specially to avoid JSON serialization issues
+        industry_data = validated_data.pop('industry', None)
+        
         if not validated_data.get('submission_deadline'):
             validated_data['submission_deadline'] = timezone.now() + timedelta(days=7)
         
+        # Create the campaign without the industry field first
         campaign = super().create(validated_data)
+        
+        # Handle industry field
+        if industry_data is not None:
+            if isinstance(industry_data, int):
+                try:
+                    category = Category.objects.get(id=industry_data)
+                    campaign.industry_category = category
+                    campaign.industry = category.key
+                except Category.DoesNotExist:
+                    pass
+            elif isinstance(industry_data, str):
+                try:
+                    category = Category.objects.get(key=industry_data)
+                    campaign.industry_category = category
+                    campaign.industry = industry_data
+                except Category.DoesNotExist:
+                    # Just set the string value
+                    campaign.industry = industry_data[:50]
+                    campaign.industry_category = None
+            
+            campaign.save()
+        
         return campaign
 
 
@@ -171,6 +224,7 @@ class CampaignSerializer(serializers.ModelSerializer):
     total_rejected = serializers.SerializerMethodField()
     industry_key = serializers.SerializerMethodField()
     industry_name = serializers.SerializerMethodField()
+    industry = IndustryField(required=False)
 
     def get_industry_key(self, obj):
         return obj.industry_category.key if obj.industry_category_id else obj.industry
@@ -203,7 +257,32 @@ class CampaignSerializer(serializers.ModelSerializer):
         return obj.deals.filter(status='rejected').count()
 
     def update(self, instance, validated_data):
+        # Handle industry field specially to avoid JSON serialization issues
+        industry_data = validated_data.pop('industry', None)
+        
+        # Update all other fields normally
         instance = super().update(instance, validated_data)
+        
+        # Handle industry field
+        if industry_data is not None:
+            if isinstance(industry_data, int):
+                try:
+                    category = Category.objects.get(id=industry_data)
+                    instance.industry_category = category
+                    instance.industry = category.key
+                except Category.DoesNotExist:
+                    pass
+            elif isinstance(industry_data, str):
+                try:
+                    category = Category.objects.get(key=industry_data)
+                    instance.industry_category = category
+                    instance.industry = industry_data
+                except Category.DoesNotExist:
+                    # Just set the string value
+                    instance.industry = industry_data[:50]
+                    instance.industry_category = None
+        
+        instance.save()
         return instance
 
     class Meta:

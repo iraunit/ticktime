@@ -215,7 +215,8 @@ export default function CampaignDetailPage() {
   };
 
   const handleEdit = () => {
-    setIsEditing(true);
+    // Redirect to creation page with campaign data for editing
+    router.push(`/brand/campaigns/create?edit=${campaignId}`);
   };
 
   const handleCancel = () => {
@@ -262,17 +263,21 @@ export default function CampaignDetailPage() {
   };
 
   const handleDelete = async () => {
-    if (!confirm('Are you sure you want to delete this campaign? This action cannot be undone.')) {
-      return;
-    }
-
     try {
       await api.delete(`/brands/campaigns/${campaignId}/`);
       toast.success('Campaign deleted successfully!');
       router.push('/brand/campaigns');
     } catch (error: any) {
       console.error('Failed to delete campaign:', error);
-      toast.error('Failed to delete campaign.');
+      
+      // Handle specific error types
+      if (error?.response?.status === 403) {
+        toast.error('You do not have permission to delete this campaign.');
+      } else if (error?.response?.data?.message) {
+        toast.error(error.response.data.message);
+      } else {
+        toast.error('Failed to delete campaign. Please try again.');
+      }
     }
   };
 

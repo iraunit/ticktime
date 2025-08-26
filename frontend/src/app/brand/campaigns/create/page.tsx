@@ -128,6 +128,8 @@ export default function CreateCampaignPage() {
   const [formErrors, setFormErrors] = useState<string[]>([]);
   const [industries, setIndustries] = useState<Array<{ id: number; key: string; name: string }>>([]);
   const [selectedIndustries, setSelectedIndustries] = useState<string[]>([]);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editingCampaignId, setEditingCampaignId] = useState<string | null>(null);
   
   // Campaign form data
   const [campaignData, setCampaignData] = useState<CampaignData>({
@@ -163,6 +165,25 @@ export default function CreateCampaignPage() {
   ];
 
   const handleInputChange = (field: string, value: any) => {
+    // Clean industry field to prevent malformed object representations
+    if (field === 'industry' && typeof value === 'string') {
+      let cleanValue = value.toString().trim();
+      
+      // Clean up malformed object representations
+      if (cleanValue.includes("'industry_category':") || cleanValue.includes("<Category:")) {
+        const categoryMatch = cleanValue.match(/<Category:\s*([^>]+)>/);
+        if (categoryMatch) {
+          cleanValue = categoryMatch[1].trim();
+        } else {
+          cleanValue = '';
+        }
+      }
+      
+      // Ensure it's <= 50 chars
+      cleanValue = cleanValue.slice(0, 50);
+      value = cleanValue;
+    }
+    
     setCampaignData(prev => ({ ...prev, [field]: value }));
   };
 
@@ -179,8 +200,9 @@ export default function CreateCampaignPage() {
     setSelectedIndustries(prev => {
       const exists = prev.includes(industryKey);
       const next = exists ? prev.filter(k => k !== industryKey) : [...prev, industryKey];
-      // Keep legacy single field in sync with the first selected as primary
-      handleInputChange('industry', next[0] || '');
+      // Keep legacy single field in sync with the first selected as primary - ensure it's clean
+      const cleanValue = (next[0] || '').toString().slice(0, 50);
+      handleInputChange('industry', cleanValue);
       return next;
     });
   };
@@ -273,8 +295,36 @@ export default function CreateCampaignPage() {
     setFormErrors([]); // Clear previous errors
     
     try {
-      const primaryKey = selectedIndustries[0] || campaignData.industry;
-      const primaryId = industries.find((c) => c.key === primaryKey)?.id ?? primaryKey;
+      // Resolve industry to a primitive (number id or string key <= 50 chars)
+      const resolveIndustryValue = () => {
+        let raw = (selectedIndustries[0] ?? campaignData.industry ?? '').toString().trim();
+        
+        // Clean up malformed object representations like "{'industry_category': <Category: fashion>}"
+        if (raw.includes("'industry_category':") || raw.includes("<Category:")) {
+          // Extract category name from malformed string
+          const categoryMatch = raw.match(/<Category:\s*([^>]+)>/);
+          if (categoryMatch) {
+            raw = categoryMatch[1].trim();
+          } else {
+            raw = '';
+          }
+        }
+        
+        // Ensure it's a clean string <= 50 chars
+        const key = raw.slice(0, 50);
+        
+        // Try to find matching industry by key
+        const match = industries.find((c) => c.key === key);
+        if (match && typeof match.id === 'number') return match.id;
+        
+        // Try to parse as number
+        const maybeNum = Number(key);
+        if (Number.isInteger(maybeNum)) return maybeNum;
+        
+        // Return cleaned key or empty string
+        return key || '';
+      };
+      const primaryId = resolveIndustryValue();
       const payload = {
         ...campaignData,
         // Backend serializer accepts category id; avoids varchar(50) overflow
@@ -282,12 +332,18 @@ export default function CreateCampaignPage() {
         content_requirements: campaignData.content_requirements,
       };
 
-      const response = await api.post('/campaigns/create/', payload);
-      
-      toast.success('Campaign created successfully!');
-      // Redirect to influencer search with selected industry pre-filtered
-      const ind = selectedIndustries[0] || campaignData.industry;
-      router.push(`/brand/influencers${ind ? `?industry=${encodeURIComponent(ind)}` : ''}`);
+      let response;
+      if (isEditing && editingCampaignId) {
+        response = await api.patch(`/brands/campaigns/${editingCampaignId}/`, payload);
+        toast.success('Campaign updated successfully!');
+        router.push(`/brand/campaigns/${editingCampaignId}`);
+      } else {
+        response = await api.post('/campaigns/create/', payload);
+        toast.success('Campaign created successfully!');
+        // Redirect to influencer search with selected industry pre-filtered
+        const ind = selectedIndustries[0] || campaignData.industry;
+        router.push(`/brand/influencers${ind ? `?industry=${encodeURIComponent(ind)}` : ''}`);
+      }
     } catch (error: any) {
       // Helper: always convert backend payload or ApiError into flat string messages
       const normalizeErrorMessages = (err: any): string[] => {
@@ -343,18 +399,20 @@ export default function CreateCampaignPage() {
         errorMessages = ['Network error. Please check your connection and try again.'];
       }
 
-      // Backend now handles both category IDs and keys, so no retry needed
-      if (errorMessages.length === 0) {
-        errorMessages = ['Failed to create campaign. Please try again.'];
+      // Handle specific error types
+      if ((error as any)?.response?.status === 403) {
+        errorMessages = ['You do not have permission to perform this action.'];
+      } else if (errorMessages.length === 0) {
+        errorMessages = [isEditing ? 'Failed to update campaign. Please try again.' : 'Failed to create campaign. Please try again.'];
       }
 
-          setFormErrors(errorMessages);
+      setFormErrors(errorMessages);
       
       // Force show toasts even if extraction failed
       if (errorMessages.length === 0) {
-        toast.error('Campaign creation failed. Please check the form and try again.');
-        } else {
-        errorMessages.forEach((msg) => toast.error(`${msg} Please fix and try again.`));
+        toast.error(isEditing ? 'Campaign update failed. Please check the form and try again.' : 'Campaign creation failed. Please check the form and try again.');
+      } else {
+        errorMessages.forEach((msg) => toast.error(msg));
       }
     } finally {
       setIsSubmitting(false);
@@ -523,6 +581,93 @@ export default function CreateCampaignPage() {
     api.get('/common/industries/').then(res => setIndustries(res.data.industries || [])).catch(() => {});
   }, []);
 
+  // Check for edit mode and load campaign data
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const editCampaignId = urlParams.get('edit');
+    
+    if (editCampaignId) {
+      setIsEditing(true);
+      setEditingCampaignId(editCampaignId);
+      
+      // Fetch campaign data for editing
+      const fetchCampaignData = async () => {
+        try {
+          const response = await api.get(`/brands/campaigns/${editCampaignId}/`);
+          const campaign = response.data.campaign;
+          
+          // Map campaign data to form structure
+          setCampaignData({
+            title: campaign.title || '',
+            description: campaign.description || '',
+            objectives: campaign.objectives || '',
+            deal_type: campaign.deal_type || 'cash',
+            cash_amount: campaign.cash_amount || 0,
+            products: campaign.products || [],
+            platforms_required: campaign.platforms_required || [],
+            content_requirements: typeof campaign.content_requirements === 'string' 
+              ? campaign.content_requirements 
+              : campaign.content_requirements?.description || '',
+            special_instructions: campaign.special_instructions || '',
+            application_deadline: campaign.application_deadline ? campaign.application_deadline.split('T')[0] : '',
+            submission_deadline: campaign.submission_deadline ? campaign.submission_deadline.split('T')[0] : '',
+            campaign_live_date: campaign.campaign_live_date ? campaign.campaign_live_date.split('T')[0] : '',
+            target_influencers: campaign.target_influencers || 1,
+            // Always store a primitive value: prefer key; fallback to cleaned id; last resort empty string
+            industry: (() => {
+              let val = (campaign.industry_key || (campaign.industry?.toString?.() || '')).toString().trim();
+              
+              // Clean malformed object representations
+              if (val.includes("'industry_category':") || val.includes("<Category:")) {
+                const categoryMatch = val.match(/<Category:\s*([^>]+)>/);
+                if (categoryMatch) {
+                  val = categoryMatch[1].trim();
+                } else {
+                  val = '';
+                }
+              }
+              
+              return val.slice(0, 50);
+            })(),
+            execution_mode: campaign.execution_mode || 'manual',
+            application_deadline_visible_to_influencers: campaign.application_deadline_visible_to_influencers !== false,
+            target_audience_age_min: 18,
+            target_audience_age_max: 65,
+            target_audience_gender: 'all',
+            target_audience_location: '',
+            barter_submission_after_days: campaign.barter_submission_after_days || undefined,
+          });
+          
+          // Set selected industries if available (prefer key, else clean and coerce to string)
+          if (campaign.industry_key || campaign.industry) {
+            let val = (campaign.industry_key || String(campaign.industry)).toString().trim();
+            
+            // Clean malformed object representations
+            if (val.includes("'industry_category':") || val.includes("<Category:")) {
+              const categoryMatch = val.match(/<Category:\s*([^>]+)>/);
+              if (categoryMatch) {
+                val = categoryMatch[1].trim();
+              } else {
+                val = '';
+              }
+            }
+            
+            if (val) {
+              setSelectedIndustries([val.slice(0, 50)]);
+            }
+          }
+          
+        } catch (error: any) {
+          console.error('Failed to fetch campaign data:', error);
+          toast.error('Failed to load campaign data for editing.');
+          router.push('/brand/campaigns');
+        }
+      };
+      
+      fetchCampaignData();
+    }
+  }, [router]);
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100">
       <div className="container mx-auto px-4 py-4 max-w-6xl">
@@ -538,11 +683,14 @@ export default function CreateCampaignPage() {
                 <HiSparkles className="w-5 h-5 text-white" />
               </div>
               <h1 className="text-3xl font-bold bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 bg-clip-text text-transparent">
-                Create New Campaign
+                {isEditing ? 'Edit Campaign' : 'Create New Campaign'}
               </h1>
             </div>
             <p className="text-gray-600 max-w-2xl">
-              Launch your next influencer marketing campaign with our streamlined creation process. Connect with creators and build authentic partnerships.
+              {isEditing 
+                ? 'Update your campaign details and settings to better attract the right creators for your brand.' 
+                : 'Launch your next influencer marketing campaign with our streamlined creation process. Connect with creators and build authentic partnerships.'
+              }
             </p>
           </div>
         </div>
@@ -1494,12 +1642,12 @@ export default function CreateCampaignPage() {
                   {isSubmitting ? (
                     <>
                       <InlineLoader className="mr-2" />
-                      Creating Campaign...
+                      {isEditing ? 'Updating Campaign...' : 'Creating Campaign...'}
                     </>
                   ) : (
                     <>
                       <HiCheck className="w-4 h-4" />
-                      Create Campaign
+                      {isEditing ? 'Update Campaign' : 'Create Campaign'}
                     </>
                   )}
                 </Button>

@@ -108,6 +108,16 @@ class BrandUser(models.Model):
         """Check if user can view analytics"""
         return self.role in ['owner', 'admin', 'manager', 'viewer']
 
+    @property
+    def can_edit_campaigns(self):
+        """Check if user can edit campaigns"""
+        return self.role in ['owner', 'admin', 'manager']
+
+    @property
+    def can_delete_campaigns(self):
+        """Check if user can delete campaigns"""
+        return self.role in ['owner', 'admin', 'manager']
+
 
 class BrandAuditLog(models.Model):
     """
