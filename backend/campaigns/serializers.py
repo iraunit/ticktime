@@ -11,11 +11,10 @@ class CampaignCreateSerializer(serializers.ModelSerializer):
         model = Campaign
         fields = (
             'title', 'description', 'objectives', 'deal_type', 'cash_amount',
-            'product_value', 'product_name', 'product_description', 'product_quantity',
-            'platforms_required', 'content_requirements', 'content_count',
-            'special_instructions', 'application_deadline', 'content_creation_start',
-            'content_creation_end', 'submission_deadline', 'campaign_start_date',
-            'campaign_end_date'
+            'products', 'platforms_required', 'content_requirements',
+            'special_instructions', 'application_deadline', 'submission_deadline', 
+            'barter_submission_after_days', 'campaign_live_date', 'target_influencers', 
+            'categories', 'execution_mode', 'application_deadline_visible_to_influencers'
         )
         extra_kwargs = {
             'title': {'required': True},
@@ -25,8 +24,8 @@ class CampaignCreateSerializer(serializers.ModelSerializer):
             'platforms_required': {'required': True},
             'content_requirements': {'required': True},
             'application_deadline': {'required': True},
-            'campaign_start_date': {'required': True},
-            'campaign_end_date': {'required': True},
+            'campaign_live_date': {'required': True},
+            'submission_deadline': {'required': False},
         }
 
     def to_internal_value(self, data):
@@ -43,38 +42,71 @@ class CampaignCreateSerializer(serializers.ModelSerializer):
         """
         Custom validation for campaign data.
         """
-        # Validate dates
-        if data.get('campaign_start_date') and data.get('campaign_end_date'):
-            if data['campaign_start_date'] >= data['campaign_end_date']:
-                raise serializers.ValidationError(
-                    "Campaign end date must be after start date."
-                )
+        # Validate dates - removed old campaign start/end date validation
 
-        if data.get('application_deadline') and data.get('campaign_start_date'):
-            if data['application_deadline'] >= data['campaign_start_date']:
-                raise serializers.ValidationError(
-                    "Application deadline must be before campaign start date."
-                )
+        if data.get('application_deadline') and data.get('campaign_live_date'):
+            if data['application_deadline'] >= data['campaign_live_date']:
+                raise serializers.ValidationError("Application deadline must be before campaign live date.")
 
-        # Validate deal type specific fields
+        # Validate deal type specific fields (use Barter instead of Product)
         if data.get('deal_type') == 'cash':
             if not data.get('cash_amount') or data['cash_amount'] <= 0:
                 raise serializers.ValidationError(
                     "Cash amount is required and must be greater than 0 for cash deals."
                 )
         elif data.get('deal_type') == 'product':
-            if not data.get('product_name') or not data.get('product_value'):
+            # Backward compatibility if 'product' used; treat same as barter with products
+            data['deal_type'] = 'product'
+            if not data.get('products') or not isinstance(data['products'], list) or len(data['products']) == 0:
                 raise serializers.ValidationError(
-                    "Product name and value are required for product deals."
+                    "Provide at least one product in products list for product/barter deals."
                 )
         elif data.get('deal_type') == 'hybrid':
-            if (not data.get('cash_amount') or data['cash_amount'] <= 0) and \
-               (not data.get('product_name') or not data.get('product_value')):
+            cash_ok = bool(data.get('cash_amount') and data['cash_amount'] > 0)
+            products_ok = bool(data.get('products') and isinstance(data['products'], list) and len(data['products']) > 0)
+            if not (cash_ok or products_ok):
                 raise serializers.ValidationError(
-                    "Either cash amount or product details are required for hybrid deals."
+                    "Provide cash_amount or at least one product for hybrid deals."
                 )
 
+        # Categories must be list of strings (keys)
+        if 'categories' in data and data['categories'] is not None:
+            if not isinstance(data['categories'], list) or not all(isinstance(c, str) for c in data['categories']):
+                raise serializers.ValidationError("Categories must be a list of strings.")
+
+        # Target influencers numeric
+        if data.get('target_influencers') is not None and data['target_influencers'] < 1:
+            raise serializers.ValidationError("Target influencers must be at least 1.")
+
+        # Campaign live date must be >= 15 days from now
+        from django.utils import timezone
+        from datetime import timedelta
+        if data.get('campaign_live_date'):
+            min_live = timezone.now() + timedelta(days=15)
+            if data['campaign_live_date'] < min_live:
+                raise serializers.ValidationError("Campaign live date must be at least 15 days from today.")
+
+        # If deal is product/barter and barter_submission_after_days provided, ensure valid
+        if data.get('deal_type') in ['product', 'hybrid'] and data.get('barter_submission_after_days') is not None:
+            if data['barter_submission_after_days'] < 1:
+                raise serializers.ValidationError("Barter submission days must be at least 1.")
+
         return data
+
+    def to_representation(self, instance):
+        """Handle categories for API response."""
+        data = super().to_representation(instance)
+        # Convert ManyToMany categories to list of category keys
+        if 'categories' in data:
+            data['categories'] = [cat.key for cat in instance.categories.all()]
+        return data
+
+    def create(self, validated_data):
+        from django.utils import timezone
+        from datetime import timedelta
+        if not validated_data.get('submission_deadline'):
+            validated_data['submission_deadline'] = timezone.now() + timedelta(days=7)
+        return super().create(validated_data)
 
 
 class CampaignListSerializer(serializers.ModelSerializer):
@@ -102,12 +134,28 @@ class CampaignListSerializer(serializers.ModelSerializer):
         model = Campaign
         fields = (
             'id', 'title', 'description', 'deal_type', 'deal_type_display',
-            'cash_amount', 'product_value', 'total_value', 'product_name',
-            'application_deadline', 'campaign_start_date', 'campaign_end_date',
+            'cash_amount', 'total_value', 'application_deadline', 'campaign_live_date',
             'is_active', 'is_expired', 'days_until_deadline', 'created_at',
-            'brand_name', 'platforms_required', 'content_count', 'content_requirements'
+            'brand_name', 'platforms_required', 'content_requirements',
+            'target_influencers', 'categories', 'execution_mode'
         )
         read_only_fields = ('id', 'total_value', 'is_expired', 'days_until_deadline', 'created_at')
+    
+    def to_representation(self, instance):
+        """Handle categories for API response."""
+        data = super().to_representation(instance)
+        # Convert ManyToMany categories to list of category keys
+        if 'categories' in data:
+            data['categories'] = [cat.key for cat in instance.categories.all()]
+        return data
+    
+    def to_representation(self, instance):
+        """Handle categories for API response."""
+        data = super().to_representation(instance)
+        # Convert ManyToMany categories to list of category keys
+        if 'categories' in data:
+            data['categories'] = [cat.key for cat in instance.categories.all()]
+        return data
 
 
 class CampaignSerializer(serializers.ModelSerializer):
@@ -162,14 +210,13 @@ class CampaignSerializer(serializers.ModelSerializer):
         model = Campaign
         fields = (
             'id', 'brand', 'title', 'description', 'objectives', 'deal_type',
-            'deal_type_display', 'cash_amount', 'product_value', 'total_value',
-            'product_name', 'product_description', 'product_images',
-            'product_quantity', 'available_sizes', 'available_colors',
-            'content_requirements', 'platforms_required', 'content_count',
+            'deal_type_display', 'cash_amount', 'total_value',
+            'products', 'content_requirements', 'platforms_required',
             'special_instructions', 'application_deadline', 'product_delivery_date',
-            'content_creation_start', 'content_creation_end', 'submission_deadline',
-            'campaign_start_date', 'campaign_end_date', 'payment_schedule',
-            'shipping_details', 'custom_terms', 'allows_negotiation',
+            'submission_deadline', 'barter_submission_after_days',
+            'campaign_live_date',
+            'application_deadline_visible_to_influencers', 'payment_schedule', 'shipping_details', 'custom_terms', 'allows_negotiation',
+            'target_influencers', 'categories', 'execution_mode',
             'is_expired', 'days_until_deadline', 'created_at', 'deals',
             'total_invited', 'total_accepted', 'total_completed', 'total_rejected'
         )

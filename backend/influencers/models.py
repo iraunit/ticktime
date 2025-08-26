@@ -17,10 +17,10 @@ class InfluencerProfile(models.Model):
     industry = models.CharField(max_length=50, choices=INDUSTRY_CHOICES)
     
     # Categories the influencer specializes in
-    categories = models.JSONField(
+    categories = models.ManyToManyField(
+        'common.Category',
         blank=True,
-        null=True,
-        default=list,
+        related_name='influencers',
         help_text='Content categories the influencer specializes in'
     )
     

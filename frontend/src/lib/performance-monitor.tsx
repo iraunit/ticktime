@@ -61,7 +61,8 @@ export class PerformanceMonitor {
           const loadTime = resourceEntry.responseEnd - resourceEntry.requestStart;
           const threshold = process.env.NODE_ENV === 'development' ? 5000 : 1000;
           if (loadTime > threshold) {
-            console.warn(`Slow resource: ${entry.name} took ${loadTime}ms`);
+            // Performance monitoring: Slow resource detected
+            // console.warn(`Slow resource: ${entry.name} took ${loadTime}ms`);
           }
         }
       });
@@ -75,7 +76,8 @@ export class PerformanceMonitor {
       const entries = list.getEntries();
       entries.forEach((entry) => {
         if (entry.entryType === 'longtask') {
-          console.warn(`Long task detected: ${entry.duration}ms`);
+          // Performance monitoring: Long task detected
+          // console.warn(`Long task detected: ${entry.duration}ms`);
         }
       });
     });
@@ -93,7 +95,8 @@ export class PerformanceMonitor {
         }
       });
       if (clsValue > 0.1) {
-        console.warn(`High Cumulative Layout Shift: ${clsValue}`);
+        // Performance monitoring: High Cumulative Layout Shift detected
+        // console.warn(`High Cumulative Layout Shift: ${clsValue}`);
       }
     });
     try { observer.observe({ entryTypes: ['layout-shift'] }); this.observers.push(observer); } catch {}

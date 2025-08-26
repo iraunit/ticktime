@@ -68,9 +68,9 @@ class InfluencerProfileSerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         """Handle categories for API response."""
         data = super().to_representation(instance)
-        # Categories is already a list since we're using JSONField
-        if 'categories' not in data or data['categories'] is None:
-            data['categories'] = []
+        # Convert ManyToMany categories to list of category keys
+        if 'categories' in data:
+            data['categories'] = [cat.key for cat in instance.categories.all()]
         return data
 
     def validate_username(self, value):

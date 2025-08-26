@@ -85,3 +85,25 @@ CONTENT_TYPE_CHOICES = [
     ('reel', 'Reel'),
     ('post', 'Post'),
 ]
+
+
+class Category(models.Model):
+    """
+    Canonical content category used across the platform for influencers and campaigns.
+    Keep this centralized to ensure consistency.
+    """
+    key = models.SlugField(max_length=50, unique=True)
+    name = models.CharField(max_length=100, unique=True)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'categories'
+        indexes = [
+            models.Index(fields=['key']),
+            models.Index(fields=['is_active']),
+        ]
+
+    def __str__(self):
+        return self.name

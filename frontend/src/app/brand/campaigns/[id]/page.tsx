@@ -39,8 +39,19 @@ import {
   HiEnvelope,
   HiGlobeAlt,
   HiHeart,
-  HiBookmark
+  HiBookmark,
+  HiSparkles,
+  HiCog6Tooth,
+  HiCheckBadge,
+  HiMagnifyingGlass
 } from "react-icons/hi2";
+import { 
+  FaYoutube, 
+  FaInstagram, 
+  FaTiktok, 
+  FaTwitter, 
+  FaLinkedin 
+} from "react-icons/fa";
 import { api } from "@/lib/api";
 import { toast } from "@/lib/toast";
 import { GlobalLoader } from "@/components/ui/global-loader";
@@ -53,26 +64,27 @@ interface Campaign {
   deal_type: string;
   deal_type_display: string;
   cash_amount: number;
-  product_value: number;
   total_value: number;
-  product_name: string;
-  product_description: string;
-  product_quantity: number;
+  products?: Array<{ name: string; description?: string; value?: number; quantity?: number }>;
   platforms_required: string[];
   content_requirements: string | { description: string };
   content_count: number;
   special_instructions: string;
   application_deadline: string;
-  content_creation_start: string;
-  content_creation_end: string;
   submission_deadline: string;
-  campaign_start_date: string;
-  campaign_end_date: string;
+  campaign_live_date?: string;
+  campaign_start_date?: string;
+  campaign_end_date?: string;
   is_active: boolean;
   is_expired: boolean;
   days_until_deadline: number;
   created_at: string;
   brand_name: string;
+  categories?: string[];
+  execution_mode?: 'manual' | 'hybrid' | 'managed' | string;
+  target_influencers?: number;
+  application_deadline_visible_to_influencers?: boolean;
+  barter_submission_after_days?: number | null;
   deals?: Deal[];
   total_invited?: number;
   total_accepted?: number;
@@ -148,13 +160,13 @@ interface Message {
   created_at: string;
 }
 
-const platforms = [
-  { id: 'instagram', name: 'Instagram' },
-  { id: 'youtube', name: 'YouTube' },
-  { id: 'tiktok', name: 'TikTok' },
-  { id: 'twitter', name: 'Twitter' },
-  { id: 'linkedin', name: 'LinkedIn' },
-];
+const platformConfig = {
+  youtube: { icon: FaYoutube, color: "text-red-600", bg: "bg-red-50", border: "border-red-200" },
+  instagram: { icon: FaInstagram, color: "text-pink-600", bg: "bg-pink-50", border: "border-pink-200" },
+  tiktok: { icon: FaTiktok, color: "text-gray-800", bg: "bg-gray-50", border: "border-gray-200" },
+  twitter: { icon: FaTwitter, color: "text-blue-500", bg: "bg-blue-50", border: "border-blue-200" },
+  linkedin: { icon: FaLinkedin, color: "text-blue-700", bg: "bg-blue-50", border: "border-blue-200" },
+} as const;
 
 const dealStatusColors = {
   invited: 'bg-blue-100 text-blue-800',
@@ -286,12 +298,11 @@ export default function CampaignDetailPage() {
   };
 
   const formatDate = (dateString: string) => {
+    if (!dateString) return '—';
     return new Date(dateString).toLocaleDateString('en-IN', {
       day: 'numeric',
       month: 'short',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
+      year: 'numeric'
     });
   };
 
@@ -353,13 +364,15 @@ export default function CampaignDetailPage() {
   }
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100">
       <div className="container mx-auto px-4 py-4 max-w-7xl">
-        {/* Header */}
-        <div className="relative mb-6">
-          <div className="absolute inset-0 bg-gradient-to-r from-blue-500/5 via-indigo-500/5 to-purple-500/5 rounded-xl -m-2"></div>
+        {/* Modern Header */}
+        <div className="relative mb-6 overflow-hidden">
+          <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/10 via-purple-500/10 to-pink-500/10 rounded-2xl"></div>
+          <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-purple-400/20 to-pink-400/20 rounded-full -mr-16 -mt-16"></div>
+          <div className="absolute bottom-0 left-0 w-24 h-24 bg-gradient-to-tr from-blue-400/20 to-indigo-400/20 rounded-full -ml-12 -mb-12"></div>
           
-          <div className="relative flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 p-4">
+          <div className="relative flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 p-6">
             <div className="flex items-center gap-4">
               <Button
                 variant="outline"
@@ -370,13 +383,18 @@ export default function CampaignDetailPage() {
                 Back
               </Button>
               
-              <div>
-                <h1 className="text-2xl font-bold bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 bg-clip-text text-transparent mb-1">
-                  {isEditing ? 'Edit Campaign' : campaign.title}
-                </h1>
-                <p className="text-sm text-gray-600">
-                  {isEditing ? 'Update campaign details' : 'Campaign details and management'}
-                </p>
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-xl flex items-center justify-center">
+                  <HiSparkles className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <h1 className="text-3xl font-bold bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 bg-clip-text text-transparent mb-1">
+                    {isEditing ? 'Edit Campaign' : campaign.title}
+                  </h1>
+                  <p className="text-gray-600">
+                    {isEditing ? 'Update campaign details and settings' : 'Campaign overview and performance metrics'}
+                  </p>
+                </div>
               </div>
             </div>
             
@@ -455,65 +473,100 @@ export default function CampaignDetailPage() {
           </div>
         </div>
 
-        {/* Campaign Stats Overview */}
+        {/* Modern Campaign Stats Overview */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-          <Card className="bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-200">
-            <CardContent className="p-4">
+          <Card className="border-0 shadow-lg bg-gradient-to-br from-blue-50 to-indigo-100 hover:shadow-xl transition-all duration-200 overflow-hidden group">
+            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-500 to-indigo-500"></div>
+            <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-xs text-blue-600 mb-1">Total Invited</p>
-                  <p className="text-2xl font-bold text-blue-800">{campaign.total_invited || 0}</p>
+                  <p className="text-xs font-semibold text-blue-700 uppercase tracking-wide mb-2">Total Invited</p>
+                  <p className="text-3xl font-bold text-blue-900">{campaign.total_invited || 0}</p>
                 </div>
-                <HiUserGroup className="w-8 h-8 text-blue-500" />
+                <div className="w-12 h-12 bg-blue-500 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform duration-200">
+                  <HiUserGroup className="w-6 h-6 text-white" />
+                </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="bg-gradient-to-br from-green-50 to-emerald-50 border-green-200">
-            <CardContent className="p-4">
+          <Card className="border-0 shadow-lg bg-gradient-to-br from-emerald-50 to-green-100 hover:shadow-xl transition-all duration-200 overflow-hidden group">
+            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-emerald-500 to-green-500"></div>
+            <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-xs text-green-600 mb-1">Accepted</p>
-                  <p className="text-2xl font-bold text-green-800">{campaign.total_accepted || 0}</p>
+                  <p className="text-xs font-semibold text-emerald-700 uppercase tracking-wide mb-2">Accepted</p>
+                  <p className="text-3xl font-bold text-emerald-900">{campaign.total_accepted || 0}</p>
                 </div>
-                <HiCheck className="w-8 h-8 text-green-500" />
+                <div className="w-12 h-12 bg-emerald-500 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform duration-200">
+                  <HiCheck className="w-6 h-6 text-white" />
+                </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="bg-gradient-to-br from-purple-50 to-pink-50 border-purple-200">
-            <CardContent className="p-4">
+          <Card className="border-0 shadow-lg bg-gradient-to-br from-purple-50 to-pink-100 hover:shadow-xl transition-all duration-200 overflow-hidden group">
+            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-purple-500 to-pink-500"></div>
+            <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-xs text-purple-600 mb-1">Completed</p>
-                  <p className="text-2xl font-bold text-purple-800">{campaign.total_completed || 0}</p>
+                  <p className="text-xs font-semibold text-purple-700 uppercase tracking-wide mb-2">Completed</p>
+                  <p className="text-3xl font-bold text-purple-900">{campaign.total_completed || 0}</p>
                 </div>
-                <HiCheckCircle className="w-8 h-8 text-purple-500" />
+                <div className="w-12 h-12 bg-purple-500 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform duration-200">
+                  <HiCheckCircle className="w-6 h-6 text-white" />
+                </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="bg-gradient-to-br from-red-50 to-orange-50 border-red-200">
-            <CardContent className="p-4">
+          <Card className="border-0 shadow-lg bg-gradient-to-br from-amber-50 to-orange-100 hover:shadow-xl transition-all duration-200 overflow-hidden group">
+            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-amber-500 to-orange-500"></div>
+            <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-xs text-red-600 mb-1">Rejected</p>
-                  <p className="text-2xl font-bold text-red-800">{campaign.total_rejected || 0}</p>
+                  <p className="text-xs font-semibold text-amber-700 uppercase tracking-wide mb-2">Rejected</p>
+                  <p className="text-3xl font-bold text-amber-900">{campaign.total_rejected || 0}</p>
                 </div>
-                <HiXCircle className="w-8 h-8 text-red-500" />
+                <div className="w-12 h-12 bg-amber-500 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform duration-200">
+                  <HiXCircle className="w-6 h-6 text-white" />
+                </div>
               </div>
             </CardContent>
           </Card>
         </div>
 
-        {/* Tabs */}
+        {/* Modern Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="influencers">Influencers ({campaign.deals?.length || 0})</TabsTrigger>
-            <TabsTrigger value="messages">Messages</TabsTrigger>
-            <TabsTrigger value="analytics">Analytics</TabsTrigger>
-          </TabsList>
+          <div className="border-b border-gray-200">
+            <nav className="flex space-x-8">
+              {[
+                { id: 'overview', label: 'Overview', icon: HiEye },
+                { id: 'influencers', label: `Creators (${campaign.deals?.length || 0})`, icon: HiUsers },
+                { id: 'messages', label: 'Messages', icon: HiChatBubbleLeftRight },
+                { id: 'analytics', label: 'Analytics', icon: HiStar }
+              ].map(tab => {
+                const Icon = tab.icon;
+                const isActive = activeTab === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id)}
+                    className={`group inline-flex items-center gap-2 py-4 px-1 border-b-2 font-medium text-sm transition-all duration-200 ${
+                      isActive
+                        ? 'border-indigo-500 text-indigo-600'
+                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    }`}
+                  >
+                    <Icon className={`w-4 h-4 transition-colors duration-200 ${
+                      isActive ? 'text-indigo-600' : 'text-gray-400 group-hover:text-gray-600'
+                    }`} />
+                    {tab.label}
+                  </button>
+                );
+              })}
+            </nav>
+          </div>
 
           {/* Overview Tab */}
           <TabsContent value="overview" className="space-y-6">
@@ -521,11 +574,15 @@ export default function CampaignDetailPage() {
               {/* Main Content */}
               <div className="lg:col-span-2 space-y-6">
                 {/* Campaign Details */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Campaign Details</CardTitle>
+                <Card className="border-0 shadow-xl bg-white/80 backdrop-blur-sm overflow-hidden">
+                  <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500"></div>
+                  <CardHeader className="pb-4">
+                    <CardTitle className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                      <HiDocumentText className="w-5 h-5 text-indigo-600" />
+                      Campaign Details
+                    </CardTitle>
                   </CardHeader>
-                  <CardContent className="space-y-4">
+                  <CardContent className="space-y-6">
                     {isEditing ? (
                       <>
                         <div>
@@ -578,11 +635,15 @@ export default function CampaignDetailPage() {
                 </Card>
 
                 {/* Deal Structure */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Deal Structure</CardTitle>
+                <Card className="border-0 shadow-xl bg-white/80 backdrop-blur-sm overflow-hidden">
+                  <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-emerald-500 to-green-500"></div>
+                  <CardHeader className="pb-4">
+                    <CardTitle className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                      <HiBanknotes className="w-5 h-5 text-emerald-600" />
+                      Deal Structure
+                    </CardTitle>
                   </CardHeader>
-                  <CardContent className="space-y-4">
+                  <CardContent className="space-y-6">
                     {isEditing ? (
                       <>
                         <div>
@@ -598,7 +659,7 @@ export default function CampaignDetailPage() {
                             </SelectTrigger>
                             <SelectContent>
                               <SelectItem value="cash">Cash Payment</SelectItem>
-                              <SelectItem value="product">Product Only</SelectItem>
+                              <SelectItem value="product">Barter</SelectItem>
                               <SelectItem value="hybrid">Cash + Product</SelectItem>
                             </SelectContent>
                           </Select>
@@ -618,71 +679,64 @@ export default function CampaignDetailPage() {
                         )}
                         
                         {(editData.deal_type === 'product' || editData.deal_type === 'hybrid') && (
-                          <>
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Product Name
-                              </label>
-                              <Input
-                                value={editData.product_name || ''}
-                                onChange={(e) => handleInputChange('product_name', e.target.value)}
-                              />
+                          <div className="space-y-3">
+                            <div className="text-sm text-gray-600">Barter Products</div>
+                            <div className="p-3 border border-gray-200 rounded-lg text-sm text-gray-500">
+                              Edit products in campaign creation/edit form (not inline here).
                             </div>
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Product Value (INR)
-                              </label>
-                              <Input
-                                type="number"
-                                value={editData.product_value || ''}
-                                onChange={(e) => handleInputChange('product_value', parseFloat(e.target.value))}
-                              />
-                            </div>
-                          </>
+                          </div>
                         )}
                       </>
                     ) : (
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                        <div className="bg-gradient-to-br from-blue-50 to-indigo-50 p-4 rounded-lg">
+                        <div className="bg-gradient-to-br from-blue-50 to-indigo-100 p-6 rounded-2xl border border-blue-200 hover:shadow-lg transition-all duration-200">
                           <div className="flex items-center justify-between">
                             <div>
-                              <p className="text-xs text-gray-500 mb-1">Deal Type</p>
-                              <p className="text-lg font-bold text-blue-600">{campaign.deal_type_display}</p>
+                              <p className="text-xs font-semibold text-blue-700 uppercase tracking-wide mb-2">Deal Type</p>
+                              <p className="text-lg font-bold text-blue-900">{campaign.deal_type_display === 'Product Only' ? 'Barter' : campaign.deal_type_display}</p>
                             </div>
-                            <HiCheckCircle className="w-8 h-8 text-blue-500" />
+                            <div className="w-10 h-10 bg-blue-500 rounded-xl flex items-center justify-center">
+                              <HiCheckCircle className="w-5 h-5 text-white" />
+                            </div>
                           </div>
                         </div>
                         
-                        <div className="bg-gradient-to-br from-green-50 to-emerald-50 p-4 rounded-lg">
+                        <div className="bg-gradient-to-br from-emerald-50 to-green-100 p-6 rounded-2xl border border-emerald-200 hover:shadow-lg transition-all duration-200">
                           <div className="flex items-center justify-between">
                             <div>
-                              <p className="text-xs text-gray-500 mb-1">Total Value</p>
-                              <p className="text-lg font-bold text-green-600">{formatCurrency(campaign.total_value)}</p>
+                              <p className="text-xs font-semibold text-emerald-700 uppercase tracking-wide mb-2">Total Value</p>
+                              <p className="text-lg font-bold text-emerald-900">{formatCurrency(campaign.total_value)}</p>
                             </div>
-                            <HiBanknotes className="w-8 h-8 text-green-500" />
+                            <div className="w-10 h-10 bg-emerald-500 rounded-xl flex items-center justify-center">
+                              <HiBanknotes className="w-5 h-5 text-white" />
+                            </div>
                           </div>
                         </div>
                         
-                        <div className="bg-gradient-to-br from-purple-50 to-pink-50 p-4 rounded-lg">
+                        <div className="bg-gradient-to-br from-purple-50 to-pink-100 p-6 rounded-2xl border border-purple-200 hover:shadow-lg transition-all duration-200">
                           <div className="flex items-center justify-between">
                             <div>
-                              <p className="text-xs text-gray-500 mb-1">Content Count</p>
-                              <p className="text-lg font-bold text-purple-600">{campaign.content_count}</p>
+                              <p className="text-xs font-semibold text-purple-700 uppercase tracking-wide mb-2">Content Count</p>
+                              <p className="text-lg font-bold text-purple-900">{campaign.content_count}</p>
                             </div>
-                            <HiUsers className="w-8 h-8 text-purple-500" />
+                            <div className="w-10 h-10 bg-purple-500 rounded-xl flex items-center justify-center">
+                              <HiUsers className="w-5 h-5 text-white" />
+                            </div>
                           </div>
                         </div>
                         
-                        <div className="bg-gradient-to-br from-orange-50 to-red-50 p-4 rounded-lg">
+                        <div className="bg-gradient-to-br from-amber-50 to-orange-100 p-6 rounded-2xl border border-amber-200 hover:shadow-lg transition-all duration-200">
                           <div className="flex items-center justify-between">
                             <div>
-                              <p className="text-xs text-gray-500 mb-1">Status</p>
-                              <p className="text-lg font-bold text-orange-600">
+                              <p className="text-xs font-semibold text-amber-700 uppercase tracking-wide mb-2">Status</p>
+                              <p className="text-lg font-bold text-amber-900">
                                 {campaign.is_active && !campaign.is_expired ? 'Active' :
                                  campaign.is_expired ? 'Expired' : 'Inactive'}
                               </p>
                             </div>
-                            <HiClock className="w-8 h-8 text-orange-500" />
+                            <div className="w-10 h-10 bg-amber-500 rounded-xl flex items-center justify-center">
+                              <HiClock className="w-5 h-5 text-white" />
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -691,11 +745,15 @@ export default function CampaignDetailPage() {
                 </Card>
 
                 {/* Requirements */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Requirements</CardTitle>
+                <Card className="border-0 shadow-xl bg-white/80 backdrop-blur-sm overflow-hidden">
+                  <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-purple-500 to-pink-500"></div>
+                  <CardHeader className="pb-4">
+                    <CardTitle className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                      <HiCog6Tooth className="w-5 h-5 text-purple-600" />
+                      Requirements
+                    </CardTitle>
                   </CardHeader>
-                  <CardContent className="space-y-4">
+                  <CardContent className="space-y-6">
                     {isEditing ? (
                       <>
                         <div>
@@ -703,19 +761,24 @@ export default function CampaignDetailPage() {
                             Required Platforms *
                           </label>
                           <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                            {platforms.map((platform) => (
-                              <button
-                                key={platform.id}
-                                onClick={() => handlePlatformToggle(platform.id)}
-                                className={`p-3 border-2 rounded-lg flex flex-col items-center gap-2 transition-colors ${
-                                  Array.isArray(editData.platforms_required) && editData.platforms_required.includes(platform.id)
-                                    ? 'border-blue-500 bg-blue-50 text-blue-700'
-                                    : 'border-gray-200 hover:border-gray-300'
-                                }`}
-                              >
-                                <span className="text-sm font-medium">{platform.name}</span>
-                              </button>
-                            ))}
+                            {Object.keys(platformConfig).map((key) => {
+                              const k = key as keyof typeof platformConfig;
+                              const cfg = platformConfig[k];
+                              const isActive = Array.isArray(editData.platforms_required) && editData.platforms_required.includes(k);
+                              const Icon = cfg.icon;
+                              return (
+                                <button
+                                  key={k}
+                                  onClick={() => handlePlatformToggle(k)}
+                                  className={`p-3 border-2 rounded-lg flex items-center justify-center gap-2 transition-colors ${
+                                    isActive ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-200 hover:border-gray-300'
+                                  }`}
+                                >
+                                  <Icon className={`w-4 h-4 ${cfg.color}`} />
+                                  <span className="text-sm font-medium capitalize">{k}</span>
+                                </button>
+                              );
+                            })}
                           </div>
                         </div>
                         
@@ -746,14 +809,20 @@ export default function CampaignDetailPage() {
                         <div>
                           <h4 className="font-medium text-gray-900 mb-2">Platforms</h4>
                           <div className="flex flex-wrap gap-2">
-                            {Array.isArray(campaign.platforms_required) 
-                              ? campaign.platforms_required.map((platform) => (
-                                  <Badge key={platform} variant="outline">
-                                    {platform}
-                                  </Badge>
-                                ))
-                              : <span className="text-sm text-gray-500">No platforms specified</span>
-                            }
+                            {Array.isArray(campaign.platforms_required) && campaign.platforms_required.length > 0 ? (
+                              campaign.platforms_required.map((platform) => {
+                                const cfg = platformConfig[platform as keyof typeof platformConfig];
+                                const Icon = cfg?.icon;
+                                return (
+                                  <div key={platform} className={`px-2 py-1 rounded-md border text-xs flex items-center gap-1 ${cfg ? cfg.bg + ' ' + cfg.border : 'bg-gray-50 border-gray-200'}`}>
+                                    {Icon && <Icon className={`w-3 h-3 ${cfg.color}`} />}
+                                    <span className="capitalize">{platform}</span>
+                                  </div>
+                                );
+                              })
+                            ) : (
+                              <span className="text-sm text-gray-500">No platforms specified</span>
+                            )}
                           </div>
                         </div>
                         
@@ -766,6 +835,19 @@ export default function CampaignDetailPage() {
                           </p>
                         </div>
                         
+                        {campaign.categories && campaign.categories.length > 0 && (
+                          <div>
+                            <h4 className="font-medium text-gray-900 mb-2">Categories</h4>
+                            <div className="flex flex-wrap gap-2">
+                              {campaign.categories.map((cat) => (
+                                <Badge key={cat} variant="secondary" className="text-xs bg-gray-100 text-gray-700 px-2 py-0.5 capitalize">
+                                  {cat}
+                                </Badge>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
                         {campaign.special_instructions && (
                           <div>
                             <h4 className="font-medium text-gray-900 mb-2">Special Instructions</h4>
@@ -781,9 +863,13 @@ export default function CampaignDetailPage() {
               {/* Sidebar */}
               <div className="space-y-6">
                 {/* Timeline */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Timeline</CardTitle>
+                <Card className="border-0 shadow-xl bg-white/80 backdrop-blur-sm overflow-hidden">
+                  <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-500 to-indigo-500"></div>
+                  <CardHeader className="pb-4">
+                    <CardTitle className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                      <HiCalendarDays className="w-5 h-5 text-blue-600" />
+                      Timeline
+                    </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
                     {isEditing ? (
@@ -793,33 +879,44 @@ export default function CampaignDetailPage() {
                             Application Deadline *
                           </label>
                           <Input
-                            type="datetime-local"
+                            type="date"
                             value={editData.application_deadline || ''}
                             onChange={(e) => handleInputChange('application_deadline', e.target.value)}
                           />
                         </div>
-                        
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Campaign Start Date *
-                          </label>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">Campaign Live Date *</label>
                           <Input
                             type="date"
-                            value={editData.campaign_start_date || ''}
-                            onChange={(e) => handleInputChange('campaign_start_date', e.target.value)}
+                            value={editData.campaign_live_date || ''}
+                            onChange={(e) => handleInputChange('campaign_live_date', e.target.value)}
                           />
                         </div>
-                        
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Campaign End Date *
-                          </label>
-                          <Input
-                            type="date"
-                            value={editData.campaign_end_date || ''}
-                            onChange={(e) => handleInputChange('campaign_end_date', e.target.value)}
-                          />
-                        </div>
+                        {(editData.deal_type === 'product' || editData.deal_type === 'hybrid') ? (
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Content Submission (Barter)</label>
+                            <Select value={(editData.barter_submission_after_days || '').toString()} onValueChange={(v) => handleInputChange('barter_submission_after_days', parseInt(v))}>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select days after product receipt" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="3">3 days after receiving product</SelectItem>
+                                <SelectItem value="5">5 days after receiving product</SelectItem>
+                                <SelectItem value="7">7 days after receiving product</SelectItem>
+                                <SelectItem value="10">10 days after receiving product</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        ) : (
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Content Submission Deadline</label>
+                            <Input
+                              type="date"
+                              value={editData.submission_deadline || ''}
+                              onChange={(e) => handleInputChange('submission_deadline', e.target.value)}
+                            />
+                          </div>
+                        )}
                       </>
                     ) : (
                       <>
@@ -828,18 +925,26 @@ export default function CampaignDetailPage() {
                           <span className="text-gray-500">Application Deadline:</span>
                           <span className="font-medium">{formatDate(campaign.application_deadline)}</span>
                         </div>
-                        
-                        <div className="flex items-center gap-2 text-sm">
-                          <HiCalendarDays className="w-4 h-4 text-gray-500" />
-                          <span className="text-gray-500">Campaign Start:</span>
-                          <span className="font-medium">{formatDate(campaign.campaign_start_date)}</span>
-                        </div>
-                        
-                        <div className="flex items-center gap-2 text-sm">
-                          <HiCalendarDays className="w-4 h-4 text-gray-500" />
-                          <span className="text-gray-500">Campaign End:</span>
-                          <span className="font-medium">{formatDate(campaign.campaign_end_date)}</span>
-                        </div>
+                        {campaign.campaign_live_date && (
+                          <div className="flex items-center gap-2 text-sm">
+                            <HiCalendarDays className="w-4 h-4 text-gray-500" />
+                            <span className="text-gray-500">Campaign Live:</span>
+                            <span className="font-medium">{formatDate(campaign.campaign_live_date)}</span>
+                          </div>
+                        )}
+                        {(campaign.deal_type === 'product' || campaign.deal_type === 'hybrid') ? (
+                          <div className="flex items-center gap-2 text-sm">
+                            <HiCalendarDays className="w-4 h-4 text-gray-500" />
+                            <span className="text-gray-500">Content Submission:</span>
+                            <span className="font-medium">{campaign.barter_submission_after_days ? `${campaign.barter_submission_after_days} days after product receipt` : '—'}</span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2 text-sm">
+                            <HiCalendarDays className="w-4 h-4 text-gray-500" />
+                            <span className="text-gray-500">Content Submission Deadline:</span>
+                            <span className="font-medium">{formatDate(campaign.submission_deadline)}</span>
+                          </div>
+                        )}
                         
                         {campaign.days_until_deadline !== null && (
                           <div className="flex items-center gap-2 text-sm">
@@ -859,11 +964,15 @@ export default function CampaignDetailPage() {
                 </Card>
 
                 {/* Campaign Info */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Campaign Info</CardTitle>
+                <Card className="border-0 shadow-xl bg-white/80 backdrop-blur-sm overflow-hidden">
+                  <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-gray-500 to-gray-600"></div>
+                  <CardHeader className="pb-4">
+                    <CardTitle className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                      <HiSparkles className="w-5 h-5 text-gray-600" />
+                      Campaign Info
+                    </CardTitle>
                   </CardHeader>
-                  <CardContent className="space-y-3">
+                  <CardContent className="space-y-4">
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-500">Created:</span>
                       <span className="font-medium">{formatDate(campaign.created_at)}</span>
@@ -873,6 +982,18 @@ export default function CampaignDetailPage() {
                       <span className="text-gray-500">Brand:</span>
                       <span className="font-medium">{campaign.brand_name}</span>
                     </div>
+                    {typeof campaign.target_influencers === 'number' && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-500">Target Influencers:</span>
+                        <span className="font-medium">{campaign.total_accepted || 0} / {campaign.target_influencers}</span>
+                      </div>
+                    )}
+                    {campaign.execution_mode && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-500">Execution Mode:</span>
+                        <span className="font-medium capitalize">{campaign.execution_mode}</span>
+                      </div>
+                    )}
                     
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-500">Status:</span>
@@ -896,81 +1017,96 @@ export default function CampaignDetailPage() {
 
           {/* Influencers Tab */}
           <TabsContent value="influencers" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <HiUserGroup className="w-5 h-5" />
-                  Influencer Deals ({campaign.deals?.length || 0})
+            <Card className="border-0 shadow-xl bg-white/80 backdrop-blur-sm overflow-hidden">
+              <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-indigo-500 to-purple-500"></div>
+              <CardHeader className="pb-4">
+                <CardTitle className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                  <HiUserGroup className="w-5 h-5 text-indigo-600" />
+                  Creator Collaborations ({campaign.deals?.length || 0})
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 {campaign.deals && campaign.deals.length > 0 ? (
                   <div className="space-y-4">
                     {campaign.deals.map((deal) => (
-                      <div key={deal.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
-                        <div className="flex items-start justify-between mb-3">
-                          <div className="flex items-center gap-3">
-                            <div className="w-12 h-12 bg-gradient-to-br from-purple-400 to-pink-400 rounded-full flex items-center justify-center text-white font-semibold">
-                              {deal.influencer.full_name.charAt(0).toUpperCase()}
+                      <div key={deal.id} className="bg-gradient-to-br from-white to-gray-50 border border-gray-200 rounded-2xl p-6 hover:shadow-xl transition-all duration-300 hover:scale-[1.02]">
+                        <div className="flex items-start justify-between mb-4">
+                          <div className="flex items-center gap-4">
+                            <div className="relative">
+                              <div className="w-16 h-16 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl flex items-center justify-center text-white font-bold text-lg shadow-lg">
+                                {deal.influencer.full_name.charAt(0).toUpperCase()}
+                              </div>
+                              {deal.influencer.is_verified && (
+                                <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-blue-500 border-2 border-white rounded-full flex items-center justify-center">
+                                  <HiCheckBadge className="w-3 h-3 text-white" />
+                                </div>
+                              )}
                             </div>
                             <div>
-                              <h3 className="font-semibold text-gray-900">{deal.influencer.full_name}</h3>
-                              <p className="text-sm text-gray-600">@{deal.influencer.username}</p>
-                              <div className="flex items-center gap-2 mt-1">
-                                <span className="text-xs text-gray-500">{formatFollowers(deal.influencer.followers_count)} followers</span>
-                                <span className="text-xs text-gray-500">•</span>
-                                <span className="text-xs text-gray-500">{deal.influencer.engagement_rate}% engagement</span>
-                                <span className="text-xs text-gray-500">•</span>
-                                <span className="text-xs text-gray-500">{deal.influencer.rating}★</span>
+                              <h3 className="text-lg font-bold text-gray-900">{deal.influencer.full_name}</h3>
+                              <p className="text-sm text-gray-600 mb-2">@{deal.influencer.username}</p>
+                              <div className="flex items-center gap-4">
+                                <div className="flex items-center gap-1">
+                                  <HiUsers className="w-4 h-4 text-blue-500" />
+                                  <span className="text-sm font-medium text-gray-700">{formatFollowers(deal.influencer.followers_count)}</span>
+                                </div>
+                                <div className="flex items-center gap-1">
+                                  <HiHeart className="w-4 h-4 text-red-500" />
+                                  <span className="text-sm font-medium text-gray-700">{deal.influencer.engagement_rate}%</span>
+                                </div>
+                                <div className="flex items-center gap-1">
+                                  <HiStar className="w-4 h-4 text-yellow-500 fill-current" />
+                                  <span className="text-sm font-medium text-gray-700">{deal.influencer.rating}</span>
+                                </div>
                               </div>
                             </div>
                           </div>
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-3">
                             <Badge 
-                              variant="default"
-                              className={`text-xs ${dealStatusColors[deal.status as keyof typeof dealStatusColors] || 'bg-gray-100 text-gray-800'}`}
+                              className={`text-xs font-semibold px-3 py-1 rounded-full ${dealStatusColors[deal.status as keyof typeof dealStatusColors] || 'bg-gray-100 text-gray-800'} flex items-center gap-1`}
                             >
                               {getStatusIcon(deal.status)}
                               {deal.status_display}
                             </Badge>
                             {deal.unread_count && deal.unread_count > 0 && (
-                              <Badge variant="destructive" className="text-xs">
+                              <Badge className="bg-red-500 text-white text-xs px-2 py-1 rounded-full">
                                 {deal.unread_count} new
                               </Badge>
                             )}
                           </div>
                         </div>
                         
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-3">
-                          <div className="text-center">
-                            <p className="text-xs text-gray-500">Last Action</p>
-                            <p className="text-sm font-medium text-gray-900">{getLastAction(deal)}</p>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                          <div className="text-center bg-blue-50 p-3 rounded-xl">
+                            <p className="text-xs font-semibold text-blue-700 uppercase tracking-wide mb-1">Last Action</p>
+                            <p className="text-sm font-medium text-blue-900">{getLastAction(deal)}</p>
                           </div>
-                          <div className="text-center">
-                            <p className="text-xs text-gray-500">Payment Status</p>
-                            <p className="text-sm font-medium text-gray-900">{deal.payment_status}</p>
+                          <div className="text-center bg-emerald-50 p-3 rounded-xl">
+                            <p className="text-xs font-semibold text-emerald-700 uppercase tracking-wide mb-1">Payment Status</p>
+                            <p className="text-sm font-medium text-emerald-900">{deal.payment_status}</p>
                           </div>
-                          <div className="text-center">
-                            <p className="text-xs text-gray-500">Brand Rating</p>
-                            <p className="text-sm font-medium text-gray-900">
+                          <div className="text-center bg-purple-50 p-3 rounded-xl">
+                            <p className="text-xs font-semibold text-purple-700 uppercase tracking-wide mb-1">Brand Rating</p>
+                            <p className="text-sm font-medium text-purple-900">
                               {deal.brand_rating ? `${deal.brand_rating}★` : 'Not rated'}
                             </p>
                           </div>
-                          <div className="text-center">
-                            <p className="text-xs text-gray-500">Influencer Rating</p>
-                            <p className="text-sm font-medium text-gray-900">
+                          <div className="text-center bg-amber-50 p-3 rounded-xl">
+                            <p className="text-xs font-semibold text-amber-700 uppercase tracking-wide mb-1">Creator Rating</p>
+                            <p className="text-sm font-medium text-amber-900">
                               {deal.influencer_rating ? `${deal.influencer_rating}★` : 'Not rated'}
                             </p>
                           </div>
                         </div>
                         
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-3">
                           <Button 
                             variant="outline" 
                             size="sm"
                             onClick={() => router.push(`/brand/deals/${deal.id}`)}
+                            className="flex-1 bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200 text-blue-700 hover:from-blue-100 hover:to-indigo-100 font-medium"
                           >
-                            <HiEye className="w-4 h-4 mr-1" />
+                            <HiEye className="w-4 h-4 mr-2" />
                             View Details
                           </Button>
                           {deal.conversation && (
@@ -978,11 +1114,12 @@ export default function CampaignDetailPage() {
                               variant="outline" 
                               size="sm"
                               onClick={() => router.push(`/brand/messages?deal=${deal.id}`)}
+                              className="flex-1 bg-gradient-to-r from-green-50 to-emerald-50 border-green-200 text-green-700 hover:from-green-100 hover:to-emerald-100 font-medium relative"
                             >
-                              <HiChatBubbleLeftRight className="w-4 h-4 mr-1" />
+                              <HiChatBubbleLeftRight className="w-4 h-4 mr-2" />
                               Messages
                               {deal.unread_count && deal.unread_count > 0 && (
-                                <Badge variant="destructive" className="ml-1 text-xs">
+                                <Badge className="ml-2 bg-red-500 text-white text-xs px-2 py-0.5 rounded-full">
                                   {deal.unread_count}
                                 </Badge>
                               )}
@@ -993,16 +1130,19 @@ export default function CampaignDetailPage() {
                     ))}
                   </div>
                 ) : (
-                  <div className="text-center py-8">
-                    <HiUserGroup className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                    <h3 className="text-lg font-semibold text-gray-900 mb-2">No influencers invited yet</h3>
-                    <p className="text-gray-600 mb-4">Start by inviting influencers to your campaign.</p>
+                  <div className="text-center py-12">
+                    <div className="w-20 h-20 bg-gradient-to-br from-indigo-100 to-purple-100 rounded-2xl flex items-center justify-center mx-auto mb-6">
+                      <HiUserGroup className="w-10 h-10 text-indigo-600" />
+                    </div>
+                    <h3 className="text-xl font-bold text-gray-900 mb-3">No creators invited yet</h3>
+                    <p className="text-gray-600 mb-6 max-w-md mx-auto">Start building your campaign by discovering and inviting talented creators who align with your brand.</p>
                     <Button 
                       onClick={() => router.push('/brand/influencers')}
-                      className="bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700"
+                      size="lg"
+                      className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white shadow-lg hover:shadow-xl transition-all duration-200 px-8"
                     >
-                      <HiPlus className="w-4 h-4 mr-2" />
-                      Find Influencers
+                      <HiMagnifyingGlass className="w-5 h-5 mr-2" />
+                      Discover Creators
                     </Button>
                   </div>
                 )}
@@ -1012,11 +1152,12 @@ export default function CampaignDetailPage() {
 
           {/* Messages Tab */}
           <TabsContent value="messages" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <HiChatBubbleLeftRight className="w-5 h-5" />
-                  Recent Messages
+            <Card className="border-0 shadow-xl bg-white/80 backdrop-blur-sm overflow-hidden">
+              <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-green-500 to-emerald-500"></div>
+              <CardHeader className="pb-4">
+                <CardTitle className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                  <HiChatBubbleLeftRight className="w-5 h-5 text-green-600" />
+                  Recent Conversations
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -1074,18 +1215,21 @@ export default function CampaignDetailPage() {
 
           {/* Analytics Tab */}
           <TabsContent value="analytics" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <HiStar className="w-5 h-5" />
+            <Card className="border-0 shadow-xl bg-white/80 backdrop-blur-sm overflow-hidden">
+              <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-amber-500 to-orange-500"></div>
+              <CardHeader className="pb-4">
+                <CardTitle className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                  <HiStar className="w-5 h-5 text-amber-600" />
                   Campaign Analytics
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-center py-8">
-                  <HiStar className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">Analytics Coming Soon</h3>
-                  <p className="text-gray-600">Detailed campaign performance metrics and analytics will be available here.</p>
+                <div className="text-center py-12">
+                  <div className="w-20 h-20 bg-gradient-to-br from-amber-100 to-orange-100 rounded-2xl flex items-center justify-center mx-auto mb-6">
+                    <HiStar className="w-10 h-10 text-amber-600" />
+                  </div>
+                  <h3 className="text-xl font-bold text-gray-900 mb-3">Analytics Coming Soon</h3>
+                  <p className="text-gray-600 max-w-md mx-auto">Get detailed insights into your campaign performance, reach, engagement, and ROI metrics.</p>
                 </div>
               </CardContent>
             </Card>

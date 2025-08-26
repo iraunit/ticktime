@@ -30,6 +30,7 @@ urlpatterns = [
     path('api/influencers/', include('influencers.urls', namespace='influencers')),
     path('api/brands/', include('brands.urls', namespace='brands')),
     path('api/campaigns/', include('campaigns.urls', namespace='campaigns')),
+    path('api/common/', include('common.urls', namespace='common')),
     path('api/', include('deals.urls', namespace='deals')),
     path('api/', include('content.urls', namespace='content')),
     

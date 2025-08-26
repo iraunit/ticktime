@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import "./campaign-form.css";
 import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -12,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { GlobalLoader } from "@/components/ui/global-loader";
 import { InlineLoader } from "@/components/ui/global-loader";
+import { DatePicker } from "@/components/ui/date-picker";
 import { toast } from "@/lib/toast";
 import { api } from "@/lib/api";
 import { 
@@ -32,8 +34,20 @@ import {
   HiVideoCamera,
   HiSpeakerWave,
   HiGlobeAsiaAustralia,
-  HiDevicePhoneMobile
+  HiDevicePhoneMobile,
+  HiSparkles,
+  HiLightBulb,
+  HiCog6Tooth,
+  HiClock,
+  HiArrowRight
 } from "react-icons/hi2";
+import { 
+  FaYoutube, 
+  FaInstagram, 
+  FaTiktok, 
+  FaTwitter, 
+  FaLinkedin 
+} from "react-icons/fa";
 
 interface CampaignData {
   title: string;
@@ -41,33 +55,33 @@ interface CampaignData {
   objectives: string;
   deal_type: 'cash' | 'product' | 'hybrid';
   cash_amount: number;
-  product_value: number;
-  product_name: string;
-  product_description: string;
-  product_quantity: number;
+  products: Array<{ name: string; description?: string; value?: number; quantity?: number; variants?: any }>;
   platforms_required: string[];
   content_requirements: string;
-  content_count: number;
+
   special_instructions: string;
   application_deadline: string;
-  content_creation_start: string;
-  content_creation_end: string;
   submission_deadline: string;
-  campaign_start_date: string;
-  campaign_end_date: string;
+  campaign_live_date: string;
+  target_influencers: number;
+  categories: string[];
+  execution_mode: 'manual' | 'hybrid' | 'managed';
+  application_deadline_visible_to_influencers: boolean;
   target_audience_age_min: number;
   target_audience_age_max: number;
   target_audience_gender: string;
   target_audience_location: string;
+  barter_submission_after_days?: number;
 }
 
-const platforms = [
-  { id: 'instagram', name: 'Instagram', icon: HiPhoto },
-  { id: 'youtube', name: 'YouTube', icon: HiVideoCamera },
-  { id: 'tiktok', name: 'TikTok', icon: HiSpeakerWave },
-  { id: 'twitter', name: 'Twitter', icon: HiGlobeAsiaAustralia },
-  { id: 'linkedin', name: 'LinkedIn', icon: HiDevicePhoneMobile },
-];
+// Real platform icons with brand colors
+const platformConfig = {
+  youtube: { icon: FaYoutube, color: "text-red-600", bg: "bg-red-50", border: "border-red-200", gradient: "from-red-500 to-red-600" },
+  instagram: { icon: FaInstagram, color: "text-pink-600", bg: "bg-pink-50", border: "border-pink-200", gradient: "from-pink-500 to-purple-500" },
+  tiktok: { icon: FaTiktok, color: "text-gray-800", bg: "bg-gray-50", border: "border-gray-200", gradient: "from-gray-800 to-gray-900" },
+  twitter: { icon: FaTwitter, color: "text-blue-500", bg: "bg-blue-50", border: "border-blue-200", gradient: "from-blue-400 to-blue-500" },
+  linkedin: { icon: FaLinkedin, color: "text-blue-700", bg: "bg-blue-50", border: "border-blue-200", gradient: "from-blue-700 to-blue-800" },
+} as const;
 
 const contentTypes = [
   'Instagram Post',
@@ -85,11 +99,23 @@ const contentTypes = [
   'Live Stream'
 ];
 
+// Convert platformConfig to platforms array for mapping
+const platforms = Object.entries(platformConfig).map(([id, config]) => ({
+  id,
+  name: id.charAt(0).toUpperCase() + id.slice(1),
+  icon: config.icon,
+  color: config.color,
+  bg: config.bg,
+  border: config.border,
+  gradient: config.gradient
+}));
+
 export default function CreateCampaignPage() {
   const router = useRouter();
   const [currentStep, setCurrentStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formErrors, setFormErrors] = useState<string[]>([]);
+  const [categories, setCategories] = useState<Array<{ id: number; key: string; name: string }>>([]);
   
   // Campaign form data
   const [campaignData, setCampaignData] = useState<CampaignData>({
@@ -98,24 +124,23 @@ export default function CreateCampaignPage() {
     objectives: '',
     deal_type: 'cash',
     cash_amount: 0,
-    product_value: 0,
-    product_name: '',
-    product_description: '',
-    product_quantity: 1,
+    products: [],
     platforms_required: [],
     content_requirements: '',
-    content_count: 1,
+
     special_instructions: '',
     application_deadline: '',
-    content_creation_start: '',
-    content_creation_end: '',
     submission_deadline: '',
-    campaign_start_date: '',
-    campaign_end_date: '',
+    campaign_live_date: '',
+    target_influencers: 1,
+    categories: [],
+    execution_mode: 'manual',
+    application_deadline_visible_to_influencers: true,
     target_audience_age_min: 18,
     target_audience_age_max: 65,
     target_audience_gender: 'all',
-    target_audience_location: ''
+    target_audience_location: '',
+    barter_submission_after_days: undefined,
   });
 
   const steps = [
@@ -145,7 +170,7 @@ export default function CreateCampaignPage() {
       case 2:
         return campaignData.platforms_required.length > 0 && campaignData.content_requirements;
       case 3:
-        return campaignData.application_deadline && campaignData.campaign_start_date && campaignData.campaign_end_date;
+        return campaignData.application_deadline && campaignData.campaign_live_date;
       default:
         return true;
     }
@@ -167,13 +192,13 @@ export default function CreateCampaignPage() {
         // Check deal type specific requirements
         if (campaignData.deal_type === 'cash' && (!campaignData.cash_amount || campaignData.cash_amount <= 0)) {
           missingFields2.push('Cash Amount (must be greater than 0)');
-        } else if (campaignData.deal_type === 'product' && (!campaignData.product_name || !campaignData.product_value)) {
-          missingFields2.push('Product Name and Value');
+        } else if (campaignData.deal_type === 'product' && (!campaignData.products || campaignData.products.length === 0)) {
+          missingFields2.push('At least one product is required for barter deals.');
         } else if (campaignData.deal_type === 'hybrid') {
           const hasCash = campaignData.cash_amount && campaignData.cash_amount > 0;
-          const hasProduct = campaignData.product_name && campaignData.product_value;
-          if (!hasCash && !hasProduct) {
-            missingFields2.push('Either Cash Amount or Product Details');
+          const hasProducts = campaignData.products && campaignData.products.length > 0;
+          if (!hasCash && !hasProducts) {
+            missingFields2.push('Either cash amount or at least one product is required for hybrid deals.');
           }
         }
         
@@ -181,8 +206,7 @@ export default function CreateCampaignPage() {
       case 3:
         const missingFields3 = [];
         if (!campaignData.application_deadline) missingFields3.push('Application Deadline');
-        if (!campaignData.campaign_start_date) missingFields3.push('Campaign Start Date');
-        if (!campaignData.campaign_end_date) missingFields3.push('Campaign End Date');
+        if (!campaignData.campaign_live_date) missingFields3.push('Campaign Live Date');
         return missingFields3.length > 0 ? `Please fill in: ${missingFields3.join(', ')}` : null;
       default:
         return null;
@@ -227,12 +251,16 @@ export default function CreateCampaignPage() {
     setFormErrors([]); // Clear previous errors
     
     try {
-      const response = await api.post('/brands/campaigns/', {
-        ...campaignData
+      const response = await api.post('/campaigns/create/', {
+        ...campaignData,
+        // Convert content_requirements to string; backend converts to dict
+        content_requirements: campaignData.content_requirements,
       });
       
       toast.success('Campaign created successfully!');
-      router.push(`/brand/campaigns/${response.data.campaign.id}`);
+      // Redirect to influencer search with selected categories pre-filtered
+      const cats = (campaignData.categories || []).join(',');
+      router.push(`/brand/influencers${cats ? `?categories=${encodeURIComponent(cats)}` : ''}`);
     } catch (error: any) {
       console.error('Failed to create campaign:', error);
       
@@ -315,8 +343,7 @@ export default function CreateCampaignPage() {
       case 'platforms_required':
       case 'content_requirements':
       case 'application_deadline':
-      case 'campaign_start_date':
-      case 'campaign_end_date':
+      case 'campaign_live_date':
         return true;
       default:
         return false;
@@ -334,27 +361,24 @@ export default function CreateCampaignPage() {
   };
 
   const getDateValidationError = (fieldName: string) => {
-    if (fieldName === 'campaign_start_date' && campaignData.campaign_start_date && campaignData.campaign_end_date) {
-      const startDate = new Date(campaignData.campaign_start_date);
-      const endDate = new Date(campaignData.campaign_end_date);
-      if (startDate >= endDate) {
-        return 'Start date must be before end date';
-      }
-    }
-    
-    if (fieldName === 'campaign_end_date' && campaignData.campaign_start_date && campaignData.campaign_end_date) {
-      const startDate = new Date(campaignData.campaign_start_date);
-      const endDate = new Date(campaignData.campaign_end_date);
-      if (startDate >= endDate) {
-        return 'End date must be after start date';
-      }
-    }
-    
-    if (fieldName === 'application_deadline' && campaignData.application_deadline && campaignData.campaign_start_date) {
+    if (fieldName === 'application_deadline' && campaignData.application_deadline && campaignData.campaign_live_date) {
       const deadline = new Date(campaignData.application_deadline);
-      const startDate = new Date(campaignData.campaign_start_date);
-      if (deadline >= startDate) {
-        return 'Deadline must be before campaign start';
+      const liveDate = new Date(campaignData.campaign_live_date);
+      if (deadline >= liveDate) {
+        return 'Deadline must be before campaign live date';
+      }
+    }
+    
+    if (fieldName === 'campaign_live_date') {
+      if (campaignData.campaign_live_date) {
+        const liveDate = new Date(campaignData.campaign_live_date);
+        const today = new Date();
+        const minDate = new Date();
+        minDate.setDate(today.getDate() + 15);
+        
+        if (liveDate < minDate) {
+          return 'Must be at least 15 days from today';
+        }
       }
     }
     
@@ -365,21 +389,24 @@ export default function CreateCampaignPage() {
   const validateDates = () => {
     const errors: string[] = [];
     
-    if (campaignData.campaign_start_date && campaignData.campaign_end_date) {
-      const startDate = new Date(campaignData.campaign_start_date);
-      const endDate = new Date(campaignData.campaign_end_date);
+    if (campaignData.application_deadline && campaignData.campaign_live_date) {
+      const deadline = new Date(campaignData.application_deadline);
+      const liveDate = new Date(campaignData.campaign_live_date);
       
-      if (startDate >= endDate) {
-        errors.push('Campaign end date must be after start date.');
+      if (deadline >= liveDate) {
+        errors.push('Application deadline must be before campaign live date.');
       }
     }
     
-    if (campaignData.application_deadline && campaignData.campaign_start_date) {
-      const deadline = new Date(campaignData.application_deadline);
-      const startDate = new Date(campaignData.campaign_start_date);
+    // Validate campaign live date is at least 15 days from today
+    if (campaignData.campaign_live_date) {
+      const liveDate = new Date(campaignData.campaign_live_date);
+      const today = new Date();
+      const minDate = new Date();
+      minDate.setDate(today.getDate() + 15);
       
-      if (deadline >= startDate) {
-        errors.push('Application deadline must be before campaign start date.');
+      if (liveDate < minDate) {
+        errors.push('Campaign live date must be at least 15 days from today.');
       }
     }
     
@@ -394,14 +421,14 @@ export default function CreateCampaignPage() {
         errors.push('Cash amount is required and must be greater than 0 for cash deals.');
       }
     } else if (campaignData.deal_type === 'product') {
-      if (!campaignData.product_name || !campaignData.product_value) {
-        errors.push('Product name and value are required for product deals.');
+      if (!campaignData.products || campaignData.products.length === 0) {
+        errors.push('At least one product is required for barter deals.');
       }
     } else if (campaignData.deal_type === 'hybrid') {
       const hasCash = campaignData.cash_amount && campaignData.cash_amount > 0;
-      const hasProduct = campaignData.product_name && campaignData.product_value;
-      if (!hasCash && !hasProduct) {
-        errors.push('Either cash amount or product details are required for hybrid deals.');
+      const hasProducts = campaignData.products && campaignData.products.length > 0;
+      if (!hasCash && !hasProducts) {
+        errors.push('Either cash amount or at least one product is required for hybrid deals.');
       }
     }
     
@@ -432,11 +459,8 @@ export default function CreateCampaignPage() {
         if (!campaignData.application_deadline) {
           errors.push('Application deadline is required.');
         }
-        if (!campaignData.campaign_start_date) {
-          errors.push('Campaign start date is required.');
-        }
-        if (!campaignData.campaign_end_date) {
-          errors.push('Campaign end date is required.');
+        if (!campaignData.campaign_live_date) {
+          errors.push('Campaign live date is required.');
         }
         errors.push(...validateDates());
         break;
@@ -445,58 +469,91 @@ export default function CreateCampaignPage() {
     return errors;
   };
 
+  useEffect(() => {
+    const today = new Date();
+    const addDays = (d: number) => {
+      const nd = new Date(today);
+      nd.setDate(nd.getDate() + d);
+      return nd.toISOString().slice(0, 10);
+    };
+    setCampaignData(prev => ({
+      ...prev,
+      application_deadline: addDays(7),
+      campaign_live_date: addDays(15),
+      submission_deadline: addDays(7)
+    }));
+    api.get('/common/categories/').then(res => setCategories(res.data.categories || [])).catch(() => {});
+  }, []);
+
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100">
       <div className="container mx-auto px-4 py-4 max-w-6xl">
-        {/* Header */}
-        <div className="relative mb-6">
-          <div className="absolute inset-0 bg-gradient-to-r from-purple-500/5 via-indigo-500/5 to-blue-500/5 rounded-xl -m-2"></div>
+        {/* Modern Header */}
+        <div className="relative mb-6 overflow-hidden">
+          <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/10 via-purple-500/10 to-pink-500/10 rounded-2xl"></div>
+          <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-purple-400/20 to-pink-400/20 rounded-full -mr-16 -mt-16"></div>
+          <div className="absolute bottom-0 left-0 w-24 h-24 bg-gradient-to-tr from-blue-400/20 to-indigo-400/20 rounded-full -ml-12 -mb-12"></div>
           
-          <div className="relative p-4">
-            <h1 className="text-2xl font-bold bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 bg-clip-text text-transparent mb-1">
-              Create New Campaign
-            </h1>
-            <p className="text-sm text-gray-600">
-              Set up your influencer marketing campaign with our guided workflow.
+          <div className="relative p-6">
+            <div className="flex items-center gap-3 mb-2">
+              <div className="w-10 h-10 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-xl flex items-center justify-center">
+                <HiSparkles className="w-5 h-5 text-white" />
+              </div>
+              <h1 className="text-3xl font-bold bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 bg-clip-text text-transparent">
+                Create New Campaign
+              </h1>
+            </div>
+            <p className="text-gray-600 max-w-2xl">
+              Launch your next influencer marketing campaign with our streamlined creation process. Connect with creators and build authentic partnerships.
             </p>
           </div>
         </div>
 
-        {/* Progress Steps */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between">
-            {steps.map((step, index) => (
-              <div key={step.id} className="flex items-center">
-                <div className="flex flex-col items-center">
-                  <div className={`w-10 h-10 rounded-full flex items-center justify-center border-2 transition-colors ${
-                    currentStep >= step.id 
-                      ? 'bg-blue-500 border-blue-500 text-white' 
-                      : 'border-gray-300 text-gray-500'
-                  }`}>
-                    {currentStep > step.id ? (
-                      <HiCheck className="w-5 h-5" />
-                    ) : (
-                      <span className="text-sm font-medium">{step.id}</span>
-                    )}
+        {/* Modern Progress Steps */}
+        <div className="mb-6">
+          <div className="relative">
+            <div className="absolute top-5 left-0 right-0 h-0.5 bg-gray-200"></div>
+            <div className="absolute top-5 left-0 h-0.5 bg-gradient-to-r from-indigo-500 to-purple-500 transition-all duration-300" style={{ width: `${((currentStep - 1) / (steps.length - 1)) * 100}%` }}></div>
+            
+            <div className="relative flex justify-between">
+              {steps.map((step, index) => {
+                const isActive = currentStep === step.id;
+                const isCompleted = currentStep > step.id;
+                const stepIcons = [HiLightBulb, HiCurrencyDollar, HiClock, HiCheck];
+                const StepIcon = stepIcons[index] || HiCheck;
+                
+                return (
+                  <div key={step.id} className="flex flex-col items-center">
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 ${
+                      isCompleted 
+                        ? 'bg-gradient-to-br from-green-500 to-emerald-500 text-white shadow-lg' 
+                        : isActive 
+                        ? 'bg-gradient-to-br from-indigo-500 to-purple-500 text-white shadow-lg scale-110' 
+                        : 'bg-white border-2 border-gray-200 text-gray-400'
+                    }`}>
+                      {isCompleted ? (
+                        <HiCheck className="w-5 h-5" />
+                      ) : (
+                        <StepIcon className="w-5 h-5" />
+                      )}
+                    </div>
+                    <div className="mt-3 text-center max-w-24">
+                      <p className={`text-sm font-medium ${
+                        isActive ? 'text-indigo-600' : isCompleted ? 'text-green-600' : 'text-gray-500'
+                      }`}>{step.title}</p>
+                      <p className="text-xs text-gray-400 mt-1">{step.description}</p>
+                    </div>
                   </div>
-                  <div className="mt-2 text-center">
-                    <p className="text-sm font-medium text-gray-900">{step.title}</p>
-                    <p className="text-xs text-gray-500">{step.description}</p>
-                  </div>
-                </div>
-                {index < steps.length - 1 && (
-                  <div className={`w-16 h-0.5 mx-4 transition-colors ${
-                    currentStep > step.id ? 'bg-blue-500' : 'bg-gray-300'
-                  }`} />
-                )}
-              </div>
-            ))}
+                );
+              })}
+            </div>
           </div>
         </div>
 
-        {/* Step Content */}
-        <Card className="shadow-lg border-0 bg-white">
-          <CardContent className="p-8">
+        {/* Modern Step Content */}
+        <Card className="shadow-xl border-0 bg-white/80 backdrop-blur-sm overflow-hidden">
+          <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500"></div>
+          <CardContent className="p-6">
             {/* Error Display */}
             {formErrors.length > 0 && (
               <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
@@ -513,83 +570,108 @@ export default function CreateCampaignPage() {
             )}
             {/* Step 1: Campaign Details */}
             {currentStep === 1 && (
-              <div className="space-y-6">
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Campaign Information</h3>
-                  <div className="grid grid-cols-1 gap-6">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Campaign Title *
-                      </label>
-                      <Input
-                        placeholder="Enter a compelling campaign title"
-                        value={campaignData.title}
-                        onChange={(e) => handleInputChange('title', e.target.value)}
-                        className={`w-full ${getFieldError('title') ? 'border-red-500 focus:border-red-500 focus:ring-red-200' : ''}`}
-                      />
-                      {getFieldError('title') && (
-                        <p className="mt-1 text-sm text-red-600">{getFieldError('title')}</p>
-                      )}
-                    </div>
-                    
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Campaign Description *
-                      </label>
-                      <Textarea
-                        placeholder="Describe your campaign, brand, and what you're looking for"
-                        value={campaignData.description}
-                        onChange={(e) => handleInputChange('description', e.target.value)}
-                        className={`w-full h-32 ${getFieldError('description') ? 'border-red-500 focus:border-red-500 focus:ring-red-200' : ''}`}
-                      />
-                      {getFieldError('description') && (
-                        <p className="mt-1 text-sm text-red-600">{getFieldError('description')}</p>
-                      )}
-                    </div>
-                    
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Campaign Objectives *
-                      </label>
-                      <Textarea
-                        placeholder="What are your goals? (e.g., brand awareness, sales, engagement)"
-                        value={campaignData.objectives}
-                        onChange={(e) => handleInputChange('objectives', e.target.value)}
-                        className={`w-full h-24 ${getFieldError('objectives') ? 'border-red-500 focus:border-red-500 focus:ring-red-200' : ''}`}
-                      />
-                      {getFieldError('objectives') && (
-                        <p className="mt-1 text-sm text-red-600">{getFieldError('objectives')}</p>
-                      )}
-                    </div>
+              <div className="space-y-4">
+                <div className="text-center mb-4">
+                  <div className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-200 rounded-full mb-4">
+                    <HiLightBulb className="w-4 h-4 text-indigo-600" />
+                    <span className="text-sm font-medium text-indigo-700">Campaign Information</span>
+                  </div>
+                  <h3 className="text-2xl font-bold text-gray-900 mb-2">Tell us about your campaign</h3>
+                  <p className="text-gray-600">Let's start with the basics to create an compelling campaign that attracts the right creators.</p>
+                </div>
+                
+                <div className="grid grid-cols-1 gap-4">
+                  <div className="space-y-2">
+                    <label className="flex items-center gap-2 text-sm font-semibold text-gray-800">
+                      <div className="w-1.5 h-1.5 bg-indigo-500 rounded-full"></div>
+                      Campaign Title *
+                    </label>
+                    <Input
+                      placeholder="e.g., Summer Fashion Collection Launch"
+                      value={campaignData.title}
+                      onChange={(e) => handleInputChange('title', e.target.value)}
+                      className={`h-12 text-base border-2 transition-all duration-200 ${getFieldError('title') ? 'border-red-400 focus:border-red-500 focus:ring-red-100' : 'border-gray-200 focus:border-indigo-400 focus:ring-indigo-100'}`}
+                    />
+                    {getFieldError('title') && (
+                      <p className="text-sm text-red-600 flex items-center gap-1">
+                        <HiXMark className="w-4 h-4" />
+                        {getFieldError('title')}
+                      </p>
+                    )}
+                    <p className="text-xs text-gray-500">Choose a clear, engaging title that creators will find appealing</p>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <label className="flex items-center gap-2 text-sm font-semibold text-gray-800">
+                      <div className="w-1.5 h-1.5 bg-purple-500 rounded-full"></div>
+                      Campaign Description *
+                    </label>
+                    <Textarea
+                      placeholder="Tell creators about your brand, campaign goals, and what makes this collaboration exciting..."
+                      value={campaignData.description}
+                      onChange={(e) => handleInputChange('description', e.target.value)}
+                      className={`h-28 text-base border-2 transition-all duration-200 resize-none ${getFieldError('description') ? 'border-red-400 focus:border-red-500 focus:ring-red-100' : 'border-gray-200 focus:border-purple-400 focus:ring-purple-100'}`}
+                    />
+                    {getFieldError('description') && (
+                      <p className="text-sm text-red-600 flex items-center gap-1">
+                        <HiXMark className="w-4 h-4" />
+                        {getFieldError('description')}
+                      </p>
+                    )}
+                    <p className="text-xs text-gray-500">Describe your brand, campaign vision, and what creators can expect</p>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <label className="flex items-center gap-2 text-sm font-semibold text-gray-800">
+                      <div className="w-1.5 h-1.5 bg-pink-500 rounded-full"></div>
+                      Campaign Objectives *
+                    </label>
+                    <Textarea
+                      placeholder="e.g., Increase brand awareness, drive website traffic, boost sales, build community engagement..."
+                      value={campaignData.objectives}
+                      onChange={(e) => handleInputChange('objectives', e.target.value)}
+                      className={`h-24 text-base border-2 transition-all duration-200 resize-none ${getFieldError('objectives') ? 'border-red-400 focus:border-red-500 focus:ring-red-100' : 'border-gray-200 focus:border-pink-400 focus:ring-pink-100'}`}
+                    />
+                    {getFieldError('objectives') && (
+                      <p className="text-sm text-red-600 flex items-center gap-1">
+                        <HiXMark className="w-4 h-4" />
+                        {getFieldError('objectives')}
+                      </p>
+                    )}
+                    <p className="text-xs text-gray-500">What do you want to achieve with this campaign?</p>
+                  </div>
 
+                  <div className="bg-gradient-to-br from-gray-50 to-gray-100 p-4 rounded-xl border border-gray-200">
+                    <h4 className="text-lg font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                      <HiUsers className="w-5 h-5 text-indigo-600" />
+                      Target Audience
+                    </h4>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Target Age Range
-                        </label>
-                        <div className="flex items-center gap-2">
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium text-gray-700">Age Range</label>
+                        <div className="flex items-center gap-3">
                           <Input
                             type="number"
-                            placeholder="Min"
+                            placeholder="18"
                             value={campaignData.target_audience_age_min}
                             onChange={(e) => handleInputChange('target_audience_age_min', parseInt(e.target.value))}
+                            className="border-gray-300 focus:border-indigo-400 focus:ring-indigo-100"
                           />
-                          <span>to</span>
+                          <span className="text-gray-500 font-medium">to</span>
                           <Input
                             type="number"
-                            placeholder="Max"
+                            placeholder="65"
                             value={campaignData.target_audience_age_max}
                             onChange={(e) => handleInputChange('target_audience_age_max', parseInt(e.target.value))}
+                            className="border-gray-300 focus:border-indigo-400 focus:ring-indigo-100"
                           />
                         </div>
                       </div>
 
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Target Gender
-                        </label>
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium text-gray-700">Gender</label>
                         <Select value={campaignData.target_audience_gender} onValueChange={(value) => handleInputChange('target_audience_gender', value)}>
-                          <SelectTrigger>
+                          <SelectTrigger className="border-gray-300 focus:border-indigo-400 focus:ring-indigo-100">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
@@ -601,17 +683,48 @@ export default function CreateCampaignPage() {
                         </Select>
                       </div>
 
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Target Location
-                        </label>
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium text-gray-700">Location</label>
                         <Input
                           placeholder="e.g., India, Mumbai, Global"
                           value={campaignData.target_audience_location}
                           onChange={(e) => handleInputChange('target_audience_location', e.target.value)}
+                          className="border-gray-300 focus:border-indigo-400 focus:ring-indigo-100"
                         />
                       </div>
                     </div>
+                  </div>
+                  
+                  {/* Categories Section */}
+                  <div className="space-y-4">
+                    <label className="flex items-center gap-2 text-sm font-semibold text-gray-800">
+                      <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></div>
+                      Content Categories
+                    </label>
+                    <div className="flex flex-wrap gap-2">
+                      {categories.map((category) => {
+                        const isSelected = campaignData.categories.includes(category.key);
+                        return (
+                          <button
+                            key={category.key}
+                            onClick={() => {
+                              const newCategories = isSelected
+                                ? campaignData.categories.filter(c => c !== category.key)
+                                : [...campaignData.categories, category.key];
+                              handleInputChange('categories', newCategories);
+                            }}
+                            className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
+                              isSelected
+                                ? 'bg-gradient-to-r from-emerald-500 to-green-500 text-white shadow-md'
+                                : 'bg-white border-2 border-gray-200 text-gray-700 hover:border-emerald-300 hover:bg-emerald-50'
+                            }`}
+                          >
+                            {category.name}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <p className="text-xs text-gray-500">Select categories that match your campaign content</p>
                   </div>
                 </div>
               </div>
@@ -619,32 +732,24 @@ export default function CreateCampaignPage() {
 
             {/* Step 2: Deal Structure */}
             {currentStep === 2 && (
-              <div className="space-y-6">
+              <div className="space-y-4">
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Deal Structure & Requirements</h3>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-3">Deal Structure & Requirements</h3>
                   
                   {/* Deal Type Selection */}
-                  <div className="mb-6">
-                    <label className="block text-sm font-medium text-gray-700 mb-3">
+                  <div className="mb-3">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
                       Compensation Type
                     </label>
-                    <div className="grid grid-cols-3 gap-4">
+                    <div className="grid grid-cols-3 gap-3">
                       {[
                         { id: 'cash', label: 'Cash Payment', icon: HiCurrencyDollar },
-                        { id: 'product', label: 'Product Only', icon: HiGift },
+                        { id: 'product', label: 'Barter', icon: HiGift },
                         { id: 'hybrid', label: 'Cash + Product', icon: HiPlus }
                       ].map((type) => (
-                        <button
-                          key={type.id}
-                          onClick={() => handleInputChange('deal_type', type.id)}
-                          className={`p-4 border-2 rounded-lg flex flex-col items-center gap-2 transition-colors ${
-                            campaignData.deal_type === type.id
-                              ? 'border-blue-500 bg-blue-50 text-blue-700'
-                              : 'border-gray-200 hover:border-gray-300'
-                          }`}
-                        >
-                          <type.icon className="w-6 h-6" />
-                          <span className="font-medium">{type.label}</span>
+                        <button key={type.id} onClick={() => handleInputChange('deal_type', type.id)} className={`p-3 border-2 rounded-lg flex flex-col items-center gap-1 transition-colors ${campaignData.deal_type === type.id ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-200 hover:border-gray-300'}`}>
+                          <type.icon className="w-5 h-5" />
+                          <span className="text-sm font-medium">{type.label}</span>
                         </button>
                       ))}
                     </div>
@@ -652,7 +757,7 @@ export default function CreateCampaignPage() {
 
                   {/* Compensation Details */}
                   {(campaignData.deal_type === 'cash' || campaignData.deal_type === 'hybrid') && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
                           Cash Amount (INR)
@@ -668,102 +773,93 @@ export default function CreateCampaignPage() {
                   )}
 
                   {(campaignData.deal_type === 'product' || campaignData.deal_type === 'hybrid') && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Product Name
-                        </label>
-                        <Input
-                          placeholder="Product name"
-                          value={campaignData.product_name}
-                          onChange={(e) => handleInputChange('product_name', e.target.value)}
-                        />
+                    <div className="space-y-4 mb-3">
+                      <div className="flex items-center justify-between">
+                        <h4 className="text-sm font-semibold text-gray-900">Barter Products</h4>
+                        <Button size="sm" variant="outline" onClick={() => handleInputChange('products', [...campaignData.products, { name: '', description: '', value: 0, quantity: 1 }])}>
+                          <HiPlus className="w-4 h-4 mr-1" /> Add Product
+                        </Button>
                       </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Product Value (INR)
-                        </label>
-                        <Input
-                          type="number"
-                          placeholder="Product value"
-                          value={campaignData.product_value}
-                          onChange={(e) => handleInputChange('product_value', parseFloat(e.target.value))}
-                        />
-                      </div>
-                      <div className="md:col-span-2">
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Product Description
-                        </label>
-                        <Textarea
-                          placeholder="Describe the product"
-                          value={campaignData.product_description}
-                          onChange={(e) => handleInputChange('product_description', e.target.value)}
-                          className="h-24"
-                        />
+                      <div className="space-y-2">
+                        {campaignData.products.map((p, idx) => (
+                          <div key={idx} className="grid grid-cols-1 md:grid-cols-4 gap-2 border p-2 rounded-lg">
+                            <div className="md:col-span-2">
+                              <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
+                              <Input value={p.name} onChange={(e) => { const next = [...campaignData.products]; next[idx] = { ...next[idx], name: e.target.value }; handleInputChange('products', next); }} placeholder="Product name" />
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">Value (INR)</label>
+                              <Input type="number" value={p.value || 0} onChange={(e) => { const next = [...campaignData.products]; next[idx] = { ...next[idx], value: parseFloat(e.target.value) }; handleInputChange('products', next); }} placeholder="0" />
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">Quantity</label>
+                              <Input type="number" value={p.quantity || 1} min={1} onChange={(e) => { const next = [...campaignData.products]; next[idx] = { ...next[idx], quantity: parseInt(e.target.value) }; handleInputChange('products', next); }} />
+                            </div>
+                            <div className="md:col-span-4">
+                              <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                              <Textarea value={p.description || ''} onChange={(e) => { const next = [...campaignData.products]; next[idx] = { ...next[idx], description: e.target.value }; handleInputChange('products', next); }} className="h-16" placeholder="Brief description" />
+                            </div>
+                            <div className="md:col-span-4 flex justify-end">
+                              <Button variant="ghost" size="sm" onClick={() => { const next = campaignData.products.filter((_, i) => i !== idx); handleInputChange('products', next); }} className="text-red-600">
+                                <HiXMark className="w-4 h-4 mr-1" /> Remove
+                              </Button>
+                            </div>
+                          </div>
+                        ))}
                       </div>
                     </div>
                   )}
 
                   {/* Platform Selection */}
-                  <div className="mb-6">
-                    <label className="block text-sm font-medium text-gray-700 mb-3">
+                  <div className="mb-3">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
                       Required Platforms *
                     </label>
-                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2">
                       {platforms.map((platform) => (
                         <button
                           key={platform.id}
                           onClick={() => handlePlatformToggle(platform.id)}
-                          className={`p-3 border-2 rounded-lg flex flex-col items-center gap-2 transition-colors ${
+                          className={`p-2 border-2 rounded-lg flex flex-col items-center gap-1 transition-colors ${
                             campaignData.platforms_required.includes(platform.id)
                               ? 'border-blue-500 bg-blue-50 text-blue-700'
                               : 'border-gray-200 hover:border-gray-300'
                           }`}
                         >
-                          <platform.icon className="w-5 h-5" />
-                          <span className="text-sm font-medium">{platform.name}</span>
+                          <platform.icon className="w-4 h-4" />
+                          <span className="text-xs font-medium">{platform.name}</span>
                         </button>
                       ))}
                     </div>
                   </div>
 
                   {/* Content Requirements */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+
+                  <div className="space-y-3">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Content Count
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Content Requirements *
                       </label>
-                      <Input
-                        type="number"
-                        min="1"
-                        value={campaignData.content_count}
-                        onChange={(e) => handleInputChange('content_count', parseInt(e.target.value))}
+                      <Textarea
+                        placeholder="Describe the type of content, style, messaging, hashtags, etc."
+                        value={campaignData.content_requirements}
+                        onChange={(e) => handleInputChange('content_requirements', e.target.value)}
+                        className="h-20"
                       />
                     </div>
-                  </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Content Requirements *
-                    </label>
-                    <Textarea
-                      placeholder="Describe the type of content, style, messaging, hashtags, etc."
-                      value={campaignData.content_requirements}
-                      onChange={(e) => handleInputChange('content_requirements', e.target.value)}
-                      className="h-32"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Special Instructions
-                    </label>
-                    <Textarea
-                      placeholder="Any additional guidelines or requirements"
-                      value={campaignData.special_instructions}
-                      onChange={(e) => handleInputChange('special_instructions', e.target.value)}
-                      className="h-24"
-                    />
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Special Instructions
+                      </label>
+                      <Textarea
+                        placeholder="Any additional guidelines or requirements"
+                        value={campaignData.special_instructions}
+                        onChange={(e) => handleInputChange('special_instructions', e.target.value)}
+                        className="h-16"
+                      />
+                    </div>
                   </div>
                 </div>
               </div>
@@ -771,93 +867,212 @@ export default function CreateCampaignPage() {
 
             {/* Step 3: Timeline */}
             {currentStep === 3 && (
-              <div className="space-y-6">
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Campaign Timeline</h3>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Application Deadline *
-                      </label>
-                      <Input
-                        type="datetime-local"
-                        value={campaignData.application_deadline}
-                        onChange={(e) => handleInputChange('application_deadline', e.target.value)}
-                        className={`w-full ${getFieldError('application_deadline') || getDateValidationError('application_deadline') ? 'border-red-500 focus:border-red-500 focus:ring-red-200' : ''}`}
-                      />
-                      {(getFieldError('application_deadline') || getDateValidationError('application_deadline')) && (
-                        <p className="mt-1 text-sm text-red-600">
-                          {getFieldError('application_deadline') || getDateValidationError('application_deadline')}
-                        </p>
-                      )}
+              <div className="space-y-6 campaign-form-step">
+                <div className="text-center mb-6">
+                  <div className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-full mb-4">
+                    <HiCalendarDays className="w-4 h-4 text-blue-600" />
+                    <span className="text-sm font-medium text-blue-700">Campaign Timeline</span>
+                  </div>
+                  <h3 className="text-2xl font-bold text-gray-900 mb-2">Set Your Campaign Schedule</h3>
+                  <p className="text-gray-600">Define key dates and deadlines for your campaign execution.</p>
+                </div>
+                
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 timeline-grid">
+                  {/* Primary Timeline */}
+                  <div className="space-y-6">
+                    <div className="bg-gradient-to-br from-blue-50 to-indigo-50 p-6 rounded-xl border border-blue-200 timeline-card">
+                      <h4 className="text-lg font-semibold text-blue-900 mb-4 flex items-center gap-2">
+                        <HiClock className="w-5 h-5" />
+                        Key Dates
+                      </h4>
+                      
+                      <div className="space-y-4">
+                        <div>
+                          <label className="flex items-center gap-2 text-sm font-semibold text-gray-800 mb-2">
+                            <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                            Application Deadline *
+                          </label>
+                          <DatePicker
+                            value={campaignData.application_deadline}
+                            onChange={(date) => handleInputChange('application_deadline', date)}
+                            placeholder="Select application deadline"
+                            error={!!(getFieldError('application_deadline') || getDateValidationError('application_deadline'))}
+                          />
+                          {(getFieldError('application_deadline') || getDateValidationError('application_deadline')) && (
+                            <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
+                              <HiXMark className="w-4 h-4" />
+                              {getFieldError('application_deadline') || getDateValidationError('application_deadline')}
+                            </p>
+                          )}
+                          <p className="text-xs text-gray-500 mt-1">When should influencers apply by?</p>
+                        </div>
+
+                        <div>
+                          <label className="flex items-center gap-2 text-sm font-semibold text-gray-800 mb-2">
+                            <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                            Campaign Live Date *
+                          </label>
+                          <DatePicker
+                            value={campaignData.campaign_live_date}
+                            onChange={(date) => handleInputChange('campaign_live_date', date)}
+                            placeholder="Select campaign live date"
+                            min={(() => {
+                              const today = new Date();
+                              today.setDate(today.getDate() + 15);
+                              return today.toISOString().split('T')[0];
+                            })()}
+                            error={!!(getFieldError('campaign_live_date') || getDateValidationError('campaign_live_date'))}
+                          />
+                          {(getFieldError('campaign_live_date') || getDateValidationError('campaign_live_date')) && (
+                            <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
+                              <HiXMark className="w-4 h-4" />
+                              {getFieldError('campaign_live_date') || getDateValidationError('campaign_live_date')}
+                            </p>
+                          )}
+                          <p className="text-xs text-gray-500 mt-1">When should the campaign content go live? (Minimum 15 days from today)</p>
+                        </div>
+
+                        {(campaignData.deal_type === 'product' || campaignData.deal_type === 'hybrid') && (
+                          <div>
+                            <label className="flex items-center gap-2 text-sm font-semibold text-gray-800 mb-2">
+                              <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
+                              Content Submission (Barter)
+                            </label>
+                            <Select 
+                              value={(campaignData.barter_submission_after_days || '').toString()} 
+                              onValueChange={(v) => handleInputChange('barter_submission_after_days', parseInt(v))}
+                            >
+                              <SelectTrigger className="h-12 text-base border-2 border-purple-200 focus:border-purple-400 focus:ring-purple-100">
+                                <SelectValue placeholder="Select days after product receipt" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="3">3 days after receiving product</SelectItem>
+                                <SelectItem value="5">5 days after receiving product</SelectItem>
+                                <SelectItem value="7">7 days after receiving product</SelectItem>
+                                <SelectItem value="10">10 days after receiving product</SelectItem>
+                                <SelectItem value="14">14 days after receiving product</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <p className="text-xs text-gray-500 mt-1">How many days after receiving the product should content be submitted?</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Campaign Settings */}
+                  <div className="space-y-6">
+                    <div className="bg-gradient-to-br from-orange-50 to-red-50 p-6 rounded-xl border border-orange-200 timeline-card">
+                      <h4 className="text-lg font-semibold text-orange-900 mb-4 flex items-center gap-2">
+                        <HiCog6Tooth className="w-5 h-5" />
+                        Campaign Settings
+                      </h4>
+                      
+                      <div className="space-y-4">
+                        <div>
+                          <label className="flex items-center gap-2 text-sm font-semibold text-gray-800 mb-2">
+                            <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
+                            Execution Mode
+                          </label>
+                          <Select value={campaignData.execution_mode} onValueChange={(v) => handleInputChange('execution_mode', v)}>
+                            <SelectTrigger className="h-12 text-base border-2 border-orange-200 focus:border-orange-400 focus:ring-orange-100">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="manual">
+                                <div className="flex flex-col">
+                                  <span className="font-medium">Manual Selection</span>
+                                  <span className="text-xs text-gray-500">You'll manually review and select influencers</span>
+                                </div>
+                              </SelectItem>
+                              <SelectItem value="hybrid">
+                                <div className="flex flex-col">
+                                  <span className="font-medium">AI-Assisted</span>
+                                  <span className="text-xs text-gray-500">AI suggests influencers, you make final decisions</span>
+                                </div>
+                              </SelectItem>
+                              <SelectItem value="managed">
+                                <div className="flex flex-col">
+                                  <span className="font-medium">Fully Managed</span>
+                                  <span className="text-xs text-gray-500">We handle influencer selection and coordination</span>
+                                </div>
+                              </SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <p className="text-xs text-gray-500 mt-1">How would you like to manage influencer selection?</p>
+                        </div>
+
+                        <div>
+                          <label className="flex items-center gap-2 text-sm font-semibold text-gray-800 mb-2">
+                            <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+                            Number of Influencers Needed
+                          </label>
+                          <div className="relative">
+                            <Input 
+                              type="number" 
+                              min="1" 
+                              max="50"
+                              value={campaignData.target_influencers} 
+                              onChange={(e) => handleInputChange('target_influencers', parseInt(e.target.value))}
+                              className="h-12 text-base border-2 border-red-200 focus:border-red-400 focus:ring-red-100"
+                            />
+                            <HiUsers className="absolute right-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                          </div>
+                          <p className="text-xs text-gray-500 mt-1">How many influencers do you want to collaborate with?</p>
+                        </div>
+
+                        <div className="bg-white/50 rounded-lg p-4 border border-orange-200">
+                          <label className="flex items-start gap-3 text-sm text-gray-700">
+                            <Checkbox 
+                              checked={campaignData.application_deadline_visible_to_influencers} 
+                              onCheckedChange={(v) => handleInputChange('application_deadline_visible_to_influencers', Boolean(v))}
+                              className="mt-0.5"
+                            />
+                            <div>
+                              <span className="font-medium">Show application deadline to influencers</span>
+                              <p className="text-xs text-gray-500 mt-1">When enabled, influencers will see the deadline in campaign details</p>
+                            </div>
+                          </label>
+                        </div>
+                      </div>
                     </div>
 
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Content Creation Start
-                      </label>
-                      <Input
-                        type="date"
-                        value={campaignData.content_creation_start}
-                        onChange={(e) => handleInputChange('content_creation_start', e.target.value)}
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Content Creation End
-                      </label>
-                      <Input
-                        type="date"
-                        value={campaignData.content_creation_end}
-                        onChange={(e) => handleInputChange('content_creation_end', e.target.value)}
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Content Submission Deadline
-                      </label>
-                      <Input
-                        type="datetime-local"
-                        value={campaignData.submission_deadline}
-                        onChange={(e) => handleInputChange('submission_deadline', e.target.value)}
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Campaign Start Date *
-                      </label>
-                      <Input
-                        type="date"
-                        value={campaignData.campaign_start_date}
-                        onChange={(e) => handleInputChange('campaign_start_date', e.target.value)}
-                        className={`w-full ${getFieldError('campaign_start_date') || getDateValidationError('campaign_start_date') ? 'border-red-500 focus:border-red-500 focus:ring-red-200' : ''}`}
-                      />
-                      {(getFieldError('campaign_start_date') || getDateValidationError('campaign_start_date')) && (
-                        <p className="mt-1 text-sm text-red-600">
-                          {getFieldError('campaign_start_date') || getDateValidationError('campaign_start_date')}
-                        </p>
-                      )}
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Campaign End Date *
-                      </label>
-                      <Input
-                        type="date"
-                        value={campaignData.campaign_end_date}
-                        onChange={(e) => handleInputChange('campaign_end_date', e.target.value)}
-                        className={`w-full ${getFieldError('campaign_end_date') || getDateValidationError('campaign_end_date') ? 'border-red-500 focus:border-red-500 focus:ring-red-200' : ''}`}
-                      />
-                      {(getFieldError('campaign_end_date') || getDateValidationError('campaign_end_date')) && (
-                        <p className="mt-1 text-sm text-red-600">
-                          {getFieldError('campaign_end_date') || getDateValidationError('campaign_end_date')}
-                        </p>
-                      )}
+                    {/* Timeline Preview */}
+                    <div className="bg-gradient-to-br from-gray-50 to-gray-100 p-6 rounded-xl border border-gray-200 timeline-card">
+                      <h4 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                        <HiEye className="w-5 h-5" />
+                        Timeline Preview
+                      </h4>
+                      
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between p-3 bg-white rounded-lg border border-gray-200 timeline-preview-item">
+                          <div className="flex items-center gap-3">
+                            <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
+                            <span className="text-sm font-medium text-gray-700">Application Deadline</span>
+                          </div>
+                          <span className="text-sm text-gray-600">
+                            {campaignData.application_deadline ? new Date(campaignData.application_deadline).toLocaleDateString() : 'Not set'}
+                          </span>
+                        </div>
+                        
+                        <div className="flex items-center justify-between p-3 bg-white rounded-lg border border-gray-200 timeline-preview-item">
+                          <div className="flex items-center gap-3">
+                            <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                            <span className="text-sm font-medium text-gray-700">Campaign Live Date</span>
+                          </div>
+                          <span className="text-sm text-gray-600">
+                            {campaignData.campaign_live_date ? new Date(campaignData.campaign_live_date).toLocaleDateString() : 'Not set'}
+                          </span>
+                        </div>
+                        
+                        <div className="flex items-center justify-between p-3 bg-white rounded-lg border border-gray-200 timeline-preview-item">
+                          <div className="flex items-center gap-3">
+                            <div className="w-3 h-3 bg-orange-500 rounded-full"></div>
+                            <span className="text-sm font-medium text-gray-700">Influencers Needed</span>
+                          </div>
+                          <span className="text-sm text-gray-600">{campaignData.target_influencers}</span>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -866,79 +1081,274 @@ export default function CreateCampaignPage() {
 
             {/* Step 4: Review & Launch */}
             {currentStep === 4 && (
-              <div className="space-y-6">
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Review Campaign</h3>
+              <div className="space-y-8 campaign-form-step">
+                {/* Header Section */}
+                <div className="text-center mb-8">
+                  <div className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-full mb-4">
+                    <HiCheck className="w-4 h-4 text-green-600" />
+                    <span className="text-sm font-medium text-green-700">Final Review</span>
+                  </div>
+                  <h3 className="text-2xl font-bold text-gray-900 mb-2">Review Your Campaign</h3>
+                  <p className="text-gray-600 max-w-2xl mx-auto">Please review all the details below before launching your campaign. Once created, you'll be able to start inviting influencers.</p>
+                </div>
+
+                {/* Campaign Overview */}
+                <div className="bg-gradient-to-br from-gray-50 to-gray-100 p-6 rounded-xl border border-gray-200 mb-6">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-10 h-10 bg-gradient-to-br from-green-500 to-emerald-500 rounded-lg flex items-center justify-center">
+                      <HiSparkles className="w-5 h-5 text-white" />
+                    </div>
+                    <div>
+                      <h4 className="text-lg font-semibold text-gray-900">{campaignData.title || 'Untitled Campaign'}</h4>
+                      <p className="text-sm text-gray-600">Campaign Overview</p>
+                    </div>
+                  </div>
                   
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    {/* Campaign Summary */}
-                    <Card className="border border-gray-200">
-                      <CardHeader>
-                        <CardTitle className="text-lg">Campaign Details</CardTitle>
-                      </CardHeader>
-                      <CardContent className="space-y-3">
-                        <div>
-                          <span className="text-sm text-gray-500">Title:</span>
-                          <p className="font-medium">{campaignData.title}</p>
-                        </div>
-                        <div>
-                          <span className="text-sm text-gray-500">Platforms:</span>
-                          <div className="flex gap-1 mt-1">
-                            {campaignData.platforms_required.map(platform => (
-                              <Badge key={platform} variant="outline">{platform}</Badge>
-                            ))}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="bg-white rounded-lg p-4 border border-gray-200">
+                      <div className="flex items-center gap-2 mb-2">
+                        <HiUsers className="w-4 h-4 text-blue-500" />
+                        <span className="text-sm font-medium text-gray-700">Target Influencers</span>
+                      </div>
+                      <p className="text-2xl font-bold text-gray-900">{campaignData.target_influencers}</p>
+                    </div>
+                    
+                    <div className="bg-white rounded-lg p-4 border border-gray-200">
+                      <div className="flex items-center gap-2 mb-2">
+                        <HiCalendarDays className="w-4 h-4 text-green-500" />
+                        <span className="text-sm font-medium text-gray-700">Live Date</span>
+                      </div>
+                      <p className="text-lg font-semibold text-gray-900">
+                        {campaignData.campaign_live_date ? new Date(campaignData.campaign_live_date).toLocaleDateString('en-US', { 
+                          month: 'short', 
+                          day: 'numeric', 
+                          year: 'numeric' 
+                        }) : 'Not set'}
+                      </p>
+                    </div>
+                    
+                    <div className="bg-white rounded-lg p-4 border border-gray-200">
+                      <div className="flex items-center gap-2 mb-2">
+                        <HiCurrencyDollar className="w-4 h-4 text-purple-500" />
+                        <span className="text-sm font-medium text-gray-700">Deal Type</span>
+                      </div>
+                      <p className="text-lg font-semibold text-gray-900 capitalize">{campaignData.deal_type}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Detailed Review Sections */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                  {/* Campaign Details */}
+                  <div className="space-y-6">
+                    <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 px-6 py-4 border-b border-gray-200">
+                        <h4 className="text-lg font-semibold text-blue-900 flex items-center gap-2">
+                          <HiLightBulb className="w-5 h-5" />
+                          Campaign Details
+                        </h4>
+                      </div>
+                      <div className="p-6 space-y-4">
+                        <div className="flex items-start justify-between py-3 border-b border-gray-100 last:border-b-0">
+                          <div>
+                            <span className="text-sm font-medium text-gray-700">Campaign Title</span>
+                            <p className="text-sm text-gray-500 mt-1">The name of your campaign</p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-sm font-semibold text-gray-900">{campaignData.title || 'Not set'}</p>
                           </div>
                         </div>
-                        <div>
-                          <span className="text-sm text-gray-500">Deal Type:</span>
-                          <p className="font-medium capitalize">{campaignData.deal_type}</p>
+                        
+                        <div className="flex items-start justify-between py-3 border-b border-gray-100 last:border-b-0">
+                          <div>
+                            <span className="text-sm font-medium text-gray-700">Platforms</span>
+                            <p className="text-sm text-gray-500 mt-1">Where content will be published</p>
+                          </div>
+                          <div className="text-right">
+                            <div className="flex gap-1 flex-wrap justify-end">
+                              {campaignData.platforms_required.map(platform => (
+                                <Badge key={platform} variant="outline" className="text-xs">
+                                  {platform}
+                                </Badge>
+                              ))}
+                            </div>
+                          </div>
                         </div>
-                        <div>
-                          <span className="text-sm text-gray-500">Application Deadline:</span>
-                          <p className="font-medium">
-                            {new Date(campaignData.application_deadline).toLocaleDateString()}
-                          </p>
+                        
+                        <div className="flex items-start justify-between py-3 border-b border-gray-100 last:border-b-0">
+                          <div>
+                            <span className="text-sm font-medium text-gray-700">Categories</span>
+                            <p className="text-sm text-gray-500 mt-1">Content categories for this campaign</p>
+                          </div>
+                          <div className="text-right">
+                            <div className="flex gap-1 flex-wrap justify-end">
+                              {campaignData.categories.length > 0 ? (
+                                campaignData.categories.map(key => (
+                                  <Badge key={key} variant="outline" className="text-xs">
+                                    {categories.find(c => c.key === key)?.name || key}
+                                  </Badge>
+                                ))
+                              ) : (
+                                <span className="text-sm text-gray-400">None selected</span>
+                              )}
+                            </div>
+                          </div>
                         </div>
-                      </CardContent>
-                    </Card>
+                      </div>
+                    </div>
 
-                    {/* Next Steps */}
-                    <Card className="border border-gray-200">
-                      <CardHeader>
-                        <CardTitle className="text-lg">Next Steps</CardTitle>
-                      </CardHeader>
-                      <CardContent className="space-y-3">
-                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                          <h4 className="font-medium text-blue-900 mb-2">After Campaign Creation</h4>
+                    {/* Timeline Details */}
+                    <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                      <div className="bg-gradient-to-r from-green-50 to-emerald-50 px-6 py-4 border-b border-gray-200">
+                        <h4 className="text-lg font-semibold text-green-900 flex items-center gap-2">
+                          <HiClock className="w-5 h-5" />
+                          Timeline
+                        </h4>
+                      </div>
+                      <div className="p-6 space-y-4">
+                        <div className="flex items-center justify-between py-3 border-b border-gray-100 last:border-b-0">
+                          <div className="flex items-center gap-3">
+                            <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
+                            <span className="text-sm font-medium text-gray-700">Application Deadline</span>
+                          </div>
+                          <span className="text-sm font-semibold text-gray-900">
+                            {campaignData.application_deadline ? new Date(campaignData.application_deadline).toLocaleDateString('en-US', { 
+                              month: 'short', 
+                              day: 'numeric', 
+                              year: 'numeric' 
+                            }) : 'Not set'}
+                          </span>
+                        </div>
+                        
+                        <div className="flex items-center justify-between py-3 border-b border-gray-100 last:border-b-0">
+                          <div className="flex items-center gap-3">
+                            <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                            <span className="text-sm font-medium text-gray-700">Campaign Live Date</span>
+                          </div>
+                          <span className="text-sm font-semibold text-gray-900">
+                            {campaignData.campaign_live_date ? new Date(campaignData.campaign_live_date).toLocaleDateString('en-US', { 
+                              month: 'short', 
+                              day: 'numeric', 
+                              year: 'numeric' 
+                            }) : 'Not set'}
+                          </span>
+                        </div>
+                        
+                        <div className="flex items-center justify-between py-3">
+                          <div className="flex items-center gap-3">
+                            <div className="w-3 h-3 bg-orange-500 rounded-full"></div>
+                            <span className="text-sm font-medium text-gray-700">Execution Mode</span>
+                          </div>
+                          <span className="text-sm font-semibold text-gray-900 capitalize">{campaignData.execution_mode}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Next Steps & Actions */}
+                  <div className="space-y-6">
+                    {/* Quick Actions */}
+                    <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                      <div className="bg-gradient-to-r from-purple-50 to-pink-50 px-6 py-4 border-b border-gray-200">
+                        <h4 className="text-lg font-semibold text-purple-900 flex items-center gap-2">
+                          <HiArrowRight className="w-5 h-5" />
+                          Next Steps
+                        </h4>
+                      </div>
+                      <div className="p-6 space-y-4">
+                        <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg p-4 border border-blue-200">
+                          <h5 className="font-semibold text-blue-900 mb-2 flex items-center gap-2">
+                            <HiUsers className="w-4 h-4" />
+                            Find Influencers
+                          </h5>
                           <p className="text-sm text-blue-700 mb-3">
-                            Once your campaign is created, you can:
+                            After creating your campaign, you can:
                           </p>
-                          <ul className="text-sm text-blue-700 space-y-1">
-                            <li>• Search and invite influencers from the Influencers page</li>
-                            <li>• Add influencers to your campaign</li>
-                            <li>• Manage applications and collaborations</li>
+                          <ul className="text-sm text-blue-700 space-y-2">
+                            <li className="flex items-start gap-2">
+                              <div className="w-1.5 h-1.5 bg-blue-500 rounded-full mt-2 flex-shrink-0"></div>
+                              <span>Search and filter influencers by category, platform, and engagement</span>
+                            </li>
+                            <li className="flex items-start gap-2">
+                              <div className="w-1.5 h-1.5 bg-blue-500 rounded-full mt-2 flex-shrink-0"></div>
+                              <span>Send personalized invitations to selected creators</span>
+                            </li>
+                            <li className="flex items-start gap-2">
+                              <div className="w-1.5 h-1.5 bg-blue-500 rounded-full mt-2 flex-shrink-0"></div>
+                              <span>Track applications and manage collaborations</span>
+                            </li>
                           </ul>
                         </div>
                         
-                        <div className="text-center">
+                        <div className="flex gap-3">
                           <Button
                             onClick={() => router.push('/brand/influencers')}
                             variant="outline"
-                            className="w-full"
+                            className="flex-1 border-blue-200 text-blue-700 hover:bg-blue-50 hover:border-blue-300"
                           >
-                            Go to Influencer Search
+                            <HiUsers className="w-4 h-4 mr-2" />
+                            Browse Influencers
+                          </Button>
+                          <Button
+                            onClick={() => router.push('/brand/campaigns')}
+                            variant="outline"
+                            className="flex-1 border-gray-200 text-gray-700 hover:bg-gray-50"
+                          >
+                            <HiEye className="w-4 h-4 mr-2" />
+                            View Campaigns
                           </Button>
                         </div>
-                      </CardContent>
-                    </Card>
-                  </div>
+                      </div>
+                    </div>
 
-                  <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                    <h4 className="font-medium text-yellow-800 mb-2">Ready to Launch?</h4>
-                    <p className="text-sm text-yellow-700">
-                      Once you create this campaign, you'll be able to search and invite influencers from the Influencers page. 
-                      Make sure all details are correct before proceeding.
-                    </p>
+                    {/* Campaign Stats Preview */}
+                    <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                      <div className="bg-gradient-to-r from-orange-50 to-red-50 px-6 py-4 border-b border-gray-200">
+                        <h4 className="text-lg font-semibold text-orange-900 flex items-center gap-2">
+                          <HiCog6Tooth className="w-5 h-5" />
+                          Campaign Settings
+                        </h4>
+                      </div>
+                      <div className="p-6 space-y-4">
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="bg-gray-50 rounded-lg p-3 text-center">
+                            <p className="text-xs text-gray-500 mb-1">Deal Type</p>
+                            <p className="text-sm font-semibold text-gray-900 capitalize">{campaignData.deal_type}</p>
+                          </div>
+                          <div className="bg-gray-50 rounded-lg p-3 text-center">
+                            <p className="text-xs text-gray-500 mb-1">Influencers</p>
+                            <p className="text-sm font-semibold text-gray-900">{campaignData.target_influencers}</p>
+                          </div>
+                        </div>
+                        
+                        <div className="bg-gray-50 rounded-lg p-3">
+                          <p className="text-xs text-gray-500 mb-1">Content Requirements</p>
+                          <p className="text-sm text-gray-900 line-clamp-2">
+                            {campaignData.content_requirements || 'No specific requirements set'}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Launch Warning */}
+                <div className="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-xl p-6">
+                  <div className="flex items-start gap-4">
+                    <div className="w-8 h-8 bg-amber-100 rounded-full flex items-center justify-center flex-shrink-0">
+                      <HiExclamationTriangle className="w-4 h-4 text-amber-600" />
+                    </div>
+                    <div>
+                      <h4 className="font-semibold text-amber-900 mb-2">Ready to Launch Your Campaign?</h4>
+                      <p className="text-sm text-amber-700 mb-3">
+                        Please review all the details above carefully. Once you create this campaign, it will be visible to influencers and you can start the invitation process. 
+                        Make sure all information is accurate before proceeding.
+                      </p>
+                      <div className="flex items-center gap-2 text-xs text-amber-600">
+                        <HiCheck className="w-3 h-3" />
+                        <span>Campaign will be active immediately after creation</span>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>

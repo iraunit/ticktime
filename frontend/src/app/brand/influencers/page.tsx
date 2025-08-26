@@ -184,13 +184,6 @@ const columnConfig = {
   actions: { key: 'actions', label: 'Actions', visible: true, sortable: false }
 };
 
-const categoryOptions = [
-  "Fashion", "Beauty", "Fitness", "Health", "Food", "Cooking", "Travel", 
-  "Lifestyle", "Technology", "Gaming", "Music", "Dance", "Comedy", 
-  "Education", "Business", "Finance", "Parenting", "Pets", "Sports", 
-  "Art", "Photography", "Entertainment", "News", "Politics", "Other"
-];
-
 const followerRanges = [
   { label: "All Followers", min: 0, max: 999999999 },
   { label: "1K - 10K", min: 1000, max: 10000 },
@@ -244,6 +237,7 @@ export default function InfluencerSearchPage() {
   const [genderFilter, setGenderFilter] = useState("All");
   const [followerRange, setFollowerRange] = useState("All Followers");
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [categoryOptions, setCategoryOptions] = useState<string[]>([]);
   const [selectedIndustry, setSelectedIndustry] = useState("All");
   const [sortBy, setSortBy] = useState("followers");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
@@ -472,6 +466,20 @@ export default function InfluencerSearchPage() {
   };
 
   useEffect(() => {
+    // Load canonical categories from backend
+    api.get('/common/categories/').then(res => {
+      const cats = (res.data?.categories || []).map((c: any) => c.name);
+      setCategoryOptions(cats);
+    }).catch(() => {});
+    
+    // Initialize from query params (e.g., categories=cat1,cat2)
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const cats = params.get('categories');
+      if (cats) {
+        setSelectedCategories(cats.split(',').filter(Boolean));
+      }
+    } catch {}
     setPage(1);
     fetchInfluencers(1, false);
   }, [fetchInfluencers]);
