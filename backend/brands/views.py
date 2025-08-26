@@ -316,13 +316,44 @@ def brand_campaigns_view(request):
     elif status_filter == 'expired':
         campaigns = campaigns.filter(application_deadline__lt=timezone.now())
 
+    # Additional filters
+    deal_type = request.GET.get('deal_type')
+    if deal_type:
+        campaigns = campaigns.filter(deal_type=deal_type)
+
+    platform = request.GET.get('platform')
+    if platform:
+        try:
+            # JSONField contains lookup for list membership
+            campaigns = campaigns.filter(platforms_required__contains=[platform])
+        except Exception:
+            pass
+
+
+
     # Apply ordering
+    # Campaign live date filters for upcoming/past
+    campaign_live_date_gt = request.GET.get('campaign_live_date__gt')
+    if campaign_live_date_gt:
+        try:
+            campaigns = campaigns.filter(campaign_live_date__gt=campaign_live_date_gt)
+        except ValueError:
+            pass
+
+    campaign_live_date_lt = request.GET.get('campaign_live_date__lt')
+    if campaign_live_date_lt:
+        try:
+            campaigns = campaigns.filter(campaign_live_date__lt=campaign_live_date_lt)
+        except ValueError:
+            pass
+
     ordering = request.GET.get('ordering', '-created_at')
     valid_ordering_fields = [
         'created_at', '-created_at',
         'title', '-title',
         'application_deadline', '-application_deadline',
-        'cash_amount', '-cash_amount'
+        'cash_amount', '-cash_amount',
+        'target_influencers', '-target_influencers'
     ]
     if ordering in valid_ordering_fields:
         campaigns = campaigns.order_by(ordering)

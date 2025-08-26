@@ -11,17 +11,31 @@ import {
   HiMagnifyingGlass, 
   HiPlus, 
   HiEye,
-  HiPencilSquare,
-  HiTrash,
   HiArrowPath,
   HiCalendarDays,
   HiUsers,
   HiBanknotes,
-  HiCheckCircle,
-  HiClock,
-  HiExclamationTriangle,
-  HiXMark
+  HiXMark,
+  HiChevronDown, HiExclamationTriangle
 } from "react-icons/hi2";
+import { FaYoutube, FaInstagram, FaTiktok, FaTwitter, FaLinkedin } from "react-icons/fa";
+
+// Real platform icons with brand colors (same as create page)
+const platformConfig = {
+  youtube: { icon: FaYoutube, color: "text-red-600", bg: "bg-red-50", border: "border-red-200", gradient: "from-red-500 to-red-600" },
+  instagram: { icon: FaInstagram, color: "text-pink-600", bg: "bg-pink-50", border: "border-pink-200", gradient: "from-pink-500 to-purple-500" },
+  tiktok: { icon: FaTiktok, color: "text-gray-800", bg: "bg-gray-50", border: "border-gray-200", gradient: "from-gray-800 to-gray-900" },
+  twitter: { icon: FaTwitter, color: "text-blue-500", bg: "bg-blue-50", border: "border-blue-200", gradient: "from-blue-400 to-blue-500" },
+  linkedin: { icon: FaLinkedin, color: "text-blue-700", bg: "bg-blue-50", border: "border-blue-200", gradient: "from-blue-700 to-blue-800" },
+} as const;
+
+const platformDisplayNames: Record<string, string> = {
+  youtube: 'YouTube',
+  instagram: 'Instagram',
+  tiktok: 'TikTok',
+  twitter: 'Twitter',
+  linkedin: 'LinkedIn',
+};
 import { api } from "@/lib/api";
 import { toast } from "@/lib/toast";
 import { GlobalLoader } from "@/components/ui/global-loader";
@@ -37,6 +51,7 @@ interface Campaign {
   total_value: number;
   product_name: string;
   application_deadline: string;
+  campaign_live_date: string;
   campaign_start_date: string;
   campaign_end_date: string;
   is_active: boolean;
@@ -46,6 +61,7 @@ interface Campaign {
   brand_name: string;
   platforms_required: string[];
   content_count: number;
+  target_influencers?: number;
 }
 
 export default function BrandCampaignsPage() {
@@ -53,28 +69,61 @@ export default function BrandCampaignsPage() {
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
+  const [campaignTime, setCampaignTime] = useState("all"); // all, upcoming, past
   const [sortBy, setSortBy] = useState("created_at_desc");
-  const [debugInfo, setDebugInfo] = useState<any>(null);
 
-  const fetchCampaigns = async () => {
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [dealType, setDealType] = useState<string>("all");
+  const [platform, setPlatform] = useState<string>("all");
+
+  const fetchCampaigns = async (pageNum: number = 1, append: boolean = false) => {
     setIsLoading(true);
     try {
       console.log('Fetching campaigns...');
+      const orderingMap: Record<string, string> = {
+        created_at_desc: '-created_at',
+        created_at_asc: 'created_at',
+        title_asc: 'title',
+        title_desc: '-title',
+        application_deadline_asc: 'application_deadline',
+        total_budget_desc: '-cash_amount',
+        total_budget_asc: 'cash_amount',
+        influencers_desc: '-target_influencers',
+        influencers_asc: 'target_influencers',
+      };
       const response = await api.get('/brands/campaigns/', {
         params: {
           search: searchTerm || undefined,
-          status: statusFilter !== 'all' ? statusFilter : undefined,
-          ordering: sortBy,
+          // Use campaign_live_date for upcoming/past logic instead of status
+          ...(campaignTime === 'upcoming' ? { campaign_live_date__gt: new Date().toISOString() } : {}),
+          ...(campaignTime === 'past' ? { campaign_live_date__lt: new Date().toISOString() } : {}),
+          ordering: orderingMap[sortBy] || '-created_at',
+          page: pageNum,
+          page_size: 20,
+          deal_type: dealType !== 'all' ? dealType : undefined,
+          platform: platform !== 'all' ? platform : undefined,
         }
       });
       console.log('Campaigns response:', response.data);
-      setCampaigns(response.data.campaigns || []);
-      setDebugInfo(response.data);
+      const next = response.data.campaigns || [];
+      setCampaigns(prev => append ? prev.concat(next) : next);
+      const pg = response.data.pagination || { current_page: 1, total_pages: 1, total_count: next.length };
+      setPage(pg.current_page || 1);
+      setTotalPages(pg.total_pages || 1);
+      setTotalCount(pg.total_count || next.length);
+
     } catch (error) {
       console.error('Failed to fetch campaigns:', error);
       toast.error('Failed to load campaigns. Please try again.');
+      if (!append) {
       setCampaigns([]);
+        setPage(1);
+        setTotalPages(1);
+        setTotalCount(0);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -82,11 +131,12 @@ export default function BrandCampaignsPage() {
 
   useEffect(() => {
     const timeoutId = setTimeout(() => {
-      fetchCampaigns();
+      setPage(1);
+      fetchCampaigns(1, false);
     }, searchTerm ? 500 : 0); // Debounce search by 500ms, instant for filters
 
     return () => clearTimeout(timeoutId);
-  }, [searchTerm, statusFilter, sortBy]);
+  }, [searchTerm, campaignTime, sortBy, dealType, platform]);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat("en-IN", {
@@ -115,47 +165,14 @@ export default function BrandCampaignsPage() {
 
   const clearFilters = () => {
     setSearchTerm("");
-    setStatusFilter("all");
+    setCampaignTime("all");
     setSortBy("created_at_desc");
+    setPage(1);
+    setDealType('all');
+    setPlatform('all');
   };
 
-  const hasActiveFilters = searchTerm !== "" || statusFilter !== "all" || sortBy !== "created_at_desc";
-
-  const createTestCampaign = async () => {
-    try {
-      const testCampaign = {
-        title: "Test Campaign",
-        description: "This is a test campaign for development",
-        objectives: "Test objectives for development",
-        deal_type: "cash",
-        cash_amount: 1000,
-        product_value: 0,
-        total_value: 1000,
-        product_name: "Test Product",
-        product_description: "A test product for development",
-        product_quantity: 1,
-        platforms_required: ["instagram", "youtube"],
-        content_requirements: "Test content requirements",
-        content_count: 1,
-        special_instructions: "Test instructions",
-        application_deadline: "2024-12-31T23:59:59Z",
-        content_creation_start: "2024-01-01T00:00:00Z",
-        content_creation_end: "2024-01-31T23:59:59Z",
-        submission_deadline: "2024-01-31T23:59:59Z",
-        campaign_start_date: "2024-02-01T00:00:00Z",
-        campaign_end_date: "2024-02-28T23:59:59Z"
-      };
-
-      const response = await api.post('/brands/campaigns/', testCampaign);
-      if (response.data.status === 'success') {
-        toast.success('Test campaign created successfully!');
-        fetchCampaigns();
-      }
-    } catch (error: any) {
-      console.error('Failed to create test campaign:', error);
-      toast.error('Failed to create test campaign. Please try again.');
-    }
-  };
+  const hasActiveFilters = searchTerm !== "" || campaignTime !== "all" || sortBy !== "created_at_desc" || dealType !== "all" || platform !== "all";
 
   return (
     <div className="min-h-screen">
@@ -178,7 +195,7 @@ export default function BrandCampaignsPage() {
               <div className="text-right hidden sm:block">
                 <p className="text-xs text-gray-500">Total Campaigns</p>
                 <p className="text-xs font-medium text-gray-700">
-                  {campaigns.length} campaigns
+                  {totalCount} campaigns
                 </p>
               </div>
               <Button 
@@ -219,20 +236,17 @@ export default function BrandCampaignsPage() {
 
             {/* Filters */}
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-              <div className="flex items-center gap-4">
+              <div className="flex flex-wrap items-center gap-4">
                 <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium text-gray-700">Status:</span>
-                  <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <span className="text-sm font-medium text-gray-700">Timeline:</span>
+                  <Select value={campaignTime} onValueChange={setCampaignTime}>
                     <SelectTrigger className="w-40 border-gray-200">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">All Status</SelectItem>
-                      <SelectItem value="draft">Draft</SelectItem>
-                      <SelectItem value="active">Active</SelectItem>
-                      <SelectItem value="paused">Paused</SelectItem>
-                      <SelectItem value="completed">Completed</SelectItem>
-                      <SelectItem value="cancelled">Cancelled</SelectItem>
+                      <SelectItem value="all">All Campaigns</SelectItem>
+                      <SelectItem value="upcoming">🚀 Upcoming</SelectItem>
+                      <SelectItem value="past">📅 Past</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -251,9 +265,45 @@ export default function BrandCampaignsPage() {
                       <SelectItem value="application_deadline_asc">Deadline Soon</SelectItem>
                       <SelectItem value="total_budget_desc">Highest Budget</SelectItem>
                       <SelectItem value="total_budget_asc">Lowest Budget</SelectItem>
+                      <SelectItem value="influencers_desc">Most Influencers</SelectItem>
+                      <SelectItem value="influencers_asc">Least Influencers</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
+
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-gray-700">Type:</span>
+                  <Select value={dealType} onValueChange={setDealType}>
+                    <SelectTrigger className="w-40 border-gray-200">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Types</SelectItem>
+                      <SelectItem value="cash">💰 Cash Payment</SelectItem>
+                      <SelectItem value="product">🎁 Barter Only</SelectItem>
+                      <SelectItem value="hybrid">💰🎁 Cash + Barter</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-gray-700">Platform:</span>
+                  <Select value={platform} onValueChange={setPlatform}>
+                    <SelectTrigger className="w-44 border-gray-200">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Platforms</SelectItem>
+                      <SelectItem value="youtube">🔴 YouTube</SelectItem>
+                      <SelectItem value="instagram">📸 Instagram</SelectItem>
+                      <SelectItem value="tiktok">🎵 TikTok</SelectItem>
+                      <SelectItem value="twitter">🐦 Twitter</SelectItem>
+                      <SelectItem value="linkedin">💼 LinkedIn</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+
               </div>
               
               {hasActiveFilters && (
@@ -285,141 +335,107 @@ export default function BrandCampaignsPage() {
           <div className="space-y-6">
             {campaigns.map((campaign) => {
               const daysUntilDeadline = getDaysUntilDeadline(campaign.application_deadline);
-              const isUrgent = daysUntilDeadline <= 3 && daysUntilDeadline > 0;
-              const isExpired = daysUntilDeadline < 0;
 
               return (
                 <Card 
                   key={campaign.id}
-                  className="p-6 bg-gradient-to-br from-white via-white to-gray-50 border border-gray-200 shadow-md hover:shadow-lg transition-all duration-200"
+                  className="p-5 bg-gradient-to-br from-white to-gray-50/50 border border-gray-200 shadow-sm hover:shadow-lg transition-all duration-300 rounded-xl"
                 >
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-2">
+                      <div className="flex items-center gap-3 mb-1">
                         <h3 className="text-xl font-bold text-gray-900">{campaign.title}</h3>
-                        <Badge 
-                          variant="default"
-                          className={`text-xs ${
-                            campaign.is_active && !campaign.is_expired ? 'bg-green-100 text-green-800' :
-                            campaign.is_expired ? 'bg-red-100 text-red-800' :
-                            'bg-gray-100 text-gray-800'
-                          }`}
-                        >
-                          {campaign.is_active && !campaign.is_expired ? 'Active' :
-                           campaign.is_expired ? 'Expired' : 'Inactive'}
-                        </Badge>
-                        {isUrgent && (
-                          <Badge className="bg-orange-100 text-orange-800 text-xs">
-                            <HiExclamationTriangle className="w-3 h-3 mr-1" />
-                            Deadline Soon
-                          </Badge>
-                        )}
-                        {isExpired && (
-                          <Badge className="bg-red-100 text-red-800 text-xs">
-                            <HiXMark className="w-3 h-3 mr-1" />
-                            Expired
-                          </Badge>
-                        )}
+                        <div className="flex gap-1">
+                          {daysUntilDeadline <= 3 && daysUntilDeadline > 0 && (
+                            <Badge className="bg-orange-100 text-orange-700 text-xs animate-pulse">
+                              ⚡ {daysUntilDeadline}d left
+                            </Badge>
+                          )}
+                          {(() => {
+                            const isUpcoming = campaign.campaign_live_date && new Date(campaign.campaign_live_date) > new Date();
+                            const isPast = campaign.campaign_live_date && new Date(campaign.campaign_live_date) < new Date();
+                            if (isUpcoming) return <Badge className="bg-blue-100 text-blue-800 text-xs">🚀 Upcoming</Badge>;
+                            if (isPast) return <Badge className="bg-gray-100 text-gray-800 text-xs">📅 Past</Badge>;
+                            return <Badge className="bg-green-100 text-green-800 text-xs">✨ Live</Badge>;
+                          })()}
+                        </div>
                       </div>
-                      <p className="text-gray-600 mb-3 line-clamp-2">{campaign.description}</p>
+                      <p className="text-gray-600 mb-3 line-clamp-2 leading-relaxed">{campaign.description}</p>
                       
-                      {/* Campaign Info */}
-                      <div className="flex flex-wrap items-center gap-4 text-sm text-gray-500">
-                        <div className="flex items-center gap-1">
-                          <HiCalendarDays className="w-4 h-4" />
-                          Deadline: {formatDate(campaign.application_deadline)}
+                      {/* Live Date Info (if available) */}
+                      {campaign.campaign_live_date && (
+                        <div className="text-sm text-gray-600">
+                          <span className="inline-flex items-center gap-1.5 font-medium">
+                            <HiCalendarDays className="w-4 h-4 text-indigo-500" /> 
+                            Goes Live: {formatDate(campaign.campaign_live_date)}
+                          </span>
                         </div>
-                        <div className="flex items-center gap-1">
-                          <HiBanknotes className="w-4 h-4" />
-                          Budget: {formatCurrency(campaign.total_value)}
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <HiUsers className="w-4 h-4" />
-                          {campaign.content_count || 0} content pieces
-                        </div>
-                      </div>
+                      )}
                     </div>
 
                     <div className="flex items-center gap-2 ml-4">
                       <Button 
                         variant="ghost" 
                         size="sm" 
-                        className="hover:bg-blue-50 hover:text-blue-600"
+                        className="hover:bg-blue-50 hover:text-blue-600 rounded-lg"
                         onClick={() => router.push(`/brand/campaigns/${campaign.id}`)}
                       >
                         <HiEye className="w-4 h-4" />
                       </Button>
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
-                        className="hover:bg-green-50 hover:text-green-600"
-                        onClick={() => router.push(`/brand/campaigns/${campaign.id}`)}
-                      >
-                        <HiPencilSquare className="w-4 h-4" />
-                      </Button>
                     </div>
                   </div>
 
-                  {/* Campaign Stats */}
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <div className="bg-gradient-to-br from-red-50 to-orange-50 p-4 rounded-lg">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-xs text-gray-500 mb-1">Total Budget</p>
-                          <p className="text-lg font-bold text-red-600">{formatCurrency(campaign.total_value)}</p>
-                        </div>
-                        <HiBanknotes className="w-8 h-8 text-red-500" />
-                      </div>
+                  {/* Compact Stats */}
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+                    <div className="rounded-lg p-3 bg-gradient-to-br from-emerald-50 to-green-50 border border-green-200/50">
+                      <p className="text-xs font-medium text-emerald-700 mb-1">💰 Budget</p>
+                      <p className="text-lg font-bold text-emerald-800">{formatCurrency(campaign.total_value)}</p>
                     </div>
-
-                    <div className="bg-gradient-to-br from-green-50 to-emerald-50 p-4 rounded-lg">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-xs text-gray-500 mb-1">Content Count</p>
-                          <p className="text-lg font-bold text-green-600">{campaign.content_count || 0}</p>
-                        </div>
-                        <HiUsers className="w-8 h-8 text-green-500" />
-                      </div>
+                    <div className="rounded-lg p-3 bg-gradient-to-br from-purple-50 to-indigo-50 border border-purple-200/50">
+                      <p className="text-xs font-medium text-purple-700 mb-1">👥 Influencers</p>
+                      <p className="text-lg font-bold text-purple-800">{campaign.target_influencers ?? 0}</p>
                     </div>
-
-                    <div className="bg-gradient-to-br from-orange-50 to-red-50 p-4 rounded-lg">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-xs text-gray-500 mb-1">Deal Type</p>
-                          <p className="text-lg font-bold text-orange-600">{campaign.deal_type_display}</p>
-                        </div>
-                        <HiCheckCircle className="w-8 h-8 text-orange-500" />
-                      </div>
+                    <div className="rounded-lg p-3 bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-200/50">
+                      <p className="text-xs font-medium text-amber-700 mb-1">🤝 Deal Type</p>
+                      <p className="text-sm font-bold text-amber-800">{campaign.deal_type_display}</p>
                     </div>
-
-                    <div className="bg-gradient-to-br from-yellow-50 to-orange-50 p-4 rounded-lg">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-xs text-gray-500 mb-1">Status</p>
-                          <p className="text-lg font-bold text-orange-600">
-                            {campaign.is_active && !campaign.is_expired ? 'Active' :
-                             campaign.is_expired ? 'Expired' : 'Inactive'}
-                          </p>
-                        </div>
-                        <HiClock className="w-8 h-8 text-orange-500" />
-                      </div>
+                    <div className="rounded-lg p-3 bg-gradient-to-br from-blue-50 to-cyan-50 border border-blue-200/50">
+                      <p className="text-xs font-medium text-blue-700 mb-1">📅 Deadline</p>
+                      <p className="text-sm font-bold text-blue-800">{formatDate(campaign.application_deadline)}</p>
                     </div>
                   </div>
 
                   {/* Platform Requirements */}
-                  <div className="mt-4 pt-4 border-t border-gray-100">
-                    <div className="flex flex-wrap items-center gap-2">
+                  <div className="flex items-center gap-3">
                       <span className="text-sm font-medium text-gray-700">Platforms:</span>
-                      {campaign.platforms_required?.map((platform: string, index: number) => (
-                        <Badge key={index} variant="outline" className="text-xs">
-                          {platform}
-                        </Badge>
-                      )) || <span className="text-sm text-gray-500">Not specified</span>}
+                    <div className="flex gap-1">
+                      {(campaign.platforms_required || []).map((platformId, i) => {
+                        const config = platformConfig[platformId as keyof typeof platformConfig];
+                        if (!config) return <Badge key={`${platformId}-${i}`} variant="outline" className="text-xs px-1">{platformId}</Badge>;
+                        
+                        const Icon = config.icon;
+                        return (
+                          <div key={`${platformId}-${i}`} 
+                               className={`w-8 h-8 rounded-lg flex items-center justify-center ${config.bg} ${config.border} border hover:scale-110 transition-transform`}
+                               title={platformDisplayNames[platformId] || platformId}>
+                            <Icon className={`w-4 h-4 ${config.color}`} />
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                 </Card>
               );
             })}
+
+            {/* Load More */}
+            {page < totalPages && (
+              <div className="flex justify-center">
+                <Button onClick={() => { setIsLoadingMore(true); fetchCampaigns(page + 1, true).finally(() => setIsLoadingMore(false)); }} disabled={isLoadingMore} className="bg-white border border-gray-300 text-gray-800 hover:bg-gray-50">
+                  <HiChevronDown className="w-4 h-4 mr-1" /> {isLoadingMore ? 'Loading…' : 'Load More'}
+                </Button>
+              </div>
+            )}
           </div>
         )}
 
@@ -443,39 +459,14 @@ export default function BrandCampaignsPage() {
             )}
             <Button 
               onClick={() => router.push('/brand/campaigns/create')}
-              className="bg-gradient-to-r from-red-500 to-orange-600 hover:from-red-600 hover:to-orange-700 text-white"
+              className="bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white"
             >
               <HiPlus className="w-4 h-4 mr-2" />
-              Create First Campaign
-            </Button>
-            <Button 
-              variant="outline"
-              onClick={fetchCampaigns}
-              className="border-blue-200 text-blue-700 hover:bg-blue-50"
-            >
-              <HiArrowPath className="w-4 h-4 mr-2" />
-              Refresh
-            </Button>
-            <Button 
-              variant="outline"
-              onClick={createTestCampaign}
-              className="border-green-200 text-green-700 hover:bg-green-50"
-            >
-              <HiPlus className="w-4 h-4 mr-2" />
-              Create Test Campaign
+              Create Campaign
             </Button>
           </div>
         </div>
         
-        {/* Debug Information */}
-        {debugInfo && (
-          <div className="mt-4 p-4 bg-gray-100 rounded-lg">
-            <h4 className="text-sm font-medium text-gray-700 mb-2">Debug Information:</h4>
-            <pre className="text-xs text-gray-600 overflow-auto">
-              {JSON.stringify(debugInfo, null, 2)}
-            </pre>
-          </div>
-        )}
       </Card>
     )}
       </div>

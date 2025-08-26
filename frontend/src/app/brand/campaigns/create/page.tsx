@@ -215,12 +215,12 @@ export default function CreateCampaignPage() {
         if (campaignData.deal_type === 'cash' && (!campaignData.cash_amount || campaignData.cash_amount <= 0)) {
           missingFields2.push('Cash Amount (must be greater than 0)');
         } else if (campaignData.deal_type === 'product' && (!campaignData.products || campaignData.products.length === 0)) {
-          missingFields2.push('At least one product is required for barter deals.');
+          missingFields2.push('At least one barter item is required for barter deals.');
         } else if (campaignData.deal_type === 'hybrid') {
           const hasCash = campaignData.cash_amount && campaignData.cash_amount > 0;
           const hasProducts = campaignData.products && campaignData.products.length > 0;
           if (!hasCash && !hasProducts) {
-            missingFields2.push('Either cash amount or at least one product is required for hybrid deals.');
+            missingFields2.push('Either cash amount or at least one barter item is required for hybrid deals.');
           }
         }
         
@@ -459,13 +459,13 @@ export default function CreateCampaignPage() {
       }
     } else if (campaignData.deal_type === 'product') {
       if (!campaignData.products || campaignData.products.length === 0) {
-        errors.push('At least one product is required for barter deals.');
+        errors.push('At least one barter item is required for barter deals.');
       }
     } else if (campaignData.deal_type === 'hybrid') {
       const hasCash = campaignData.cash_amount && campaignData.cash_amount > 0;
       const hasProducts = campaignData.products && campaignData.products.length > 0;
       if (!hasCash && !hasProducts) {
-        errors.push('Either cash amount or at least one product is required for hybrid deals.');
+        errors.push('Either cash amount or at least one barter item is required for hybrid deals.');
       }
     }
     
@@ -1452,10 +1452,6 @@ export default function CreateCampaignPage() {
                         Please review all the details above carefully. Once you create this campaign, it will be visible to influencers and you can start the invitation process. 
                         Make sure all information is accurate before proceeding.
                       </p>
-                      <div className="flex items-center gap-2 text-xs text-amber-600">
-                        <HiCheck className="w-3 h-3" />
-                        <span>Campaign will be active immediately after creation</span>
-                      </div>
                     </div>
                   </div>
                 </div>
