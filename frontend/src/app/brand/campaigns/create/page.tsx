@@ -126,7 +126,8 @@ export default function CreateCampaignPage() {
   const [currentStep, setCurrentStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formErrors, setFormErrors] = useState<string[]>([]);
-  const [industries, setIndustries] = useState<Array<{ key: string; name: string }>>([]);
+  const [industries, setIndustries] = useState<Array<{ id: number; key: string; name: string }>>([]);
+  const [selectedIndustries, setSelectedIndustries] = useState<string[]>([]);
   
   // Campaign form data
   const [campaignData, setCampaignData] = useState<CampaignData>({
@@ -172,6 +173,16 @@ export default function CreateCampaignPage() {
         ? prev.platforms_required.filter(p => p !== platform)
         : [...prev.platforms_required, platform]
     }));
+  };
+
+  const handleIndustryToggle = (industryKey: string) => {
+    setSelectedIndustries(prev => {
+      const exists = prev.includes(industryKey);
+      const next = exists ? prev.filter(k => k !== industryKey) : [...prev, industryKey];
+      // Keep legacy single field in sync with the first selected as primary
+      handleInputChange('industry', next[0] || '');
+      return next;
+    });
   };
 
   const validateStep = (step: number) => {
@@ -262,8 +273,12 @@ export default function CreateCampaignPage() {
     setFormErrors([]); // Clear previous errors
     
     try {
+      const primaryKey = selectedIndustries[0] || campaignData.industry;
+      const primaryId = industries.find((c) => c.key === primaryKey)?.id ?? primaryKey;
       const payload = {
         ...campaignData,
+        // Backend serializer accepts category id; avoids varchar(50) overflow
+        industry: primaryId,
         content_requirements: campaignData.content_requirements,
       };
 
@@ -271,7 +286,7 @@ export default function CreateCampaignPage() {
       
       toast.success('Campaign created successfully!');
       // Redirect to influencer search with selected industry pre-filtered
-      const ind = campaignData.industry;
+      const ind = selectedIndustries[0] || campaignData.industry;
       router.push(`/brand/influencers${ind ? `?industry=${encodeURIComponent(ind)}` : ''}`);
     } catch (error: any) {
       // Helper: always convert backend payload or ApiError into flat string messages
@@ -465,7 +480,7 @@ export default function CreateCampaignPage() {
         if (!campaignData.title?.trim()) errors.push('Campaign title is required.');
         if (!campaignData.description?.trim()) errors.push('Campaign description is required.');
         if (!campaignData.objectives?.trim()) errors.push('Campaign objectives are required.');
-        if (!campaignData.industry?.trim()) errors.push('Industry is required.');
+        if (!(selectedIndustries[0] || campaignData.industry)?.trim()) errors.push('Industry is required.');
         break;
         
       case 2:
@@ -718,23 +733,38 @@ export default function CreateCampaignPage() {
                     </div>
                   </div>
                   
-                  {/* Industry */}
+                  {/* Industries */}
                   <div className="space-y-2">
                     <label className="flex items-center gap-2 text-sm font-semibold text-gray-800">
                       <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></div>
-                      Industry
+                      Industries
                     </label>
-                    <Select value={campaignData.industry} onValueChange={(v) => handleInputChange('industry', v)}>
-                      <SelectTrigger className={`h-12 text-base border-2 ${getFieldError('industry') ? 'border-red-400 focus:border-red-500 focus:ring-red-100' : 'border-gray-200 focus:border-emerald-400 focus:ring-emerald-100'}`}>
-                        <SelectValue placeholder="Select industry" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {industries.map((i) => (
-                          <SelectItem key={i.key} value={i.key}>{i.name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <p className="text-xs text-gray-500">Choose the primary industry for this campaign</p>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+                      {industries.map((ind) => {
+                        const isActive = selectedIndustries.includes(ind.key);
+                        return (
+                          <button
+                            key={ind.key}
+                            onClick={() => handleIndustryToggle(ind.key)}
+                            className={`px-3 py-2 rounded-full text-sm border-2 transition-all text-left ${
+                              isActive
+                                ? 'border-transparent text-white shadow-md bg-gradient-to-br from-emerald-500 to-green-600'
+                                : 'border-gray-200 bg-white hover:border-gray-300'
+                            }`}
+                            aria-pressed={isActive}
+                          >
+                            {ind.name}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {getFieldError('industry') && (
+                      <p className="text-sm text-red-600 flex items-center gap-1">
+                        <HiXMark className="w-4 h-4" />
+                        {getFieldError('industry')}
+                      </p>
+                    )}
+                    <p className="text-xs text-gray-500">Select one or more industries. The first selected will be used as the primary.</p>
                   </div>
                 </div>
               </div>
@@ -1231,9 +1261,16 @@ export default function CreateCampaignPage() {
                             <p className="text-sm text-gray-500 mt-1">Primary industry for this campaign</p>
                           </div>
                           <div className="text-right">
-                            <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800 border border-gray-200">
-                              {industries.find(i => i.key === campaignData.industry)?.name || 'Not selected'}
-                            </span>
+                            <div className="flex gap-2 flex-wrap justify-end">
+                              {(selectedIndustries.length ? selectedIndustries : [campaignData.industry]).filter(Boolean).map((key) => (
+                                <span key={key} className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800 border border-gray-200">
+                                  {industries.find(i => i.key === key)?.name || key}
+                                </span>
+                              ))}
+                              {(!selectedIndustries.length && !campaignData.industry) && (
+                                <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800 border border-gray-200">Not selected</span>
+                              )}
+                            </div>
                           </div>
                         </div>
                       </div>
