@@ -69,10 +69,24 @@ class CampaignCreateSerializer(serializers.ModelSerializer):
                     "Provide cash_amount or at least one product for hybrid deals."
                 )
 
-        # Categories must be list of strings (keys)
+        # Categories can be list of strings (keys) or integers (IDs)
         if 'categories' in data and data['categories'] is not None:
-            if not isinstance(data['categories'], list) or not all(isinstance(c, str) for c in data['categories']):
-                raise serializers.ValidationError("Categories must be a list of strings.")
+            if not isinstance(data['categories'], list):
+                raise serializers.ValidationError("Categories must be a list.")
+            
+            # Handle empty list
+            if not data['categories']:
+                pass  # Empty list is fine
+            # Convert category IDs to keys if they are integers
+            elif all(isinstance(c, int) for c in data['categories']):
+                from common.models import Category
+                category_keys = list(Category.objects.filter(id__in=data['categories']).values_list('key', flat=True))
+                data['categories'] = category_keys
+            # Check if they are all strings
+            elif all(isinstance(c, str) for c in data['categories']):
+                pass  # Already strings (keys), no conversion needed
+            else:
+                raise serializers.ValidationError("Categories must be a list of strings (keys) or integers (IDs).")
 
         # Target influencers numeric
         if data.get('target_influencers') is not None and data['target_influencers'] < 1:
@@ -104,9 +118,23 @@ class CampaignCreateSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         from django.utils import timezone
         from datetime import timedelta
+        from common.models import Category
+        
+        # Extract categories before creating instance
+        category_keys = validated_data.pop('categories', [])
+        
         if not validated_data.get('submission_deadline'):
             validated_data['submission_deadline'] = timezone.now() + timedelta(days=7)
-        return super().create(validated_data)
+        
+        # Create the campaign instance
+        campaign = super().create(validated_data)
+        
+        # Set categories using keys
+        if category_keys:
+            categories = Category.objects.filter(key__in=category_keys)
+            campaign.categories.set(categories)
+        
+        return campaign
 
 
 class CampaignListSerializer(serializers.ModelSerializer):

@@ -149,15 +149,18 @@ api.interceptors.response.use(
       }
     }
 
-    const responseData = error.response?.data as Record<string, unknown>;
+    const responseData = error.response?.data as Record<string, any>;
     
-    // Backend now sends simple string error messages, so we don't need special handling
-    
+    // Normalize backend field errors (supports both `errors` and `details.field_errors`)
+    const fieldErrors = (responseData?.errors && typeof responseData.errors === 'object')
+      ? responseData.errors as Record<string, string[]>
+      : (responseData?.details?.field_errors as Record<string, string[]>) || undefined;
+
     const apiError: ApiError = {
       status: 'error',
       message: (responseData?.message as string) || getDefaultErrorMessage(error.response?.status),
       code: (responseData?.code as string) || `HTTP_${error.response?.status}`,
-      details: responseData?.details as ApiError['details']
+      details: { field_errors: fieldErrors }
     };
 
     return Promise.reject(apiError);

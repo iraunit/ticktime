@@ -39,7 +39,9 @@ import {
   HiLightBulb,
   HiCog6Tooth,
   HiClock,
-  HiArrowRight
+  HiArrowRight,
+  HiExclamationTriangle,
+  HiDocumentText
 } from "react-icons/hi2";
 import { 
   FaYoutube, 
@@ -83,6 +85,15 @@ const platformConfig = {
   linkedin: { icon: FaLinkedin, color: "text-blue-700", bg: "bg-blue-50", border: "border-blue-200", gradient: "from-blue-700 to-blue-800" },
 } as const;
 
+// Human-friendly display names for platforms
+const platformDisplayNames: Record<string, string> = {
+  youtube: 'YouTube',
+  instagram: 'Instagram',
+  tiktok: 'TikTok',
+  twitter: 'Twitter',
+  linkedin: 'LinkedIn',
+};
+
 const contentTypes = [
   'Instagram Post',
   'Instagram Story',
@@ -102,7 +113,7 @@ const contentTypes = [
 // Convert platformConfig to platforms array for mapping
 const platforms = Object.entries(platformConfig).map(([id, config]) => ({
   id,
-  name: id.charAt(0).toUpperCase() + id.slice(1),
+  name: platformDisplayNames[id as keyof typeof platformDisplayNames] || id.charAt(0).toUpperCase() + id.slice(1),
   icon: config.icon,
   color: config.color,
   bg: config.bg,
@@ -251,11 +262,25 @@ export default function CreateCampaignPage() {
     setFormErrors([]); // Clear previous errors
     
     try {
-      const response = await api.post('/campaigns/create/', {
+      // Send category IDs (PKs) - backend now handles both IDs and keys
+      const categoryIds = (campaignData.categories || [])
+        .map((key) => categories.find((c) => c.key === key)?.id)
+        .filter((id): id is number => typeof id === 'number');
+
+      const payload = {
         ...campaignData,
         // Convert content_requirements to string; backend converts to dict
         content_requirements: campaignData.content_requirements,
-      });
+        // If no category IDs found, send the keys instead
+        categories: categoryIds.length > 0 ? categoryIds : campaignData.categories,
+      };
+
+      console.log('Campaign payload being sent:', payload);
+      console.log('Available categories:', categories);
+      console.log('Selected category keys:', campaignData.categories);
+      console.log('Mapped category IDs:', categoryIds);
+
+      const response = await api.post('/campaigns/create/', payload);
       
       toast.success('Campaign created successfully!');
       // Redirect to influencer search with selected categories pre-filtered
@@ -263,63 +288,79 @@ export default function CreateCampaignPage() {
       router.push(`/brand/influencers${cats ? `?categories=${encodeURIComponent(cats)}` : ''}`);
     } catch (error: any) {
       console.error('Failed to create campaign:', error);
-      
-      // Handle different types of errors
-      if (error.response?.data?.errors) {
-        // Field-specific validation errors
-        const errorMessages: string[] = [];
-        Object.entries(error.response.data.errors).forEach(([field, messages]) => {
-          if (field === 'non_field_errors') {
-            // Handle non-field errors (general validation errors)
-            if (Array.isArray(messages)) {
-              errorMessages.push(...(messages as string[]));
-            } else {
-              errorMessages.push(String(messages));
+      console.error('Error response data:', error?.response?.data);
+      console.error('Error status:', error?.response?.status);
+      console.error('Error details:', error?.details);
+
+      // Helper: always convert backend payload or ApiError into flat string messages
+      const normalizeErrorMessages = (err: any): string[] => {
+        const messages: string[] = [];
+        if (!err) return messages;
+
+        // ApiError from our interceptor
+        if (typeof err === 'object' && 'message' in err && typeof err.message === 'string') {
+          if (err.message) messages.push(err.message);
+        }
+
+        // Axios error with response
+        const data = err?.response?.data || err?.data || err;
+        const dig = (payload: any, prefix?: string) => {
+          if (!payload) return;
+          if (typeof payload === 'string') {
+            messages.push(prefix ? `${prefix}: ${payload}` : payload);
+            return;
+          }
+          if (Array.isArray(payload)) {
+            payload.forEach((item) => dig(item, prefix));
+            return;
+          }
+          if (typeof payload === 'object') {
+            if (typeof payload.message === 'string') messages.push(payload.message);
+            if (payload.errors && typeof payload.errors === 'object') {
+              Object.entries(payload.errors).forEach(([field, detail]) => dig(detail, field));
             }
-          } else {
-            // Handle field-specific errors
-            if (Array.isArray(messages)) {
-              errorMessages.push(`${field}: ${(messages as string[]).join(', ')}`);
-            } else {
-              errorMessages.push(`${field}: ${String(messages)}`);
+            if (payload.details && typeof payload.details === 'object') {
+              Object.entries(payload.details).forEach(([field, detail]) => dig(detail, field));
             }
           }
+        };
+        dig(data);
+
+        return messages.filter(Boolean);
+      };
+
+      let errorMessages: string[] = normalizeErrorMessages(error);
+
+      // Also read normalized field errors from our API interceptor shape
+      const fieldErrors = (error && typeof error === 'object' && 'details' in error && (error as any).details?.field_errors)
+        ? (error as any).details.field_errors as Record<string, string[]>
+        : undefined;
+      if (fieldErrors) {
+        Object.entries(fieldErrors).forEach(([field, msgs]) => {
+          (msgs || []).forEach((m) => errorMessages.push(`${field}: ${m}`));
         });
-        
-        if (errorMessages.length > 0) {
-          setFormErrors(errorMessages);
-          // Show each error as a separate toast
-          errorMessages.forEach(errorMsg => {
-            toast.error(errorMsg);
-          });
-        } else {
-          toast.error(error.response?.data?.message || 'Failed to create campaign.');
-        }
-      } else if (error.response?.data?.message) {
-        // General error message from backend
-        setFormErrors([error.response.data.message]);
-        toast.error(error.response.data.message);
-      } else if (error.response?.status === 403) {
-        const message = 'You do not have permission to create campaigns.';
-        setFormErrors([message]);
-        toast.error(message);
-      } else if (error.response?.status === 404) {
-        const message = 'Brand profile not found. Please complete your brand profile first.';
-        setFormErrors([message]);
-        toast.error(message);
-      } else if (error.response?.status === 500) {
-        const message = 'Server error. Please try again later.';
-        setFormErrors([message]);
-        toast.error(message);
-      } else if (error.code === 'NETWORK_ERROR' || error.message?.includes('Network Error')) {
-        const message = 'Network error. Please check your connection and try again.';
-        setFormErrors([message]);
-        toast.error(message);
-      } else {
-        const message = 'Failed to create campaign. Please try again.';
-        setFormErrors([message]);
-        toast.error(message);
       }
+
+      // Sensible fallbacks
+      if ((error as any)?.code === 'NETWORK_ERROR' || (error as any)?.message?.includes?.('Network')) {
+        errorMessages = ['Network error. Please check your connection and try again.'];
+      }
+
+      // Backend now handles both category IDs and keys, so no retry needed
+      if (errorMessages.length === 0) {
+        errorMessages = ['Failed to create campaign. Please try again.'];
+      }
+
+          setFormErrors(errorMessages);
+      
+      // Force show toasts even if extraction failed
+      if (errorMessages.length === 0) {
+        toast.error('Campaign creation failed. Please check the form and try again.');
+        } else {
+        errorMessages.forEach((msg) => toast.error(`${msg} Please fix and try again.`));
+      }
+      
+      console.log('Final error messages being shown:', errorMessages);
     } finally {
       setIsSubmitting(false);
     }
@@ -732,48 +773,77 @@ export default function CreateCampaignPage() {
 
             {/* Step 2: Deal Structure */}
             {currentStep === 2 && (
-              <div className="space-y-4">
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-3">Deal Structure & Requirements</h3>
-                  
-                  {/* Deal Type Selection */}
-                  <div className="mb-3">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Compensation Type
-                    </label>
-                    <div className="grid grid-cols-3 gap-3">
-                      {[
-                        { id: 'cash', label: 'Cash Payment', icon: HiCurrencyDollar },
-                        { id: 'product', label: 'Barter', icon: HiGift },
-                        { id: 'hybrid', label: 'Cash + Product', icon: HiPlus }
-                      ].map((type) => (
-                        <button key={type.id} onClick={() => handleInputChange('deal_type', type.id)} className={`p-3 border-2 rounded-lg flex flex-col items-center gap-1 transition-colors ${campaignData.deal_type === type.id ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-200 hover:border-gray-300'}`}>
+              <div className="space-y-6">
+                {/* Section Header */}
+                <div className="text-center">
+                  <div className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-200 rounded-full mb-3">
+                    <HiCurrencyDollar className="w-4 h-4 text-indigo-600" />
+                    <span className="text-sm font-medium text-indigo-700">Deal Structure & Requirements</span>
+                  </div>
+                  <p className="text-gray-600">Choose compensation, platforms and the content expectations.</p>
+                </div>
+
+                {/* Compensation Type */}
+                <div className="space-y-3">
+                  <label className="block text-sm font-semibold text-gray-800">Compensation Type</label>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    {[
+                      { id: 'cash', label: 'Cash Payment', icon: HiCurrencyDollar, gradient: 'from-green-500 to-emerald-600' },
+                      { id: 'product', label: 'Barter', icon: HiGift, gradient: 'from-amber-500 to-orange-600' },
+                      { id: 'hybrid', label: 'Cash + Barter', icon: HiPlus, gradient: 'from-indigo-500 to-pink-600' }
+                    ].map((type) => {
+                      const isActive = campaignData.deal_type === type.id;
+                      return (
+                        <button
+                          key={type.id}
+                          onClick={() => handleInputChange('deal_type', type.id)}
+                          className={`relative p-4 rounded-xl border-2 transition-all text-left flex items-center gap-3 ${
+                            isActive
+                              ? `border-transparent text-white shadow-md bg-gradient-to-br ${type.gradient}`
+                              : 'border-gray-200 bg-white hover:border-gray-300'
+                          }`}
+                          aria-pressed={isActive}
+                        >
+                          <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${
+                            isActive ? 'bg-white/20 text-white' : 'bg-gray-50 text-gray-600'
+                          }`}>
                           <type.icon className="w-5 h-5" />
-                          <span className="text-sm font-medium">{type.label}</span>
+                          </div>
+                          <div>
+                            <p className={`font-semibold ${isActive ? 'text-white' : 'text-gray-800'}`}>{type.label}</p>
+                            {isActive && (
+                              <p className="text-xs opacity-90">Selected</p>
+                            )}
+                          </div>
                         </button>
-                      ))}
+                      );
+                    })}
                     </div>
                   </div>
 
                   {/* Compensation Details */}
                   {(campaignData.deal_type === 'cash' || campaignData.deal_type === 'hybrid') && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Cash Amount (INR)
-                        </label>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Cash Amount (INR)</label>
+                      <div className="relative">
                         <Input
                           type="number"
                           placeholder="Enter amount"
                           value={campaignData.cash_amount}
                           onChange={(e) => handleInputChange('cash_amount', parseFloat(e.target.value))}
+                          className="h-12 text-base pr-28"
                         />
+                        <div className="absolute right-2 top-1/2 -translate-y-1/2 text-sm px-2 py-1 rounded-md bg-gray-100 text-gray-700">
+                          {formatCurrency(Number(campaignData.cash_amount || 0))}
+                        </div>
+                      </div>
                       </div>
                     </div>
                   )}
 
                   {(campaignData.deal_type === 'product' || campaignData.deal_type === 'hybrid') && (
-                    <div className="space-y-4 mb-3">
+                  <div className="space-y-4">
                       <div className="flex items-center justify-between">
                         <h4 className="text-sm font-semibold text-gray-900">Barter Products</h4>
                         <Button size="sm" variant="outline" onClick={() => handleInputChange('products', [...campaignData.products, { name: '', description: '', value: 0, quantity: 1 }])}>
@@ -782,7 +852,7 @@ export default function CreateCampaignPage() {
                       </div>
                       <div className="space-y-2">
                         {campaignData.products.map((p, idx) => (
-                          <div key={idx} className="grid grid-cols-1 md:grid-cols-4 gap-2 border p-2 rounded-lg">
+                        <div key={idx} className="grid grid-cols-1 md:grid-cols-4 gap-2 border p-3 rounded-lg bg-white">
                             <div className="md:col-span-2">
                               <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
                               <Input value={p.name} onChange={(e) => { const next = [...campaignData.products]; next[idx] = { ...next[idx], name: e.target.value }; handleInputChange('products', next); }} placeholder="Product name" />
@@ -811,54 +881,55 @@ export default function CreateCampaignPage() {
                   )}
 
                   {/* Platform Selection */}
-                  <div className="mb-3">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Required Platforms *
-                    </label>
-                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2">
-                      {platforms.map((platform) => (
+                <div className="space-y-3">
+                  <label className="block text-sm font-semibold text-gray-800">Required Platforms *</label>
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+                    {platforms.map((platform) => {
+                      const isSelected = campaignData.platforms_required.includes(platform.id);
+                      return (
                         <button
                           key={platform.id}
                           onClick={() => handlePlatformToggle(platform.id)}
-                          className={`p-2 border-2 rounded-lg flex flex-col items-center gap-1 transition-colors ${
-                            campaignData.platforms_required.includes(platform.id)
-                              ? 'border-blue-500 bg-blue-50 text-blue-700'
-                              : 'border-gray-200 hover:border-gray-300'
+                          className={`relative p-3 rounded-xl border-2 flex flex-col items-center gap-1 transition-all overflow-hidden ${
+                            isSelected
+                              ? `border-transparent text-white shadow-md bg-gradient-to-br ${platform.gradient}`
+                              : `border-gray-200 ${platform.bg} hover:border-gray-300`
                           }`}
+                          aria-pressed={isSelected}
                         >
-                          <platform.icon className="w-4 h-4" />
-                          <span className="text-xs font-medium">{platform.name}</span>
+                          <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${isSelected ? 'bg-white/20' : 'bg-white'}`}>
+                            <platform.icon className={`w-5 h-5 ${isSelected ? 'text-white' : platform.color}`} />
+                          </div>
+                          <span className={`text-xs font-medium ${isSelected ? 'text-white' : 'text-gray-800'}`}>{platform.name}</span>
                         </button>
-                      ))}
+                      );
+                    })}
                     </div>
                   </div>
 
                   {/* Content Requirements */}
-
-
-                  <div className="space-y-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Content Requirements *
-                      </label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Content Requirements *</label>
                       <Textarea
                         placeholder="Describe the type of content, style, messaging, hashtags, etc."
                         value={campaignData.content_requirements}
                         onChange={(e) => handleInputChange('content_requirements', e.target.value)}
-                        className="h-20"
+                      className="h-24"
                       />
+                    <p className="text-xs text-gray-500 mt-1">Be as specific as possible to help creators deliver exactly what you want.</p>
                     </div>
-
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Special Instructions
-                      </label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Special Instructions</label>
                       <Textarea
                         placeholder="Any additional guidelines or requirements"
                         value={campaignData.special_instructions}
                         onChange={(e) => handleInputChange('special_instructions', e.target.value)}
-                        className="h-16"
+                      className="h-24"
                       />
+                    <div className="flex items-center gap-2 text-xs text-gray-500 mt-1">
+                      <HiExclamationTriangle className="w-3 h-3" />
+                      <span>Optional: add disclaimers, brand safety rules or review notes.</span>
                     </div>
                   </div>
                 </div>
@@ -1099,7 +1170,7 @@ export default function CreateCampaignPage() {
                       <HiSparkles className="w-5 h-5 text-white" />
                     </div>
                     <div>
-                      <h4 className="text-lg font-semibold text-gray-900">{campaignData.title || 'Untitled Campaign'}</h4>
+                      <h4 className="text-xl font-bold text-gray-900">{campaignData.title || 'Untitled Campaign'}</h4>
                       <p className="text-sm text-gray-600">Campaign Overview</p>
                     </div>
                   </div>
@@ -1132,7 +1203,11 @@ export default function CreateCampaignPage() {
                         <HiCurrencyDollar className="w-4 h-4 text-purple-500" />
                         <span className="text-sm font-medium text-gray-700">Deal Type</span>
                       </div>
-                      <p className="text-lg font-semibold text-gray-900 capitalize">{campaignData.deal_type}</p>
+                      <p className="text-lg font-semibold text-gray-900">
+                        {campaignData.deal_type === 'cash' && 'Cash'}
+                        {campaignData.deal_type === 'product' && 'Barter'}
+                        {campaignData.deal_type === 'hybrid' && 'Cash + Barter'}
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -1165,12 +1240,18 @@ export default function CreateCampaignPage() {
                             <p className="text-sm text-gray-500 mt-1">Where content will be published</p>
                           </div>
                           <div className="text-right">
-                            <div className="flex gap-1 flex-wrap justify-end">
-                              {campaignData.platforms_required.map(platform => (
-                                <Badge key={platform} variant="outline" className="text-xs">
-                                  {platform}
-                                </Badge>
-                              ))}
+                            <div className="flex gap-2 flex-wrap justify-end">
+                              {campaignData.platforms_required.map(pid => {
+                                const meta = platforms.find(p => p.id === pid);
+                                if (!meta) return null;
+                                const Icon = meta.icon as any;
+                                return (
+                                  <span key={pid} className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium border ${meta.border} ${meta.bg}`}>
+                                    <Icon className={`w-3.5 h-3.5 ${meta.color}`} />
+                                    <span>{meta.name}</span>
+                                  </span>
+                                );
+                              })}
                             </div>
                           </div>
                         </div>
@@ -1181,12 +1262,15 @@ export default function CreateCampaignPage() {
                             <p className="text-sm text-gray-500 mt-1">Content categories for this campaign</p>
                           </div>
                           <div className="text-right">
-                            <div className="flex gap-1 flex-wrap justify-end">
+                            <div className="flex gap-2 flex-wrap justify-end">
                               {campaignData.categories.length > 0 ? (
-                                campaignData.categories.map(key => (
-                                  <Badge key={key} variant="outline" className="text-xs">
-                                    {categories.find(c => c.key === key)?.name || key}
-                                  </Badge>
+                                campaignData.categories
+                                  .map(key => categories.find(c => c.key === key)?.name || key)
+                                  .sort((a, b) => a.localeCompare(b))
+                                  .map(name => (
+                                    <span key={name} className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800 border border-gray-200">
+                                      {name}
+                                    </span>
                                 ))
                               ) : (
                                 <span className="text-sm text-gray-400">None selected</span>
@@ -1282,7 +1366,7 @@ export default function CreateCampaignPage() {
                         
                         <div className="flex gap-3">
                           <Button
-                            onClick={() => router.push('/brand/influencers')}
+                            onClick={() => window.open('/brand/influencers', '_blank', 'noopener,noreferrer')}
                             variant="outline"
                             className="flex-1 border-blue-200 text-blue-700 hover:bg-blue-50 hover:border-blue-300"
                           >
@@ -1290,7 +1374,7 @@ export default function CreateCampaignPage() {
                             Browse Influencers
                           </Button>
                           <Button
-                            onClick={() => router.push('/brand/campaigns')}
+                            onClick={() => window.open('/brand/campaigns', '_blank', 'noopener,noreferrer')}
                             variant="outline"
                             className="flex-1 border-gray-200 text-gray-700 hover:bg-gray-50"
                           >
@@ -1301,7 +1385,7 @@ export default function CreateCampaignPage() {
                       </div>
                     </div>
 
-                    {/* Campaign Stats Preview */}
+                    {/* Campaign Stats Preview (Highlighted) */}
                     <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
                       <div className="bg-gradient-to-r from-orange-50 to-red-50 px-6 py-4 border-b border-gray-200">
                         <h4 className="text-lg font-semibold text-orange-900 flex items-center gap-2">
@@ -1310,20 +1394,49 @@ export default function CreateCampaignPage() {
                         </h4>
                       </div>
                       <div className="p-6 space-y-4">
-                        <div className="grid grid-cols-2 gap-4">
-                          <div className="bg-gray-50 rounded-lg p-3 text-center">
-                            <p className="text-xs text-gray-500 mb-1">Deal Type</p>
-                            <p className="text-sm font-semibold text-gray-900 capitalize">{campaignData.deal_type}</p>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          {/* Deal Type - gradient highlight */}
+                          <div className={`rounded-lg p-4 text-white bg-gradient-to-br ${
+                            campaignData.deal_type === 'cash'
+                              ? 'from-green-500 to-emerald-600'
+                              : campaignData.deal_type === 'product'
+                              ? 'from-amber-500 to-orange-600'
+                              : 'from-indigo-500 to-pink-600'
+                          }`}>
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <HiCurrencyDollar className="w-4 h-4" />
+                                <p className="text-xs opacity-90">Deal Type</p>
                           </div>
-                          <div className="bg-gray-50 rounded-lg p-3 text-center">
-                            <p className="text-xs text-gray-500 mb-1">Influencers</p>
-                            <p className="text-sm font-semibold text-gray-900">{campaignData.target_influencers}</p>
                           </div>
+                            <p className="mt-2 text-lg font-semibold">
+                              {campaignData.deal_type === 'cash' && 'Cash'}
+                              {campaignData.deal_type === 'product' && 'Barter'}
+                              {campaignData.deal_type === 'hybrid' && 'Cash + Barter'}
+                            </p>
                         </div>
                         
-                        <div className="bg-gray-50 rounded-lg p-3">
-                          <p className="text-xs text-gray-500 mb-1">Content Requirements</p>
-                          <p className="text-sm text-gray-900 line-clamp-2">
+                          {/* Influencers - bold number */}
+                          <div className="rounded-lg p-4 bg-gradient-to-br from-blue-500 to-indigo-600 text-white">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <HiUsers className="w-4 h-4" />
+                                <p className="text-xs opacity-90">Influencers</p>
+                              </div>
+                            </div>
+                            <p className="mt-2 text-2xl font-bold">{campaignData.target_influencers}</p>
+                          </div>
+                        </div>
+
+                        {/* Content Requirements - emphasized */}
+                        <div className="rounded-lg p-4 border border-amber-200 bg-amber-50">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2 text-amber-900">
+                              <HiDocumentText className="w-4 h-4" />
+                              <p className="text-sm font-medium">Content Requirements</p>
+                            </div>
+                          </div>
+                          <p className="mt-2 text-sm text-amber-900/90">
                             {campaignData.content_requirements || 'No specific requirements set'}
                           </p>
                         </div>

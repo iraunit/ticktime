@@ -190,10 +190,14 @@ MEDIA_ROOT = BASE_DIR / "media"
 STATIC_URL = "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 
-# Additional locations of static files
-STATICFILES_DIRS = [
-    BASE_DIR / "static",
-]
+# Additional locations of static files (use only if directory exists)
+_optional_static_dir = BASE_DIR / "static"
+if _optional_static_dir.exists():
+    STATICFILES_DIRS = [
+        _optional_static_dir,
+    ]
+else:
+    STATICFILES_DIRS = []
 
 # Static files finders
 STATICFILES_FINDERS = [

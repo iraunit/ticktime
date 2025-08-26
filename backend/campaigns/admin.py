@@ -23,7 +23,7 @@ class CampaignAdmin(admin.ModelAdmin):
         }),
         ('Product Information', {
             'fields': (
-                'products', 'product_value'
+                'products',
             ),
             'classes': ('collapse',)
         }),
