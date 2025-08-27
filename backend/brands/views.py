@@ -701,6 +701,100 @@ def brand_deals_view(request):
     })
 
 
+@api_view(['PATCH'])
+@permission_classes([IsAuthenticated])
+def update_deal_status_view(request, deal_id):
+    """
+    Update the status of a single deal belonging to the authenticated brand.
+    """
+    brand_user = get_brand_user_or_403(request)
+    if not brand_user:
+        return Response({
+            'status': 'error',
+            'message': 'Brand profile not found.'
+        }, status=status.HTTP_404_NOT_FOUND)
+
+    new_status = request.data.get('status')
+    if not new_status:
+        return Response({
+            'status': 'error',
+            'message': 'Missing required field: status'
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+    # Validate status against model choices
+    valid_statuses = [choice[0] for choice in Deal._meta.get_field('status').choices]
+    if new_status not in valid_statuses:
+        return Response({
+            'status': 'error',
+            'message': 'Invalid status value.'
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        deal = Deal.objects.get(id=deal_id, campaign__brand=brand_user.brand)
+    except Deal.DoesNotExist:
+        return Response({
+            'status': 'error',
+            'message': 'Deal not found.'
+        }, status=status.HTTP_404_NOT_FOUND)
+
+    deal.status = new_status
+    deal.save(update_fields=['status'])
+
+    from deals.serializers import DealListSerializer
+    return Response({
+        'status': 'success',
+        'deal': DealListSerializer(deal).data
+    })
+
+
+@api_view(['PATCH'])
+@permission_classes([IsAuthenticated])
+def bulk_update_deals_status_view(request):
+    """
+    Bulk update status for multiple deals. Expects: { ids: number[], status: string }
+    Only deals belonging to the authenticated brand will be affected.
+    """
+    brand_user = get_brand_user_or_403(request)
+    if not brand_user:
+        return Response({
+            'status': 'error',
+            'message': 'Brand profile not found.'
+        }, status=status.HTTP_404_NOT_FOUND)
+
+    ids = request.data.get('ids') or []
+    new_status = request.data.get('status')
+
+    if not isinstance(ids, list) or len(ids) == 0:
+        return Response({
+            'status': 'error',
+            'message': 'Provide a non-empty array of ids.'
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+    if not new_status:
+        return Response({
+            'status': 'error',
+            'message': 'Missing required field: status'
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+    valid_statuses = [choice[0] for choice in Deal._meta.get_field('status').choices]
+    if new_status not in valid_statuses:
+        return Response({
+            'status': 'error',
+            'message': 'Invalid status value.'
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+    qs = Deal.objects.filter(id__in=ids, campaign__brand=brand_user.brand)
+    affected_ids = list(qs.values_list('id', flat=True))
+
+    qs.update(status=new_status)
+
+    return Response({
+        'status': 'success',
+        'updated_count': len(affected_ids),
+        'updated_ids': affected_ids
+    })
+
+
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def bookmark_influencer_view(request, influencer_id):

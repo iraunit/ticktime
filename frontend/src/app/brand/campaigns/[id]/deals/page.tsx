@@ -93,14 +93,10 @@ export default function CampaignDealsPage() {
   const [status, setStatus] = useState<string>("all");
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [bulkLoading, setBulkLoading] = useState(false);
+  const [sortKey, setSortKey] = useState<string>("invited_desc");
+  const [bulkStage, setBulkStage] = useState<string>("");
 
   const pageSize = 20;
-
-  const canBulkApproveOrReject = useMemo(() => {
-    if (selected.size === 0) return false;
-    const selectedDeals = deals.filter((d) => selected.has(d.id));
-    return selectedDeals.every((d) => d.status === "content_submitted");
-  }, [selected, deals]);
 
   const fetchDeals = async (opts?: { page?: number }) => {
     setIsLoading(true);
@@ -163,16 +159,64 @@ export default function CampaignDealsPage() {
     });
   };
 
+  const sortedDeals = useMemo(() => {
+    const copy = [...deals];
+    switch (sortKey) {
+      case "invited_asc":
+        return copy.sort((a, b) => new Date(a.invited_at).getTime() - new Date(b.invited_at).getTime());
+      case "invited_desc":
+        return copy.sort((a, b) => new Date(b.invited_at).getTime() - new Date(a.invited_at).getTime());
+      case "name_asc":
+        return copy.sort((a, b) => (a.influencer?.full_name || "").localeCompare(b.influencer?.full_name || ""));
+      case "username_asc":
+        return copy.sort((a, b) => (a.influencer?.username || "").localeCompare(b.influencer?.username || ""));
+      case "status_asc":
+        return copy.sort((a, b) => (a.status || "").localeCompare(b.status || ""));
+      default:
+        return copy;
+    }
+  }, [deals, sortKey]);
+
   const exportCsv = () => {
-    const headers = ["Deal ID", "Influencer", "Username", "Status", "Invited At"];
+    const headers = [
+      "Deal ID",
+      "Campaign ID",
+      "Campaign Title",
+      "Influencer ID",
+      "Influencer Name",
+      "Username",
+      "Status",
+      "Payment Status",
+      "Invited At",
+      "Accepted At",
+      "Completed At",
+    ];
+    const formatTs = (ts?: string) =>
+      ts
+        ? new Date(ts).toLocaleString("en-IN", {
+            day: "2-digit",
+            month: "short",
+            year: "numeric",
+            hour: "2-digit",
+            minute: "2-digit",
+          })
+        : "";
     const rows = deals.map((d) => [
       d.id,
+      d.campaign?.id ?? "",
+      d.campaign?.title ?? "",
+      d.influencer?.id ?? "",
       d.influencer?.full_name || "",
       d.influencer?.username || "",
       d.status,
-      d.invited_at,
+      d.payment_status || "",
+      formatTs(d.invited_at),
+      formatTs(d.accepted_at),
+      formatTs(d.completed_at),
     ]);
-    const csv = [headers, ...rows].map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\n");
+    const csv = [headers, ...rows]
+      .map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(","))
+      .join("\n");
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
@@ -182,19 +226,24 @@ export default function CampaignDealsPage() {
     URL.revokeObjectURL(url);
   };
 
-  const bulkReview = async (action: "approve" | "reject") => {
-    if (!canBulkApproveOrReject) return;
+  const bulkUpdateStage = async () => {
+    if (!bulkStage) {
+      toast.error("Select a stage to apply");
+      return;
+    }
+    if (selected.size === 0) {
+      toast.error("Select at least one deal");
+      return;
+    }
     setBulkLoading(true);
     try {
       const ids = Array.from(selected);
-      for (const id of ids) {
-        await api.put(`/brands/deals/${id}/content/`, { action });
-      }
-      toast.success(`Successfully ${action === "approve" ? "approved" : "rejected"} ${ids.length} submissions`);
+      await api.patch(`/brands/deals/bulk/status/`, { ids, status: bulkStage });
+      toast.success(`Updated ${ids.length} deals to '${bulkStage.replace(/_/g, ' ')}'`);
       setSelected(new Set());
       fetchDeals();
     } catch (e: any) {
-      toast.error(e?.message || `Failed to ${action} content`);
+      toast.error(e?.message || "Failed to update stage");
     } finally {
       setBulkLoading(false);
     }
@@ -266,11 +315,23 @@ export default function CampaignDealsPage() {
                     ))}
                   </SelectContent>
                 </Select>
-                                 {(search || status !== "all") && (
-                   <Button variant="outline" size="sm" onClick={() => { setSearch(""); setStatus("all"); }}>
-                     <HiFunnel className="w-4 h-4 mr-1" /> Clear
-                   </Button>
-                 )}
+                <Select value={sortKey} onValueChange={setSortKey}>
+                  <SelectTrigger className="w-56">
+                    <SelectValue placeholder="Sort By" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="invited_desc">Newest invited</SelectItem>
+                    <SelectItem value="invited_asc">Oldest invited</SelectItem>
+                    <SelectItem value="name_asc">Influencer name A–Z</SelectItem>
+                    <SelectItem value="username_asc">Username A–Z</SelectItem>
+                    <SelectItem value="status_asc">Status A–Z</SelectItem>
+                  </SelectContent>
+                </Select>
+                {(search || status !== "all") && (
+                  <Button variant="outline" size="sm" onClick={() => { setSearch(""); setStatus("all"); }}>
+                    <HiFunnel className="w-4 h-4 mr-1" /> Clear
+                  </Button>
+                )}
               </div>
             </div>
           </CardContent>
@@ -281,11 +342,27 @@ export default function CampaignDealsPage() {
             <div className="flex items-center justify-between">
               <CardTitle className="text-base">Deals ({pagination.total_count})</CardTitle>
               <div className="flex items-center gap-2">
-                <Button size="sm" disabled={!canBulkApproveOrReject || bulkLoading} onClick={() => bulkReview("approve")}>
-                  {bulkLoading ? <InlineLoader className="mr-2" /> : <HiCheckCircle className="w-4 h-4 mr-1" />} Approve content
-                </Button>
-                <Button size="sm" variant="outline" className="text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200" disabled={!canBulkApproveOrReject || bulkLoading} onClick={() => bulkReview("reject")}>
-                  {bulkLoading ? <InlineLoader className="mr-2" /> : <HiXCircle className="w-4 h-4 mr-1" />} Reject content
+                <Select value={bulkStage} onValueChange={setBulkStage}>
+                  <SelectTrigger className="w-56">
+                    <SelectValue placeholder="Set stage for selected" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="invited">Invited</SelectItem>
+                    <SelectItem value="pending">Pending</SelectItem>
+                    <SelectItem value="accepted">Accepted</SelectItem>
+                    <SelectItem value="active">Active</SelectItem>
+                    <SelectItem value="content_submitted">Content Submitted</SelectItem>
+                    <SelectItem value="under_review">Under Review</SelectItem>
+                    <SelectItem value="revision_requested">Revision Requested</SelectItem>
+                    <SelectItem value="approved">Approved</SelectItem>
+                    <SelectItem value="completed">Completed</SelectItem>
+                    <SelectItem value="rejected">Rejected</SelectItem>
+                    <SelectItem value="cancelled">Cancelled</SelectItem>
+                    <SelectItem value="dispute">Dispute</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Button size="sm" disabled={bulkLoading || selected.size === 0 || !bulkStage} onClick={bulkUpdateStage}>
+                  {bulkLoading ? <InlineLoader className="mr-2" /> : <HiCheckCircle className="w-4 h-4 mr-1" />} Apply
                 </Button>
               </div>
             </div>
@@ -315,7 +392,7 @@ export default function CampaignDealsPage() {
                       <td colSpan={6} className="px-2 py-6 text-center text-gray-500">No deals found</td>
                     </tr>
                   ) : (
-                    deals.map((d) => (
+                    sortedDeals.map((d) => (
                       <tr key={d.id} className="border-b hover:bg-gray-50">
                         <td className="px-2 py-2">
                           <Checkbox checked={selected.has(d.id)} onCheckedChange={(v: boolean) => toggleOne(d.id, !!v)} />
@@ -326,10 +403,10 @@ export default function CampaignDealsPage() {
                         <td className="px-2 py-2 text-gray-600">{new Date(d.invited_at).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}</td>
                         <td className="px-2 py-2 text-right">
                           <div className="flex justify-end gap-2">
-                            <Button variant="outline" size="sm" onClick={() => router.push(`/brand/deals/${d.id}?campaign=${campaignId}`)}>
+                            <Button variant="outline" size="sm" onClick={() => window.open(`/brand/deals/${d.id}?campaign=${campaignId}`, "_blank")}>
                               View
                             </Button>
-                            <Button variant="outline" size="sm" onClick={() => router.push(`/brand/messages?deal=${d.id}`)}>
+                            <Button variant="outline" size="sm" onClick={() => window.open(`/brand/messages?influencer=${d.influencer?.id}`, "_blank")}>
                               Message
                             </Button>
                           </div>

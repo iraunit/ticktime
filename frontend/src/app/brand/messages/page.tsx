@@ -131,15 +131,46 @@ export default function BrandMessagesPage() {
     fetchConversations();
   }, []);
 
-  // Auto-select conversation by influencer id if provided in URL
+  // Auto-select or create conversation by influencer id if provided in URL
   useEffect(() => {
     const influencerId = params?.get('influencer');
     if (!influencerId) return;
-    // Wait until conversations are loaded
     if (conversations.length === 0) return;
     const match = conversations.find((c: any) => (c as any).influencer_id?.toString() === influencerId);
-    if (match) setSelectedConversation(match as any);
+    if (match) {
+      setSelectedConversation(match as any);
+    } else {
+      // No conversation yet: show compose area and create on first send
+      setSelectedConversation(null);
+    }
   }, [conversations]);
+
+  // When influencer param exists and no conversation selected, allow composing the first message
+  const influencerParam = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('influencer') : null;
+
+  const sendFirstMessageToInfluencer = async () => {
+    if (!newMessage.trim() || !influencerParam) return;
+    try {
+      const response = await api.post(`/brands/influencers/${influencerParam}/message/`, {
+        content: newMessage.trim(),
+      });
+      setNewMessage("");
+      // Refresh conversations and select newly created one
+      await fetchConversations();
+      const convId = response.data?.conversation_id;
+      const created = (convId && (conversations.find(c => c.id === convId) || null)) || null;
+      if (created) setSelectedConversation(created);
+      else {
+        // fallback: pick first matching influencer if appears after refresh
+        const match = conversations.find((c: any) => (c as any).influencer_id?.toString() === influencerParam);
+        if (match) setSelectedConversation(match as any);
+      }
+      toast.success('Message sent. Conversation created.');
+    } catch (error: any) {
+      console.error('Failed to start conversation:', error);
+      toast.error(error?.response?.data?.message || 'Failed to start conversation.');
+    }
+  };
 
   // Search with debounce
   useEffect(() => {
@@ -432,14 +463,34 @@ export default function BrandMessagesPage() {
               </>
             ) : (
               <div className="flex items-center justify-center h-full">
-                <div className="text-center">
+                <div className="text-center max-w-md">
                   <HiChatBubbleLeftRight className="w-16 h-16 text-gray-300 mx-auto mb-4" />
                   <h3 className="text-lg font-medium text-gray-900 mb-2">
-                    Select a conversation
+                    {influencerParam ? 'Start a new conversation' : 'Select a conversation'}
                   </h3>
-                  <p className="text-gray-500">
-                    Choose a conversation from the list to start messaging.
+                  <p className="text-gray-500 mb-4">
+                    {influencerParam
+                      ? 'Send the first message to create a conversation with this influencer.'
+                      : 'Choose a conversation from the list to start messaging.'}
                   </p>
+                  {influencerParam && (
+                    <div className="flex items-center gap-3">
+                      <Input
+                        placeholder="Type your message..."
+                        value={newMessage}
+                        onChange={(e) => setNewMessage(e.target.value)}
+                        onKeyPress={(e) => e.key === 'Enter' && sendFirstMessageToInfluencer()}
+                        className="flex-1"
+                      />
+                      <Button 
+                        onClick={sendFirstMessageToInfluencer}
+                        disabled={!newMessage.trim()}
+                        className="bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white"
+                      >
+                        <HiPaperAirplane className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
