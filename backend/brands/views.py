@@ -1559,13 +1559,11 @@ def add_influencers_to_campaign_view(request, campaign_id):
             deal = Deal.objects.create(
                 campaign=campaign,
                 influencer=influencer,
-                status='invited',
-                invited_by=request.user,
-                invited_at=timezone.now()
+                status='invited'
             )
             created_deals.append({
                 'influencer_id': influencer.id,
-                'influencer_name': influencer.full_name or influencer.username,
+                'influencer_name': (influencer.user.get_full_name() or influencer.username),
                 'deal_id': deal.id
             })
 

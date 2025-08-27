@@ -59,6 +59,7 @@ class ConversationSerializer(serializers.ModelSerializer):
     influencer_username = serializers.CharField(source='deal.influencer.username', read_only=True)
     influencer_avatar = serializers.CharField(source='deal.influencer.profile_image', read_only=True)
     last_message = MessageSerializer(read_only=True)
+    influencer_id = serializers.IntegerField(source='deal.influencer.id', read_only=True)
     unread_count = serializers.SerializerMethodField()
     messages_count = serializers.SerializerMethodField()
 
@@ -66,7 +67,7 @@ class ConversationSerializer(serializers.ModelSerializer):
         model = Conversation
         fields = (
             'id', 'deal', 'deal_title', 'brand_name', 'influencer_name', 
-            'influencer_username', 'influencer_avatar', 'last_message',
+            'influencer_username', 'influencer_avatar', 'influencer_id', 'last_message',
             'unread_count', 'messages_count', 'created_at', 'updated_at'
         )
         read_only_fields = ('id', 'created_at', 'updated_at')

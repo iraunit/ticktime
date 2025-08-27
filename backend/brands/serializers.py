@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
 from .models import Brand, BrandUser, BrandAuditLog, BookmarkedInfluencer
-from influencers.serializers import InfluencerProfileSerializer
+from influencers.serializers import InfluencerPublicSerializer
 
 
 class BrandSerializer(serializers.ModelSerializer):
@@ -96,7 +96,7 @@ class BrandAuditLogSerializer(serializers.ModelSerializer):
 
 
 class BookmarkedInfluencerSerializer(serializers.ModelSerializer):
-    influencer = InfluencerProfileSerializer(read_only=True)
+    influencer = InfluencerPublicSerializer(read_only=True)
     bookmarked_by = UserProfileSerializer(read_only=True)
     
     class Meta:

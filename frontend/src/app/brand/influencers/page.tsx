@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import ReactSelect from "react-select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { 
@@ -220,6 +221,14 @@ export default function InfluencerSearchPage() {
   const [useDropdownForCampaigns, setUseDropdownForCampaigns] = useState(false);
   const [campaignSearchTerm, setCampaignSearchTerm] = useState("");
   
+  // Helper to show @username consistently (fallbacks if username missing)
+  const getDisplayUsername = useCallback((inf: Influencer) => {
+    const user = (inf?.username || '').trim();
+    const handle = (inf?.handle || '').trim();
+    const name = (inf?.name || '').trim();
+    return user || handle || name || '';
+  }, []);
+  
   // Column visibility state
   const [visibleColumns, setVisibleColumns] = useState<Record<string, boolean>>(() => {
     const saved = localStorage.getItem('influencer-table-columns');
@@ -281,6 +290,25 @@ export default function InfluencerSearchPage() {
     }
   }, [searchTerm, selectedPlatform, locationFilter, genderFilter, followerRange, selectedCategories, selectedIndustry, sortBy, sortOrder]);
 
+  // Sync filters and sorting to URL
+  useEffect(() => {
+    try {
+      const params = new URLSearchParams();
+      if (searchTerm) params.set('search', searchTerm);
+      if (selectedPlatform && selectedPlatform !== 'all') params.set('platform', selectedPlatform);
+      if (locationFilter && locationFilter !== 'All') params.set('location', locationFilter);
+      if (genderFilter && genderFilter !== 'All') params.set('gender', genderFilter);
+      if (followerRange && followerRange !== 'All Followers') params.set('follower_range', followerRange);
+      if (selectedCategories.length > 0) params.set('categories', selectedCategories.join(','));
+      if (selectedIndustry && selectedIndustry !== 'All') params.set('industry', selectedIndustry);
+      if (sortBy) params.set('sort_by', sortBy);
+      if (sortOrder) params.set('sort_order', sortOrder);
+      const qs = params.toString();
+      const url = qs ? `/brand/influencers?${qs}` : '/brand/influencers';
+      window.history.replaceState(null, '', url);
+    } catch {}
+  }, [searchTerm, selectedPlatform, locationFilter, genderFilter, followerRange, selectedCategories, selectedIndustry, sortBy, sortOrder]);
+
   // Bookmark influencer
   const handleBookmark = async (influencerId: number) => {
     try {
@@ -323,7 +351,7 @@ export default function InfluencerSearchPage() {
   const fetchCampaigns = async () => {
     try {
       console.log('Fetching campaigns for influencers...');
-      const response = await api.get('/brands/campaigns/');
+      const response = await api.get('/brands/campaigns/for-influencers/');
       console.log('Campaigns for influencers response:', response.data);
       const campaignsData = response.data.campaigns || [];
       setCampaigns(campaignsData);
@@ -447,9 +475,8 @@ export default function InfluencerSearchPage() {
 
   // Open message dialog
   const openMessageDialog = (influencer: Influencer) => {
-    setMessageInfluencer(influencer);
-    setMessageContent("");
-    setShowMessageDialog(true);
+    // Open messages in a new tab for this influencer
+    window.open(`/brand/messages?influencer=${influencer.id}`, '_blank', 'noopener,noreferrer');
   };
 
   // Open campaign dialog
@@ -967,8 +994,27 @@ export default function InfluencerSearchPage() {
                   )}
                   {visibleColumns.categories && (
                     <th className="px-3 py-2 text-left text-xs font-semibold text-gray-900">
-                      Categories
+                      Industry
                     </th>
+                  )}
+                  {/* Platform-specific columns */}
+                  {selectedPlatform === 'instagram' && (
+                    <>
+                      <th className="px-3 py-2 text-left text-xs font-semibold text-gray-900">Avg Likes</th>
+                      <th className="px-3 py-2 text-left text-xs font-semibold text-gray-900">Avg Comments</th>
+                    </>
+                  )}
+                  {selectedPlatform === 'youtube' && (
+                    <>
+                      <th className="px-3 py-2 text-left text-xs font-semibold text-gray-900">Subscribers</th>
+                      <th className="px-3 py-2 text-left text-xs font-semibold text-gray-900">Avg Views</th>
+                    </>
+                  )}
+                  {selectedPlatform === 'twitter' && (
+                    <th className="px-3 py-2 text-left text-xs font-semibold text-gray-900">Followers (X)</th>
+                  )}
+                  {selectedPlatform === 'facebook' && (
+                    <th className="px-3 py-2 text-left text-xs font-semibold text-gray-900">Page Likes</th>
                   )}
                   {visibleColumns.actions && (
                     <th className="px-3 py-2 text-left text-xs font-semibold text-gray-900">
@@ -1016,7 +1062,7 @@ export default function InfluencerSearchPage() {
                             <div className="flex items-center gap-1 mb-0.5">
                               <h3 className="font-medium text-gray-900 truncate text-sm">{influencer.full_name}</h3>
                             </div>
-                            <p className="text-xs text-gray-500 mb-1">@{influencer.username}</p>
+                            <p className="text-xs text-gray-500 mb-1">{getDisplayUsername(influencer) ? `@${getDisplayUsername(influencer)}` : ''}</p>
                             <div className="flex items-center gap-1">
                               {influencer.platforms.slice(0, 2).map(platform => (
                                 <PlatformIcon key={platform} platform={platform} />
@@ -1071,19 +1117,27 @@ export default function InfluencerSearchPage() {
                     )}
                     {visibleColumns.categories && (
                       <td className="px-3 py-2">
-                        <div className="flex flex-wrap gap-1">
-                          {influencer.categories?.slice(0, 1).map(category => (
-                            <Badge key={category} variant="secondary" className="text-xs bg-gray-100 text-gray-700 px-1 py-0">
-                              {category}
-                            </Badge>
-                          ))}
-                          {influencer.categories && influencer.categories.length > 1 && (
-                            <Badge variant="secondary" className="text-xs bg-gray-100 text-gray-700 px-1 py-0">
-                              +{influencer.categories.length - 1}
-                            </Badge>
-                          )}
-                        </div>
+                        <span className="text-gray-700 text-sm">{influencer.industry || 'N/A'}</span>
                       </td>
+                    )}
+                    {/* Platform-specific cells */}
+                    {selectedPlatform === 'instagram' && (
+                      <>
+                        <td className="px-3 py-2"><span className="text-gray-700 text-sm">{influencer.avg_likes || '0'}</span></td>
+                        <td className="px-3 py-2"><span className="text-gray-700 text-sm">{influencer.avg_comments || '0'}</span></td>
+                      </>
+                    )}
+                    {selectedPlatform === 'youtube' && (
+                      <>
+                        <td className="px-3 py-2"><span className="text-gray-700 text-sm">{influencer.youtube_subscribers ?? '0'}</span></td>
+                        <td className="px-3 py-2"><span className="text-gray-700 text-sm">{influencer.avg_views || '0'}</span></td>
+                      </>
+                    )}
+                    {selectedPlatform === 'twitter' && (
+                      <td className="px-3 py-2"><span className="text-gray-700 text-sm">{influencer.twitter_followers ?? '0'}</span></td>
+                    )}
+                    {selectedPlatform === 'facebook' && (
+                      <td className="px-3 py-2"><span className="text-gray-700 text-sm">{influencer.facebook_page_likes ?? '0'}</span></td>
                     )}
                     {visibleColumns.actions && (
                       <td className="px-3 py-2">
@@ -1134,7 +1188,7 @@ export default function InfluencerSearchPage() {
                                       <div className="flex items-center gap-3 mb-3">
                                         <h2 className="text-2xl font-bold text-gray-900">{selectedInfluencer.full_name}</h2>
                                       </div>
-                                      <p className="text-gray-600 mb-3">@{selectedInfluencer.username}</p>
+                                      <p className="text-gray-600 mb-3">{getDisplayUsername(selectedInfluencer) ? `@${getDisplayUsername(selectedInfluencer)}` : ''}</p>
                                       <p className="text-gray-700 mb-4">{selectedInfluencer.bio || "No bio available"}</p>
                                       <div className="flex items-center gap-3">
                                         {selectedInfluencer.platforms.map(platform => (
@@ -1252,7 +1306,7 @@ export default function InfluencerSearchPage() {
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => openMessageDialog(influencer)}
+                            onClick={() => window.open(`/brand/messages?influencer=${influencer.id}`, '_blank', 'noopener,noreferrer')}
                             className="h-6 w-6 p-0 text-green-600 hover:text-green-700"
                           >
                             <HiEnvelope className="w-3 h-3" />
@@ -1339,149 +1393,82 @@ export default function InfluencerSearchPage() {
                   <label className="block text-sm font-medium text-gray-700">
                     Select Campaigns ({selectedCampaigns.size} selected)
                   </label>
-                  {campaigns.length > 5 && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setUseDropdownForCampaigns(!useDropdownForCampaigns)}
-                      className="text-xs text-blue-600 hover:text-blue-800"
-                    >
-                      {useDropdownForCampaigns ? 'Show Cards' : 'Show Dropdown'}
-                    </Button>
-                  )}
+                  
                 </div>
                 
-                {useDropdownForCampaigns ? (
-                  // Multi-select dropdown for many campaigns
-                  <div className="space-y-3">
-                    {/* Search input for campaigns */}
-                    <div className="relative">
-                      <HiMagnifyingGlass className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                      <Input
-                        placeholder="Search campaigns..."
-                        value={campaignSearchTerm}
-                        onChange={(e) => setCampaignSearchTerm(e.target.value)}
-                        className="pl-10"
-                      />
-                    </div>
-                    
-                    <div className="relative">
-                      <Select
-                        onValueChange={(value) => {
-                          if (value === 'select-all') {
-                            // Select all filtered campaigns
-                            const filteredCampaigns = campaigns.filter(campaign =>
-                              campaign.title.toLowerCase().includes(campaignSearchTerm.toLowerCase())
-                            );
-                            const allCampaignIds = filteredCampaigns.map(c => c.id.toString());
-                            setSelectedCampaigns(new Set(allCampaignIds));
-                          } else if (value === 'clear-all') {
-                            // Clear all selections
-                            setSelectedCampaigns(new Set());
-                          } else {
-                            // Toggle individual campaign
-                            handleCampaignSelect(value);
-                          }
-                        }}
-                      >
-                        <SelectTrigger className="w-full">
-                          <SelectValue placeholder="Select campaigns..." />
-                        </SelectTrigger>
-                        <SelectContent className="max-h-60">
-                          <SelectItem value="select-all" className="font-medium text-blue-600">
-                            ✓ Select All Filtered Campaigns
-                          </SelectItem>
-                          <SelectItem value="clear-all" className="font-medium text-red-600">
-                            ✗ Clear All Selections
-                          </SelectItem>
-                          <div className="border-t border-gray-200 my-2"></div>
-                          {campaigns
-                            .filter(campaign =>
-                              campaign.title.toLowerCase().includes(campaignSearchTerm.toLowerCase())
-                            )
-                            .map(campaign => (
-                              <SelectItem 
-                                key={campaign.id} 
-                                value={campaign.id.toString()}
-                                className="flex items-center justify-between"
+                {/* Always use searchable multi-select */}
+                <div className="space-y-3">
+                  <ReactSelect
+                    options={campaigns.map((c: any) => ({ value: c.id.toString(), label: c.title, meta: c }))}
+                    isMulti
+                    classNamePrefix="rs"
+                    placeholder="Search campaigns..."
+                    value={Array.from(selectedCampaigns).map(id => {
+                      const c = campaigns.find((x: any) => x.id.toString() === id);
+                      return c ? { value: id, label: c.title, meta: c } : { value: id, label: id } as any;
+                    })}
+                    onChange={(vals) => {
+                      const ids = new Set((vals as any[]).map(v => v.value));
+                      setSelectedCampaigns(ids as Set<string>);
+                    }}
+                    styles={{
+                      control: (base) => ({ ...base, borderColor: '#e5e7eb', minHeight: 44 }),
+                      multiValue: (base) => ({ ...base, backgroundColor: '#eef2ff' }),
+                      multiValueLabel: (base) => ({ ...base, color: '#4338ca' }),
+                    }}
+                    menuPlacement="auto"
+                    closeMenuOnSelect={false}
+                    hideSelectedOptions={false}
+                    isClearable={false}
+                  />
+                  {selectedCampaigns.size > 0 && (
+                    <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                      <p className="text-sm font-medium text-blue-800 mb-2">
+                        Selected Campaigns ({selectedCampaigns.size}):
+                      </p>
+                      <div className="space-y-1">
+                        {Array.from(selectedCampaigns).slice(0, 10).map(campaignId => {
+                          const campaign = campaigns.find((c: any) => c.id.toString() === campaignId);
+                          return campaign ? (
+                            <div key={campaignId} className="flex items-center justify-between text-sm">
+                              <span className="text-blue-700">{campaign.title}</span>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleCampaignSelect(campaignId)}
+                                className="h-4 w-4 p-0 text-blue-600 hover:text-blue-800"
                               >
-                                <div className="flex items-center space-x-2">
-                                  <div className={`w-3 h-3 rounded border ${selectedCampaigns.has(campaign.id.toString()) ? 'bg-blue-500 border-blue-500' : 'border-gray-300'}`}>
-                                    {selectedCampaigns.has(campaign.id.toString()) && (
-                                      <div className="w-1 h-1 bg-white rounded-full mx-auto mt-0.5"></div>
-                                    )}
-                                  </div>
-                                  <span>{campaign.title}</span>
-                                </div>
-                                <span className="text-xs text-gray-500 ml-2">
-                                  {campaign.deal_type_display} • ₹{campaign.total_value?.toLocaleString() || '0'}
-                                </span>
-                              </SelectItem>
-                            ))}
-                        </SelectContent>
-                      </Select>
+                                <HiX className="w-3 h-3" />
+                              </Button>
+                            </div>
+                          ) : null;
+                        })}
+                        {selectedCampaigns.size > 10 && (
+                          <div className="text-xs text-blue-700">and {selectedCampaigns.size - 10} more...</div>
+                        )}
+                      </div>
                     </div>
-                    
-                    {/* Selected campaigns summary */}
-                    {selectedCampaigns.size > 0 && (
-                      <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                        <p className="text-sm font-medium text-blue-800 mb-2">
-                          Selected Campaigns ({selectedCampaigns.size}):
-                        </p>
-                        <div className="space-y-1">
-                          {Array.from(selectedCampaigns).map(campaignId => {
-                            const campaign = campaigns.find(c => c.id.toString() === campaignId);
-                            return campaign ? (
-                              <div key={campaignId} className="flex items-center justify-between text-sm">
-                                <span className="text-blue-700">{campaign.title}</span>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => handleCampaignSelect(campaignId)}
-                                  className="h-4 w-4 p-0 text-blue-600 hover:text-blue-800"
-                                >
-                                  <HiX className="w-3 h-3" />
-                                </Button>
-                              </div>
-                            ) : null;
-                          })}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  // Card-based selection for few campaigns
-                  <div className="max-h-60 overflow-y-auto space-y-2">
-                    {campaigns.map(campaign => (
-                      <div
-                        key={campaign.id}
-                        className="flex items-center space-x-3 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer"
-                        onClick={() => handleCampaignSelect(campaign.id.toString())}
-                      >
-                        <Checkbox
-                          checked={selectedCampaigns.has(campaign.id.toString())}
-                          onCheckedChange={() => handleCampaignSelect(campaign.id.toString())}
-                        />
-                        <div className="flex-1">
-                          <p className="font-medium text-gray-900">{campaign.title}</p>
-                          <p className="text-sm text-gray-500">
-                            {campaign.deal_type_display} • {campaign.total_value ? `₹${campaign.total_value.toLocaleString()}` : 'No budget'}
-                          </p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
               
               <div className="text-sm text-gray-600">
                 <p>Selected influencers: {selectedInfluencers.size}</p>
-                <p className="text-xs text-gray-500 mt-1">
-                  {Array.from(selectedInfluencers).map(id => {
-                    const influencer = influencers.find(i => i.id === id);
-                    return influencer?.full_name || influencer?.username;
-                  }).join(', ')}
-                </p>
+                <div className="text-xs text-gray-500 mt-1">
+                  {(() => {
+                    const names = Array.from(selectedInfluencers).map(id => {
+                      const inf = influencers.find(i => i.id === id);
+                      if (!inf) return '';
+                      const uname = getDisplayUsername(inf);
+                      return inf.full_name || uname || `ID ${id}`;
+                    }).filter(Boolean);
+                    if (names.length > 10) {
+                      const head = names.slice(0, 3).join(', ');
+                      return `${head} and ${names.length - 3} more...`;
+                    }
+                    return names.join(', ');
+                  })()}
+                </div>
               </div>
 
               <div className="flex gap-3 pt-4">

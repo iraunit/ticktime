@@ -461,9 +461,9 @@ class InfluencerSearchSerializer(serializers.ModelSerializer):
     full_name = serializers.SerializerMethodField()
     platforms = serializers.SerializerMethodField()
     total_followers = serializers.ReadOnlyField()
-    avg_engagement = serializers.ReadOnlyField()
+    avg_engagement = serializers.SerializerMethodField()
     avg_rating = serializers.DecimalField(max_digits=3, decimal_places=2, read_only=True)
-    engagement_rate = serializers.ReadOnlyField()
+    engagement_rate = serializers.SerializerMethodField()
     posts_count = serializers.SerializerMethodField()
     is_bookmarked = serializers.SerializerMethodField()
 
@@ -613,3 +613,49 @@ class InfluencerSearchSerializer(serializers.ModelSerializer):
         elif num >= 1000:
             return f"{num/1000:.1f}k"
         return str(num)
+
+    def get_engagement_rate(self, obj):
+        """Return average engagement rate (numeric) using annotation when available."""
+        annotated = getattr(obj, 'average_engagement_rate_annotated', None)
+        if annotated is not None:
+            try:
+                return float(annotated)
+            except Exception:
+                pass
+        try:
+            return float(obj.average_engagement_rate)
+        except Exception:
+            return 0.0
+
+    def get_avg_engagement(self, obj):
+        """Alias for engagement rate for legacy consumers."""
+        return self.get_engagement_rate(obj)
+
+
+class InfluencerPublicSerializer(serializers.ModelSerializer):
+    """
+    Public, brand-facing serializer exposing only non-sensitive influencer fields.
+    """
+    name = serializers.SerializerMethodField()
+    profile_image = serializers.SerializerMethodField()
+    total_followers = serializers.ReadOnlyField()
+    average_engagement_rate = serializers.ReadOnlyField()
+    platforms = serializers.SerializerMethodField()
+
+    class Meta:
+        model = InfluencerProfile
+        fields = (
+            'id', 'username', 'name', 'profile_image', 'industry', 'is_verified',
+            'total_followers', 'average_engagement_rate', 'platforms'
+        )
+
+    def get_name(self, obj):
+        return f"{obj.user.first_name} {obj.user.last_name}".strip() or obj.username
+
+    def get_profile_image(self, obj):
+        if obj.user_profile and obj.user_profile.profile_image:
+            return obj.user_profile.profile_image.url
+        return None
+
+    def get_platforms(self, obj):
+        return list(obj.social_accounts.filter(is_active=True).values_list('platform', flat=True))

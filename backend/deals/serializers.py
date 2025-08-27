@@ -12,21 +12,20 @@ class SimpleInfluencerSerializer(serializers.ModelSerializer):
     Simple serializer for influencer information in deal contexts.
     """
     full_name = serializers.SerializerMethodField()
-    followers_count = serializers.ReadOnlyField()
-    engagement_rate = serializers.ReadOnlyField()
-    rating = serializers.ReadOnlyField()
-    categories = serializers.ReadOnlyField()
-    platforms = serializers.ReadOnlyField()
-    is_verified = serializers.ReadOnlyField()
+    profile_image = serializers.SerializerMethodField()
+    followers_count = serializers.SerializerMethodField()
+    engagement_rate = serializers.SerializerMethodField()
+    rating = serializers.SerializerMethodField()
+    categories = serializers.SerializerMethodField()
+    platforms = serializers.SerializerMethodField()
+    location = serializers.SerializerMethodField()
     
     class Meta:
         model = InfluencerProfile
         fields = (
-            'id', 'username', 'full_name', 'profile_picture', 'bio', 
-            'followers_count', 'following_count', 'total_likes', 
-            'engagement_rate', 'categories', 'platforms', 'location',
-            'email', 'phone', 'website', 'is_verified', 'rating',
-            'total_campaigns', 'completed_campaigns'
+            'id', 'username', 'full_name', 'profile_image', 'bio',
+            'followers_count', 'engagement_rate', 'categories', 'platforms', 'location',
+            'is_verified', 'rating'
         )
     
     def get_full_name(self, obj):
@@ -37,6 +36,50 @@ class SimpleInfluencerSerializer(serializers.ModelSerializer):
             return obj.user.first_name
         else:
             return obj.username
+
+    def get_profile_image(self, obj):
+        try:
+            if obj.user_profile and obj.user_profile.profile_image:
+                return obj.user_profile.profile_image.url
+        except Exception:
+            pass
+        return None
+
+    def get_followers_count(self, obj):
+        try:
+            return obj.total_followers
+        except Exception:
+            return 0
+
+    def get_engagement_rate(self, obj):
+        try:
+            return float(obj.average_engagement_rate)
+        except Exception:
+            return 0.0
+
+    def get_rating(self, obj):
+        try:
+            return float(obj.avg_rating) if obj.avg_rating is not None else None
+        except Exception:
+            return None
+
+    def get_categories(self, obj):
+        try:
+            return list(obj.categories.values_list('key', flat=True))
+        except Exception:
+            return []
+
+    def get_platforms(self, obj):
+        try:
+            return list(obj.social_accounts.filter(is_active=True).values_list('platform', flat=True))
+        except Exception:
+            return []
+
+    def get_location(self, obj):
+        try:
+            return obj.location_display
+        except Exception:
+            return ''
 
 
 class DealListSerializer(serializers.ModelSerializer):
@@ -123,6 +166,41 @@ class DealListSerializer(serializers.ModelSerializer):
         except:
             return 0
 
+
+class DealListLiteSerializer(serializers.ModelSerializer):
+    """
+    Lightweight serializer for listing deals within a campaign context.
+    Avoids serializing the nested campaign again to prevent recursion.
+    """
+    influencer = SimpleInfluencerSerializer(read_only=True)
+    status_display = serializers.CharField(source='get_status_display', read_only=True)
+    is_active = serializers.ReadOnlyField()
+    response_deadline_passed = serializers.ReadOnlyField()
+    days_until_deadline = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Deal
+        fields = (
+            'id', 'influencer', 'status', 'status_display', 'is_active',
+            'response_deadline_passed', 'days_until_deadline',
+            'invited_at', 'responded_at', 'accepted_at', 'completed_at',
+            'payment_status', 'payment_date', 'brand_rating', 'brand_review',
+            'influencer_rating', 'influencer_review'
+        )
+        read_only_fields = ('id', 'invited_at', 'responded_at', 'accepted_at', 'completed_at')
+
+    def get_days_until_deadline(self, obj):
+        if obj.responded_at or obj.campaign.is_expired:
+            return 0
+        if obj.campaign.application_deadline is None:
+            return None
+        delta = timezone.now() - timezone.now()  # placeholder to keep structure similar; not used heavily
+        # Reuse logic from DealListSerializer
+        from django.utils import timezone as tz
+        if obj.campaign.application_deadline:
+            d = obj.campaign.application_deadline - tz.now()
+            return max(0, d.days)
+        return None
 
 class DealDetailSerializer(serializers.ModelSerializer):
     """

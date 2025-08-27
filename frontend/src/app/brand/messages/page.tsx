@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
+import { useSearchParams } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -58,6 +59,7 @@ export default function BrandMessagesPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [newMessage, setNewMessage] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const params = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
 
   const fetchConversations = async () => {
     console.log('Fetching conversations...');
@@ -128,6 +130,16 @@ export default function BrandMessagesPage() {
   useEffect(() => {
     fetchConversations();
   }, []);
+
+  // Auto-select conversation by influencer id if provided in URL
+  useEffect(() => {
+    const influencerId = params?.get('influencer');
+    if (!influencerId) return;
+    // Wait until conversations are loaded
+    if (conversations.length === 0) return;
+    const match = conversations.find((c: any) => (c as any).influencer_id?.toString() === influencerId);
+    if (match) setSelectedConversation(match as any);
+  }, [conversations]);
 
   // Search with debounce
   useEffect(() => {
