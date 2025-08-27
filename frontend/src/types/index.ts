@@ -161,9 +161,20 @@ export interface Message {
 
 export interface Conversation {
   id: number;
-  deal: number;
+  deal: {
+    id: number;
+    status: string;
+    campaign_title?: string;
+  } | number;
+  deal_title?: string;
+  brand_name?: string;
+  influencer_name?: string;
+  influencer_username?: string;
+  influencer_avatar?: string;
+  influencer_id?: number;
   last_message?: Message;
   unread_count: number;
+  messages_count?: number;
   created_at: string;
   updated_at: string;
 }

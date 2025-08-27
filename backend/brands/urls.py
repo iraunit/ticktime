@@ -29,6 +29,12 @@ urlpatterns = [
     path('deals/<int:deal_id>/content/', views.approve_reject_content_view, name='approve-reject-content'),
     path('deals/<int:deal_id>/status/', views.update_deal_status_view, name='update-deal-status'),
     path('deals/bulk/status/', views.bulk_update_deals_status_view, name='bulk-update-deals-status'),
+    path('deals/<int:deal_id>/request-address/', views.request_address_view, name='request-address'),
+    path('deals/<int:deal_id>/tracking/', views.update_tracking_view, name='update-tracking'),
+    path('deals/bulk/csv/', views.bulk_update_csv_view, name='bulk-update-csv'),
+    path('deals/csv-template/', views.download_csv_template_view, name='csv-template'),
+    path('deals/<int:deal_id>/', views.brand_deal_detail_view, name='brand-deal-detail'),
+    path('deals/<int:deal_id>/notes/', views.update_deal_notes_view, name='update-deal-notes'),
     
     # Messaging
     path('conversations/', views.brand_conversations_view, name='brand-conversations'),

@@ -31,6 +31,7 @@ from .serializers import (
     BankDetailsSerializer
 )
 from .models import InfluencerProfile, SocialMediaAccount
+from deals.models import Deal
 from common.models import PLATFORM_CHOICES
 
 logger = logging.getLogger(__name__)
@@ -887,3 +888,71 @@ def profile_completion_status_view(request):
             'sections': required_fields
         }
     }, status=status.HTTP_200_OK)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def provide_shipping_address_view(request, deal_id):
+    """
+    Allow influencer to provide shipping address for barter deals
+    """
+    try:
+        profile = request.user.influencer_profile
+    except InfluencerProfile.DoesNotExist:
+        return Response({
+            'status': 'error',
+            'message': 'Influencer profile not found.'
+        }, status=status.HTTP_404_NOT_FOUND)
+
+    try:
+        deal = Deal.objects.get(id=deal_id, influencer=profile)
+    except Deal.DoesNotExist:
+        return Response({
+            'status': 'error',
+            'message': 'Deal not found.'
+        }, status=status.HTTP_404_NOT_FOUND)
+
+    if deal.status != 'address_requested':
+        return Response({
+            'status': 'error',
+            'message': 'Address can only be provided for deals with address_requested status.'
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+    # Validate address fields
+    required_fields = ['full_name', 'address_line_1', 'city', 'state', 'postal_code', 'country']
+    address_data = {}
+    missing_fields = []
+
+    for field in required_fields:
+        value = request.data.get(field, '').strip()
+        if not value:
+            missing_fields.append(field)
+        else:
+            address_data[field] = value
+
+    # Optional fields
+    optional_fields = ['address_line_2', 'phone_number']
+    for field in optional_fields:
+        value = request.data.get(field, '').strip()
+        if value:
+            address_data[field] = value
+
+    if missing_fields:
+        return Response({
+            'status': 'error',
+            'message': f'Missing required fields: {", ".join(missing_fields)}'
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+    # Update deal with address and mark as address provided
+    from django.utils import timezone
+    deal.shipping_address = address_data
+    deal.status = 'address_provided'
+    deal.address_provided_at = timezone.now()
+    deal.save(update_fields=['shipping_address', 'status', 'address_provided_at'])
+
+    from deals.serializers import DealListSerializer
+    return Response({
+        'status': 'success',
+        'message': 'Shipping address provided successfully.',
+        'deal': DealListSerializer(deal).data
+    })

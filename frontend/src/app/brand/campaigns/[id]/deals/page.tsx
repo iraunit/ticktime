@@ -21,12 +21,19 @@ import {
   HiFunnel,
   HiMagnifyingGlass,
   HiXCircle,
+  HiCloudArrowUp,
+  HiDocumentText,
 } from "react-icons/hi2";
 
 type DealStatus =
   | "invited"
   | "pending"
   | "accepted"
+  | "shortlisted"
+  | "address_requested"
+  | "address_provided"
+  | "product_shipped"
+  | "product_delivered"
   | "active"
   | "content_submitted"
   | "under_review"
@@ -95,6 +102,8 @@ export default function CampaignDealsPage() {
   const [bulkLoading, setBulkLoading] = useState(false);
   const [sortKey, setSortKey] = useState<string>("invited_desc");
   const [bulkStage, setBulkStage] = useState<string>("");
+  const [csvFile, setCsvFile] = useState<File | null>(null);
+  const [csvUploading, setCsvUploading] = useState(false);
 
   const pageSize = 20;
 
@@ -249,6 +258,63 @@ export default function CampaignDealsPage() {
     }
   };
 
+  const downloadTemplate = async () => {
+    try {
+      const response = await api.get('/brands/deals/csv-template/', { responseType: 'blob' });
+      const blob = new Blob([response.data], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'bulk_update_template.csv';
+      document.body.appendChild(a);
+      a.click();
+      URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      toast.success('Template downloaded successfully');
+    } catch (e: any) {
+      toast.error(e?.message || 'Failed to download template');
+    }
+  };
+
+  const uploadCsv = async () => {
+    if (!csvFile) {
+      toast.error("Please select a CSV file");
+      return;
+    }
+    setCsvUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('csv_file', csvFile);
+      
+      const response = await api.post('/brands/deals/bulk/csv/', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+      
+      const result = response.data;
+      if (result.updates && result.updates.length > 0) {
+        toast.success(`Successfully updated ${result.total_processed} deal(s)`);
+      }
+      
+      if (result.errors && result.errors.length > 0) {
+        toast.error(`${result.total_errors} error(s): ${result.errors.slice(0, 3).join('; ')}`);
+      }
+      
+      setCsvFile(null);
+      fetchDeals();
+    } catch (e: any) {
+      toast.error(e?.message || "Failed to upload CSV");
+    } finally {
+      setCsvUploading(false);
+    }
+  };
+
+  const handleCsvFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    setCsvFile(file || null);
+  };
+
   const handlePageChange = (page: number) => {
     setPagination((prev) => ({ ...prev, current_page: page }));
     fetchDeals({ page });
@@ -327,11 +393,11 @@ export default function CampaignDealsPage() {
                     <SelectItem value="status_asc">Status A–Z</SelectItem>
                   </SelectContent>
                 </Select>
-                {(search || status !== "all") && (
-                  <Button variant="outline" size="sm" onClick={() => { setSearch(""); setStatus("all"); }}>
-                    <HiFunnel className="w-4 h-4 mr-1" /> Clear
-                  </Button>
-                )}
+                                 {(search || status !== "all") && (
+                   <Button variant="outline" size="sm" onClick={() => { setSearch(""); setStatus("all"); }}>
+                     <HiFunnel className="w-4 h-4 mr-1" /> Clear
+                   </Button>
+                 )}
               </div>
             </div>
           </CardContent>
@@ -341,29 +407,70 @@ export default function CampaignDealsPage() {
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
               <CardTitle className="text-base">Deals ({pagination.total_count})</CardTitle>
-              <div className="flex items-center gap-2">
-                <Select value={bulkStage} onValueChange={setBulkStage}>
-                  <SelectTrigger className="w-56">
-                    <SelectValue placeholder="Set stage for selected" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="invited">Invited</SelectItem>
-                    <SelectItem value="pending">Pending</SelectItem>
-                    <SelectItem value="accepted">Accepted</SelectItem>
-                    <SelectItem value="active">Active</SelectItem>
-                    <SelectItem value="content_submitted">Content Submitted</SelectItem>
-                    <SelectItem value="under_review">Under Review</SelectItem>
-                    <SelectItem value="revision_requested">Revision Requested</SelectItem>
-                    <SelectItem value="approved">Approved</SelectItem>
-                    <SelectItem value="completed">Completed</SelectItem>
-                    <SelectItem value="rejected">Rejected</SelectItem>
-                    <SelectItem value="cancelled">Cancelled</SelectItem>
-                    <SelectItem value="dispute">Dispute</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Button size="sm" disabled={bulkLoading || selected.size === 0 || !bulkStage} onClick={bulkUpdateStage}>
-                  {bulkLoading ? <InlineLoader className="mr-2" /> : <HiCheckCircle className="w-4 h-4 mr-1" />} Apply
-                </Button>
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2">
+                  <Select value={bulkStage} onValueChange={setBulkStage}>
+                    <SelectTrigger className="w-56">
+                      <SelectValue placeholder="Set stage for selected" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="invited">Invited</SelectItem>
+                      <SelectItem value="pending">Pending</SelectItem>
+                      <SelectItem value="accepted">Accepted</SelectItem>
+                      <SelectItem value="shortlisted">Shortlisted</SelectItem>
+                      <SelectItem value="address_requested">Address Requested</SelectItem>
+                      <SelectItem value="address_provided">Address Provided</SelectItem>
+                      <SelectItem value="product_shipped">Product Shipped</SelectItem>
+                      <SelectItem value="product_delivered">Product Delivered</SelectItem>
+                      <SelectItem value="active">Active</SelectItem>
+                      <SelectItem value="content_submitted">Content Submitted</SelectItem>
+                      <SelectItem value="under_review">Under Review</SelectItem>
+                      <SelectItem value="revision_requested">Revision Requested</SelectItem>
+                      <SelectItem value="approved">Approved</SelectItem>
+                      <SelectItem value="completed">Completed</SelectItem>
+                      <SelectItem value="rejected">Rejected</SelectItem>
+                      <SelectItem value="cancelled">Cancelled</SelectItem>
+                      <SelectItem value="dispute">Dispute</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Button size="sm" disabled={bulkLoading || selected.size === 0 || !bulkStage} onClick={bulkUpdateStage}>
+                    {bulkLoading ? <InlineLoader className="mr-2" /> : <HiCheckCircle className="w-4 h-4 mr-1" />} Apply
+                  </Button>
+                </div>
+                
+                <div className="flex items-center gap-2 border-l pl-4">
+                  <input
+                    type="file"
+                    accept=".csv"
+                    onChange={handleCsvFileChange}
+                    className="hidden"
+                    id="csv-upload"
+                  />
+                  <label htmlFor="csv-upload">
+                    <Button variant="outline" size="sm" asChild>
+                      <span className="cursor-pointer">
+                        <HiCloudArrowUp className="w-4 h-4 mr-1" />
+                        {csvFile ? csvFile.name : 'Upload CSV'}
+                      </span>
+                    </Button>
+                  </label>
+                  <Button 
+                    size="sm" 
+                    variant="outline"
+                    onClick={downloadTemplate}
+                  >
+                    <HiDocumentText className="w-4 h-4 mr-1" />
+                    Template
+                  </Button>
+                  <Button 
+                    size="sm" 
+                    disabled={csvUploading || !csvFile} 
+                    onClick={uploadCsv}
+                  >
+                    {csvUploading ? <InlineLoader className="mr-2" /> : <HiCheckCircle className="w-4 h-4 mr-1" />} 
+                    Process CSV
+                  </Button>
+                </div>
               </div>
             </div>
           </CardHeader>

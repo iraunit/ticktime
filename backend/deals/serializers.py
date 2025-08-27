@@ -207,27 +207,32 @@ class DealDetailSerializer(serializers.ModelSerializer):
     Serializer for detailed deal view with comprehensive information.
     """
     campaign = CampaignSerializer(read_only=True)
+    influencer = SimpleInfluencerSerializer(read_only=True)
     status_display = serializers.CharField(source='get_status_display', read_only=True)
     payment_status_display = serializers.CharField(source='get_payment_status_display', read_only=True)
     is_active = serializers.ReadOnlyField()
     response_deadline_passed = serializers.ReadOnlyField()
     content_submissions_count = serializers.SerializerMethodField()
     unread_messages_count = serializers.SerializerMethodField()
+    submitted_content = serializers.SerializerMethodField()
 
     class Meta:
         model = Deal
         fields = (
-            'id', 'campaign', 'status', 'status_display', 'payment_status',
+            'id', 'campaign', 'influencer', 'status', 'status_display', 'payment_status',
             'payment_status_display', 'is_active', 'response_deadline_passed',
             'rejection_reason', 'negotiation_notes', 'custom_terms_agreed',
-            'invited_at', 'responded_at', 'accepted_at', 'completed_at',
-            'payment_date', 'brand_rating', 'brand_review',
-            'influencer_rating', 'influencer_review',
-            'content_submissions_count', 'unread_messages_count'
+            'invited_at', 'responded_at', 'accepted_at', 'shortlisted_at',
+            'address_requested_at', 'address_provided_at', 'shipped_at', 'delivered_at',
+            'completed_at', 'payment_date', 'brand_rating', 'brand_review',
+            'influencer_rating', 'influencer_review', 'notes',
+            'shipping_address', 'tracking_number', 'tracking_url',
+            'content_submissions_count', 'unread_messages_count', 'submitted_content'
         )
         read_only_fields = (
-            'id', 'invited_at', 'responded_at', 'accepted_at', 'completed_at',
-            'payment_date', 'content_submissions_count', 'unread_messages_count'
+            'id', 'invited_at', 'responded_at', 'accepted_at', 'shortlisted_at',
+            'address_requested_at', 'address_provided_at', 'shipped_at', 'delivered_at',
+            'completed_at', 'payment_date', 'content_submissions_count', 'unread_messages_count'
         )
 
     def get_content_submissions_count(self, obj):
@@ -240,6 +245,11 @@ class DealDetailSerializer(serializers.ModelSerializer):
             return obj.conversation.unread_count_for_influencer
         except Conversation.DoesNotExist:
             return 0
+
+    def get_submitted_content(self, obj):
+        """Get submitted content for this deal."""
+        from content.serializers import ContentSubmissionSerializer
+        return ContentSubmissionSerializer(obj.content_submissions.all(), many=True).data
 
 
 class DealActionSerializer(serializers.Serializer):

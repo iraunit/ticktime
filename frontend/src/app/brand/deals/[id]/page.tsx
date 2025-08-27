@@ -41,18 +41,20 @@ interface Deal {
   id: number;
   influencer: {
     id: number;
-    name: string;
+    full_name: string;
     username: string;
     profile_image?: string;
-    followers: number;
+    followers_count: number;
     engagement_rate: number;
-    avg_rating: number;
+    rating: number;
   };
   campaign: {
     id: number;
     title: string;
     description: string;
-    brand_name: string;
+    brand: {
+      name: string;
+    };
     deal_type: string;
     cash_amount?: number;
     product_value?: number;
@@ -60,18 +62,21 @@ interface Deal {
     content_requirements: string;
     platforms_required: string[];
   };
-  status: 'pending' | 'accepted' | 'rejected' | 'shortlisted' | 'goods_sent' | 'goods_received' | 'content_submitted' | 'content_approved' | 'content_rejected' | 'completed' | 'cancelled';
+  status: 'invited' | 'pending' | 'accepted' | 'rejected' | 'shortlisted' | 'address_requested' | 'address_provided' | 'product_shipped' | 'product_delivered' | 'active' | 'content_submitted' | 'under_review' | 'revision_requested' | 'approved' | 'completed' | 'cancelled' | 'dispute';
   invited_at: string;
   responded_at?: string;
   accepted_at?: string;
   shortlisted_at?: string;
-  goods_sent_at?: string;
-  goods_received_at?: string;
+  address_requested_at?: string;
+  address_provided_at?: string;
+  shipped_at?: string;
+  delivered_at?: string;
   content_submitted_at?: string;
+  shipping_address?: any;
+  tracking_number?: string;
+  tracking_url?: string;
   content_reviewed_at?: string;
   completed_at?: string;
-  tracking_number?: string;
-  delivery_address?: string;
   submitted_content: {
     id: number;
     content_type: string;
@@ -90,13 +95,19 @@ interface Deal {
 }
 
 const statusSteps = [
-  { id: 'pending', label: 'Invitation Sent', icon: HiClock, color: 'yellow' },
+  { id: 'invited', label: 'Invitation Sent', icon: HiClock, color: 'yellow' },
+  { id: 'pending', label: 'Pending Response', icon: HiClock, color: 'yellow' },
   { id: 'accepted', label: 'Deal Accepted', icon: HiCheckCircle, color: 'green' },
   { id: 'shortlisted', label: 'Shortlisted', icon: HiStar, color: 'blue' },
-  { id: 'goods_sent', label: 'Goods Sent', icon: HiTruck, color: 'indigo' },
-  { id: 'goods_received', label: 'Goods Received', icon: HiGift, color: 'purple' },
+  { id: 'address_requested', label: 'Address Requested', icon: HiInformationCircle, color: 'orange' },
+  { id: 'address_provided', label: 'Address Provided', icon: HiCheckCircle, color: 'teal' },
+  { id: 'product_shipped', label: 'Product Shipped', icon: HiTruck, color: 'indigo' },
+  { id: 'product_delivered', label: 'Product Delivered', icon: HiGift, color: 'purple' },
+  { id: 'active', label: 'Active', icon: HiArrowPath, color: 'blue' },
   { id: 'content_submitted', label: 'Content Submitted', icon: HiPhoto, color: 'pink' },
-  { id: 'content_approved', label: 'Content Approved', icon: HiHandThumbUp, color: 'emerald' },
+  { id: 'under_review', label: 'Under Review', icon: HiEye, color: 'orange' },
+  { id: 'revision_requested', label: 'Revision Requested', icon: HiArrowPath, color: 'yellow' },
+  { id: 'approved', label: 'Content Approved', icon: HiHandThumbUp, color: 'emerald' },
   { id: 'completed', label: 'Deal Completed', icon: HiCheckCircle, color: 'green' }
 ];
 
@@ -113,6 +124,7 @@ export default function DealDetailsPage() {
   
   // State for actions
   const [trackingNumber, setTrackingNumber] = useState("");
+  const [trackingUrl, setTrackingUrl] = useState("");
   const [deliveryAddress, setDeliveryAddress] = useState("");
   const [reviewNotes, setReviewNotes] = useState("");
   const [rating, setRating] = useState(5);
@@ -122,30 +134,12 @@ export default function DealDetailsPage() {
   const fetchDeal = async () => {
     setIsLoading(true);
     try {
-      // Prefer fetching via campaign details if campaign query provided
-      if (campaignParam) {
-        const campaignResp = await api.get(`/brands/campaigns/${campaignParam}/`);
-        const campaignDeals: Deal[] = (campaignResp.data?.campaign?.deals || []) as Deal[];
-        const found = campaignDeals.find((d: any) => String(d.id) === String(dealId));
-        if (found) {
-          setDeal(found);
-          setNotes(found.notes || "");
-          return;
-        }
-      }
-
-      // Fallback: try brand deals list filtered by campaign if available
-      const listResp = await api.get(`/brands/deals/`, {
-        params: { campaign: campaignParam || undefined, page_size: 100 },
-      });
-      const list: Deal[] = (listResp.data?.deals || []) as Deal[];
-      const matched = list.find((d: any) => String(d.id) === String(dealId));
-      if (matched) {
-        setDeal(matched);
-        setNotes(matched.notes || "");
-        return;
-      }
-      throw new Error('Deal not found');
+      // Use the dedicated deal detail endpoint
+      const response = await api.get(`/brands/deals/${dealId}/`);
+      const dealData = response.data.deal;
+      console.log('Deal data received:', dealData); // Debug log
+      setDeal(dealData);
+      setNotes(dealData.notes || "");
     } catch (error: any) {
       console.error('Failed to fetch deal:', error);
       toast.error('Failed to load deal details.');
@@ -177,19 +171,45 @@ export default function DealDetailsPage() {
     updateDealStatus('shortlisted');
   };
 
-  const sendGoods = () => {
-    if (!trackingNumber || !deliveryAddress) {
-      toast.error('Please provide tracking number and delivery address');
-      return;
+  const requestAddress = async () => {
+    setIsUpdating(true);
+    try {
+      await api.post(`/brands/deals/${dealId}/request-address/`);
+      await fetchDeal();
+      toast.success('Address request sent to influencer');
+    } catch (error: any) {
+      console.error('Failed to request address:', error);
+      toast.error('Failed to request address.');
+    } finally {
+      setIsUpdating(false);
     }
-    updateDealStatus('goods_sent', { 
-      tracking_number: trackingNumber,
-      delivery_address: deliveryAddress 
-    });
   };
 
-  const markGoodsReceived = () => {
-    updateDealStatus('goods_received');
+  const updateTracking = async () => {
+    if (!trackingNumber) {
+      toast.error('Please provide tracking number');
+      return;
+    }
+    setIsUpdating(true);
+    try {
+      await api.patch(`/brands/deals/${dealId}/tracking/`, {
+        tracking_number: trackingNumber,
+        tracking_url: trackingUrl
+      });
+      await fetchDeal();
+      toast.success('Tracking information updated and product marked as shipped');
+      setTrackingNumber('');
+      setTrackingUrl('');
+    } catch (error: any) {
+      console.error('Failed to update tracking:', error);
+      toast.error('Failed to update tracking.');
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  const markDelivered = () => {
+    updateDealStatus('product_delivered');
   };
 
   const reviewContent = async (_contentId: number, approved: boolean, notes: string) => {
@@ -220,10 +240,13 @@ export default function DealDetailsPage() {
 
   const updateNotes = async () => {
     try {
-      await api.patch(`/brands/deals/${dealId}/notes/`, { notes });
+      console.log('Updating notes:', notes); // Debug log
+      const response = await api.patch(`/brands/deals/${dealId}/notes/`, { notes });
+      console.log('Notes update response:', response); // Debug log
       toast.success('Notes updated successfully');
     } catch (error: any) {
       console.error('Failed to update notes:', error);
+      console.error('Error details:', error.response?.data); // Debug log
       toast.error('Failed to update notes.');
     }
   };
@@ -267,27 +290,48 @@ export default function DealDetailsPage() {
 
   const getCurrentStepIndex = () => {
     if (!deal) return 0;
-    return statusSteps.findIndex(step => step.id === deal.status);
+    const filteredSteps = getRelevantSteps();
+    return filteredSteps.findIndex(step => step.id === deal.status);
+  };
+
+  const getRelevantSteps = () => {
+    if (!deal) return statusSteps;
+    
+    // For cash deals, skip barter-specific steps
+    if (deal.campaign?.deal_type === 'cash') {
+      return statusSteps.filter(step => 
+        !['address_requested', 'address_provided', 'product_shipped', 'product_delivered'].includes(step.id)
+      );
+    }
+    
+    // For barter and hybrid deals, include all steps
+    return statusSteps;
   };
 
   const getStatusBadge = (status: string) => {
     const colors: { [key: string]: string } = {
+      invited: 'bg-yellow-100 text-yellow-800',
       pending: 'bg-yellow-100 text-yellow-800',
       accepted: 'bg-green-100 text-green-800',
       rejected: 'bg-red-100 text-red-800',
       shortlisted: 'bg-blue-100 text-blue-800',
-      goods_sent: 'bg-indigo-100 text-indigo-800',
-      goods_received: 'bg-purple-100 text-purple-800',
+      address_requested: 'bg-orange-100 text-orange-800',
+      address_provided: 'bg-teal-100 text-teal-800',
+      product_shipped: 'bg-indigo-100 text-indigo-800',
+      product_delivered: 'bg-purple-100 text-purple-800',
+      active: 'bg-blue-100 text-blue-800',
       content_submitted: 'bg-pink-100 text-pink-800',
-      content_approved: 'bg-emerald-100 text-emerald-800',
-      content_rejected: 'bg-red-100 text-red-800',
+      under_review: 'bg-orange-100 text-orange-800',
+      revision_requested: 'bg-yellow-100 text-yellow-800',
+      approved: 'bg-emerald-100 text-emerald-800',
       completed: 'bg-green-100 text-green-800',
-      cancelled: 'bg-gray-100 text-gray-800'
+      cancelled: 'bg-gray-100 text-gray-800',
+      dispute: 'bg-red-100 text-red-800'
     };
 
     return (
       <Badge className={`${colors[status] || 'bg-gray-100 text-gray-800'} border-0`}>
-        {status.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
+        {status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
       </Badge>
     );
   };
@@ -348,47 +392,162 @@ export default function DealDetailsPage() {
           </div>
         </div>
 
+        {/* Deal Summary Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+          <Card className="shadow-sm hover:shadow-md transition-shadow cursor-pointer" 
+                onClick={() => {
+                  if (deal.campaign?.id) {
+                    window.open(`/brand/campaigns/${deal.campaign.id}`, '_blank');
+                  }
+                }}>
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                  <HiMegaphone className="w-5 h-5 text-blue-600" />
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500">Campaign</p>
+                  <p className="font-semibold text-gray-900 hover:text-blue-600 transition-colors">
+                    {deal.campaign?.title || 'N/A'}
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="shadow-sm hover:shadow-md transition-shadow cursor-pointer"
+                onClick={() => {
+                  if (deal.influencer?.id) {
+                    window.open(`/influencers/${deal.influencer.id}`, '_blank');
+                  }
+                }}>
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
+                  <HiUser className="w-5 h-5 text-purple-600" />
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500">Influencer</p>
+                  <p className="font-semibold text-gray-900 hover:text-purple-600 transition-colors">
+                    {deal.influencer?.full_name || 'N/A'}
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="shadow-sm">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
+                  <HiCurrencyDollar className="w-5 h-5 text-green-600" />
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500">Total Value</p>
+                  <p className="font-semibold text-gray-900">
+                    {(() => {
+                      const cash = deal.campaign?.cash_amount || 0;
+                      const product = deal.campaign?.product_value || 0;
+                      const total = cash + product;
+                      return total > 0 ? formatCurrency(total) : 'N/A';
+                    })()}
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
         {/* Progress Steps */}
         <Card className="mb-6 shadow-sm">
           <CardHeader>
             <CardTitle className="text-lg">Deal Progress</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="flex items-center justify-between">
-              {statusSteps.map((step, index) => {
-                const currentIndex = getCurrentStepIndex();
-                const isCompleted = index < currentIndex;
-                const isCurrent = index === currentIndex;
-                const isRejected = deal.status === 'rejected' || deal.status === 'cancelled' || deal.status === 'content_rejected';
-                
-                return (
-                  <div key={step.id} className="flex items-center">
-                    <div className="flex flex-col items-center">
-                      <div className={`w-10 h-10 rounded-full flex items-center justify-center border-2 transition-colors ${
+            {/* Mobile: Vertical Progress */}
+            <div className="sm:hidden">
+              <div className="space-y-4">
+                {getRelevantSteps().map((step, index) => {
+                  const currentIndex = getCurrentStepIndex();
+                  const isCompleted = index < currentIndex;
+                  const isCurrent = index === currentIndex;
+                  const isRejected = deal.status === 'rejected' || deal.status === 'cancelled' || deal.status === 'dispute';
+                  
+                  return (
+                    <div key={step.id} className="flex items-center gap-3">
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 transition-colors ${
                         isCompleted || isCurrent
                           ? `bg-${step.color}-500 border-${step.color}-500 text-white`
                           : isRejected && index > currentIndex
                           ? 'border-red-300 text-red-400 bg-red-50'
                           : 'border-gray-300 text-gray-500'
                       }`}>
-                        <step.icon className="w-5 h-5" />
+                        <step.icon className="w-4 h-4" />
                       </div>
-                      <div className="mt-2 text-center">
-                        <p className={`text-xs font-medium ${
+                      <div className="flex-1">
+                        <p className={`text-sm font-medium ${
                           isCurrent ? 'text-gray-900' : 'text-gray-500'
                         }`}>
                           {step.label}
                         </p>
                       </div>
+                      {isCompleted && (
+                        <div className="text-green-500">
+                          <HiCheckCircle className="w-4 h-4" />
+                        </div>
+                      )}
                     </div>
-                    {index < statusSteps.length - 1 && (
-                      <div className={`w-16 h-0.5 mx-4 transition-colors ${
-                        isCompleted ? `bg-${step.color}-500` : 'bg-gray-300'
-                      }`} />
-                    )}
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Desktop: Horizontal Scrollable Progress */}
+            <div className="hidden sm:block">
+              <div className="overflow-x-auto pb-2">
+                <div className="flex items-center min-w-max">
+                  {getRelevantSteps().map((step, index) => {
+                    const relevantSteps = getRelevantSteps();
+                    const currentIndex = getCurrentStepIndex();
+                    const isCompleted = index < currentIndex;
+                    const isCurrent = index === currentIndex;
+                    const isRejected = deal.status === 'rejected' || deal.status === 'cancelled' || deal.status === 'dispute';
+                    
+                    return (
+                      <div key={step.id} className="flex items-center">
+                        <div className="flex flex-col items-center min-w-0 px-2">
+                          <div className={`w-10 h-10 rounded-full flex items-center justify-center border-2 transition-colors ${
+                            isCompleted || isCurrent
+                              ? `bg-${step.color}-500 border-${step.color}-500 text-white`
+                              : isRejected && index > currentIndex
+                              ? 'border-red-300 text-red-400 bg-red-50'
+                              : 'border-gray-300 text-gray-500'
+                          }`}>
+                            <step.icon className="w-5 h-5" />
+                          </div>
+                          <div className="mt-2 text-center">
+                            <p className={`text-xs font-medium whitespace-nowrap ${
+                              isCurrent ? 'text-gray-900' : 'text-gray-500'
+                            }`}>
+                              {step.label}
+                            </p>
+                          </div>
+                        </div>
+                        {index < relevantSteps.length - 1 && (
+                          <div className={`w-8 h-0.5 mx-2 transition-colors flex-shrink-0 ${
+                            isCompleted ? `bg-${step.color}-500` : 'bg-gray-300'
+                          }`} />
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+              {deal.campaign?.deal_type !== 'cash' && (
+                <p className="text-xs text-gray-500 mt-2 text-center">
+                  Scroll horizontally to see all steps
+                </p>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -404,43 +563,163 @@ export default function DealDetailsPage() {
                   Deal Overview
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-sm text-gray-500">Campaign</label>
-                    <p className="font-semibold">{deal.campaign?.title || "N/A"}</p>
-                  </div>
-                  <div>
-                    <label className="text-sm text-gray-500">Deal Type</label>
-                    <p className="font-semibold capitalize">{deal.campaign?.deal_type || "N/A"}</p>
-                  </div>
-                  <div>
-                    <label className="text-sm text-gray-500">Value</label>
-                    <p className="font-semibold">
-                      {deal.campaign?.cash_amount && formatCurrency(deal.campaign?.cash_amount)}
-                      {deal.campaign?.product_value && ` + ${formatCurrency(deal.campaign?.product_value)} (product)`}
-                    </p>
-                  </div>
-                  <div>
-                    <label className="text-sm text-gray-500">Platforms</label>
-                    <div className="flex gap-1 mt-1">
-                      {deal.campaign?.platforms_required?.map(platform => (
-                        <Badge key={platform} variant="outline" className="text-xs">
-                          {platform}
+              <CardContent className="space-y-6">
+                {/* Campaign Information */}
+                <div>
+                  <h4 className="font-medium text-gray-900 mb-3">Campaign Details</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-sm text-gray-500">Campaign Name</label>
+                      <p className="font-semibold">
+                        {deal.campaign?.title ? (
+                          <button
+                            onClick={() => window.open(`/brand/campaigns/${deal.campaign.id}`, '_blank')}
+                            className="text-blue-600 hover:text-blue-800 hover:underline transition-colors"
+                          >
+                            {deal.campaign.title}
+                          </button>
+                        ) : (
+                          "N/A"
+                        )}
+                      </p>
+                    </div>
+                    <div>
+                      <label className="text-sm text-gray-500">Brand</label>
+                      <p className="font-semibold">
+                        {deal.campaign?.brand?.name ? (
+                          <button
+                            onClick={() => window.open(`/brand/settings`, '_blank')}
+                            className="text-blue-600 hover:text-blue-800 hover:underline transition-colors"
+                          >
+                            {deal.campaign.brand.name}
+                          </button>
+                        ) : (
+                          "N/A"
+                        )}
+                      </p>
+                    </div>
+                    <div>
+                      <label className="text-sm text-gray-500">Deal Type</label>
+                      <div className="flex items-center gap-2">
+                        <Badge variant="secondary" className="capitalize">
+                          {deal.campaign?.deal_type || "N/A"}
                         </Badge>
-                      ))}
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-sm text-gray-500">Status</label>
+                      <div>{getStatusBadge(deal.status)}</div>
                     </div>
                   </div>
                 </div>
+
+                {/* Deal Value */}
+                <div>
+                  <h4 className="font-medium text-gray-900 mb-3">Deal Value</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {deal.campaign?.cash_amount && deal.campaign.cash_amount > 0 && (
+                      <div>
+                        <label className="text-sm text-gray-500">Cash Amount</label>
+                        <p className="font-semibold text-green-600">
+                          {formatCurrency(deal.campaign.cash_amount)}
+                        </p>
+                      </div>
+                    )}
+                    {deal.campaign?.product_value && deal.campaign.product_value > 0 && (
+                      <div>
+                        <label className="text-sm text-gray-500">Product Value</label>
+                        <p className="font-semibold text-blue-600">
+                          {formatCurrency(deal.campaign.product_value)}
+                        </p>
+                      </div>
+                    )}
+                    {deal.campaign?.product_name && (
+                      <div className="md:col-span-2">
+                        <label className="text-sm text-gray-500">Product</label>
+                        <p className="font-semibold">{deal.campaign.product_name}</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Platform Requirements */}
+                <div>
+                  <label className="text-sm text-gray-500">Required Platforms</label>
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {deal.campaign?.platforms_required?.length > 0 ? (
+                      deal.campaign.platforms_required.map(platform => (
+                        <Badge key={platform} variant="outline" className="text-xs capitalize">
+                          {platform}
+                        </Badge>
+                      ))
+                    ) : (
+                      <span className="text-sm text-gray-400">No specific platforms required</span>
+                    )}
+                  </div>
+                </div>
                 
+                {/* Content Requirements */}
                 <div>
                   <label className="text-sm text-gray-500">Content Requirements</label>
-                  <p className="text-sm text-gray-700 mt-1">
-                  {typeof deal.campaign?.content_requirements === 'string' 
-                    ? deal.campaign?.content_requirements 
-                    : (deal.campaign?.content_requirements as any)?.description || 'No content requirements specified'}
-                </p>
+                  <div className="mt-2 p-3 bg-gray-50 rounded-lg">
+                    <p className="text-sm text-gray-700">
+                      {typeof deal.campaign?.content_requirements === 'string' 
+                        ? deal.campaign?.content_requirements 
+                        : (deal.campaign?.content_requirements as any)?.description || 'No specific content requirements provided'}
+                    </p>
+                  </div>
                 </div>
+
+                {/* Campaign Description */}
+                {deal.campaign?.description && (
+                  <div>
+                    <label className="text-sm text-gray-500">Campaign Description</label>
+                    <div className="mt-2 p-3 bg-gray-50 rounded-lg">
+                      <p className="text-sm text-gray-700">{deal.campaign.description}</p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Shipping Information for Barter Deals */}
+                {deal.shipping_address && (
+                  <div>
+                    <h4 className="font-medium text-gray-900 mb-3">Shipping Information</h4>
+                    <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
+                      <p className="font-medium text-blue-900">Delivery Address:</p>
+                      <div className="text-sm text-blue-800 mt-1">
+                        <p>{deal.shipping_address.full_name}</p>
+                        <p>{deal.shipping_address.address_line_1}</p>
+                        {deal.shipping_address.address_line_2 && <p>{deal.shipping_address.address_line_2}</p>}
+                        <p>{deal.shipping_address.city}, {deal.shipping_address.state} {deal.shipping_address.postal_code}</p>
+                        <p>{deal.shipping_address.country}</p>
+                        {deal.shipping_address.phone_number && <p>Phone: {deal.shipping_address.phone_number}</p>}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Tracking Information */}
+                {deal.tracking_number && (
+                  <div>
+                    <h4 className="font-medium text-gray-900 mb-3">Tracking Information</h4>
+                    <div className="p-3 bg-indigo-50 rounded-lg border border-indigo-200">
+                      <div className="text-sm">
+                        <p><strong>Tracking Number:</strong> {deal.tracking_number}</p>
+                        {deal.tracking_url && (
+                          <p><strong>Track Package:</strong> 
+                            <a href={deal.tracking_url} target="_blank" rel="noopener noreferrer" 
+                               className="text-indigo-600 hover:underline ml-1">
+                              {deal.tracking_url}
+                            </a>
+                          </p>
+                        )}
+                        {deal.shipped_at && (
+                          <p><strong>Shipped:</strong> {new Date(deal.shipped_at).toLocaleDateString()}</p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
 
@@ -450,6 +729,7 @@ export default function DealDetailsPage() {
                 <CardTitle>Actions</CardTitle>
               </CardHeader>
               <CardContent>
+                {/* Deal Accepted - Shortlist */}
                 {deal.status === 'accepted' && (
                   <div className="space-y-4">
                     <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
@@ -469,30 +749,63 @@ export default function DealDetailsPage() {
                   </div>
                 )}
 
+                {/* Shortlisted - Request Address for Barter Deals */}
                 {deal.status === 'shortlisted' && deal.campaign?.deal_type !== 'cash' && (
                   <div className="space-y-4">
                     <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-4">
-                      <h4 className="font-medium text-indigo-900 mb-2">Send Products/Goods</h4>
+                      <h4 className="font-medium text-indigo-900 mb-2">Request Shipping Address</h4>
                       <p className="text-sm text-indigo-700 mb-3">
-                        Send the products to the influencer and provide tracking details.
+                        Request the influencer's shipping address to send products.
                       </p>
+                      <Button 
+                        onClick={requestAddress}
+                        disabled={isUpdating}
+                        className="bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700"
+                      >
+                        {isUpdating ? <InlineLoader className="mr-2" /> : <HiInformationCircle className="w-4 h-4 mr-2" />}
+                        Request Address
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Address Requested - Waiting */}
+                {deal.status === 'address_requested' && (
+                  <div className="space-y-4">
+                    <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+                      <h4 className="font-medium text-orange-900 mb-2">Waiting for Address</h4>
+                      <p className="text-sm text-orange-700 mb-3">
+                        Address request sent to influencer. Waiting for them to provide shipping address.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Address Provided - Ship Products */}
+                {deal.status === 'address_provided' && (
+                  <div className="space-y-4">
+                    <div className="bg-teal-50 border border-teal-200 rounded-lg p-4">
+                      <h4 className="font-medium text-teal-900 mb-2">Ship Products</h4>
+                      <p className="text-sm text-teal-700 mb-3">
+                        Address received! Ship the products and provide tracking information.
+                      </p>
+                      
+                      {deal.shipping_address && (
+                        <div className="bg-white p-3 rounded border text-sm mb-3">
+                          <p className="font-medium">Shipping Address:</p>
+                          <p>{deal.shipping_address.full_name}</p>
+                          <p>{deal.shipping_address.address_line_1}</p>
+                          {deal.shipping_address.address_line_2 && <p>{deal.shipping_address.address_line_2}</p>}
+                          <p>{deal.shipping_address.city}, {deal.shipping_address.state} {deal.shipping_address.postal_code}</p>
+                          <p>{deal.shipping_address.country}</p>
+                          {deal.shipping_address.phone_number && <p>Phone: {deal.shipping_address.phone_number}</p>}
+                        </div>
+                      )}
                       
                       <div className="space-y-3">
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Delivery Address
-                          </label>
-                          <Textarea
-                            placeholder="Enter delivery address"
-                            value={deliveryAddress}
-                            onChange={(e) => setDeliveryAddress(e.target.value)}
-                            className="h-20"
-                          />
-                        </div>
-                        
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Tracking Number
+                            Tracking Number *
                           </label>
                           <Input
                             placeholder="Enter tracking number"
@@ -501,39 +814,73 @@ export default function DealDetailsPage() {
                           />
                         </div>
                         
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Tracking URL (Optional)
+                          </label>
+                          <Input
+                            placeholder="Enter tracking URL"
+                            value={trackingUrl}
+                            onChange={(e) => setTrackingUrl(e.target.value)}
+                          />
+                        </div>
+                        
                         <Button 
-                          onClick={sendGoods}
-                          disabled={isUpdating || !trackingNumber || !deliveryAddress}
-                          className="bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700"
+                          onClick={updateTracking}
+                          disabled={isUpdating || !trackingNumber}
+                          className="bg-gradient-to-r from-teal-500 to-indigo-600 hover:from-teal-600 hover:to-indigo-700"
                         >
                           {isUpdating ? <InlineLoader className="mr-2" /> : <HiTruck className="w-4 h-4 mr-2" />}
-                          Mark as Sent
+                          Ship Products
                         </Button>
                       </div>
                     </div>
                   </div>
                 )}
 
-                {deal.status === 'goods_sent' && (
+                {/* Product Shipped - Track Delivery */}
+                {deal.status === 'product_shipped' && (
                   <div className="space-y-4">
-                    <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
-                      <h4 className="font-medium text-purple-900 mb-2">Goods Tracking</h4>
-                      <p className="text-sm text-purple-700 mb-3">
-                        Tracking: <strong>{deal.tracking_number}</strong>
+                    <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-4">
+                      <h4 className="font-medium text-indigo-900 mb-2">Product Shipped</h4>
+                      <p className="text-sm text-indigo-700 mb-3">
+                        Products have been shipped. Tracking information:
                       </p>
-                      <p className="text-sm text-purple-700 mb-3">
-                        Waiting for influencer to confirm receipt of goods.
+                      <div className="bg-white p-3 rounded border text-sm mb-3">
+                        <p><strong>Tracking Number:</strong> {deal.tracking_number}</p>
+                        {deal.tracking_url && (
+                          <p><strong>Track Package:</strong> <a href={deal.tracking_url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">{deal.tracking_url}</a></p>
+                        )}
+                        <p><strong>Shipped:</strong> {deal.shipped_at && new Date(deal.shipped_at).toLocaleDateString()}</p>
+                      </div>
+                      <p className="text-sm text-indigo-700 mb-3">
+                        Waiting for delivery confirmation...
                       </p>
                       
                       <Button 
-                        onClick={markGoodsReceived}
+                        onClick={markDelivered}
                         disabled={isUpdating}
                         variant="outline"
-                        className="border-purple-300 hover:bg-purple-50"
+                        className="border-indigo-300 hover:bg-indigo-50"
                       >
                         {isUpdating ? <InlineLoader className="mr-2" /> : <HiGift className="w-4 h-4 mr-2" />}
-                        Mark as Received (Override)
+                        Mark as Delivered (Override)
                       </Button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Product Delivered - Ready for Content */}
+                {deal.status === 'product_delivered' && (
+                  <div className="space-y-4">
+                    <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                      <h4 className="font-medium text-purple-900 mb-2">Products Delivered</h4>
+                      <p className="text-sm text-purple-700 mb-3">
+                        Products have been delivered! Influencer can now create content.
+                      </p>
+                      <div className="bg-white p-3 rounded border text-sm">
+                        <p><strong>Delivered:</strong> {deal.delivered_at && new Date(deal.delivered_at).toLocaleDateString()}</p>
+                      </div>
                     </div>
                   </div>
                 )}
@@ -549,7 +896,7 @@ export default function DealDetailsPage() {
                   </div>
                 )}
 
-                {deal.status === 'content_approved' && (
+                {deal.status === 'approved' && (
                   <div className="space-y-4">
                     <div className="bg-green-50 border border-green-200 rounded-lg p-4">
                       <h4 className="font-medium text-green-900 mb-2">Complete Deal</h4>
@@ -751,43 +1098,101 @@ export default function DealDetailsPage() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <HiUser className="w-5 h-5 text-purple-600" />
-                  Influencer
+                  Influencer Details
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="flex items-center gap-3 mb-4">
-                  <div className="w-12 h-12 bg-gradient-to-r from-purple-500 to-pink-600 rounded-full flex items-center justify-center">
-                    <span className="text-white font-bold">
-                      {deal.influencer?.name?.charAt(0) || '?'}
-                    </span>
-                  </div>
-                  <div>
-                    <h3 className="font-semibold">{deal.influencer?.name || 'Unknown Influencer'}</h3>
-                    <p className="text-sm text-gray-600">{deal.influencer?.username || 'N/A'}</p>
+                  {deal.influencer?.profile_image ? (
+                    <img 
+                      src={deal.influencer.profile_image} 
+                      alt={deal.influencer.full_name || 'Influencer'}
+                      className="w-12 h-12 rounded-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-12 h-12 bg-gradient-to-r from-purple-500 to-pink-600 rounded-full flex items-center justify-center">
+                      <span className="text-white font-bold">
+                        {deal.influencer?.full_name?.charAt(0)?.toUpperCase() || '?'}
+                      </span>
+                    </div>
+                  )}
+                  <div className="flex-1">
+                    <h3 className="font-semibold">{deal.influencer?.full_name || 'Unknown Influencer'}</h3>
+                    <p className="text-sm text-gray-600">@{deal.influencer?.username || 'N/A'}</p>
                   </div>
                 </div>
                 
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between">
+                <div className="space-y-3 text-sm">
+                  <div className="flex justify-between items-center">
                     <span className="text-gray-500">Followers:</span>
-                    <span className="font-medium">{formatFollowers(deal.influencer?.followers)}</span>
+                    <span className="font-medium">{formatFollowers(deal.influencer?.followers_count || 0)}</span>
                   </div>
-                  <div className="flex justify-between">
+                  <div className="flex justify-between items-center">
                     <span className="text-gray-500">Engagement:</span>
-                    <span className="font-medium">{deal.influencer?.engagement_rate || 0}%</span>
+                    <span className="font-medium">{(deal.influencer?.engagement_rate || 0).toFixed(1)}%</span>
                   </div>
-                  <div className="flex justify-between">
+                  <div className="flex justify-between items-center">
                     <span className="text-gray-500">Rating:</span>
-                    <span className="font-medium">
-                      {deal.influencer?.avg_rating || 0}/5 ⭐
-                    </span>
+                    <div className="flex items-center gap-1">
+                      <span className="font-medium">{(deal.influencer?.rating || 0).toFixed(1)}/5</span>
+                      <span className="text-yellow-500">⭐</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Deal-specific information */}
+                <div className="mt-4 pt-4 border-t border-gray-200">
+                  <h4 className="font-medium text-gray-900 mb-3">Deal Information</h4>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">Invited:</span>
+                      <span className="font-medium">{formatDate(deal.invited_at)}</span>
+                    </div>
+                    {deal.accepted_at && (
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">Accepted:</span>
+                        <span className="font-medium text-green-600">{formatDate(deal.accepted_at)}</span>
+                      </div>
+                    )}
+                    {deal.shortlisted_at && (
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">Shortlisted:</span>
+                        <span className="font-medium text-blue-600">{formatDate(deal.shortlisted_at)}</span>
+                      </div>
+                    )}
+                    {deal.completed_at && (
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">Completed:</span>
+                        <span className="font-medium text-green-600">{formatDate(deal.completed_at)}</span>
+                      </div>
+                    )}
                   </div>
                 </div>
                 
-                <div className="mt-4 pt-4 border-t border-gray-200">
-                  <Button variant="outline" size="sm" className="w-full">
+                <div className="mt-4 pt-4 border-t border-gray-200 space-y-2">
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="w-full"
+                    onClick={() => {
+                      const url = `/brand/messages?influencer=${deal.influencer?.id}`;
+                      window.open(url, '_blank');
+                    }}
+                  >
                     <HiChatBubbleLeftRight className="w-4 h-4 mr-2" />
                     Message Influencer
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="w-full"
+                    onClick={() => {
+                      const url = `/influencers/${deal.influencer?.id}`;
+                      window.open(url, '_blank');
+                    }}
+                  >
+                    <HiEye className="w-4 h-4 mr-2" />
+                    View Profile
                   </Button>
                 </div>
               </CardContent>
@@ -841,12 +1246,42 @@ export default function DealDetailsPage() {
                     </div>
                   )}
                   
-                  {deal.goods_sent_at && (
+                  {deal.address_requested_at && (
+                    <div className="flex items-center gap-3">
+                      <HiInformationCircle className="w-4 h-4 text-orange-500" />
+                      <div>
+                        <p className="text-sm font-medium">Address Requested</p>
+                        <p className="text-xs text-gray-500">{formatDate(deal.address_requested_at)}</p>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {deal.address_provided_at && (
+                    <div className="flex items-center gap-3">
+                      <HiCheckCircle className="w-4 h-4 text-teal-500" />
+                      <div>
+                        <p className="text-sm font-medium">Address Provided</p>
+                        <p className="text-xs text-gray-500">{formatDate(deal.address_provided_at)}</p>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {deal.shipped_at && (
                     <div className="flex items-center gap-3">
                       <HiTruck className="w-4 h-4 text-indigo-500" />
                       <div>
-                        <p className="text-sm font-medium">Goods Sent</p>
-                        <p className="text-xs text-gray-500">{formatDate(deal.goods_sent_at)}</p>
+                        <p className="text-sm font-medium">Product Shipped</p>
+                        <p className="text-xs text-gray-500">{formatDate(deal.shipped_at)}</p>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {deal.delivered_at && (
+                    <div className="flex items-center gap-3">
+                      <HiGift className="w-4 h-4 text-purple-500" />
+                      <div>
+                        <p className="text-sm font-medium">Product Delivered</p>
+                        <p className="text-xs text-gray-500">{formatDate(deal.delivered_at)}</p>
                       </div>
                     </div>
                   )}

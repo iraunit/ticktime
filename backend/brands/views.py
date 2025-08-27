@@ -797,6 +797,296 @@ def bulk_update_deals_status_view(request):
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
+def request_address_view(request, deal_id):
+    """
+    Request shipping address from influencer for barter deals
+    """
+    brand_user = get_brand_user_or_403(request)
+    if not brand_user:
+        return Response({
+            'status': 'error',
+            'message': 'Brand profile not found.'
+        }, status=status.HTTP_404_NOT_FOUND)
+
+    try:
+        deal = Deal.objects.get(id=deal_id, campaign__brand=brand_user.brand)
+    except Deal.DoesNotExist:
+        return Response({
+            'status': 'error',
+            'message': 'Deal not found.'
+        }, status=status.HTTP_404_NOT_FOUND)
+
+    if not deal.requires_product_shipping:
+        return Response({
+            'status': 'error',
+            'message': 'This deal does not require product shipping.'
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+    if deal.status != 'shortlisted':
+        return Response({
+            'status': 'error',
+            'message': 'Can only request address for shortlisted deals.'
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+    deal.status = 'address_requested'
+    deal.address_requested_at = timezone.now()
+    deal.save(update_fields=['status', 'address_requested_at'])
+
+    from deals.serializers import DealListSerializer
+    return Response({
+        'status': 'success',
+        'deal': DealListSerializer(deal).data
+    })
+
+
+@api_view(['PATCH'])
+@permission_classes([IsAuthenticated])
+def update_tracking_view(request, deal_id):
+    """
+    Update tracking information for shipped products
+    """
+    brand_user = get_brand_user_or_403(request)
+    if not brand_user:
+        return Response({
+            'status': 'error',
+            'message': 'Brand profile not found.'
+        }, status=status.HTTP_404_NOT_FOUND)
+
+    try:
+        deal = Deal.objects.get(id=deal_id, campaign__brand=brand_user.brand)
+    except Deal.DoesNotExist:
+        return Response({
+            'status': 'error',
+            'message': 'Deal not found.'
+        }, status=status.HTTP_404_NOT_FOUND)
+
+    tracking_number = request.data.get('tracking_number', '').strip()
+    tracking_url = request.data.get('tracking_url', '').strip()
+
+    if not tracking_number:
+        return Response({
+            'status': 'error',
+            'message': 'Tracking number is required.'
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+    # Update deal with tracking info and mark as shipped
+    deal.tracking_number = tracking_number
+    deal.tracking_url = tracking_url
+    deal.status = 'product_shipped'
+    deal.shipped_at = timezone.now()
+    deal.save(update_fields=['tracking_number', 'tracking_url', 'status', 'shipped_at'])
+
+    from deals.serializers import DealListSerializer
+    return Response({
+        'status': 'success',
+        'deal': DealListSerializer(deal).data
+    })
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def bulk_update_csv_view(request):
+    """
+    Bulk update deals via CSV upload
+    Expected CSV format: email,status,tracking_number,tracking_url
+    """
+    brand_user = get_brand_user_or_403(request)
+    if not brand_user:
+        return Response({
+            'status': 'error',
+            'message': 'Brand profile not found.'
+        }, status=status.HTTP_404_NOT_FOUND)
+
+    csv_file = request.FILES.get('csv_file')
+    if not csv_file:
+        return Response({
+            'status': 'error',
+            'message': 'CSV file is required.'
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+    if not csv_file.name.endswith('.csv'):
+        return Response({
+            'status': 'error',
+            'message': 'File must be a CSV.'
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        import csv
+        import io
+        
+        # Read CSV content
+        csv_content = csv_file.read().decode('utf-8')
+        csv_reader = csv.DictReader(io.StringIO(csv_content))
+        
+        # Validate headers
+        expected_headers = {'email', 'status'}
+        if not expected_headers.issubset(set(csv_reader.fieldnames or [])):
+            return Response({
+                'status': 'error',
+                'message': f'CSV must contain at least these headers: {", ".join(expected_headers)}'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        updates = []
+        errors = []
+        
+        valid_statuses = [choice[0] for choice in Deal._meta.get_field('status').choices]
+        
+        for row_num, row in enumerate(csv_reader, start=2):  # Start at 2 for header row
+            email = row.get('email', '').strip()
+            new_status = row.get('status', '').strip()
+            tracking_number = row.get('tracking_number', '').strip()
+            tracking_url = row.get('tracking_url', '').strip()
+            
+            if not email or not new_status:
+                errors.append(f'Row {row_num}: Email and status are required')
+                continue
+                
+            if new_status not in valid_statuses:
+                errors.append(f'Row {row_num}: Invalid status "{new_status}"')
+                continue
+            
+            try:
+                # Find influencer by email and get their deals with this brand
+                from influencers.models import InfluencerProfile
+                influencer = InfluencerProfile.objects.get(user__email=email)
+                deals = Deal.objects.filter(
+                    campaign__brand=brand_user.brand,
+                    influencer=influencer
+                )
+                
+                if not deals.exists():
+                    errors.append(f'Row {row_num}: No deals found for {email}')
+                    continue
+                
+                # Update all deals for this influencer
+                update_fields = ['status']
+                update_data = {'status': new_status}
+                
+                if tracking_number:
+                    update_data['tracking_number'] = tracking_number
+                    update_fields.append('tracking_number')
+                    
+                if tracking_url:
+                    update_data['tracking_url'] = tracking_url
+                    update_fields.append('tracking_url')
+                    
+                if new_status == 'product_shipped' and not deals.first().shipped_at:
+                    update_data['shipped_at'] = timezone.now()
+                    update_fields.append('shipped_at')
+                    
+                deals.update(**update_data)
+                updates.append(f'Updated {deals.count()} deal(s) for {email}')
+                
+            except InfluencerProfile.DoesNotExist:
+                errors.append(f'Row {row_num}: Influencer with email {email} not found')
+                continue
+            except Exception as e:
+                errors.append(f'Row {row_num}: Error processing {email}: {str(e)}')
+                continue
+
+        return Response({
+            'status': 'success',
+            'updates': updates,
+            'errors': errors,
+            'total_processed': len(updates),
+            'total_errors': len(errors)
+        })
+
+    except Exception as e:
+        return Response({
+            'status': 'error',
+            'message': f'Error processing CSV: {str(e)}'
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def download_csv_template_view(request):
+    """
+    Download CSV template for bulk updates
+    """
+    from django.http import HttpResponse
+    import csv
+    
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = 'attachment; filename="bulk_update_template.csv"'
+    
+    writer = csv.writer(response)
+    writer.writerow(['email', 'status', 'tracking_number', 'tracking_url'])
+    writer.writerow(['influencer@example.com', 'product_shipped', 'TRK123456789', 'https://tracking.example.com/TRK123456789'])
+    writer.writerow(['another@example.com', 'shortlisted', '', ''])
+    
+    return response
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def brand_deal_detail_view(request, deal_id):
+    """
+    Get detailed information about a specific deal for the authenticated brand.
+    """
+    brand_user = get_brand_user_or_403(request)
+    if not brand_user:
+        return Response({
+            'status': 'error',
+            'message': 'Brand profile not found.'
+        }, status=status.HTTP_404_NOT_FOUND)
+
+    try:
+        deal = Deal.objects.select_related(
+            'campaign__brand',
+            'influencer__user'
+        ).prefetch_related(
+            'influencer__social_accounts',
+            'content_submissions'
+        ).get(id=deal_id, campaign__brand=brand_user.brand)
+    except Deal.DoesNotExist:
+        return Response({
+            'status': 'error',
+            'message': 'Deal not found.'
+        }, status=status.HTTP_404_NOT_FOUND)
+
+    from deals.serializers import DealDetailSerializer
+    return Response({
+        'status': 'success',
+        'deal': DealDetailSerializer(deal).data
+    })
+
+
+@api_view(['PATCH'])
+@permission_classes([IsAuthenticated])
+def update_deal_notes_view(request, deal_id):
+    """
+    Update notes for a specific deal.
+    """
+    brand_user = get_brand_user_or_403(request)
+    if not brand_user:
+        return Response({
+            'status': 'error',
+            'message': 'Brand profile not found.'
+        }, status=status.HTTP_404_NOT_FOUND)
+
+    try:
+        deal = Deal.objects.get(id=deal_id, campaign__brand=brand_user.brand)
+    except Deal.DoesNotExist:
+        return Response({
+            'status': 'error',
+            'message': 'Deal not found.'
+        }, status=status.HTTP_404_NOT_FOUND)
+
+    notes = request.data.get('notes', '')
+    deal.notes = notes
+    deal.save(update_fields=['notes'])
+
+    return Response({
+        'status': 'success',
+        'message': 'Notes updated successfully.',
+        'notes': notes
+    })
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
 def bookmark_influencer_view(request, influencer_id):
     """
     Bookmark an influencer for the brand.

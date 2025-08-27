@@ -20,4 +20,7 @@ urlpatterns = [
     path('search/', views.influencer_search_view, name='influencer_search'),
     path('filters/', views.influencer_filters_view, name='influencer_filters'),
     path('bookmark/<int:influencer_id>/', views.bookmark_influencer_view, name='bookmark_influencer'),
+    
+    # Deal management endpoints
+    path('deals/<int:deal_id>/address/', views.provide_shipping_address_view, name='provide_shipping_address'),
 ]
