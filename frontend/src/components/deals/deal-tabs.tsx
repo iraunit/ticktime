@@ -163,12 +163,12 @@ export function DealTabs({ deal, onAccept, onReject, isLoading }: DealTabsProps)
                 <div className="flex items-center space-x-3">
                   <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center">
                     <span className="text-white font-bold text-sm">
-                      {deal.campaign.brand.name.charAt(0).toUpperCase()}
+                      {deal.campaign?.brand?.name?.charAt(0)?.toUpperCase() || '?'}
                     </span>
                   </div>
                   <div>
-                    <h3 className="font-semibold text-gray-900">{deal.campaign.brand.name}</h3>
-                    <p className="text-xs text-gray-500">Campaign: {deal.campaign.title}</p>
+                    <h3 className="font-semibold text-gray-900">{deal.campaign?.brand?.name || 'Unknown Brand'}</h3>
+                    <p className="text-xs text-gray-500">Campaign: {deal.campaign?.title || 'Untitled Campaign'}</p>
                   </div>
                 </div>
               </div>

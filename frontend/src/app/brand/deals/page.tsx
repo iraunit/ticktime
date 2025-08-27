@@ -378,12 +378,12 @@ export default function BrandDealsPage() {
                         <div className="flex items-center gap-3">
                           <div className="w-10 h-10 bg-gradient-to-r from-gray-300 to-gray-400 rounded-full flex items-center justify-center">
                             <span className="text-sm font-medium text-white">
-                              {deal.influencer.name.charAt(0)}
+                              {deal.influencer?.name?.charAt(0) || '?'}
                             </span>
                           </div>
                           <div>
-                            <p className="font-medium text-gray-900">{deal.influencer.name}</p>
-                            <p className="text-sm text-gray-500">{deal.influencer.username}</p>
+                            <p className="font-medium text-gray-900">{deal.influencer?.name || 'Unknown Influencer'}</p>
+                            <p className="text-sm text-gray-500">{deal.influencer?.username || 'N/A'}</p>
                           </div>
                         </div>
                         
@@ -423,14 +423,14 @@ export default function BrandDealsPage() {
                     <div className="flex items-center gap-4">
                       <div className="w-12 h-12 bg-gradient-to-r from-gray-300 to-gray-400 rounded-full flex items-center justify-center">
                         <span className="text-lg font-medium text-white">
-                          {deal.influencer.name.charAt(0)}
+                          {deal.influencer?.name?.charAt(0) || '?'}
                         </span>
                       </div>
                       
                       <div>
-                        <h3 className="font-semibold text-gray-900">{deal.influencer.name}</h3>
-                        <p className="text-sm text-gray-500">{deal.influencer.username}</p>
-                        <p className="text-sm text-blue-600 font-medium">{deal.campaign.title}</p>
+                        <h3 className="font-semibold text-gray-900">{deal.influencer?.name || 'Unknown Influencer'}</h3>
+                        <p className="text-sm text-gray-500">{deal.influencer?.username || 'N/A'}</p>
+                        <p className="text-sm text-blue-600 font-medium">{deal.campaign?.title || 'Untitled Campaign'}</p>
                       </div>
                     </div>
                     

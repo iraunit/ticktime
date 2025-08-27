@@ -396,7 +396,7 @@ export default function BrandReviewsPage() {
                         <div className="flex items-center gap-4">
                           <div className="w-12 h-12 bg-gradient-to-r from-purple-500 to-pink-600 rounded-full flex items-center justify-center">
                             <span className="text-white font-bold">
-                              {review.reviewer.name.charAt(0)}
+                              {review.reviewer?.name?.charAt(0) || '?'}
                             </span>
                           </div>
                           
@@ -528,7 +528,7 @@ export default function BrandReviewsPage() {
                         <div className="flex items-center gap-4">
                           <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-full flex items-center justify-center">
                             <span className="text-white font-bold">
-                              {review.reviewee.name.charAt(0)}
+                              {review.reviewee?.name?.charAt(0) || '?'}
                             </span>
                           </div>
                           

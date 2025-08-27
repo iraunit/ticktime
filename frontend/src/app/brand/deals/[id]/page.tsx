@@ -737,12 +737,12 @@ export default function DealDetailsPage() {
                 <div className="flex items-center gap-3 mb-4">
                   <div className="w-12 h-12 bg-gradient-to-r from-purple-500 to-pink-600 rounded-full flex items-center justify-center">
                     <span className="text-white font-bold">
-                      {deal.influencer.name.charAt(0)}
+                      {deal.influencer?.name?.charAt(0) || '?'}
                     </span>
                   </div>
                   <div>
-                    <h3 className="font-semibold">{deal.influencer.name}</h3>
-                    <p className="text-sm text-gray-600">{deal.influencer.username}</p>
+                    <h3 className="font-semibold">{deal.influencer?.name || 'Unknown Influencer'}</h3>
+                    <p className="text-sm text-gray-600">{deal.influencer?.username || 'N/A'}</p>
                   </div>
                 </div>
                 

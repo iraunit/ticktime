@@ -315,14 +315,14 @@ export default function BrandBookmarksPage() {
                     <div className="flex items-start gap-4 flex-1">
                       <div className="w-16 h-16 bg-gradient-to-r from-pink-500 to-purple-600 rounded-full flex items-center justify-center shadow-md">
                         <span className="text-xl font-bold text-white">
-                          {bookmark.influencer.name.charAt(0)}
+                          {bookmark.influencer?.name?.charAt(0) || '?'}
                         </span>
                       </div>
                       
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-2">
                           <h3 className="text-lg font-semibold text-gray-900 truncate">
-                            {bookmark.influencer.name}
+                            {bookmark.influencer?.name || 'Unknown Influencer'}
                           </h3>
                           {bookmark.influencer.is_verified && (
                             <HiCheckBadge className="w-5 h-5 text-blue-500" />
