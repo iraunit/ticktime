@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -104,6 +104,8 @@ export default function DealDetailsPage() {
   const params = useParams();
   const router = useRouter();
   const dealId = params.id as string;
+  const searchParams = useSearchParams();
+  const campaignParam = searchParams.get('campaign');
   
   const [deal, setDeal] = useState<Deal | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -120,9 +122,30 @@ export default function DealDetailsPage() {
   const fetchDeal = async () => {
     setIsLoading(true);
     try {
-      const response = await api.get(`/brands/deals/${dealId}/`);
-      setDeal(response.data.deal);
-      setNotes(response.data.deal.notes || "");
+      // Prefer fetching via campaign details if campaign query provided
+      if (campaignParam) {
+        const campaignResp = await api.get(`/brands/campaigns/${campaignParam}/`);
+        const campaignDeals: Deal[] = (campaignResp.data?.campaign?.deals || []) as Deal[];
+        const found = campaignDeals.find((d: any) => String(d.id) === String(dealId));
+        if (found) {
+          setDeal(found);
+          setNotes(found.notes || "");
+          return;
+        }
+      }
+
+      // Fallback: try brand deals list filtered by campaign if available
+      const listResp = await api.get(`/brands/deals/`, {
+        params: { campaign: campaignParam || undefined, page_size: 100 },
+      });
+      const list: Deal[] = (listResp.data?.deals || []) as Deal[];
+      const matched = list.find((d: any) => String(d.id) === String(dealId));
+      if (matched) {
+        setDeal(matched);
+        setNotes(matched.notes || "");
+        return;
+      }
+      throw new Error('Deal not found');
     } catch (error: any) {
       console.error('Failed to fetch deal:', error);
       toast.error('Failed to load deal details.');
@@ -169,13 +192,10 @@ export default function DealDetailsPage() {
     updateDealStatus('goods_received');
   };
 
-  const reviewContent = async (contentId: number, approved: boolean, notes: string) => {
+  const reviewContent = async (_contentId: number, approved: boolean, notes: string) => {
     setIsUpdating(true);
     try {
-      await api.patch(`/brands/deals/${dealId}/content/${contentId}/review/`, {
-        approved,
-        review_notes: notes
-      });
+      await api.put(`/brands/deals/${dealId}/content/`, { action: approved ? 'approve' : 'reject', feedback: notes });
       
       await fetchDeal();
       toast.success(`Content ${approved ? 'approved' : 'rejected'}`);
@@ -233,7 +253,8 @@ export default function DealDetailsPage() {
     });
   };
 
-  const formatFollowers = (count: number) => {
+  const formatFollowers = (count: number | undefined | null) => {
+    if (!count || count === 0) return "0";
     if (count >= 1000000) return `${(count / 1000000).toFixed(1)}M`;
     if (count >= 1000) return `${(count / 1000).toFixed(1)}K`;
     return count.toString();
@@ -387,23 +408,23 @@ export default function DealDetailsPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="text-sm text-gray-500">Campaign</label>
-                    <p className="font-semibold">{deal.campaign.title}</p>
+                    <p className="font-semibold">{deal.campaign?.title || "N/A"}</p>
                   </div>
                   <div>
                     <label className="text-sm text-gray-500">Deal Type</label>
-                    <p className="font-semibold capitalize">{deal.campaign.deal_type}</p>
+                    <p className="font-semibold capitalize">{deal.campaign?.deal_type || "N/A"}</p>
                   </div>
                   <div>
                     <label className="text-sm text-gray-500">Value</label>
                     <p className="font-semibold">
-                      {deal.campaign.cash_amount && formatCurrency(deal.campaign.cash_amount)}
-                      {deal.campaign.product_value && ` + ${formatCurrency(deal.campaign.product_value)} (product)`}
+                      {deal.campaign?.cash_amount && formatCurrency(deal.campaign?.cash_amount)}
+                      {deal.campaign?.product_value && ` + ${formatCurrency(deal.campaign?.product_value)} (product)`}
                     </p>
                   </div>
                   <div>
                     <label className="text-sm text-gray-500">Platforms</label>
                     <div className="flex gap-1 mt-1">
-                      {deal.campaign.platforms_required.map(platform => (
+                      {deal.campaign?.platforms_required?.map(platform => (
                         <Badge key={platform} variant="outline" className="text-xs">
                           {platform}
                         </Badge>
@@ -415,9 +436,9 @@ export default function DealDetailsPage() {
                 <div>
                   <label className="text-sm text-gray-500">Content Requirements</label>
                   <p className="text-sm text-gray-700 mt-1">
-                  {typeof deal.campaign.content_requirements === 'string' 
-                    ? deal.campaign.content_requirements 
-                    : (deal.campaign.content_requirements as any)?.description || 'No content requirements specified'}
+                  {typeof deal.campaign?.content_requirements === 'string' 
+                    ? deal.campaign?.content_requirements 
+                    : (deal.campaign?.content_requirements as any)?.description || 'No content requirements specified'}
                 </p>
                 </div>
               </CardContent>
@@ -448,7 +469,7 @@ export default function DealDetailsPage() {
                   </div>
                 )}
 
-                {deal.status === 'shortlisted' && deal.campaign.deal_type !== 'cash' && (
+                {deal.status === 'shortlisted' && deal.campaign?.deal_type !== 'cash' && (
                   <div className="space-y-4">
                     <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-4">
                       <h4 className="font-medium text-indigo-900 mb-2">Send Products/Goods</h4>
@@ -749,16 +770,16 @@ export default function DealDetailsPage() {
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between">
                     <span className="text-gray-500">Followers:</span>
-                    <span className="font-medium">{formatFollowers(deal.influencer.followers)}</span>
+                    <span className="font-medium">{formatFollowers(deal.influencer?.followers)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-500">Engagement:</span>
-                    <span className="font-medium">{deal.influencer.engagement_rate}%</span>
+                    <span className="font-medium">{deal.influencer?.engagement_rate || 0}%</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-500">Rating:</span>
                     <span className="font-medium">
-                      {deal.influencer.avg_rating}/5 ⭐
+                      {deal.influencer?.avg_rating || 0}/5 ⭐
                     </span>
                   </div>
                 </div>

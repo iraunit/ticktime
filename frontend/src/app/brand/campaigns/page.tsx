@@ -62,6 +62,7 @@ interface Campaign {
   platforms_required: string[];
   content_count: number;
   target_influencers?: number;
+  total_invited?: number;
 }
 
 export default function BrandCampaignsPage() {
@@ -393,7 +394,7 @@ export default function BrandCampaignsPage() {
                     </div>
                     <div className="rounded-lg p-3 bg-gradient-to-br from-purple-50 to-indigo-50 border border-purple-200/50">
                       <p className="text-xs font-medium text-purple-700 mb-1">👥 Influencers</p>
-                      <p className="text-lg font-bold text-purple-800">{campaign.target_influencers ?? 0}</p>
+                      <p className="text-lg font-bold text-purple-800">{campaign.total_invited ?? 0}</p>
                     </div>
                     <div className="rounded-lg p-3 bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-200/50">
                       <p className="text-xs font-medium text-amber-700 mb-1">🤝 Deal Type</p>

@@ -181,6 +181,7 @@ class CampaignListSerializer(serializers.ModelSerializer):
     content_requirements = serializers.SerializerMethodField()
     industry_key = serializers.SerializerMethodField()
     industry_name = serializers.SerializerMethodField()
+    total_invited = serializers.SerializerMethodField()
 
     def get_industry_key(self, obj):
         return obj.industry_category.key if obj.industry_category_id else obj.industry
@@ -195,6 +196,9 @@ class CampaignListSerializer(serializers.ModelSerializer):
             return obj.content_requirements
         return ''
 
+    def get_total_invited(self, obj):
+        return obj.deals.count()
+
     class Meta:
         model = Campaign
         fields = (
@@ -202,7 +206,7 @@ class CampaignListSerializer(serializers.ModelSerializer):
             'cash_amount', 'total_value', 'application_deadline', 'campaign_live_date',
             'is_active', 'is_expired', 'days_until_deadline', 'created_at',
             'brand_name', 'platforms_required', 'content_requirements',
-            'target_influencers', 'industry', 'industry_key', 'industry_name', 'execution_mode'
+            'target_influencers', 'total_invited', 'industry', 'industry_key', 'industry_name', 'execution_mode'
         )
         read_only_fields = ('id', 'total_value', 'is_expired', 'days_until_deadline', 'created_at')
 

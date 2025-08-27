@@ -548,7 +548,7 @@ export default function CampaignDetailPage() {
             <nav className="flex space-x-8">
               {[
                 { id: 'overview', label: 'Overview', icon: HiEye },
-                { id: 'influencers', label: `Creators (${campaign.deals?.length || 0})`, icon: HiUsers },
+                { id: 'influencers', label: `Influencers (${campaign.deals?.length || 0})`, icon: HiUsers },
                 { id: 'messages', label: 'Messages', icon: HiChatBubbleLeftRight },
                 { id: 'analytics', label: 'Analytics', icon: HiStar }
               ].map(tab => {
@@ -1026,7 +1026,7 @@ export default function CampaignDetailPage() {
               <CardHeader className="pb-4">
                 <CardTitle className="text-xl font-bold text-gray-900 flex items-center gap-2">
                   <HiUserGroup className="w-5 h-5 text-indigo-600" />
-                  Creator Collaborations ({campaign.deals?.length || 0})
+                  Influencer Collaborations ({campaign.deals?.length || 0})
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -1096,7 +1096,7 @@ export default function CampaignDetailPage() {
                             </p>
                           </div>
                           <div className="text-center bg-amber-50 p-3 rounded-xl">
-                            <p className="text-xs font-semibold text-amber-700 uppercase tracking-wide mb-1">Creator Rating</p>
+                            <p className="text-xs font-semibold text-amber-700 uppercase tracking-wide mb-1">Influencer Rating</p>
                             <p className="text-sm font-medium text-amber-900">
                               {deal.influencer_rating ? `${deal.influencer_rating}★` : 'Not rated'}
                             </p>
@@ -1138,15 +1138,15 @@ export default function CampaignDetailPage() {
                     <div className="w-20 h-20 bg-gradient-to-br from-indigo-100 to-purple-100 rounded-2xl flex items-center justify-center mx-auto mb-6">
                       <HiUserGroup className="w-10 h-10 text-indigo-600" />
                     </div>
-                    <h3 className="text-xl font-bold text-gray-900 mb-3">No creators invited yet</h3>
-                    <p className="text-gray-600 mb-6 max-w-md mx-auto">Start building your campaign by discovering and inviting talented creators who align with your brand.</p>
+                    <h3 className="text-xl font-bold text-gray-900 mb-3">No influencers invited yet</h3>
+                    <p className="text-gray-600 mb-6 max-w-md mx-auto">Start building your campaign by discovering and inviting talented influencers who align with your brand.</p>
                     <Button 
                       onClick={() => router.push('/brand/influencers')}
                       size="lg"
                       className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white shadow-lg hover:shadow-xl transition-all duration-200 px-8"
                     >
                       <HiMagnifyingGlass className="w-5 h-5 mr-2" />
-                      Discover Creators
+                      Discover Influencers
                     </Button>
                   </div>
                 )}

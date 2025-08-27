@@ -3,7 +3,8 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
-from django.db.models import Avg, Count, Q
+from django.db.models import Avg, Count, Q, F, ExpressionWrapper, DecimalField
+from django.db.models.functions import Coalesce, Greatest
 from django.core.paginator import Paginator
 from django.utils import timezone
 from django.contrib.auth.models import User
@@ -506,16 +507,17 @@ def brand_deals_by_campaigns_view(request):
     campaigns = Campaign.objects.filter(
         brand=brand_user.brand,
         deals__isnull=False
-    ).distinct().select_related('brand').prefetch_related('deals__influencer')
+    ).distinct().select_related('brand').prefetch_related('deals__influencer__user')
 
     # Apply search filter
     search = request.GET.get('search')
     if search:
         campaigns = campaigns.filter(
-            Q(title__icontains=search) |
-            Q(description__icontains=search) |
-            Q(deals__influencer__name__icontains=search) |
-            Q(deals__influencer__username__icontains=search)
+            Q(title__icontains=search)
+            | Q(description__icontains=search)
+            | Q(deals__influencer__username__icontains=search)
+            | Q(deals__influencer__user__first_name__icontains=search)
+            | Q(deals__influencer__user__last_name__icontains=search)
         ).distinct()
 
     # Apply status filter
@@ -524,8 +526,8 @@ def brand_deals_by_campaigns_view(request):
         campaigns = campaigns.filter(deals__status=status_filter).distinct()
 
     # Apply ordering
-    ordering = request.GET.get('ordering', 'created_at_desc')
-    if ordering == 'created_at_desc':
+    ordering = request.GET.get('ordering', 'recent_activity_desc')
+    if ordering in ['created_at_desc', 'recent_activity_desc']:
         campaigns = campaigns.order_by('-created_at')
     elif ordering == 'created_at_asc':
         campaigns = campaigns.order_by('created_at')
@@ -544,7 +546,20 @@ def brand_deals_by_campaigns_view(request):
     campaigns_data = []
     for campaign in campaigns_page:
         # Get deals for this campaign
-        campaign_deals = campaign.deals.all().select_related('influencer')
+        # Order deals by most recent activity among invited/responded/accepted/completed
+        campaign_deals = (
+            campaign.deals.all()
+            .select_related('influencer__user', 'campaign__brand')
+            .annotate(
+                last_activity_at=Greatest(
+                    Coalesce('completed_at', F('invited_at')),
+                    Coalesce('accepted_at', F('invited_at')),
+                    Coalesce('responded_at', F('invited_at')),
+                    F('invited_at'),
+                )
+            )
+            .order_by('-last_activity_at')
+        )
         
         # Apply status filter to deals if specified
         if status_filter and status_filter != 'all':
@@ -553,8 +568,9 @@ def brand_deals_by_campaigns_view(request):
         # Apply search filter to deals if specified
         if search:
             campaign_deals = campaign_deals.filter(
-                Q(influencer__name__icontains=search) |
                 Q(influencer__username__icontains=search)
+                | Q(influencer__user__first_name__icontains=search)
+                | Q(influencer__user__last_name__icontains=search)
             )
 
         # Calculate campaign statistics
@@ -607,7 +623,10 @@ def brand_deals_view(request):
             'message': 'Brand profile not found.'
         }, status=status.HTTP_404_NOT_FOUND)
 
-    deals = Deal.objects.filter(campaign__brand=brand_user.brand)
+    deals = (
+        Deal.objects.filter(campaign__brand=brand_user.brand)
+        .select_related('campaign__brand', 'influencer__user')
+    )
 
     # Apply filters
     status_filter = request.GET.get('status')
@@ -618,10 +637,54 @@ def brand_deals_view(request):
     if campaign_filter:
         deals = deals.filter(campaign_id=campaign_filter)
 
+    # Search filter
+    search = request.GET.get('search')
+    if search:
+        deals = deals.filter(
+            Q(campaign__title__icontains=search)
+            | Q(influencer__username__icontains=search)
+            | Q(influencer__user__first_name__icontains=search)
+            | Q(influencer__user__last_name__icontains=search)
+        )
+
+    # Ordering
+    ordering = request.GET.get('ordering', 'recent_activity_desc')
+    # Compute annotations used for ordering
+    deals = deals.annotate(
+        last_activity_at=Greatest(
+            Coalesce('completed_at', F('invited_at')),
+            Coalesce('accepted_at', F('invited_at')),
+            Coalesce('responded_at', F('invited_at')),
+            F('invited_at'),
+        ),
+        deadline_sort=Coalesce(
+            F('campaign__submission_deadline'),
+            F('campaign__application_deadline'),
+            F('invited_at'),
+        ),
+        total_value=ExpressionWrapper(
+            Coalesce(F('campaign__cash_amount'), 0) + Coalesce(F('campaign__product_value'), 0),
+            output_field=DecimalField(max_digits=12, decimal_places=2),
+        ),
+    )
+
+    if ordering in ['created_at_desc', 'recent_activity_desc']:
+        deals = deals.order_by('-last_activity_at')
+    elif ordering == 'created_at_asc':
+        deals = deals.order_by('last_activity_at')
+    elif ordering == 'deadline_asc':
+        deals = deals.order_by('deadline_sort')
+    elif ordering == 'value_desc':
+        deals = deals.order_by('-total_value')
+    elif ordering == 'value_asc':
+        deals = deals.order_by('total_value')
+    else:
+        deals = deals.order_by('-last_activity_at')
+
     # Pagination
     page = int(request.GET.get('page', 1))
     page_size = int(request.GET.get('page_size', 10))
-    paginator = Paginator(deals.select_related('campaign', 'influencer').order_by('-invited_at'), page_size)
+    paginator = Paginator(deals, page_size)
     deals_page = paginator.get_page(page)
 
     from deals.serializers import DealListSerializer
@@ -1551,7 +1614,7 @@ def add_influencers_to_campaign_view(request, campaign_id):
         if existing_deal:
             existing_deals.append({
                 'influencer_id': influencer.id,
-                'influencer_name': influencer.full_name or influencer.username,
+                'influencer_name': (influencer.user.get_full_name() or influencer.username),
                 'deal_id': existing_deal.id
             })
         else:

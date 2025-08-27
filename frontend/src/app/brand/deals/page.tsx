@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -31,9 +32,9 @@ interface Deal {
   id: number;
   influencer: {
     id: number;
-    name: string;
+    full_name?: string;
     username: string;
-    followers: number;
+    followers?: number;
     avatar?: string;
     profile_image?: string;
   };
@@ -42,9 +43,13 @@ interface Deal {
     title: string;
     brand_name: string;
   };
-  status: 'pending' | 'accepted' | 'rejected' | 'content_submitted' | 'approved' | 'completed' | 'cancelled';
+  status: 'invited' | 'pending' | 'accepted' | 'active' | 'content_submitted' | 'under_review' | 'revision_requested' | 'approved' | 'completed' | 'rejected' | 'cancelled' | 'dispute';
+  status_display?: string;
   value: number;
-  created_at: string;
+  invited_at?: string;
+  responded_at?: string;
+  accepted_at?: string;
+  completed_at?: string;
   deadline: string;
   deliverables: string[];
   submitted_content: any[];
@@ -71,23 +76,29 @@ interface PaginationInfo {
 
 const statusOptions = [
   { value: "all", label: "All Status", color: "gray" },
+  { value: "invited", label: "Invited", color: "gray" },
   { value: "pending", label: "Pending Response", color: "yellow" },
   { value: "accepted", label: "Accepted", color: "green" },
+  { value: "active", label: "Active", color: "green" },
   { value: "rejected", label: "Rejected", color: "red" },
   { value: "content_submitted", label: "Content Submitted", color: "blue" },
+  { value: "under_review", label: "Under Review", color: "blue" },
+  { value: "revision_requested", label: "Revision Requested", color: "yellow" },
   { value: "approved", label: "Approved", color: "emerald" },
   { value: "completed", label: "Completed", color: "green" },
   { value: "cancelled", label: "Cancelled", color: "gray" },
+  { value: "dispute", label: "Dispute", color: "red" },
 ];
 
 export default function BrandDealsPage() {
+  const router = useRouter();
   const [viewMode, setViewMode] = useState<'campaigns' | 'deals'>('campaigns');
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [deals, setDeals] = useState<Deal[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
-  const [sortBy, setSortBy] = useState("created_at_desc");
+  const [sortBy, setSortBy] = useState("recent_activity_desc");
   const [pagination, setPagination] = useState<PaginationInfo>({
     current_page: 1,
     total_pages: 1,
@@ -172,7 +183,12 @@ export default function BrandDealsPage() {
     });
   };
 
-  const getStatusBadge = (status: string) => {
+  const getLastActivityDate = (deal: Deal): string | undefined => {
+    const ts = deal.completed_at || deal.accepted_at || deal.responded_at || deal.invited_at;
+    return ts ? formatDate(ts) : undefined;
+  };
+
+  const getStatusBadge = (status: string, display?: string) => {
     const statusOption = statusOptions.find(s => s.value === status);
     const color = statusOption?.color || 'gray';
     
@@ -187,7 +203,7 @@ export default function BrandDealsPage() {
 
     return (
       <Badge className={`${colorClasses[color]} border-0`}>
-        {statusOption?.label || status}
+        {display || statusOption?.label || status}
       </Badge>
     );
   };
@@ -195,7 +211,7 @@ export default function BrandDealsPage() {
   const clearFilters = () => {
     setSearchTerm("");
     setStatusFilter("all");
-    setSortBy("created_at_desc");
+    setSortBy("recent_activity_desc");
     setPagination(prev => ({ ...prev, current_page: 1 }));
   };
 
@@ -203,16 +219,14 @@ export default function BrandDealsPage() {
     setPagination(prev => ({ ...prev, current_page: page }));
   };
 
-  const hasActiveFilters = searchTerm !== "" || statusFilter !== "all" || sortBy !== "created_at_desc";
+  const hasActiveFilters = searchTerm !== "" || statusFilter !== "all" || sortBy !== "recent_activity_desc";
 
   return (
     <div className="min-h-screen">
       <div className="container mx-auto px-4 py-4 max-w-7xl">
         {/* Header */}
-        <div className="relative mb-6">
-          <div className="absolute inset-0 bg-gradient-to-r from-green-500/5 via-blue-500/5 to-purple-500/5 rounded-xl -m-2"></div>
-          
-          <div className="relative flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 p-4">
+        <div className="mb-4">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 p-2">
             <div>
               <h1 className="text-2xl font-bold bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 bg-clip-text text-transparent mb-1">
                 Deal Management
@@ -234,7 +248,7 @@ export default function BrandDealsPage() {
                 size="sm"
                 onClick={() => viewMode === 'campaigns' ? fetchDealsByCampaigns() : fetchDeals()}
                 disabled={isLoading}
-                className="border border-gray-200 hover:border-green-300 hover:bg-green-50 transition-all duration-200 rounded-lg px-4 py-2"
+                className="border border-gray-200 hover:bg-gray-50 rounded-lg px-4 py-2"
               >
                 <HiArrowPath className="h-4 w-4 mr-1" />
                 Refresh
@@ -254,7 +268,7 @@ export default function BrandDealsPage() {
         </div>
 
         {/* Filters */}
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 mb-6">
+        <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-3 mb-4">
           <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center">
             <div className="flex items-center gap-2 flex-1 min-w-0">
               <HiMagnifyingGlass className="h-5 w-5 text-gray-400" />
@@ -285,8 +299,8 @@ export default function BrandDealsPage() {
                   <SelectValue placeholder="Sort by" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="created_at_desc">Newest First</SelectItem>
-                  <SelectItem value="created_at_asc">Oldest First</SelectItem>
+                  <SelectItem value="recent_activity_desc">Recent activity</SelectItem>
+                  <SelectItem value="created_at_asc">Oldest first</SelectItem>
                   <SelectItem value="deadline_asc">Deadline (Urgent)</SelectItem>
                   <SelectItem value="value_desc">Highest Value</SelectItem>
                   <SelectItem value="value_asc">Lowest Value</SelectItem>
@@ -311,9 +325,9 @@ export default function BrandDealsPage() {
         {isLoading && <DealListSkeleton />}
 
         {!isLoading && (viewMode === 'campaigns' ? campaigns.length === 0 : deals.length === 0) && (
-          <Card className="p-12 text-center bg-gradient-to-br from-white via-white to-gray-50 border border-gray-200 shadow-md">
+          <Card className="p-10 text-center bg-white border border-gray-200 shadow-sm">
             <div className="flex flex-col items-center justify-center">
-              <div className="w-16 h-16 bg-gradient-to-r from-gray-200 to-gray-300 rounded-full flex items-center justify-center mb-4">
+              <div className="w-14 h-14 bg-gray-100 rounded-full flex items-center justify-center mb-3">
                 <HiDocument className="w-8 h-8 text-gray-400" />
               </div>
               <h3 className="text-lg font-semibold text-gray-900 mb-2">
@@ -324,12 +338,12 @@ export default function BrandDealsPage() {
               </p>
               <div className="flex items-center justify-center gap-3">
                 {hasActiveFilters && (
-                  <Button variant="outline" onClick={clearFilters} className="border-blue-200 hover:bg-blue-50 hover:border-blue-300">
+                  <Button variant="outline" onClick={clearFilters} className="hover:bg-gray-50">
                     <HiArrowPath className="w-4 h-4 mr-2" />
                     Clear Filters
                   </Button>
                 )}
-                <Button className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white">
+                <Button onClick={() => router.push('/brand/campaigns/create')}>
                   <HiDocument className="w-4 h-4 mr-2" />
                   Create First Campaign
                 </Button>
@@ -340,16 +354,16 @@ export default function BrandDealsPage() {
 
         {/* Campaigns View */}
         {!isLoading && viewMode === 'campaigns' && campaigns.length > 0 && (
-          <div className="space-y-6">
+          <div className="space-y-4">
             {campaigns.map((campaign) => (
-              <Card key={campaign.id} className="shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
-                <CardHeader className="pb-4">
+              <Card key={campaign.id} className="shadow-sm border border-gray-200">
+                <CardHeader className="pb-3">
                   <div className="flex items-center justify-between">
                     <div>
                       <CardTitle className="text-lg font-semibold text-gray-900">
                         {campaign.title}
                       </CardTitle>
-                      <div className="flex items-center gap-4 mt-2 text-sm text-gray-500">
+                      <div className="flex items-center gap-4 mt-1 text-sm text-gray-500">
                         <span className="flex items-center gap-1">
                           <HiUsers className="w-4 h-4" />
                           {campaign.deals_count} deals
@@ -364,45 +378,50 @@ export default function BrandDealsPage() {
                         </span>
                       </div>
                     </div>
-                    <Button variant="outline" size="sm">
-                      <HiEye className="w-4 h-4 mr-2" />
-                      View Campaign
-                    </Button>
+                    <div className="flex items-center gap-2">
+                      <Button variant="outline" size="sm" onClick={() => router.push(`/brand/campaigns/${campaign.id}`)}>
+                        <HiEye className="w-4 h-4 mr-2" />
+                        View Campaign
+                      </Button>
+                      <Button size="sm" onClick={() => router.push(`/brand/campaigns/${campaign.id}/deals`)}>
+                        Manage Deals
+                      </Button>
+                    </div>
                   </div>
                 </CardHeader>
                 
                 <CardContent>
-                  <div className="space-y-3">
-                    {campaign.deals.slice(0, 5).map((deal) => (
-                      <div key={deal.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                  <div className="space-y-2">
+                    {campaign.deals.slice(0, 3).map((deal) => (
+                      <div key={deal.id} className="flex items-center justify-between p-2 bg-gray-50 rounded-md">
                         <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 bg-gradient-to-r from-gray-300 to-gray-400 rounded-full flex items-center justify-center">
+                          <div className="w-8 h-8 bg-gray-300 rounded-full flex items-center justify-center">
                             <span className="text-sm font-medium text-white">
-                              {deal.influencer?.name?.charAt(0) || '?'}
+                              {(deal.influencer?.full_name || deal.influencer?.username || '?').charAt(0)}
                             </span>
                           </div>
                           <div>
-                            <p className="font-medium text-gray-900">{deal.influencer?.name || 'Unknown Influencer'}</p>
+                            <p className="font-medium text-gray-900">{deal.influencer?.full_name || deal.influencer?.username || 'Unknown Influencer'}</p>
                             <p className="text-sm text-gray-500">{deal.influencer?.username || 'N/A'}</p>
                           </div>
                         </div>
                         
                         <div className="flex items-center gap-4">
-                          {getStatusBadge(deal.status)}
+                          {getStatusBadge(deal.status, deal.status_display)}
                           <span className="text-sm font-medium text-gray-700">
                             {formatCurrency(deal.value)}
                           </span>
-                          <Button variant="ghost" size="sm">
+                          <Button variant="ghost" size="sm" onClick={() => router.push(`/brand/deals/${deal.id}`)}>
                             <HiEye className="w-4 h-4" />
                           </Button>
                         </div>
                       </div>
                     ))}
                     
-                    {campaign.deals.length > 5 && (
+                    {campaign.deals.length > 3 && (
                       <div className="text-center pt-2">
-                        <Button variant="outline" size="sm">
-                          View {campaign.deals.length - 5} more deals
+                        <Button variant="outline" size="sm" onClick={() => router.push(`/brand/campaigns/${campaign.id}/deals`)}>
+                          View {campaign.deals.length - 3} more deals
                         </Button>
                       </div>
                     )}
@@ -415,32 +434,32 @@ export default function BrandDealsPage() {
 
         {/* All Deals View */}
         {!isLoading && viewMode === 'deals' && deals.length > 0 && (
-          <div className="grid gap-4">
+          <div className="grid gap-3">
             {deals.map((deal) => (
-              <Card key={deal.id} className="shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
-                <CardContent className="p-4">
+              <Card key={deal.id} className="shadow-sm border border-gray-200">
+                <CardContent className="p-3">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 bg-gradient-to-r from-gray-300 to-gray-400 rounded-full flex items-center justify-center">
-                        <span className="text-lg font-medium text-white">
-                          {deal.influencer?.name?.charAt(0) || '?'}
+                      <div className="w-10 h-10 bg-gray-300 rounded-full flex items-center justify-center">
+                        <span className="text-base font-medium text-white">
+                          {(deal.influencer?.full_name || deal.influencer?.username || '?').charAt(0)}
                         </span>
                       </div>
                       
                       <div>
-                        <h3 className="font-semibold text-gray-900">{deal.influencer?.name || 'Unknown Influencer'}</h3>
+                        <h3 className="font-semibold text-gray-900">{deal.influencer?.full_name || deal.influencer?.username || 'Unknown Influencer'}</h3>
                         <p className="text-sm text-gray-500">{deal.influencer?.username || 'N/A'}</p>
                         <p className="text-sm text-blue-600 font-medium">{deal.campaign?.title || 'Untitled Campaign'}</p>
                       </div>
                     </div>
                     
                     <div className="flex items-center gap-4">
-                      {getStatusBadge(deal.status)}
+                      {getStatusBadge(deal.status, deal.status_display)}
                       <div className="text-right">
                         <p className="font-semibold text-gray-900">{formatCurrency(deal.value)}</p>
-                        <p className="text-sm text-gray-500">{formatDate(deal.created_at)}</p>
+                        <p className="text-sm text-gray-500">{getLastActivityDate(deal) || ''}</p>
                       </div>
-                      <Button variant="outline" size="sm">
+                      <Button variant="outline" size="sm" onClick={() => router.push(`/brand/deals/${deal.id}`)}>
                         <HiEye className="w-4 h-4 mr-2" />
                         View Deal
                       </Button>
