@@ -1153,6 +1153,20 @@ def bookmarked_influencers_view(request):
         brand=brand_user.brand
     ).select_related('influencer', 'bookmarked_by').order_by('-created_at')
 
+    # Add search functionality
+    search = request.GET.get('search', '').strip()
+    if search:
+        bookmarks = bookmarks.filter(
+            Q(influencer__name__icontains=search) |
+            Q(influencer__username__icontains=search) |
+            Q(notes__icontains=search)
+        )
+
+    # Add category filter
+    category = request.GET.get('category', '').strip()
+    if category:
+        bookmarks = bookmarks.filter(influencer__categories__icontains=category)
+
     # Pagination
     page = int(request.GET.get('page', 1))
     page_size = int(request.GET.get('page_size', 20))
@@ -1170,6 +1184,72 @@ def bookmarked_influencers_view(request):
             'total_count': paginator.count
         }
     })
+
+
+@api_view(['PATCH', 'DELETE'])
+@permission_classes([IsAuthenticated])
+def bookmark_detail_view(request, bookmark_id):
+    """
+    Update or delete a specific bookmark.
+    """
+    brand_user = get_brand_user_or_403(request)
+    if not brand_user:
+        return Response({
+            'status': 'error',
+            'message': 'Brand profile not found.'
+        }, status=status.HTTP_404_NOT_FOUND)
+
+    try:
+        bookmark = BookmarkedInfluencer.objects.get(
+            id=bookmark_id,
+            brand=brand_user.brand
+        )
+    except BookmarkedInfluencer.DoesNotExist:
+        return Response({
+            'status': 'error',
+            'message': 'Bookmark not found.'
+        }, status=status.HTTP_404_NOT_FOUND)
+
+    if request.method == 'PATCH':
+        # Update bookmark notes
+        notes = request.data.get('notes', bookmark.notes)
+        bookmark.notes = notes
+        bookmark.save()
+
+        # Log action
+        log_brand_action(
+            brand_user.brand,
+            request.user,
+            'bookmark_updated',
+            f"Updated notes for bookmark {bookmark.influencer.username}",
+            {'bookmark_id': bookmark_id, 'influencer_username': bookmark.influencer.username}
+        )
+
+        serializer = BookmarkedInfluencerSerializer(bookmark)
+        return Response({
+            'status': 'success',
+            'message': 'Bookmark updated successfully.',
+            'bookmark': serializer.data
+        })
+
+    elif request.method == 'DELETE':
+        # Delete bookmark
+        influencer_username = bookmark.influencer.username
+        bookmark.delete()
+
+        # Log action
+        log_brand_action(
+            brand_user.brand,
+            request.user,
+            'bookmark_deleted',
+            f"Deleted bookmark for {influencer_username}",
+            {'bookmark_id': bookmark_id, 'influencer_username': influencer_username}
+        )
+
+        return Response({
+            'status': 'success',
+            'message': 'Bookmark deleted successfully.'
+        })
 
 
 @api_view(['GET'])

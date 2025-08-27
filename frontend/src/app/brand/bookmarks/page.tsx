@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -51,6 +52,7 @@ interface BookmarkedInfluencer {
 }
 
 export default function BrandBookmarksPage() {
+  const router = useRouter();
   const [bookmarks, setBookmarks] = useState<BookmarkedInfluencer[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
@@ -125,21 +127,26 @@ export default function BrandBookmarksPage() {
     return () => clearTimeout(timeoutId);
   }, [searchTerm, categoryFilter]);
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-IN', {
+  const formatDate = (dateString: string | null | undefined) => {
+    if (!dateString) return 'Unknown date';
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return 'Invalid date';
+    return date.toLocaleDateString('en-IN', {
       day: 'numeric',
       month: 'short',
       year: 'numeric'
     });
   };
 
-  const formatFollowers = (count: number) => {
+  const formatFollowers = (count: number | null | undefined) => {
+    if (count == null || count === undefined) return '0';
     if (count >= 1000000) return `${(count / 1000000).toFixed(1)}M`;
     if (count >= 1000) return `${(count / 1000).toFixed(1)}K`;
     return count.toString();
   };
 
-  const formatCurrency = (amount: number) => {
+  const formatCurrency = (amount: number | null | undefined) => {
+    if (amount == null || amount === undefined) return '₹0';
     return new Intl.NumberFormat("en-IN", {
       style: "currency",
       currency: "INR",
@@ -149,19 +156,11 @@ export default function BrandBookmarksPage() {
   };
 
   // Get unique categories from bookmarks
-  const allCategories = Array.from(new Set(bookmarks.flatMap(b => b.influencer.categories)));
+  const allCategories = Array.from(new Set(bookmarks.flatMap(b => b.influencer.categories || [])));
   const categories = ["all", ...allCategories];
 
-  const filteredBookmarks = bookmarks.filter(bookmark => {
-    const matchesSearch = bookmark.influencer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         bookmark.influencer.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         bookmark.notes.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    const matchesCategory = categoryFilter === "all" || 
-                           bookmark.influencer.categories.includes(categoryFilter);
-    
-    return matchesSearch && matchesCategory;
-  });
+  // Since backend handles filtering, just display all returned bookmarks
+  const filteredBookmarks = bookmarks;
 
   return (
     <div className="min-h-screen">
@@ -292,14 +291,19 @@ export default function BrandBookmarksPage() {
           </div>
         ) : filteredBookmarks.length === 0 ? (
           <Card className="p-12 text-center bg-gradient-to-br from-white via-white to-gray-50 border border-gray-200 shadow-md">
-            <GlobalLoader />
-            <div className="mt-8">
+            <div className="flex flex-col items-center">
+              <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
+                <HiBookmark className="w-8 h-8 text-gray-400" />
+              </div>
               <p className="text-gray-500 mb-6">
                 {searchTerm || categoryFilter !== "all" 
-                  ? "Try adjusting your search criteria or filters." 
+                  ? "No bookmarks found matching your search criteria." 
                   : "Start bookmarking influencers to build your list of potential collaborators."}
               </p>
-              <Button className="bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 text-white">
+              <Button 
+                onClick={() => router.push('/brand/influencers')}
+                className="bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 text-white"
+              >
                 <HiPlus className="w-4 h-4 mr-2" />
                 Discover Influencers
               </Button>
@@ -329,8 +333,8 @@ export default function BrandBookmarksPage() {
                           )}
                         </div>
                         
-                        <p className="text-sm text-gray-600 mb-2">{bookmark.influencer.username}</p>
-                        <p className="text-sm text-gray-700 mb-3 line-clamp-2">{bookmark.influencer.bio}</p>
+                        <p className="text-sm text-gray-600 mb-2">{bookmark.influencer.username || 'No username'}</p>
+                        <p className="text-sm text-gray-700 mb-3 line-clamp-2">{bookmark.influencer.bio || 'No bio available'}</p>
                         
                         <div className="flex items-center gap-4 mb-3">
                           <span className="text-sm text-gray-600">
@@ -339,7 +343,7 @@ export default function BrandBookmarksPage() {
                           </span>
                           <span className="text-sm text-gray-600">
                             <HiHeart className="w-4 h-4 inline mr-1" />
-                            {bookmark.influencer.engagement_rate}% engagement
+                            {bookmark.influencer.engagement_rate ?? 0}% engagement
                           </span>
                           <span className="text-sm text-gray-600">
                             {formatCurrency(bookmark.influencer.rate_per_post)}/post
@@ -347,7 +351,7 @@ export default function BrandBookmarksPage() {
                         </div>
                         
                         <div className="flex gap-2 mb-3">
-                          {bookmark.influencer.platforms.map((platform) => (
+                          {(bookmark.influencer.platforms || []).map((platform) => (
                             <Badge key={platform} variant="outline" className="text-xs">
                               {platform}
                             </Badge>
@@ -355,7 +359,7 @@ export default function BrandBookmarksPage() {
                         </div>
                         
                         <div className="flex gap-2">
-                          {bookmark.influencer.categories.map((category) => (
+                          {(bookmark.influencer.categories || []).map((category) => (
                             <Badge key={category} className="bg-pink-100 text-pink-800 border-0 text-xs">
                               {category}
                             </Badge>
@@ -429,7 +433,7 @@ export default function BrandBookmarksPage() {
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => startConversation(bookmark.influencer.id)}
+                          onClick={() => router.push('/brand/messages')}
                           className="flex-1"
                         >
                           <HiChatBubbleLeftRight className="w-4 h-4 mr-2" />
@@ -438,6 +442,7 @@ export default function BrandBookmarksPage() {
                         <Button
                           variant="outline"
                           size="sm"
+                          onClick={() => router.push(`/influencers/${bookmark.influencer.id}`)}
                           className="flex-1"
                         >
                           <HiEye className="w-4 h-4 mr-2" />

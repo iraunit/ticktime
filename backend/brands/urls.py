@@ -43,6 +43,7 @@ urlpatterns = [
     # Influencer Management
     path('influencers/<int:influencer_id>/bookmark/', views.bookmark_influencer_view, name='bookmark-influencer'),
     path('bookmarks/', views.bookmarked_influencers_view, name='bookmarked-influencers'),
+    path('bookmarks/<int:bookmark_id>/', views.bookmark_detail_view, name='bookmark-detail'),
     path('influencers/<int:influencer_id>/unbookmark/', views.remove_bookmark_view, name='remove-bookmark'),
     path('influencers/<int:influencer_id>/message/', views.send_message_to_influencer_view, name='send-message-to-influencer'),
     path('campaigns/<int:campaign_id>/add-influencers/', views.add_influencers_to_campaign_view, name='add-influencers-to-campaign'),

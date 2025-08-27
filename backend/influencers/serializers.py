@@ -589,6 +589,7 @@ class InfluencerSearchSerializer(serializers.ModelSerializer):
 
     def get_posts_count(self, obj):
         """Get total posts count across all platforms"""
+        from django.db import models
         active_accounts = obj.social_accounts.filter(is_active=True)
         if active_accounts.exists():
             total_posts = active_accounts.aggregate(total=models.Sum('posts_count'))['total']

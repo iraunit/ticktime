@@ -259,6 +259,19 @@ export default function InfluencerSearchPage() {
     if (pageNum === 1) setIsLoading(true);
     
     try {
+      console.log('Fetching influencers with params:', {
+        page: pageNum,
+        search: searchTerm,
+        platform: selectedPlatform,
+        location: locationFilter !== 'All' ? locationFilter : undefined,
+        gender: genderFilter !== 'All' ? genderFilter : undefined,
+        follower_range: followerRange !== 'All Followers' ? followerRange : undefined,
+        categories: selectedCategories.length > 0 ? selectedCategories.join(',') : undefined,
+        industry: selectedIndustry !== 'All' ? selectedIndustry : undefined,
+        sort_by: sortBy,
+        sort_order: sortOrder,
+      });
+      
       const response = await api.get('/influencers/search/', {
         params: {
           page: pageNum,
@@ -274,6 +287,8 @@ export default function InfluencerSearchPage() {
         }
       });
       
+      console.log('API Response:', response.data);
+      
       const newInfluencers = response.data.results || [];
       const pagination = response.data.pagination || {};
       
@@ -284,7 +299,17 @@ export default function InfluencerSearchPage() {
       setTotalCount(pagination.total_count || 0);
     } catch (error: any) {
       console.error('Failed to fetch influencers:', error);
-      toast.error('Failed to load influencers. Please try again.');
+      console.error('Error details:', {
+        message: error?.message,
+        response: error?.response?.data,
+        status: error?.response?.status,
+        statusText: error?.response?.statusText
+      });
+      
+      const errorMessage = error?.response?.data?.message || 
+                          error?.message || 
+                          'Failed to load influencers. Please try again.';
+      toast.error(errorMessage);
     } finally {
       setIsLoading(false);
     }

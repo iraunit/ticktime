@@ -642,27 +642,39 @@ def influencer_search_view(request):
     else:
         queryset = queryset.order_by(f'{order_prefix}total_followers_annotated')
     
+    # Debug logging
+    logger.info(f"Influencer search query: {queryset.query}")
+    logger.info(f"Total influencers found: {queryset.count()}")
+    
     # Pagination
     paginator = Paginator(queryset, page_size)
     page_obj = paginator.get_page(page)
     
     # Serialize results using enhanced serializer
-    from .serializers import InfluencerSearchSerializer
-    serializer = InfluencerSearchSerializer(page_obj, many=True, context={'request': request})
-    results = serializer.data
-    
-    return Response({
-        'status': 'success',
-        'results': results,
-        'pagination': {
-            'page': page,
-            'page_size': page_size,
-            'total_pages': paginator.num_pages,
-            'total_count': paginator.count,
-            'has_next': page_obj.has_next(),
-            'has_previous': page_obj.has_previous(),
-        }
-    }, status=status.HTTP_200_OK)
+    try:
+        from .serializers import InfluencerSearchSerializer
+        serializer = InfluencerSearchSerializer(page_obj, many=True, context={'request': request})
+        results = serializer.data
+        
+        return Response({
+            'status': 'success',
+            'results': results,
+            'pagination': {
+                'page': page,
+                'page_size': page_size,
+                'total_pages': paginator.num_pages,
+                'total_count': paginator.count,
+                'has_next': page_obj.has_next(),
+                'has_previous': page_obj.has_previous(),
+            }
+        }, status=status.HTTP_200_OK)
+    except Exception as e:
+        logger.error(f"Error in influencer search serialization: {e}")
+        return Response({
+            'status': 'error',
+            'message': 'Failed to process influencer data.',
+            'error': str(e)
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 @api_view(['POST'])

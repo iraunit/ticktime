@@ -98,10 +98,12 @@ class BrandAuditLogSerializer(serializers.ModelSerializer):
 class BookmarkedInfluencerSerializer(serializers.ModelSerializer):
     influencer = InfluencerPublicSerializer(read_only=True)
     bookmarked_by = UserProfileSerializer(read_only=True)
+    bookmarked_at = serializers.DateTimeField(source='created_at', read_only=True)
+    created_by = UserProfileSerializer(source='bookmarked_by', read_only=True)
     
     class Meta:
         model = BookmarkedInfluencer
-        fields = ('id', 'influencer', 'bookmarked_by', 'notes', 'created_at')
+        fields = ('id', 'influencer', 'bookmarked_by', 'created_by', 'notes', 'created_at', 'bookmarked_at')
 
 
 class BrandRatingSerializer(serializers.Serializer):
