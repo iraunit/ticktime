@@ -385,6 +385,57 @@ export function DealDetails({
             </CardContent>
           </Card>
 
+          {/* Products Section for Barter Deals */}
+          {(deal.campaign?.deal_type === 'product' || deal.campaign?.deal_type === 'hybrid') && 
+           deal.campaign?.products && deal.campaign.products.length > 0 && (
+            <Card className="bg-white/80 backdrop-blur-sm border-0 shadow-lg hover:shadow-xl transition-all duration-300">
+              <CardHeader className="pb-2">
+                <CardTitle className="flex items-center space-x-2">
+                  <div className="w-6 h-6 bg-gradient-to-r from-orange-500 to-amber-500 rounded-lg flex items-center justify-center">
+                    <Package className="h-3 w-3 text-white" />
+                  </div>
+                  <span className="text-base font-bold">Barter Products</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="pt-0 space-y-3">
+                {deal.campaign.products.map((product, index) => (
+                  <div key={index} className="bg-gradient-to-r from-orange-50 to-amber-50 rounded-lg p-3 border border-orange-200">
+                    <div className="flex justify-between items-start mb-2">
+                      <h4 className="font-semibold text-orange-900">{product.name}</h4>
+                      <div className="text-right">
+                        <div className="text-sm font-bold text-orange-800">
+                          {formatCurrency(product.value * product.quantity)}
+                        </div>
+                        <div className="text-xs text-orange-600">
+                          {formatCurrency(product.value)} × {product.quantity}
+                        </div>
+                      </div>
+                    </div>
+                    {product.description && (
+                      <p className="text-sm text-orange-700 mb-2">{product.description}</p>
+                    )}
+                    <div className="flex justify-between items-center text-xs text-orange-600">
+                      <span>Quantity: {product.quantity}</span>
+                      <span>Unit Value: {formatCurrency(product.value)}</span>
+                    </div>
+                  </div>
+                ))}
+                
+                <Separator className="bg-orange-200" />
+                
+                <div className="text-center bg-gradient-to-r from-orange-100 to-amber-100 rounded-lg p-2 border border-orange-200">
+                  <div className="text-lg font-bold text-orange-800">
+                    Total Product Value: {formatCurrency(
+                      deal.campaign.products.reduce((total, product) => 
+                        total + (product.value * product.quantity), 0
+                      )
+                    )}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Compact Actions */}
           <Card className="bg-white/80 backdrop-blur-sm border-0 shadow-lg hover:shadow-xl transition-all duration-300">
             <CardHeader className="pb-2">

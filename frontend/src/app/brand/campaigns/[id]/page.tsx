@@ -80,6 +80,14 @@ interface Campaign {
   days_until_deadline: number;
   created_at: string;
   brand_name: string;
+  brand?: {
+    id: number;
+    name: string;
+    logo?: string;
+    description?: string;
+    website?: string;
+    industry?: string;
+  };
   industry?: string;
   industry_display?: string;
   execution_mode?: 'manual' | 'hybrid' | 'managed' | string;
@@ -694,6 +702,52 @@ export default function CampaignDetailPage() {
                         )}
                       </>
                     ) : (
+                      <>
+                        {/* Products Section for Barter Deals */}
+                        {(campaign.deal_type === 'product' || campaign.deal_type === 'hybrid') && 
+                         campaign.products && campaign.products.length > 0 && (
+                          <div className="mb-6">
+                            <h4 className="font-medium text-gray-900 mb-3">Barter Products</h4>
+                            <div className="space-y-3">
+                              {campaign.products.map((product, index) => (
+                                <div key={index} className="bg-gradient-to-r from-orange-50 to-amber-50 rounded-lg p-4 border border-orange-200">
+                                  <div className="flex justify-between items-start mb-2">
+                                    <h5 className="font-semibold text-orange-900">{product.name}</h5>
+                                    <div className="text-right">
+                                      <div className="text-sm font-bold text-orange-800">
+                                        {formatCurrency((product.value || 0) * (product.quantity || 1))}
+                                      </div>
+                                      <div className="text-xs text-orange-600">
+                                        {formatCurrency(product.value || 0)} × {product.quantity || 1}
+                                      </div>
+                                    </div>
+                                  </div>
+                                  {product.description && (
+                                    <p className="text-sm text-orange-700 mb-2">{product.description}</p>
+                                  )}
+                                  <div className="flex justify-between items-center text-xs text-orange-600">
+                                    <span>Quantity: {product.quantity || 1}</span>
+                                    <span>Unit Value: {formatCurrency(product.value || 0)}</span>
+                                  </div>
+                                </div>
+                              ))}
+                              
+                              <div className="text-center bg-gradient-to-r from-orange-100 to-amber-100 rounded-lg p-3 border border-orange-200">
+                                <div className="text-lg font-bold text-orange-800">
+                                  Total Product Value: {formatCurrency(
+                                    campaign.products.reduce((total, product) => 
+                                      total + ((product.value || 0) * (product.quantity || 1)), 0
+                                    )
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    )}
+                    
+                    {!isEditing && (
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                         <div className="bg-gradient-to-br from-blue-50 to-indigo-100 p-6 rounded-2xl border border-blue-200 hover:shadow-lg transition-all duration-200">
                           <div className="flex items-center justify-between">
@@ -984,7 +1038,22 @@ export default function CampaignDetailPage() {
                     
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-500">Brand:</span>
-                      <span className="font-medium">{campaign.brand_name}</span>
+                      <div className="text-right">
+                        {campaign.brand ? (
+                          <div className="flex items-center gap-2">
+                            {campaign.brand.logo && (
+                              <img 
+                                src={campaign.brand.logo} 
+                                alt={campaign.brand.name}
+                                className="w-6 h-6 rounded object-cover"
+                              />
+                            )}
+                            <span className="font-medium">{campaign.brand.name}</span>
+                          </div>
+                        ) : (
+                          <span className="font-medium">{campaign.brand_name}</span>
+                        )}
+                      </div>
                     </div>
                     {typeof campaign.target_influencers === 'number' && (
                       <div className="flex justify-between text-sm">

@@ -58,10 +58,18 @@ interface Deal {
     deal_type: string;
     cash_amount?: number;
     product_value?: number;
+    products?: Array<{
+      name: string;
+      description?: string;
+      value: number;
+      quantity: number;
+    }>;
     product_name?: string;
     content_requirements: string;
     platforms_required: string[];
+    total_value?: number;
   };
+  total_value?: number;
   status: 'invited' | 'pending' | 'accepted' | 'rejected' | 'shortlisted' | 'address_requested' | 'address_provided' | 'product_shipped' | 'product_delivered' | 'active' | 'content_submitted' | 'under_review' | 'revision_requested' | 'approved' | 'completed' | 'cancelled' | 'dispute';
   invited_at: string;
   responded_at?: string;
@@ -445,12 +453,8 @@ export default function DealDetailsPage() {
                 <div>
                   <p className="text-sm text-gray-500">Total Value</p>
                   <p className="font-semibold text-gray-900">
-                    {(() => {
-                      const cash = deal.campaign?.cash_amount || 0;
-                      const product = deal.campaign?.product_value || 0;
-                      const total = cash + product;
-                      return total > 0 ? formatCurrency(total) : 'N/A';
-                    })()}
+                    {deal.total_value && deal.total_value > 0 ? formatCurrency(deal.total_value) : 
+                     deal.campaign?.total_value && deal.campaign.total_value > 0 ? formatCurrency(deal.campaign.total_value) : 'N/A'}
                   </p>
                 </div>
               </div>
@@ -641,6 +645,48 @@ export default function DealDetailsPage() {
                     )}
                   </div>
                 </div>
+
+                {/* Products Section for Barter Deals */}
+                {(deal.campaign?.deal_type === 'product' || deal.campaign?.deal_type === 'hybrid') && 
+                 deal.campaign?.products && deal.campaign.products.length > 0 && (
+                  <div>
+                    <h4 className="font-medium text-gray-900 mb-3">Barter Products</h4>
+                    <div className="space-y-3">
+                      {deal.campaign.products.map((product, index) => (
+                        <div key={index} className="bg-gradient-to-r from-orange-50 to-amber-50 rounded-lg p-4 border border-orange-200">
+                          <div className="flex justify-between items-start mb-2">
+                            <h5 className="font-semibold text-orange-900">{product.name}</h5>
+                            <div className="text-right">
+                              <div className="text-sm font-bold text-orange-800">
+                                {formatCurrency(product.value * product.quantity)}
+                              </div>
+                              <div className="text-xs text-orange-600">
+                                {formatCurrency(product.value)} × {product.quantity}
+                              </div>
+                            </div>
+                          </div>
+                          {product.description && (
+                            <p className="text-sm text-orange-700 mb-2">{product.description}</p>
+                          )}
+                          <div className="flex justify-between items-center text-xs text-orange-600">
+                            <span>Quantity: {product.quantity}</span>
+                            <span>Unit Value: {formatCurrency(product.value)}</span>
+                          </div>
+                        </div>
+                      ))}
+                      
+                      <div className="text-center bg-gradient-to-r from-orange-100 to-amber-100 rounded-lg p-3 border border-orange-200">
+                        <div className="text-lg font-bold text-orange-800">
+                          Total Product Value: {formatCurrency(
+                            deal.campaign.products.reduce((total, product) => 
+                              total + (product.value * product.quantity), 0
+                            )
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 {/* Platform Requirements */}
                 <div>

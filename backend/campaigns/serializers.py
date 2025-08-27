@@ -44,7 +44,7 @@ class CampaignCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Campaign
         fields = (
-            'title', 'description', 'objectives', 'deal_type', 'cash_amount',
+            'title', 'description', 'objectives', 'deal_type', 'cash_amount', 'product_value',
             'products', 'platforms_required', 'content_requirements',
             'special_instructions', 'application_deadline', 'submission_deadline', 
             'barter_submission_after_days', 'campaign_live_date', 'target_influencers', 
@@ -65,6 +65,20 @@ class CampaignCreateSerializer(serializers.ModelSerializer):
     def update(self, instance, validated_data):
         # Handle industry field specially to avoid JSON serialization issues
         industry_data = validated_data.pop('industry', None)
+        
+        # Calculate product_value from products array for barter/product deals
+        deal_type = validated_data.get('deal_type', instance.deal_type)
+        if deal_type in ['product', 'hybrid'] and 'products' in validated_data:
+            products = validated_data.get('products', [])
+            total_product_value = 0
+            if isinstance(products, list):
+                for product in products:
+                    if isinstance(product, dict):
+                        value = product.get('value', 0)
+                        quantity = product.get('quantity', 1)
+                        if isinstance(value, (int, float)) and isinstance(quantity, (int, float)):
+                            total_product_value += value * quantity
+            validated_data['product_value'] = total_product_value
         
         # Update all other fields normally
         instance = super().update(instance, validated_data)
@@ -141,6 +155,19 @@ class CampaignCreateSerializer(serializers.ModelSerializer):
         
         if not validated_data.get('submission_deadline'):
             validated_data['submission_deadline'] = timezone.now() + timedelta(days=7)
+        
+        # Calculate product_value from products array for barter/product deals
+        if validated_data.get('deal_type') in ['product', 'hybrid']:
+            products = validated_data.get('products', [])
+            total_product_value = 0
+            if isinstance(products, list):
+                for product in products:
+                    if isinstance(product, dict):
+                        value = product.get('value', 0)
+                        quantity = product.get('quantity', 1)
+                        if isinstance(value, (int, float)) and isinstance(quantity, (int, float)):
+                            total_product_value += value * quantity
+            validated_data['product_value'] = total_product_value
         
         # Create the campaign without the industry field first
         campaign = super().create(validated_data)

@@ -81,6 +81,18 @@ class Campaign(models.Model):
     @property
     def total_value(self):
         """Calculate total deal value (cash + product value)"""
+        # For barter/hybrid deals, calculate from products array if available
+        if self.deal_type in ['product', 'hybrid'] and self.products:
+            calculated_product_value = 0
+            if isinstance(self.products, list):
+                for product in self.products:
+                    if isinstance(product, dict):
+                        value = product.get('value', 0)
+                        quantity = product.get('quantity', 1)
+                        if isinstance(value, (int, float)) and isinstance(quantity, (int, float)):
+                            calculated_product_value += value * quantity
+            return self.cash_amount + calculated_product_value
+        # Fallback to stored product_value for backward compatibility
         return self.cash_amount + self.product_value
 
     @property

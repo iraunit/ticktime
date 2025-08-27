@@ -180,11 +180,21 @@ export function DealCard({
             <div className="bg-gradient-to-br from-green-50 to-emerald-100 rounded-md p-2 border border-green-200">
               <div className="flex items-center text-green-700 mb-0.5">
                 <HiBanknotes className="h-3 w-3 mr-1" />
-                <span className="text-xs font-medium">Compensation</span>
+                <span className="text-xs font-medium">
+                  {deal?.campaign?.deal_type === 'product' ? 'Barter Value' : 
+                   deal?.campaign?.deal_type === 'hybrid' ? 'Total Value' : 'Cash'}
+                </span>
               </div>
               <div className="text-sm font-bold text-green-800">
-                {deal?.campaign?.cash_amount ? formatCurrency(deal.campaign.cash_amount) : "TBD"}
+                {deal?.total_value ? formatCurrency(deal.total_value) : 
+                 deal?.campaign?.cash_amount ? formatCurrency(deal.campaign.cash_amount) : "TBD"}
               </div>
+              {(deal?.campaign?.deal_type === 'product' || deal?.campaign?.deal_type === 'hybrid') && 
+               deal?.campaign?.products && deal.campaign.products.length > 0 && (
+                <div className="text-xs text-green-600 mt-0.5">
+                  {deal.campaign.products.length} product{deal.campaign.products.length > 1 ? 's' : ''}
+                </div>
+              )}
             </div>
 
             {/* Deadline */}

@@ -84,25 +84,38 @@ export interface BrandUser {
   last_activity: string;
 }
 
+export interface Product {
+  name: string;
+  description?: string;
+  value: number;
+  quantity: number;
+  variants?: any;
+}
+
 export interface Campaign {
   id: number;
   brand: Brand;
   title: string;
   description: string;
-  deal_type: 'paid' | 'barter' | 'hybrid';
+  deal_type: 'cash' | 'product' | 'hybrid';
   cash_amount: number;
   product_value: number;
+  products?: Product[];
+  total_value: number;
   content_requirements: {
-    platforms: string[];
-    content_types: string[];
-    post_count: number;
+    platforms?: string[];
+    content_types?: string[];
+    post_count?: number;
     story_count?: number;
     reel_count?: number;
     special_instructions?: string;
-  };
+    description?: string;
+  } | string;
+  platforms_required?: string[];
   application_deadline: string;
-  campaign_start_date: string;
-  campaign_end_date: string;
+  campaign_start_date?: string;
+  campaign_end_date?: string;
+  campaign_live_date?: string;
   created_at: string;
 }
 
