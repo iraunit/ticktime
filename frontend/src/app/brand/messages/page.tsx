@@ -19,8 +19,6 @@ import {
   HiArrowPath,
   HiEllipsisVertical,
   HiArrowLeft,
-  HiPhone,
-  HiVideoCamera,
   HiCheck
 } from "react-icons/hi2";
 
@@ -141,13 +139,6 @@ export default function BrandMessagesPage() {
     fetchConversations();
   }, []);
 
-  // Fetch influencer data when influencer param is present
-  useEffect(() => {
-    if (influencerParam) {
-      fetchInfluencerData(influencerParam);
-    }
-  }, [influencerParam]);
-
   // Auto-select or create conversation by influencer id if provided in URL
   useEffect(() => {
     const influencerId = params?.get('influencer');
@@ -159,27 +150,15 @@ export default function BrandMessagesPage() {
     } else {
       // No conversation yet: show compose area and create on first send
       setSelectedConversation(null);
-    }
-  }, [conversations]);
-
-  const fetchInfluencerData = async (influencerId: string) => {
-    setIsLoadingInfluencer(true);
-    try {
-      const response = await api.get(`/influencers/${influencerId}/profile/`);
-      setInfluencerData(response.data);
-    } catch (error: any) {
-      console.error('Failed to fetch influencer data:', error);
-      // Set a fallback with the ID
+      // Set basic influencer data for new conversations
       setInfluencerData({
         id: influencerId,
         name: null,
         username: `influencer_${influencerId}`,
         display_name: `Influencer ${influencerId}`
       });
-    } finally {
-      setIsLoadingInfluencer(false);
     }
-  };
+  }, [conversations]);
 
   const sendFirstMessageToInfluencer = async () => {
     if (!newMessage.trim() || !influencerParam) return;
@@ -223,28 +202,32 @@ export default function BrandMessagesPage() {
   }, [selectedConversation]);
 
   const formatTime = (timestamp: string) => {
-    if (!timestamp) return 'No date';
+    if (!timestamp) return '';
     
     try {
       const date = new Date(timestamp);
       
       // Check if date is valid
       if (isNaN(date.getTime())) {
-        return 'No date';
+        return '';
       }
       
       const now = new Date();
-      const diffInHours = (now.getTime() - date.getTime()) / (1000 * 60 * 60);
+      const diffInMinutes = (now.getTime() - date.getTime()) / (1000 * 60);
+      const diffInHours = diffInMinutes / 60;
+      const diffInDays = diffInHours / 24;
       
-      if (diffInHours < 1) {
-        return 'Just now';
+      if (diffInMinutes < 1) {
+        return 'now';
+      } else if (diffInMinutes < 60) {
+        return `${Math.floor(diffInMinutes)}m`;
       } else if (diffInHours < 24) {
         return date.toLocaleTimeString('en-US', { 
           hour: '2-digit', 
           minute: '2-digit',
-          hour12: true 
+          hour12: false 
         });
-      } else if (diffInHours < 24 * 7) {
+      } else if (diffInDays < 7) {
         return date.toLocaleDateString('en-US', { weekday: 'short' });
       } else {
         return date.toLocaleDateString('en-US', { 
@@ -253,7 +236,7 @@ export default function BrandMessagesPage() {
         });
       }
     } catch (error) {
-      return 'No date';
+      return '';
     }
   };
 
@@ -272,10 +255,26 @@ export default function BrandMessagesPage() {
     );
   };
 
+  const handleInputKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      e.stopPropagation();
+      sendMessage();
+    }
+  };
+
+  const handleNewConversationKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      e.stopPropagation();
+      sendFirstMessageToInfluencer();
+    }
+  };
+
   return (
-    <div className="h-screen bg-gray-100 flex flex-col">
+    <div className="h-[calc(100vh-80px)] bg-gray-100 flex flex-col">
       {/* Header */}
-      <div className="bg-white border-b border-gray-200 px-4 py-3 shadow-sm">
+      <div className="bg-white border-b border-gray-200 px-4 py-2 shadow-sm">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-xl font-semibold text-gray-900">
@@ -303,7 +302,7 @@ export default function BrandMessagesPage() {
         <div className="hidden lg:flex w-full">
           {/* Conversations List */}
           <div className="w-1/3 bg-white border-r border-gray-200 flex flex-col">
-            <div className="p-3 border-b border-gray-200">
+            <div className="p-2 border-b border-gray-200">
               <div className="relative">
                 <HiMagnifyingGlass className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <Input
@@ -376,8 +375,6 @@ export default function BrandMessagesPage() {
                                 {(conversation.influencer_name || conversation.influencer_username || '?').charAt(0).toUpperCase()}
                               </span>
                             </div>
-                            {/* Online indicator */}
-                            <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 border-2 border-white rounded-full"></div>
                           </div>
                           
                           <div className="flex-1 min-w-0">
@@ -388,7 +385,7 @@ export default function BrandMessagesPage() {
                               <span className="text-xs text-gray-500">
                                 {conversation.last_message?.created_at || conversation.last_message?.timestamp
                                   ? formatTime(conversation.last_message.created_at || conversation.last_message.timestamp!)
-                                  : 'No date'}
+                                  : ''}
                               </span>
                             </div>
                             
@@ -424,7 +421,7 @@ export default function BrandMessagesPage() {
             {selectedConversation ? (
               <>
                 {/* Chat Header */}
-                <div className="p-4 border-b border-gray-200 bg-white shadow-sm">
+                <div className="p-3 border-b border-gray-200 bg-white shadow-sm">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       <div className="relative">
@@ -433,25 +430,18 @@ export default function BrandMessagesPage() {
                             {(selectedConversation.influencer_name || selectedConversation.influencer_username || '?').charAt(0).toUpperCase()}
                           </span>
                         </div>
-                        <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></div>
                       </div>
                       <div>
                         <h3 className="font-semibold text-gray-900">
                           {selectedConversation.influencer_name || selectedConversation.influencer_username || 'User'}
                         </h3>
-                        <p className="text-sm text-green-600">
-                          Online
+                        <p className="text-sm text-gray-500">
+                          {selectedConversation.deal_title}
                         </p>
                       </div>
                     </div>
                     
                     <div className="flex items-center gap-2">
-                      <Button variant="ghost" size="sm" className="p-2 h-auto text-gray-600 hover:text-gray-900">
-                        <HiVideoCamera className="w-5 h-5" />
-                      </Button>
-                      <Button variant="ghost" size="sm" className="p-2 h-auto text-gray-600 hover:text-gray-900">
-                        <HiPhone className="w-5 h-5" />
-                      </Button>
                       <Button variant="ghost" size="sm" className="p-2 h-auto text-gray-600 hover:text-gray-900">
                         <HiEllipsisVertical className="w-5 h-5" />
                       </Button>
@@ -460,7 +450,7 @@ export default function BrandMessagesPage() {
                 </div>
 
                 {/* Messages */}
-                <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-gray-50" style={{
+                <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-gray-50" style={{
                   backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23f0f0f0' fill-opacity='0.3'%3E%3Ccircle cx='30' cy='30' r='1'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`
                 }}>
                   {isLoadingMessages ? (
@@ -490,23 +480,23 @@ export default function BrandMessagesPage() {
                             }`}
                           >
                             <p className="text-sm leading-relaxed">{message.content}</p>
-                          </div>
-                          <div className={`flex items-center mt-1 space-x-1 ${message.sender_type === 'brand' ? 'justify-end' : 'justify-start'}`}>
-                            <span className="text-xs text-gray-500">
-                              {formatTime(message.created_at)}
-                            </span>
-                            {message.sender_type === 'brand' && (
-                              <div className="flex items-center">
-                                {message.is_read ? (
-                                  <div className="flex">
-                                    <HiCheck className="w-3 h-3 text-blue-600" />
-                                    <HiCheck className="w-3 h-3 text-blue-600 -ml-1" />
-                                  </div>
-                                ) : (
-                                  <HiCheck className="w-3 h-3 text-gray-400" />
-                                )}
-                              </div>
-                            )}
+                            <div className={`flex items-center mt-1 space-x-1 ${message.sender_type === 'brand' ? 'justify-end' : 'justify-start'}`}>
+                              <span className={`text-xs ${message.sender_type === 'brand' ? 'text-green-100' : 'text-gray-500'}`}>
+                                {formatTime(message.created_at)}
+                              </span>
+                              {message.sender_type === 'brand' && (
+                                <div className="flex items-center">
+                                  {message.is_read ? (
+                                    <div className="flex">
+                                      <HiCheck className="w-3 h-3 text-blue-200" />
+                                      <HiCheck className="w-3 h-3 text-blue-200 -ml-1" />
+                                    </div>
+                                  ) : (
+                                    <HiCheck className="w-3 h-3 text-green-200" />
+                                  )}
+                                </div>
+                              )}
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -515,14 +505,14 @@ export default function BrandMessagesPage() {
                 </div>
 
                 {/* Message Input */}
-                <div className="p-4 bg-white border-t border-gray-200">
+                <div className="p-3 bg-white border-t border-gray-200">
                   <div className="flex items-center gap-3">
                     <div className="flex-1 bg-gray-100 rounded-full px-4 py-3 flex items-center">
                       <Input
                         placeholder="Type a message..."
                         value={newMessage}
                         onChange={(e) => setNewMessage(e.target.value)}
-                        onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
+                        onKeyPress={handleInputKeyPress}
                         className="flex-1 border-0 bg-transparent focus:ring-0 focus:outline-none p-0"
                       />
                     </div>
@@ -542,26 +532,22 @@ export default function BrandMessagesPage() {
                   <HiChatBubbleLeftRight className="w-16 h-16 text-gray-300 mx-auto mb-4" />
                   <h3 className="text-lg font-medium text-gray-900 mb-2">
                     {influencerParam 
-                      ? (isLoadingInfluencer 
-                          ? 'Loading influencer details...' 
-                          : `Start a new conversation with ${influencerData?.name || influencerData?.display_name || influencerData?.username || `Influencer ${influencerParam}`}`)
+                      ? `Start a new conversation`
                       : 'Select a conversation'}
                   </h3>
                   <p className="text-gray-500 mb-4">
                     {influencerParam
-                      ? (isLoadingInfluencer
-                          ? 'Please wait while we load the influencer information.'
-                          : `Send the first message to create a conversation with ${influencerData?.name || influencerData?.display_name || influencerData?.username || `Influencer ${influencerParam}`}.`)
+                      ? `Send the first message to create a conversation with this influencer.`
                       : 'Choose a conversation from the list to start messaging.'}
                   </p>
-                  {influencerParam && !isLoadingInfluencer && (
+                  {influencerParam && (
                     <div className="flex items-center gap-3 max-w-md">
                       <div className="flex-1 bg-gray-100 rounded-full px-4 py-3 flex items-center">
                         <Input
                           placeholder="Type your message..."
                           value={newMessage}
                           onChange={(e) => setNewMessage(e.target.value)}
-                          onKeyPress={(e) => e.key === 'Enter' && sendFirstMessageToInfluencer()}
+                          onKeyPress={handleNewConversationKeyPress}
                           className="flex-1 border-0 bg-transparent focus:ring-0 focus:outline-none p-0"
                         />
                       </div>
@@ -572,11 +558,6 @@ export default function BrandMessagesPage() {
                       >
                         <HiPaperAirplane className="w-5 h-5" />
                       </Button>
-                    </div>
-                  )}
-                  {influencerParam && isLoadingInfluencer && (
-                    <div className="flex justify-center">
-                      <GlobalLoader />
                     </div>
                   )}
                 </div>
@@ -590,7 +571,7 @@ export default function BrandMessagesPage() {
           {/* Conversation List - Mobile (full screen when no conversation selected) */}
           <div className={`h-full ${selectedConversation ? 'hidden' : 'block'}`}>
             <div className="bg-white h-full flex flex-col">
-              <div className="p-3 border-b border-gray-200">
+              <div className="p-2 border-b border-gray-200">
                 <div className="relative">
                   <HiMagnifyingGlass className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                   <Input
@@ -663,7 +644,6 @@ export default function BrandMessagesPage() {
                                   {(conversation.influencer_name || conversation.influencer_username || '?').charAt(0).toUpperCase()}
                                 </span>
                               </div>
-                              <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 border-2 border-white rounded-full"></div>
                             </div>
                             
                             <div className="flex-1 min-w-0">
@@ -674,7 +654,7 @@ export default function BrandMessagesPage() {
                                 <span className="text-xs text-gray-500">
                                   {conversation.last_message?.created_at || conversation.last_message?.timestamp
                                     ? formatTime(conversation.last_message.created_at || conversation.last_message.timestamp!)
-                                    : 'No date'}
+                                    : ''}
                                 </span>
                               </div>
                               
@@ -711,7 +691,7 @@ export default function BrandMessagesPage() {
             {selectedConversation && (
               <div className="h-full flex flex-col bg-white">
                 {/* Chat Header */}
-                <div className="p-4 border-b border-gray-200 bg-white shadow-sm">
+                <div className="p-3 border-b border-gray-200 bg-white shadow-sm">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       <button
@@ -726,31 +706,21 @@ export default function BrandMessagesPage() {
                             {(selectedConversation.influencer_name || selectedConversation.influencer_username || '?').charAt(0).toUpperCase()}
                           </span>
                         </div>
-                        <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></div>
                       </div>
                       <div>
                         <h3 className="font-semibold text-gray-900">
                           {selectedConversation.influencer_name || selectedConversation.influencer_username || 'User'}
                         </h3>
-                        <p className="text-sm text-green-600">
-                          Online
+                        <p className="text-sm text-gray-500">
+                          {selectedConversation.deal_title}
                         </p>
                       </div>
-                    </div>
-                    
-                    <div className="flex items-center gap-1">
-                      <Button variant="ghost" size="sm" className="p-2 h-auto text-gray-600">
-                        <HiVideoCamera className="w-5 h-5" />
-                      </Button>
-                      <Button variant="ghost" size="sm" className="p-2 h-auto text-gray-600">
-                        <HiPhone className="w-5 h-5" />
-                      </Button>
                     </div>
                   </div>
                 </div>
 
                 {/* Messages */}
-                <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-gray-50" style={{
+                <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-gray-50" style={{
                   backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23f0f0f0' fill-opacity='0.3'%3E%3Ccircle cx='30' cy='30' r='1'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`
                 }}>
                   {isLoadingMessages ? (
@@ -780,23 +750,23 @@ export default function BrandMessagesPage() {
                             }`}
                           >
                             <p className="text-sm leading-relaxed">{message.content}</p>
-                          </div>
-                          <div className={`flex items-center mt-1 space-x-1 ${message.sender_type === 'brand' ? 'justify-end' : 'justify-start'}`}>
-                            <span className="text-xs text-gray-500">
-                              {formatTime(message.created_at)}
-                            </span>
-                            {message.sender_type === 'brand' && (
-                              <div className="flex items-center">
-                                {message.is_read ? (
-                                  <div className="flex">
-                                    <HiCheck className="w-3 h-3 text-blue-600" />
-                                    <HiCheck className="w-3 h-3 text-blue-600 -ml-1" />
-                                  </div>
-                                ) : (
-                                  <HiCheck className="w-3 h-3 text-gray-400" />
-                                )}
-                              </div>
-                            )}
+                            <div className={`flex items-center mt-1 space-x-1 ${message.sender_type === 'brand' ? 'justify-end' : 'justify-start'}`}>
+                              <span className={`text-xs ${message.sender_type === 'brand' ? 'text-green-100' : 'text-gray-500'}`}>
+                                {formatTime(message.created_at)}
+                              </span>
+                              {message.sender_type === 'brand' && (
+                                <div className="flex items-center">
+                                  {message.is_read ? (
+                                    <div className="flex">
+                                      <HiCheck className="w-3 h-3 text-blue-200" />
+                                      <HiCheck className="w-3 h-3 text-blue-200 -ml-1" />
+                                    </div>
+                                  ) : (
+                                    <HiCheck className="w-3 h-3 text-green-200" />
+                                  )}
+                                </div>
+                              )}
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -805,14 +775,14 @@ export default function BrandMessagesPage() {
                 </div>
 
                 {/* Message Input */}
-                <div className="p-4 bg-white border-t border-gray-200">
+                <div className="p-3 bg-white border-t border-gray-200">
                   <div className="flex items-center gap-3">
                     <div className="flex-1 bg-gray-100 rounded-full px-4 py-3 flex items-center">
                       <Input
                         placeholder="Type a message..."
                         value={newMessage}
                         onChange={(e) => setNewMessage(e.target.value)}
-                        onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
+                        onKeyPress={handleInputKeyPress}
                         className="flex-1 border-0 bg-transparent focus:ring-0 focus:outline-none p-0"
                       />
                     </div>
