@@ -122,9 +122,14 @@ export function UnifiedMessaging({ userType, targetParam }: UnifiedMessagingProp
       console.log('Fetching messages for conversation:', conversation.id);
       const response = await api.get(endpoints.messagesByConversation(conversation.id));
       console.log('Messages response:', response.data);
-      const messages = Array.isArray(response.data?.messages) ? response.data.messages : [];
-      console.log('Setting messages:', messages);
-      setMessages(messages);
+      const received = Array.isArray(response.data?.messages) ? response.data.messages : [];
+      // Ensure chronological order: oldest at top, newest at bottom
+      const ordered = received
+        .filter((m: any) => m && typeof m === 'object' && m.created_at)
+        .slice()
+        .sort((a: any, b: any) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+      console.log('Setting ordered messages:', ordered);
+      setMessages(ordered);
     } catch (error: any) {
       console.error('Failed to fetch messages:', error);
       toast.error(error?.response?.data?.message || 'Failed to load messages.');
@@ -144,7 +149,13 @@ export function UnifiedMessaging({ userType, targetParam }: UnifiedMessagingProp
       
       const created = response.data?.message_data;
       if (created && typeof created === 'object') {
-        setMessages(prev => [...prev, created]);
+        // Append and keep ascending order by created_at
+        setMessages(prev => {
+          const next = [...prev, created];
+          return next
+            .filter((m: any) => m && typeof m === 'object' && m.created_at)
+            .sort((a: any, b: any) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+        });
       } else {
         // Fallback: re-fetch thread if payload missing
         if (selectedConversation) await fetchMessages(selectedConversation);
@@ -229,38 +240,32 @@ export function UnifiedMessaging({ userType, targetParam }: UnifiedMessagingProp
 
   const formatTime = (timestamp: string) => {
     if (!timestamp) return '';
-    
     try {
       const date = new Date(timestamp);
-      
-      if (isNaN(date.getTime())) {
-        return '';
-      }
-      
+      if (isNaN(date.getTime())) return '';
+
       const now = new Date();
+      const isSameDay = now.toDateString() === date.toDateString();
       const diffInMinutes = (now.getTime() - date.getTime()) / (1000 * 60);
       const diffInHours = diffInMinutes / 60;
       const diffInDays = diffInHours / 24;
-      
-      if (diffInMinutes < 1) {
-        return 'now';
-      } else if (diffInMinutes < 60) {
-        return `${Math.floor(diffInMinutes)}m`;
-      } else if (diffInHours < 24) {
-        return date.toLocaleTimeString('en-US', { 
-          hour: '2-digit', 
-          minute: '2-digit',
-          hour12: false 
-        });
-      } else if (diffInDays < 7) {
-        return date.toLocaleDateString('en-US', { weekday: 'short' });
-      } else {
-        return date.toLocaleDateString('en-US', { 
-          month: 'short', 
-          day: 'numeric' 
-        });
+
+      if (diffInMinutes < 1) return 'now';
+      if (diffInMinutes < 60) return `${Math.floor(diffInMinutes)}m`;
+      if (isSameDay) {
+        return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
       }
-    } catch (error) {
+      if (diffInDays < 7) {
+        // Show weekday + time for messages within the last week but not today
+        const weekday = date.toLocaleDateString('en-US', { weekday: 'short' });
+        const time = date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+        return `${weekday} ${time}`;
+      }
+      // Older than a week: show date + time
+      const md = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      const time = date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+      return `${md}, ${time}`;
+    } catch {
       return '';
     }
   };
