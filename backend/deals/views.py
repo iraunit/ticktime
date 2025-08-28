@@ -25,7 +25,8 @@ from common.cache_utils import CacheManager
 
 from .serializers import (
     DealListSerializer, DealDetailSerializer, DealActionSerializer,
-    DealTimelineSerializer, EarningsPaymentSerializer, CollaborationHistorySerializer
+    DealTimelineSerializer, EarningsPaymentSerializer, CollaborationHistorySerializer,
+    AddressSubmissionSerializer, DealStatusUpdateSerializer
 )
 from .models import Deal
 from influencers.models import InfluencerProfile, SocialMediaAccount
@@ -196,8 +197,7 @@ def deal_action_view(request, deal_id):
         action = serializer.validated_data['action']
         
         if action == 'accept':
-            deal.status = 'accepted'
-            deal.accepted_at = timezone.now()
+            deal.set_status_with_timestamp('accepted')
             deal.custom_terms_agreed = serializer.validated_data.get('custom_terms', '')
             deal.negotiation_notes = serializer.validated_data.get('negotiation_notes', '')
             
@@ -207,7 +207,7 @@ def deal_action_view(request, deal_id):
             message = 'Deal accepted successfully.'
             
         elif action == 'reject':
-            deal.status = 'rejected'
+            deal.set_status_with_timestamp('rejected')
             deal.rejection_reason = serializer.validated_data.get('rejection_reason', '')
             message = 'Deal rejected successfully.'
 
@@ -569,3 +569,156 @@ def deal_messages_view(request, deal_id):
             'status': 'success',
             'message': 'Message sent successfully'
         }, status=status.HTTP_200_OK)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def submit_address_view(request, deal_id):
+    """
+    Submit shipping address for barter/hybrid deals.
+    """
+    try:
+        profile = request.user.influencer_profile
+    except InfluencerProfile.DoesNotExist:
+        return Response({
+            'status': 'error',
+            'message': 'Influencer profile not found.'
+        }, status=status.HTTP_404_NOT_FOUND)
+
+    deal = get_object_or_404(
+        Deal.objects.select_related('campaign__brand'),
+        id=deal_id,
+        influencer=profile
+    )
+
+    # Check if deal is in the correct status for address submission
+    if deal.status != 'address_requested':
+        return Response({
+            'status': 'error',
+            'message': 'Address can only be submitted when requested by the brand.'
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+    # Check if deal type requires shipping
+    if deal.campaign.deal_type not in ['product', 'hybrid']:
+        return Response({
+            'status': 'error',
+            'message': 'Address submission is only required for product or hybrid deals.'
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+    # Validate address data
+    serializer = AddressSubmissionSerializer(data=request.data)
+    
+    if serializer.is_valid():
+        # Save address to deal
+        deal.shipping_address = {
+            'address_line1': serializer.validated_data['address_line1'],
+            'address_line2': serializer.validated_data.get('address_line2', ''),
+            'city': serializer.validated_data['city'],
+            'state': serializer.validated_data['state'],
+            'country': serializer.validated_data['country'],
+            'zipcode': serializer.validated_data['zipcode'],
+            'phone_number': serializer.validated_data['phone_number'],
+        }
+        
+        # Update deal status and timestamp
+        deal.set_status_with_timestamp('address_provided')
+        deal.save()
+
+        # Return updated deal information
+        updated_deal = DealDetailSerializer(deal)
+        return Response({
+            'status': 'success',
+            'message': 'Address submitted successfully.',
+            'deal': updated_deal.data
+        }, status=status.HTTP_200_OK)
+
+    return Response({
+        'status': 'error',
+        'message': 'Invalid address data.',
+        'errors': serializer.errors
+    }, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def update_deal_status_view(request, deal_id):
+    """
+    Update deal status with additional information (for brand users).
+    This endpoint handles status transitions like shortlisting, requesting address, 
+    marking as shipped, etc.
+    """
+    # This would typically check if user has brand permissions
+    # For now, we'll implement basic functionality
+    
+    try:
+        from brands.models import BrandUser
+        brand_user = BrandUser.objects.get(user=request.user)
+    except BrandUser.DoesNotExist:
+        return Response({
+            'status': 'error',
+            'message': 'Brand user profile not found.'
+        }, status=status.HTTP_404_NOT_FOUND)
+
+    # Get deal and verify brand owns it
+    deal = get_object_or_404(
+        Deal.objects.select_related('campaign__brand'),
+        id=deal_id,
+        campaign__brand=brand_user.brand
+    )
+
+    # Validate the request data
+    serializer = DealStatusUpdateSerializer(data=request.data)
+    if not serializer.is_valid():
+        return Response({
+            'status': 'error',
+            'message': 'Invalid data provided.',
+            'errors': serializer.errors
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+    # Get the validated data
+    new_status = serializer.validated_data['status']
+    notes = serializer.validated_data.get('notes', '')
+    tracking_number = serializer.validated_data.get('tracking_number', '')
+    tracking_url = serializer.validated_data.get('tracking_url', '')
+
+    # Validate status transition
+    valid_transitions = {
+        'accepted': ['shortlisted'],
+        'shortlisted': ['address_requested'],
+        'address_provided': ['product_shipped'],
+        'product_shipped': ['product_delivered'],
+        'product_delivered': ['active'],
+        'active': ['content_submitted'],
+        'content_submitted': ['under_review'],
+        'under_review': ['approved', 'revision_requested'],
+        'revision_requested': ['under_review'],
+        'approved': ['completed']
+    }
+
+    if new_status not in valid_transitions.get(deal.status, []):
+        return Response({
+            'status': 'error',
+            'message': f'Cannot transition from {deal.status} to {new_status}'
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+    # Update deal with new status and additional information
+    deal.set_status_with_timestamp(new_status)
+    
+    if notes:
+        deal.notes = notes
+    
+    if new_status == 'product_shipped':
+        if tracking_number:
+            deal.tracking_number = tracking_number
+        if tracking_url:
+            deal.tracking_url = tracking_url
+
+    deal.save()
+
+    # Return updated deal information
+    updated_deal = DealDetailSerializer(deal)
+    return Response({
+        'status': 'success',
+        'message': f'Deal status updated to {new_status}',
+        'deal': updated_deal.data
+    }, status=status.HTTP_200_OK)

@@ -10,6 +10,7 @@ import { DealTimeline } from "./deal-timeline";
 import { DealActions } from "./deal-actions";
 import { ContentSubmissionModal } from "./content-submission";
 import { ContentStatus } from "./content-status";
+import { AddressSubmission } from "./address-submission";
 import { useDeal } from "@/hooks/use-deals";
 import { cn } from "@/lib/utils";
 import {
@@ -53,6 +54,11 @@ const statusColors = {
   invited: "bg-blue-100 text-blue-800 border-blue-200",
   pending: "bg-yellow-100 text-yellow-800 border-yellow-200",
   accepted: "bg-green-100 text-green-800 border-green-200",
+  shortlisted: "bg-green-100 text-green-800 border-green-200",
+  address_requested: "bg-orange-100 text-orange-800 border-orange-200",
+  address_provided: "bg-blue-100 text-blue-800 border-blue-200",
+  product_shipped: "bg-purple-100 text-purple-800 border-purple-200",
+  product_delivered: "bg-green-100 text-green-800 border-green-200",
   active: "bg-purple-100 text-purple-800 border-purple-200",
   content_submitted: "bg-indigo-100 text-indigo-800 border-indigo-200",
   under_review: "bg-orange-100 text-orange-800 border-orange-200",
@@ -73,6 +79,7 @@ export function DealDetails({
   className,
 }: DealDetailsProps) {
   const [showContentSubmission, setShowContentSubmission] = useState(false);
+  const [showAddressSubmission, setShowAddressSubmission] = useState(false);
   const { contentSubmissions } = useDeal(deal.id);
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString("en-US", {
@@ -103,25 +110,51 @@ export function DealDetails({
 
   return (
     <div className={cn("space-y-3", className)}>
-      {/* Compact Header */}
-      <div className="bg-white/80 backdrop-blur-sm rounded-lg border-0 shadow-lg p-3">
-        <div className="flex items-center space-x-3">
+      {/* Enhanced Header */}
+      <div className="bg-gradient-to-r from-blue-50 via-white to-purple-50 border border-blue-100 rounded-xl shadow-lg p-6 mb-6">
+        <div className="flex items-start justify-between">
           <div className="flex-1">
-            <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-              {deal?.campaign?.title || 'Campaign'}
-            </h1>
-            <p className="text-sm text-gray-600 mt-1">
-              Collaboration with {deal?.campaign?.brand?.name || 'Brand'}
-            </p>
+            <div className="flex items-center space-x-3 mb-2">
+              <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-purple-500 rounded-lg flex items-center justify-center shadow-lg">
+                <FileText className="h-6 w-6 text-white" />
+              </div>
+              <div>
+                <h1 className="text-3xl font-bold text-gray-900 leading-tight">
+                  Deal Details
+                </h1>
+                <p className="text-base text-gray-600 font-medium">
+                  {deal?.campaign?.title || 'Campaign'}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center space-x-4 text-sm text-gray-600">
+              <div className="flex items-center space-x-1">
+                <Star className="h-4 w-4 text-yellow-500" />
+                <span>Collaboration with</span>
+                <span className="font-semibold text-blue-600">{deal?.campaign?.brand?.name || 'Brand'}</span>
+              </div>
+              <div className="flex items-center space-x-1">
+                <Clock className="h-4 w-4 text-gray-400" />
+                <span>Invited {formatDateTime(deal?.invited_at || new Date().toISOString())}</span>
+              </div>
+            </div>
           </div>
-          <Badge
-            className={cn(
-              "text-sm border-2 px-3 py-1 rounded-full",
-              statusColors[deal.status] || "bg-gray-100 text-gray-800 border-gray-200"
-            )}
-          >
-            {deal.status.replace("_", " ").toUpperCase()}
-          </Badge>
+          <div className="flex flex-col items-end space-y-2">
+            <Badge
+              className={cn(
+                "text-sm border-2 px-4 py-2 rounded-full font-semibold shadow-sm",
+                statusColors[deal.status] || "bg-gray-100 text-gray-800 border-gray-200"
+              )}
+            >
+              {deal.status.replace("_", " ").toUpperCase()}
+            </Badge>
+            <div className="text-right">
+              <div className="text-lg font-bold text-green-600">
+                {formatCurrency(deal.total_value || 0)}
+              </div>
+              <div className="text-xs text-gray-500">Total Value</div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -327,6 +360,32 @@ export function DealDetails({
             </CardContent>
           </Card>
 
+          {/* Address Request Alert for Barter/Hybrid Deals */}
+          {deal.status === 'address_requested' && (deal.campaign?.deal_type === 'product' || deal.campaign?.deal_type === 'hybrid') && (
+            <Card className="bg-gradient-to-r from-orange-50 to-amber-50 border-orange-200 shadow-lg hover:shadow-xl transition-all duration-300">
+              <CardHeader className="pb-2">
+                <CardTitle className="flex items-center space-x-2 text-orange-800">
+                  <div className="w-6 h-6 bg-gradient-to-r from-orange-500 to-amber-500 rounded-lg flex items-center justify-center">
+                    <MapPin className="h-3 w-3 text-white" />
+                  </div>
+                  <span className="text-base font-bold">Address Required</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="pt-0">
+                <p className="text-sm text-orange-700 mb-3">
+                  The brand has requested your shipping address to send the products for this collaboration.
+                </p>
+                <Button
+                  onClick={() => setShowAddressSubmission(true)}
+                  className="bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-700 hover:to-amber-700 text-white"
+                >
+                  <MapPin className="h-4 w-4 mr-2" />
+                  Provide Address
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Content Status */}
           {['active', 'content_submitted', 'under_review', 'revision_requested', 'approved', 'completed'].includes(deal.status) && (
             <ContentStatus 
@@ -480,6 +539,17 @@ export function DealDetails({
         isOpen={showContentSubmission}
         onClose={() => setShowContentSubmission(false)}
         deal={deal}
+      />
+
+      {/* Address Submission Modal */}
+      <AddressSubmission
+        isOpen={showAddressSubmission}
+        onClose={() => setShowAddressSubmission(false)}
+        deal={deal}
+        onSuccess={() => {
+          // Refresh deal data or update local state
+          window.location.reload(); // Simple refresh for now
+        }}
       />
     </div>
   );

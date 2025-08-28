@@ -334,3 +334,60 @@ class EarningsPaymentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Deal
         fields = ['id', 'brand_name', 'campaign_title', 'amount', 'payment_status', 'payment_date', 'completed_at']
+
+
+class AddressSubmissionSerializer(serializers.Serializer):
+    """
+    Serializer for address submission for barter/hybrid deals.
+    """
+    address_line1 = serializers.CharField(max_length=255)
+    address_line2 = serializers.CharField(max_length=255, required=False, allow_blank=True)
+    city = serializers.CharField(max_length=100)
+    state = serializers.CharField(max_length=100)
+    country = serializers.CharField(max_length=100)
+    zipcode = serializers.CharField(max_length=20)
+    phone_number = serializers.CharField(max_length=20)
+
+    def validate_phone_number(self, value):
+        """Validate phone number format."""
+        import re
+        # Basic phone number validation - can be enhanced based on requirements
+        if not re.match(r'^[\+]?[1-9][\d\s\-\(\)]{7,15}$', value):
+            raise serializers.ValidationError("Please enter a valid phone number.")
+        return value
+
+    def validate_zipcode(self, value):
+        """Validate zipcode format."""
+        if len(value.strip()) < 3:
+            raise serializers.ValidationError("Please enter a valid ZIP/postal code.")
+        return value.strip()
+
+
+class DealStatusUpdateSerializer(serializers.Serializer):
+    """
+    Serializer for updating deal status by brands.
+    """
+    status = serializers.ChoiceField(choices=[
+        ('shortlisted', 'Shortlisted'),
+        ('address_requested', 'Address Requested'),
+        ('product_shipped', 'Product Shipped'),
+        ('product_delivered', 'Product Delivered'),
+        ('active', 'Active'),
+        ('under_review', 'Under Review'),
+        ('approved', 'Approved'),
+        ('revision_requested', 'Revision Requested'),
+        ('completed', 'Completed'),
+    ])
+    notes = serializers.CharField(required=False, allow_blank=True)
+    tracking_number = serializers.CharField(required=False, allow_blank=True, max_length=100)
+    tracking_url = serializers.URLField(required=False, allow_blank=True)
+
+    def validate(self, attrs):
+        """Validate that shipping info is provided when status is product_shipped."""
+        status = attrs.get('status')
+        if status == 'product_shipped':
+            if not attrs.get('tracking_number') and not attrs.get('tracking_url'):
+                raise serializers.ValidationError(
+                    "Either tracking_number or tracking_url is required when marking as shipped."
+                )
+        return attrs

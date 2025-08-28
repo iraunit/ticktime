@@ -130,12 +130,35 @@ export interface Deal {
   rejection_reason?: string;
   total_value: number;
   payment_status?: 'pending' | 'processing' | 'completed' | 'failed';
+  // Barter deal specific fields
+  shipping_address?: {
+    address_line1: string;
+    address_line2?: string;
+    city: string;
+    state: string;
+    country: string;
+    zipcode: string;
+    phone_number?: string;
+  };
+  tracking_number?: string;
+  tracking_url?: string;
+  shipped_at?: string;
+  delivered_at?: string;
+  address_requested_at?: string;
+  address_provided_at?: string;
+  shortlisted_at?: string;
+  notes?: string;
 }
 
 export type DealStatus = 
   | 'invited'
   | 'pending'
   | 'accepted'
+  | 'shortlisted'
+  | 'address_requested'
+  | 'address_provided'
+  | 'product_shipped'
+  | 'product_delivered'
   | 'active'
   | 'content_submitted'
   | 'under_review'

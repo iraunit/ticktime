@@ -20,9 +20,11 @@ import {
   HiArrowUpTray, 
   HiEye,
   HiClock,
-  HiExclamationTriangle
+  HiExclamationTriangle,
+  HiArrowTopRightOnSquare
 } from "react-icons/hi2";
 import { cn } from "@/lib/utils";
+import Link from "next/link";
 
 interface DealActionsProps {
   deal: Deal;
@@ -122,15 +124,17 @@ export function DealActions({
         View Details
       </Button>
       
-      <Button
-        variant="ghost"
-        onClick={() => onMessage?.(deal.id)}
-        disabled={isLoading}
-        className="border-2 border-blue-200 text-blue-700 hover:bg-blue-50 hover:border-blue-300 shadow-md hover:shadow-lg transition-all duration-200"
-      >
-        <HiChatBubbleLeftRight className="h-4 w-4 mr-2" />
-        Message
-      </Button>
+      <Link href={`/messages?deal_id=${deal.id}`} target="_blank" rel="noopener noreferrer">
+        <Button
+          variant="ghost"
+          disabled={isLoading}
+          className="border-2 border-blue-200 text-blue-700 hover:bg-blue-50 hover:border-blue-300 shadow-md hover:shadow-lg transition-all duration-200 w-full"
+        >
+          <HiChatBubbleLeftRight className="h-4 w-4 mr-2" />
+          <span>Message</span>
+          <HiArrowTopRightOnSquare className="h-3 w-3 ml-1" />
+        </Button>
+      </Link>
     </div>
   );
 
@@ -155,15 +159,17 @@ export function DealActions({
         View Details
       </Button>
       
-      <Button
-        variant="ghost"
-        onClick={() => onMessage?.(deal.id)}
-        disabled={isLoading}
-        className="border-2 border-blue-200 text-blue-700 hover:bg-blue-50 hover:border-blue-300 shadow-md hover:shadow-lg transition-all duration-200"
-      >
-        <HiChatBubbleLeftRight className="h-4 w-4 mr-2" />
-        Message
-      </Button>
+      <Link href={`/messages?deal_id=${deal.id}`} target="_blank" rel="noopener noreferrer">
+        <Button
+          variant="ghost"
+          disabled={isLoading}
+          className="border-2 border-blue-200 text-blue-700 hover:bg-blue-50 hover:border-blue-300 shadow-md hover:shadow-lg transition-all duration-200 w-full"
+        >
+          <HiChatBubbleLeftRight className="h-4 w-4 mr-2" />
+          <span>Message</span>
+          <HiArrowTopRightOnSquare className="h-3 w-3 ml-1" />
+        </Button>
+      </Link>
     </div>
   );
 
@@ -179,15 +185,17 @@ export function DealActions({
         View Details
       </Button>
       
-      <Button
-        variant="ghost"
-        onClick={() => onMessage?.(deal.id)}
-        disabled={isLoading}
-        className="border-2 border-blue-200 text-blue-700 hover:bg-blue-50 hover:border-blue-300 shadow-md hover:shadow-lg transition-all duration-200"
-      >
-        <HiChatBubbleLeftRight className="h-4 w-4 mr-2" />
-        Message
-      </Button>
+      <Link href={`/messages?deal_id=${deal.id}`} target="_blank" rel="noopener noreferrer">
+        <Button
+          variant="ghost"
+          disabled={isLoading}
+          className="border-2 border-blue-200 text-blue-700 hover:bg-blue-50 hover:border-blue-300 shadow-md hover:shadow-lg transition-all duration-200 w-full"
+        >
+          <HiChatBubbleLeftRight className="h-4 w-4 mr-2" />
+          <span>Message</span>
+          <HiArrowTopRightOnSquare className="h-3 w-3 ml-1" />
+        </Button>
+      </Link>
     </div>
   );
 

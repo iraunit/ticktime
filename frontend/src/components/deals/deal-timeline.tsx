@@ -10,7 +10,11 @@ import {
   Upload,
   Eye,
   MessageSquare,
-  DollarSign
+  DollarSign,
+  Package,
+  MapPin,
+  Truck,
+  Home
 } from "@/lib/icons";
 
 interface DealTimelineProps {
@@ -31,7 +35,22 @@ interface TimelineStep {
 
 const statusOrder: DealStatus[] = [
   "invited",
-  "accepted", 
+  "accepted",
+  "shortlisted",
+  "address_requested",
+  "address_provided", 
+  "product_shipped",
+  "product_delivered",
+  "active",
+  "content_submitted",
+  "under_review",
+  "approved",
+  "completed"
+];
+
+const cashOnlyStatusOrder: DealStatus[] = [
+  "invited",
+  "accepted",
   "active",
   "content_submitted",
   "under_review",
@@ -58,6 +77,31 @@ const statusInfo: Record<DealStatus, {
     label: "Deal Accepted",
     description: "You have accepted the collaboration deal",
     icon: CheckCircle,
+  },
+  shortlisted: {
+    label: "Shortlisted",
+    description: "You have been shortlisted for this collaboration",
+    icon: CheckCircle,
+  },
+  address_requested: {
+    label: "Address Requested",
+    description: "Brand has requested your shipping address for product delivery",
+    icon: MapPin,
+  },
+  address_provided: {
+    label: "Address Provided",
+    description: "You have provided your shipping address",
+    icon: CheckCircle,
+  },
+  product_shipped: {
+    label: "Product Shipped",
+    description: "Brand has shipped the products to your address",
+    icon: Truck,
+  },
+  product_delivered: {
+    label: "Product Delivered",
+    description: "Products have been delivered to your address",
+    icon: Home,
   },
   active: {
     label: "Deal Active",
@@ -117,7 +161,14 @@ export function DealTimeline({ deal, className }: DealTimelineProps) {
   };
 
   const getCurrentStatusIndex = () => {
-    return statusOrder.indexOf(deal.status);
+    const isBarterOrHybrid = deal.campaign?.deal_type === 'product' || deal.campaign?.deal_type === 'hybrid';
+    const orderToUse = isBarterOrHybrid ? statusOrder : cashOnlyStatusOrder;
+    return orderToUse.indexOf(deal.status);
+  };
+
+  const getStatusOrder = () => {
+    const isBarterOrHybrid = deal.campaign?.deal_type === 'product' || deal.campaign?.deal_type === 'hybrid';
+    return isBarterOrHybrid ? statusOrder : cashOnlyStatusOrder;
   };
 
   const getTimelineSteps = (): TimelineStep[] => {
@@ -148,13 +199,19 @@ export function DealTimeline({ deal, className }: DealTimelineProps) {
       ];
     }
 
-    return statusOrder.map((status, index) => {
+    const orderToUse = getStatusOrder();
+    return orderToUse.map((status, index) => {
       const info = statusInfo[status];
       let date: string | undefined;
       
       // Set dates based on deal data
       if (status === "invited") date = deal.invited_at ? formatDate(deal.invited_at) : undefined;
       if (status === "accepted" && deal.responded_at) date = formatDate(deal.responded_at);
+      if (status === "shortlisted" && deal.shortlisted_at) date = formatDate(deal.shortlisted_at);
+      if (status === "address_requested" && deal.address_requested_at) date = formatDate(deal.address_requested_at);
+      if (status === "address_provided" && deal.address_provided_at) date = formatDate(deal.address_provided_at);
+      if (status === "product_shipped" && deal.shipped_at) date = formatDate(deal.shipped_at);
+      if (status === "product_delivered" && deal.delivered_at) date = formatDate(deal.delivered_at);
       if (status === "completed" && deal.completed_at) date = formatDate(deal.completed_at);
 
       return {
@@ -167,7 +224,7 @@ export function DealTimeline({ deal, className }: DealTimelineProps) {
       };
     }).filter(step => {
       // Only show steps up to current status + 1 (next step)
-      const stepIndex = statusOrder.indexOf(step.status);
+      const stepIndex = orderToUse.indexOf(step.status);
       return stepIndex <= currentIndex + 1;
     });
   };
@@ -239,6 +296,45 @@ export function DealTimeline({ deal, className }: DealTimelineProps) {
                 )}>
                   {step.description}
                 </p>
+                
+                {/* Additional details for shipping statuses */}
+                {step.status === "product_shipped" && deal.tracking_number && (
+                  <div className="mt-2 p-2 bg-blue-50 rounded-md">
+                    <p className="text-xs text-blue-800">
+                      <strong>Tracking:</strong> {deal.tracking_number}
+                    </p>
+                    {deal.tracking_url && (
+                      <a
+                        href={deal.tracking_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs text-blue-600 hover:text-blue-800 underline"
+                      >
+                        Track Package
+                      </a>
+                    )}
+                  </div>
+                )}
+                
+                {step.status === "address_provided" && deal.shipping_address && (
+                  <div className="mt-2 p-2 bg-green-50 rounded-md">
+                    <p className="text-xs text-green-800">
+                      <strong>Delivery Address:</strong><br />
+                      {deal.shipping_address.address_line1}<br />
+                      {deal.shipping_address.address_line2 && `${deal.shipping_address.address_line2}\n`}
+                      {deal.shipping_address.city}, {deal.shipping_address.state} {deal.shipping_address.zipcode}<br />
+                      {deal.shipping_address.country}
+                    </p>
+                  </div>
+                )}
+                
+                {deal.notes && step.isCurrent && (
+                  <div className="mt-2 p-2 bg-yellow-50 rounded-md">
+                    <p className="text-xs text-yellow-800">
+                      <strong>Notes:</strong> {deal.notes}
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
           );
