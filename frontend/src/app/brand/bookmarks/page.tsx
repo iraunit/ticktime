@@ -2,12 +2,12 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+
 import { GlobalLoader } from "@/components/ui/global-loader";
 import { toast } from "@/lib/toast";
 import { api } from "@/lib/api";
@@ -104,20 +104,7 @@ export default function BrandBookmarksPage() {
     }
   };
 
-  const startConversation = async (influencerId: number) => {
-    try {
-      const response = await api.post('/brands/conversations/', {
-        influencer_id: influencerId,
-        message: "Hi! I'm interested in collaborating with you."
-      });
-      toast.success('Conversation started successfully');
-      // Redirect to messages page
-      window.location.href = '/brand/messages';
-    } catch (error: any) {
-      console.error('Failed to start conversation:', error);
-      toast.error('Failed to start conversation.');
-    }
-  };
+
 
   useEffect(() => {
     const timeoutId = setTimeout(() => {
@@ -125,7 +112,7 @@ export default function BrandBookmarksPage() {
     }, searchTerm ? 500 : 0);
 
     return () => clearTimeout(timeoutId);
-  }, [searchTerm, categoryFilter]);
+  }, [searchTerm, categoryFilter, fetchBookmarks]);
 
   const formatDate = (dateString: string | null | undefined) => {
     if (!dateString) return 'Unknown date';

@@ -3,38 +3,30 @@
 import { useState, useEffect } from "react";
 import "./campaign-form.css";
 import { useRouter } from "next/navigation";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
+
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { GlobalLoader } from "@/components/ui/global-loader";
+
+
 import { InlineLoader } from "@/components/ui/global-loader";
 import { DatePicker } from "@/components/ui/date-picker";
 import { toast } from "@/lib/toast";
 import { api } from "@/lib/api";
 import { 
   HiPlus,
-  HiMinus,
   HiUsers,
-  HiMagnifyingGlass,
   HiCheck,
   HiXMark,
   HiEye,
-  HiHeart,
   HiChevronLeft,
   HiChevronRight,
   HiCalendarDays,
   HiCurrencyDollar,
   HiGift,
-  HiPhoto,
-  HiVideoCamera,
-  HiSpeakerWave,
-  HiGlobeAsiaAustralia,
-  HiDevicePhoneMobile,
   HiSparkles,
   HiLightBulb,
   HiCog6Tooth,
@@ -94,21 +86,7 @@ const platformDisplayNames: Record<string, string> = {
   linkedin: 'LinkedIn',
 };
 
-const contentTypes = [
-  'Instagram Post',
-  'Instagram Story',
-  'Instagram Reel',
-  'YouTube Video',
-  'YouTube Shorts',
-  'TikTok Video',
-  'Twitter Post',
-  'LinkedIn Post',
-  'Blog Post',
-  'Product Review',
-  'Unboxing Video',
-  'Tutorial',
-  'Live Stream'
-];
+
 
 // Convert platformConfig to platforms array for mapping
 const platforms = Object.entries(platformConfig).map(([id, config]) => ({
@@ -220,42 +198,7 @@ export default function CreateCampaignPage() {
     }
   };
 
-  const getStepValidationMessage = (step: number) => {
-    switch (step) {
-      case 1:
-        const missingFields = [];
-        if (!campaignData.title) missingFields.push('Campaign Title');
-        if (!campaignData.description) missingFields.push('Campaign Description');
-        if (!campaignData.objectives) missingFields.push('Campaign Objectives');
-        return missingFields.length > 0 ? `Please fill in: ${missingFields.join(', ')}` : null;
-      case 2:
-        const missingFields2 = [];
-        if (campaignData.platforms_required.length === 0) missingFields2.push('Required Platforms');
-        if (!campaignData.content_requirements) missingFields2.push('Content Requirements');
-        
-        // Check deal type specific requirements
-        if (campaignData.deal_type === 'cash' && (!campaignData.cash_amount || campaignData.cash_amount <= 0)) {
-          missingFields2.push('Cash Amount (must be greater than 0)');
-        } else if (campaignData.deal_type === 'product' && (!campaignData.products || campaignData.products.length === 0)) {
-          missingFields2.push('At least one barter item is required for barter deals.');
-        } else if (campaignData.deal_type === 'hybrid') {
-          const hasCash = campaignData.cash_amount && campaignData.cash_amount > 0;
-          const hasProducts = campaignData.products && campaignData.products.length > 0;
-          if (!hasCash && !hasProducts) {
-            missingFields2.push('Either cash amount or at least one barter item is required for hybrid deals.');
-          }
-        }
-        
-        return missingFields2.length > 0 ? `Please fill in: ${missingFields2.join(', ')}` : null;
-      case 3:
-        const missingFields3 = [];
-        if (!campaignData.application_deadline) missingFields3.push('Application Deadline');
-        if (!campaignData.campaign_live_date) missingFields3.push('Campaign Live Date');
-        return missingFields3.length > 0 ? `Please fill in: ${missingFields3.join(', ')}` : null;
-      default:
-        return null;
-    }
-  };
+
 
   const handleNext = () => {
     const validationErrors = validateStepData(currentStep);
@@ -338,6 +281,7 @@ export default function CreateCampaignPage() {
         toast.success('Campaign updated successfully!');
         router.push(`/brand/campaigns/${editingCampaignId}`);
       } else {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         response = await api.post('/campaigns/create/', payload);
         toast.success('Campaign created successfully!');
         // Redirect to influencer search with selected industry pre-filtered

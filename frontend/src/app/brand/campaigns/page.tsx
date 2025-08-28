@@ -13,10 +13,9 @@ import {
   HiEye,
   HiArrowPath,
   HiCalendarDays,
-  HiUsers,
-  HiBanknotes,
   HiXMark,
-  HiChevronDown, HiExclamationTriangle
+  HiChevronDown, 
+  HiExclamationTriangle
 } from "react-icons/hi2";
 import { FaYoutube, FaInstagram, FaTiktok, FaTwitter, FaLinkedin } from "react-icons/fa";
 
@@ -137,7 +136,7 @@ export default function BrandCampaignsPage() {
     }, searchTerm ? 500 : 0); // Debounce search by 500ms, instant for filters
 
     return () => clearTimeout(timeoutId);
-  }, [searchTerm, campaignTime, sortBy, dealType, platform]);
+  }, [searchTerm, campaignTime, sortBy, dealType, platform, fetchCampaigns]);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat("en-IN", {

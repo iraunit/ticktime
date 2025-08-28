@@ -20,7 +20,6 @@ import {
   HiDocumentArrowDown,
   HiFunnel,
   HiMagnifyingGlass,
-  HiXCircle,
   HiCloudArrowUp,
   HiDocumentText,
 } from "react-icons/hi2";
