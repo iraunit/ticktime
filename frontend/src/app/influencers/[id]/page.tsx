@@ -17,8 +17,8 @@ import {
   HiChatBubbleLeftRight,
   HiEye,
   HiArrowLeft,
-  HiGlobe,
-  HiLocationMarker,
+  HiGlobeAlt,
+  HiMapPin,
   HiCalendarDays,
   HiCheckCircle,
   HiExclamationTriangle,
@@ -27,8 +27,8 @@ import {
   HiDocumentText,
   HiCurrencyDollar,
   HiGift,
-  HiTrendingUp,
-  HiTrendingDown,
+  HiArrowTrendingUp,
+  HiArrowTrendingDown,
   HiMinus
 } from "react-icons/hi2";
 
@@ -218,9 +218,9 @@ export default function InfluencerProfilePage() {
   };
 
   const getEngagementTrend = (rate: number) => {
-    if (rate > 4.0) return { icon: HiTrendingUp, color: 'text-green-500', text: 'High' };
+    if (rate > 4.0) return { icon: HiArrowTrendingUp, color: 'text-green-500', text: 'High' };
     if (rate > 3.0) return { icon: HiMinus, color: 'text-yellow-500', text: 'Medium' };
-    return { icon: HiTrendingDown, color: 'text-red-500', text: 'Low' };
+    return { icon: HiArrowTrendingDown, color: 'text-red-500', text: 'Low' };
   };
 
   if (isLoading) {
@@ -357,7 +357,7 @@ export default function InfluencerProfilePage() {
             <Card className="shadow-sm">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <HiGlobe className="w-5 h-5 text-blue-600" />
+                  <HiGlobeAlt className="w-5 h-5 text-blue-600" />
                   Social Media Accounts
                 </CardTitle>
               </CardHeader>
@@ -448,7 +448,7 @@ export default function InfluencerProfilePage() {
             <Card className="shadow-sm">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <HiTrendingUp className="w-5 h-5 text-green-600" />
+                  <HiArrowTrendingUp className="w-5 h-5 text-green-600" />
                   Performance Overview
                 </CardTitle>
               </CardHeader>

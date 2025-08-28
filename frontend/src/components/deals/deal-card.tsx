@@ -48,7 +48,9 @@ const statusColors = {
 };
 
 const dealTypeColors = {
+  cash: "bg-gradient-to-r from-green-100 to-emerald-100 text-green-800 border-green-300",
   paid: "bg-gradient-to-r from-green-100 to-emerald-100 text-green-800 border-green-300",
+  product: "bg-gradient-to-r from-blue-100 to-indigo-100 text-blue-800 border-blue-300",
   barter: "bg-gradient-to-r from-blue-100 to-indigo-100 text-blue-800 border-blue-300", 
   hybrid: "bg-gradient-to-r from-purple-100 to-pink-100 text-purple-800 border-purple-300",
 };
@@ -145,7 +147,7 @@ export function DealCard({
                     {deal.status.replace('_', ' ').toUpperCase()}
                   </Badge>
                   {deal?.campaign?.deal_type && (
-                    <Badge className={cn("text-xs font-medium border", dealTypeColors[deal.campaign.deal_type])}>
+                    <Badge className={cn("text-xs font-medium border", dealTypeColors[deal.campaign.deal_type as keyof typeof dealTypeColors] || dealTypeColors.hybrid)}>
                       {deal.campaign.deal_type.toUpperCase()}
                     </Badge>
                   )}
@@ -226,7 +228,7 @@ export function DealCard({
                 <span className="text-xs font-medium">Content</span>
               </div>
               <div className="text-sm font-bold text-purple-800">
-                {deal?.campaign?.content_requirements?.post_count || 0} pieces
+                {typeof deal?.campaign?.content_requirements === 'object' && deal?.campaign?.content_requirements?.post_count || 0} pieces
               </div>
             </div>
 
@@ -237,7 +239,7 @@ export function DealCard({
                 <span className="text-xs font-medium">Platform</span>
               </div>
               <div className="text-sm font-bold text-indigo-800">
-                {deal?.campaign?.content_requirements?.platforms?.join(", ") || "Multi"}
+                {typeof deal?.campaign?.content_requirements === 'object' && deal?.campaign?.content_requirements?.platforms?.join(", ") || "Multi"}
               </div>
             </div>
           </div>

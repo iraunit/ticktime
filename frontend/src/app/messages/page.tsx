@@ -401,13 +401,13 @@ export default function MessagesPage() {
                           <div className="relative">
                             <div className="w-10 h-10 bg-gradient-to-r from-purple-400 to-purple-600 rounded-full flex items-center justify-center">
                               <span className="text-sm font-bold text-white">
-                                {(selectedConversation.brand_name || selectedConversation.brand_username || '?').charAt(0).toUpperCase()}
+                                {(selectedConversation.brand_name || '?').charAt(0).toUpperCase()}
                               </span>
                             </div>
                       </div>
                           <div>
                             <h3 className="font-semibold text-gray-900">
-                              {selectedConversation.brand_name || selectedConversation.brand_username || 'Brand'}
+                              {selectedConversation.brand_name || 'Brand'}
                       </h3>
                             <p className="text-sm text-gray-500">
                               {selectedConversation.deal_title}
@@ -599,7 +599,7 @@ export default function MessagesPage() {
                                 <div className="flex-1 min-w-0">
                                   <div className="flex items-center justify-between mb-1">
                                     <h3 className="font-semibold text-gray-900 truncate">
-                                      {conversation.brand_name || conversation.brand_username || 'Brand'}
+                                      {conversation.brand_name || 'Brand'}
                                     </h3>
                                     <span className="text-xs text-gray-500">
                                       {conversation.last_message?.created_at || conversation.last_message?.timestamp

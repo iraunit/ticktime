@@ -200,7 +200,7 @@ export function DealDetails({
                 {deal?.campaign?.description || '—'}
               </p>
               
-              {deal?.campaign?.content_requirements?.special_instructions && (
+              {typeof deal?.campaign?.content_requirements === 'object' && deal?.campaign?.content_requirements?.special_instructions && (
                 <div className="mt-3 p-3 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-200">
                   <h4 className="font-semibold text-blue-900 mb-1 flex items-center">
                     <span className="w-1.5 h-1.5 bg-blue-500 rounded-full mr-2"></span>
@@ -232,7 +232,7 @@ export function DealDetails({
                   Platforms
                 </h4>
                 <div className="flex flex-wrap gap-2">
-                  {(deal?.campaign?.content_requirements?.platforms || []).map((platform) => {
+                  {(typeof deal?.campaign?.content_requirements === 'object' && deal?.campaign?.content_requirements?.platforms || []).map((platform) => {
                     const Icon = platformIcons[platform as keyof typeof platformIcons];
                     return (
                       <Badge key={platform} variant="outline" className="flex items-center space-x-1 bg-white/50 backdrop-blur-sm border-blue-200 text-blue-700 hover:bg-blue-50 transition-colors">
@@ -251,7 +251,7 @@ export function DealDetails({
                   Content Types
                 </h4>
                 <div className="flex flex-wrap gap-2">
-                  {(deal?.campaign?.content_requirements?.content_types || []).map((type) => (
+                  {(typeof deal?.campaign?.content_requirements === 'object' && deal?.campaign?.content_requirements?.content_types || []).map((type) => (
                     <Badge key={type} variant="secondary" className="bg-green-50 text-green-700 border-green-200 hover:bg-green-100">
                       {type}
                     </Badge>
@@ -267,16 +267,16 @@ export function DealDetails({
                 </h4>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                   <div className="bg-white/50 backdrop-blur-sm rounded-lg p-2 border border-gray-200">
-                    <div className="text-base font-bold text-blue-600">{deal?.campaign?.content_requirements?.post_count ?? 0}</div>
+                    <div className="text-base font-bold text-blue-600">{(typeof deal?.campaign?.content_requirements === 'object' && deal?.campaign?.content_requirements?.post_count) ?? 0}</div>
                     <div className="text-xs text-gray-600">Posts</div>
                   </div>
-                  {deal?.campaign?.content_requirements?.story_count && (
+                  {typeof deal?.campaign?.content_requirements === 'object' && deal?.campaign?.content_requirements?.story_count && (
                     <div className="bg-white/50 backdrop-blur-sm rounded-lg p-2 border border-gray-200">
                       <div className="text-base font-bold text-green-600">{deal.campaign.content_requirements.story_count}</div>
                       <div className="text-xs text-gray-600">Stories</div>
                     </div>
                   )}
-                  {deal?.campaign?.content_requirements?.reel_count && (
+                  {typeof deal?.campaign?.content_requirements === 'object' && deal?.campaign?.content_requirements?.reel_count && (
                     <div className="bg-white/50 backdrop-blur-sm rounded-lg p-2 border border-gray-200">
                       <div className="text-base font-bold text-purple-600">{deal.campaign.content_requirements.reel_count}</div>
                       <div className="text-xs text-gray-600">Reels</div>
