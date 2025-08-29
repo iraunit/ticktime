@@ -1411,6 +1411,15 @@ def brand_conversations_view(request):
         except (ValueError, TypeError):
             pass
 
+    # Apply campaign filter
+    campaign_filter = request.GET.get('campaign')
+    if campaign_filter:
+        try:
+            campaign_id = int(campaign_filter)
+            conversations = conversations.filter(deal__campaign__id=campaign_id)
+        except (ValueError, TypeError):
+            pass
+
     # Apply status filter
     status_filter = request.GET.get('status')
     if status_filter:

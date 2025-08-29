@@ -70,6 +70,7 @@ export function UnifiedMessaging({ userType, targetParam }: UnifiedMessagingProp
   const searchParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : new URLSearchParams();
   const dealParam = searchParams.get('deal');
   const conversationParam = searchParams.get('conversation');
+  const campaignParam = searchParams.get('campaign');
 
   // API endpoints based on user type
   const getApiEndpoints = () => {
@@ -96,6 +97,11 @@ export function UnifiedMessaging({ userType, targetParam }: UnifiedMessagingProp
       // Add deal filtering if deal parameter is present
       if (dealParam) {
         params.deal = dealParam;
+      }
+      
+      // Add campaign filtering if campaign parameter is present
+      if (campaignParam) {
+        params.campaign = campaignParam;
       }
       
       const response = await api.get(endpoints.conversations, {
@@ -258,7 +264,7 @@ export function UnifiedMessaging({ userType, targetParam }: UnifiedMessagingProp
   // Initial load of conversations
   useEffect(() => {
     fetchConversations();
-  }, [dealParam]); // Refetch when deal parameter changes
+  }, [dealParam, campaignParam]); // Refetch when deal or campaign parameter changes
 
   // Auto-select conversation based on target parameter, deal, or conversation ID
   useEffect(() => {
@@ -422,13 +428,16 @@ export function UnifiedMessaging({ userType, targetParam }: UnifiedMessagingProp
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-xl font-semibold text-gray-900">
-              {dealParam ? 'Deal Conversation' : 
+              {dealParam ? 'Deal Conversation' :
+               campaignParam ? 'Campaign Messages' :
                targetParam && userType === 'brand' && !selectedConversation ? 'New Conversation' : 
                'Messages'}
             </h1>
             <p className="text-sm text-gray-500">
               {dealParam ? (
                 selectedConversation ? 'Deal-specific messaging' : `Start conversation for deal #${dealParam}`
+              ) : campaignParam ? (
+                conversations.length === 1 ? '1 conversation in this campaign' : `${conversations.length} conversations in this campaign`
               ) : targetParam && userType === 'brand' && !selectedConversation ? (
                 `Start conversation with influencer #${targetParam}`
               ) : (
@@ -439,7 +448,12 @@ export function UnifiedMessaging({ userType, targetParam }: UnifiedMessagingProp
                   Deal #{dealParam}
                 </span>
               )}
-              {targetParam && userType === 'brand' && !selectedConversation && !dealParam && (
+              {campaignParam && (
+                <span className="ml-2 px-2 py-1 bg-purple-100 text-purple-700 rounded-full text-xs font-medium">
+                  Campaign #{campaignParam}
+                </span>
+              )}
+              {targetParam && userType === 'brand' && !selectedConversation && !dealParam && !campaignParam && (
                 <span className="ml-2 px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs font-medium">
                   Influencer #{targetParam}
                 </span>
@@ -448,7 +462,7 @@ export function UnifiedMessaging({ userType, targetParam }: UnifiedMessagingProp
           </div>
           
           <div className="flex items-center gap-2">
-            {dealParam && (
+            {(dealParam || campaignParam) && (
               <Button 
                 variant="ghost" 
                 size="sm"
