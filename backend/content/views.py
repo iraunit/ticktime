@@ -3,11 +3,17 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
+from django.utils import timezone
 
-from .serializers import ContentSubmissionSerializer
+from .serializers import (
+    ContentSubmissionSerializer, 
+    ContentReviewSerializer, 
+    ContentSubmissionListSerializer
+)
 from .models import ContentSubmission
 from deals.models import Deal
 from influencers.models import InfluencerProfile
+from brands.models import BrandUser
 
 
 @api_view(['GET', 'POST'])
@@ -42,10 +48,11 @@ def content_submissions_view(request, deal_id):
 
     elif request.method == 'POST':
         # Check if deal allows content submission
-        if deal.status not in ['accepted', 'active', 'revision_requested']:
+        # Content can be submitted after product delivery or during active status
+        if deal.status not in ['product_delivered', 'active', 'accepted', 'revision_requested']:
             return Response({
                 'status': 'error',
-                'message': 'Content cannot be submitted for this deal in its current status.'
+                'message': f'Content cannot be submitted for this deal in its current status: {deal.get_status_display()}.'
             }, status=status.HTTP_400_BAD_REQUEST)
 
         # Add deal to the data
@@ -56,6 +63,11 @@ def content_submissions_view(request, deal_id):
         
         if serializer.is_valid():
             submission = serializer.save()
+            
+            # Update deal status to under_review if this is the first submission
+            if deal.status == 'content_submitted':
+                deal.status = 'under_review'
+                deal.save()
             
             return Response({
                 'status': 'success',
@@ -142,3 +154,188 @@ def content_submission_detail_view(request, deal_id, submission_id):
             'status': 'success',
             'message': 'Content submission deleted successfully.'
         }, status=status.HTTP_200_OK)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def content_review_view(request, deal_id, submission_id):
+    """
+    Brand review endpoint for content submissions.
+    """
+    # Check if user is a brand user
+    try:
+        brand_user = request.user.brand_user
+    except BrandUser.DoesNotExist:
+        return Response({
+            'status': 'error',
+            'message': 'Only brand users can review content submissions.'
+        }, status=status.HTTP_403_FORBIDDEN)
+
+    # Get the deal and verify it belongs to the brand
+    deal = get_object_or_404(
+        Deal.objects.select_related('campaign__brand'),
+        id=deal_id,
+        campaign__brand=brand_user.brand
+    )
+
+    # Get the content submission
+    submission = get_object_or_404(
+        ContentSubmission,
+        id=submission_id,
+        deal=deal
+    )
+
+    # Check if submission can be reviewed
+    if submission.approved is True:
+        return Response({
+            'status': 'error',
+            'message': 'This submission has already been approved.'
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+    serializer = ContentReviewSerializer(data=request.data)
+    
+    if serializer.is_valid():
+        action = serializer.validated_data['action']
+        feedback = serializer.validated_data.get('feedback', '')
+        revision_notes = serializer.validated_data.get('revision_notes', '')
+        
+        # Update submission based on action
+        if action == 'approve':
+            submission.approved = True
+            submission.approved_at = timezone.now()
+            submission.revision_requested = False
+            submission.feedback = feedback
+            message = 'Content submission approved successfully.'
+            
+        elif action == 'reject':
+            submission.approved = False
+            submission.revision_requested = False
+            submission.feedback = feedback
+            message = 'Content submission rejected.'
+            
+        elif action == 'request_revision':
+            submission.approved = None
+            submission.revision_requested = True
+            submission.feedback = feedback
+            submission.revision_notes = revision_notes
+            message = 'Revision requested for content submission.'
+
+        # Update review tracking
+        submission.reviewed_by = request.user
+        submission.review_count += 1
+        submission.save()
+
+        # Update deal status based on submission reviews
+        _update_deal_status_after_review(deal)
+
+        return Response({
+            'status': 'success',
+            'message': message,
+            'submission': ContentSubmissionSerializer(submission).data
+        }, status=status.HTTP_200_OK)
+
+    return Response({
+        'status': 'error',
+        'message': 'Invalid review data.',
+        'errors': serializer.errors
+    }, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def brand_content_review_list(request, deal_id):
+    """
+    List content submissions for brand review.
+    """
+    # Check if user is a brand user
+    try:
+        brand_user = request.user.brand_user
+    except BrandUser.DoesNotExist:
+        return Response({
+            'status': 'error',
+            'message': 'Only brand users can access this endpoint.'
+        }, status=status.HTTP_403_FORBIDDEN)
+
+    # Get the deal and verify it belongs to the brand
+    deal = get_object_or_404(
+        Deal.objects.select_related('campaign__brand', 'influencer'),
+        id=deal_id,
+        campaign__brand=brand_user.brand
+    )
+
+    # Get content submissions
+    submissions = deal.content_submissions.all().order_by('-submitted_at')
+    
+    # Filter by status if provided
+    status_filter = request.GET.get('status')
+    if status_filter:
+        if status_filter == 'pending':
+            submissions = submissions.filter(approved__isnull=True, revision_requested=False)
+        elif status_filter == 'approved':
+            submissions = submissions.filter(approved=True)
+        elif status_filter == 'rejected':
+            submissions = submissions.filter(approved=False)
+        elif status_filter == 'revision_requested':
+            submissions = submissions.filter(revision_requested=True)
+
+    serializer = ContentSubmissionSerializer(submissions, many=True)
+    
+    return Response({
+        'status': 'success',
+        'deal': {
+            'id': deal.id,
+            'campaign_title': deal.campaign.title,
+            'influencer_username': deal.influencer.username,
+            'status': deal.status,
+        },
+        'submissions': serializer.data,
+        'total_count': submissions.count()
+    }, status=status.HTTP_200_OK)
+
+
+def _update_deal_status_after_review(deal):
+    """
+    Update deal status based on content submission reviews.
+    """
+    submissions = deal.content_submissions.all()
+    
+    if not submissions.exists():
+        return
+    
+    # Check if all submissions are approved
+    all_approved = all(submission.approved is True for submission in submissions)
+    
+    # Check if any are pending review
+    has_pending = any(submission.approved is None and not submission.revision_requested for submission in submissions)
+    
+    # Check if any need revision
+    has_revision_requested = any(submission.revision_requested for submission in submissions)
+    
+    # Update deal status accordingly
+    if all_approved and deal.status in ['under_review', 'revision_requested']:
+        deal.status = 'approved'
+        deal.save()
+        
+        # Check if deal should be completed (all content approved)
+        _check_and_complete_deal(deal)
+        
+    elif has_revision_requested and deal.status != 'revision_requested':
+        deal.status = 'revision_requested'
+        deal.save()
+        
+    elif has_pending and deal.status != 'under_review':
+        deal.status = 'under_review'
+        deal.save()
+
+
+def _check_and_complete_deal(deal):
+    """
+    Check if deal should be marked as completed.
+    """
+    # Deal can be completed if all content is approved
+    submissions = deal.content_submissions.all()
+    
+    if submissions.exists() and all(submission.approved is True for submission in submissions):
+        deal.status = 'completed'
+        deal.completed_at = timezone.now()
+        deal.save()

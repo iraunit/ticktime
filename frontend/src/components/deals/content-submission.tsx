@@ -1,13 +1,15 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { InlineLoader } from "@/components/ui/global-loader";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Dialog,
@@ -33,15 +35,17 @@ import {
   RefreshCw,
   Eye,
   Download,
-  Loader2
+  Loader2,
+  Plus,
+  Trash2,
+  Link,
+  ExternalLink
 } from "@/lib/icons";
 import { cn } from "@/lib/utils";
 import Image from "next/image";
-import { FileUpload, ImageUpload, VideoUpload } from "@/components/ui/file-upload";
-import { EnhancedTextarea } from "@/components/ui/enhanced-form";
+// import { FileUpload, ImageUpload, VideoUpload } from "@/components/ui/file-upload";
 import { ErrorDisplay } from "@/components/ui/error-display";
 import { useErrorHandling } from "@/hooks/use-error-handling";
-import { contentCaptionSchema } from "@/lib/validation";
 
 interface ContentSubmissionProps {
   deal: Deal;
@@ -67,10 +71,27 @@ const CONTENT_TYPE_OPTIONS = [
   { value: "post", label: "Post" },
 ];
 
+const additionalLinkSchema = z.object({
+  url: z.string().url("Please enter a valid URL"),
+  description: z.string().min(1, "Description is required").max(200, "Description must be less than 200 characters"),
+});
+
 const contentSubmissionSchema = z.object({
   platform: z.string().min(1, "Please select a platform"),
   content_type: z.string().min(1, "Please select content type"),
-  caption: contentCaptionSchema,
+  title: z.string().optional(),
+  description: z.string().optional(),
+  caption: z.string().optional(),
+  post_url: z.string().url("Please enter a valid URL").optional().or(z.literal("")),
+  hashtags: z.string().optional(),
+  mention_brand: z.boolean().default(true),
+  additional_links: z.array(additionalLinkSchema).optional(),
+}).refine((data) => {
+  // At least one of file upload, file URL, or post URL must be provided
+  // This will be checked in the component logic since file upload is handled separately
+  return true;
+}, {
+  message: "Either file upload or post URL must be provided",
 });
 
 type ContentSubmissionFormData = z.infer<typeof contentSubmissionSchema>;
@@ -90,8 +111,19 @@ export function ContentSubmission({ deal, isOpen, onClose, onSuccess }: ContentS
     defaultValues: {
       platform: "",
       content_type: "",
+      title: "",
+      description: "",
       caption: "",
+      post_url: "",
+      hashtags: "",
+      mention_brand: true,
+      additional_links: [],
     },
+  });
+
+  const { fields, append, remove } = useFieldArray({
+    control: form.control,
+    name: "additional_links",
   });
 
   const handleFileSelect = useCallback((file: File) => {
@@ -115,8 +147,9 @@ export function ContentSubmission({ deal, isOpen, onClose, onSuccess }: ContentS
   }, [abortController]);
 
   const onSubmit = async (data: ContentSubmissionFormData) => {
-    if (!selectedFile) {
-      setError(new Error("Please select a file to upload"));
+    // Validate that either file or post_url is provided
+    if (!selectedFile && !data.post_url) {
+      setError(new Error("Please either upload a file or provide a post URL"));
       return;
     }
 
@@ -131,14 +164,23 @@ export function ContentSubmission({ deal, isOpen, onClose, onSuccess }: ContentS
         setUploadProgress(progress.percentage);
       };
 
-      await submitContent.mutateAsync({
+      // Prepare submission data
+      const submissionData = {
         platform: data.platform,
         content_type: data.content_type,
-        file: selectedFile,
+        title: data.title,
+        description: data.description,
         caption: data.caption,
+        post_url: data.post_url,
+        hashtags: data.hashtags,
+        mention_brand: data.mention_brand,
+        additional_links: data.additional_links?.filter(link => link.url && link.description) || [],
+        file: selectedFile,
         onProgress: progressCallback,
         signal: controller.signal,
-      });
+      };
+
+      await submitContent.mutateAsync(submissionData);
 
       setUploadComplete(true);
       setUploadProgress(100);
@@ -184,31 +226,51 @@ export function ContentSubmission({ deal, isOpen, onClose, onSuccess }: ContentS
   };
 
   const getFileUploadComponent = () => {
-    const contentType = form.watch("content_type");
-    
-    if (contentType === "video" || contentType === "reel") {
-      return (
-        <VideoUpload
-          onFileSelect={handleFileSelect}
-          onFileRemove={handleFileRemove}
-          disabled={isUploading}
-          uploadProgress={uploadProgress}
-          isUploading={isUploading}
-          error={isError && error ? error : undefined}
-        />
-      );
-    } else {
-      return (
-        <ImageUpload
-          onFileSelect={handleFileSelect}
-          onFileRemove={handleFileRemove}
-          disabled={isUploading}
-          uploadProgress={uploadProgress}
-          isUploading={isUploading}
-          error={isError && error ? error : undefined}
-        />
-      );
-    }
+    return (
+      <div className="border-2 border-dashed border-gray-300 rounded-lg p-6">
+        <div className="text-center">
+          <Upload className="mx-auto h-12 w-12 text-gray-400" />
+          <div className="mt-4">
+            <label htmlFor="file-upload" className="cursor-pointer">
+              <span className="mt-2 block text-sm font-medium text-gray-900">
+                Choose file to upload
+              </span>
+              <input
+                id="file-upload"
+                name="file-upload"
+                type="file"
+                className="sr-only"
+                accept="image/*,video/*"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    handleFileSelect(file);
+                  }
+                }}
+                disabled={isUploading}
+              />
+            </label>
+            <p className="mt-1 text-xs text-gray-500">
+              PNG, JPG, MP4 up to 100MB
+            </p>
+          </div>
+        </div>
+        {selectedFile && (
+          <div className="mt-4 flex items-center justify-between p-2 bg-gray-50 rounded">
+            <span className="text-sm text-gray-600">{selectedFile.name}</span>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={handleFileRemove}
+              disabled={isUploading}
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+        )}
+      </div>
+    );
   };
 
   return (
@@ -217,7 +279,7 @@ export function ContentSubmission({ deal, isOpen, onClose, onSuccess }: ContentS
         <DialogHeader>
           <DialogTitle>Submit Content</DialogTitle>
           <DialogDescription>
-            Upload your content for the campaign: {deal.campaign?.title}
+            Submit your content (files, links, or posts) for the campaign: {deal.campaign?.title}
           </DialogDescription>
         </DialogHeader>
 
@@ -327,12 +389,81 @@ export function ContentSubmission({ deal, isOpen, onClose, onSuccess }: ContentS
                 )}
               />
 
-              {/* File Upload */}
-              <div className="space-y-2">
-                <label className="text-sm font-medium">
-                  Content File *
-                </label>
-                {getFileUploadComponent()}
+              {/* Title */}
+              <FormField
+                control={form.control}
+                name="title"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Content Title</FormLabel>
+                    <FormControl>
+                      <Input
+                        {...field}
+                        placeholder="Give your content a title..."
+                        disabled={isUploading}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              {/* Description */}
+              <FormField
+                control={form.control}
+                name="description"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Content Description</FormLabel>
+                    <FormControl>
+                      <Textarea
+                        {...field}
+                        placeholder="Describe your content and how it fits the campaign..."
+                        rows={3}
+                        disabled={isUploading}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              {/* File Upload or Post URL */}
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">
+                    Content File
+                  </label>
+                  <p className="text-xs text-gray-600">
+                    Upload a file or provide a post URL below
+                  </p>
+                  {getFileUploadComponent()}
+                </div>
+
+                <div className="text-center text-sm text-gray-500">OR</div>
+
+                {/* Post URL */}
+                <FormField
+                  control={form.control}
+                  name="post_url"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Post URL</FormLabel>
+                      <FormControl>
+                        <div className="relative">
+                          <Link className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                          <Input
+                            {...field}
+                            placeholder="https://instagram.com/p/..."
+                            className="pl-10"
+                            disabled={isUploading}
+                          />
+                        </div>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
               </div>
 
               {/* Caption */}
@@ -343,23 +474,108 @@ export function ContentSubmission({ deal, isOpen, onClose, onSuccess }: ContentS
                   <FormItem>
                     <FormLabel>Caption</FormLabel>
                     <FormControl>
-                      <EnhancedTextarea
+                      <Textarea
                         {...field}
                         placeholder="Write your caption here..."
                         rows={4}
-                        maxLength={2200}
-                        showCharCount={true}
                         disabled={isUploading}
-                        validationState={
-                          form.formState.errors.caption ? 'invalid' :
-                          field.value && !form.formState.errors.caption ? 'valid' : 'idle'
-                        }
                       />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
+
+              {/* Hashtags */}
+              <FormField
+                control={form.control}
+                name="hashtags"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Hashtags</FormLabel>
+                    <FormControl>
+                      <Input
+                        {...field}
+                        placeholder="#brand #campaign #collaboration"
+                        disabled={isUploading}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              {/* Additional Links */}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <FormLabel>Additional Links</FormLabel>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => append({ url: "", description: "" })}
+                    disabled={isUploading}
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Link
+                  </Button>
+                </div>
+                
+                {fields.map((field, index) => (
+                  <Card key={field.id} className="p-4">
+                    <div className="flex items-start space-x-2">
+                      <div className="flex-1 space-y-2">
+                        <FormField
+                          control={form.control}
+                          name={`additional_links.${index}.url`}
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormControl>
+                                <div className="relative">
+                                  <ExternalLink className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                                  <Input
+                                    {...field}
+                                    placeholder="https://..."
+                                    className="pl-10"
+                                    disabled={isUploading}
+                                  />
+                                </div>
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name={`additional_links.${index}.description`}
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormControl>
+                                <Input
+                                  {...field}
+                                  placeholder="Description of this link..."
+                                  disabled={isUploading}
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => remove(index)}
+                        disabled={isUploading}
+                        className="mt-0"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </Card>
+                ))}
+              </div>
 
               {/* Upload Progress */}
               {isUploading && (
@@ -387,7 +603,7 @@ export function ContentSubmission({ deal, isOpen, onClose, onSuccess }: ContentS
           <Button
             type="submit"
             onClick={form.handleSubmit(onSubmit)}
-            disabled={isUploading || !selectedFile || uploadComplete}
+            disabled={isUploading || (!selectedFile && !form.watch("post_url")) || uploadComplete}
           >
             {isUploading ? (
               <>

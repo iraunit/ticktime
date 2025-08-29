@@ -12,6 +12,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { GlobalLoader } from "@/components/ui/global-loader";
 import { InlineLoader } from "@/components/ui/global-loader";
+import { ContentReview } from "@/components/brand/content-review";
+import { Deal } from "@/types";
 import { toast } from "@/lib/toast";
 import { api } from "@/lib/api";
 import { 
@@ -37,7 +39,7 @@ import {
   HiInformationCircle
 } from "react-icons/hi2";
 
-interface Deal {
+interface BrandDeal {
   id: number;
   influencer: {
     id: number;
@@ -126,9 +128,11 @@ export default function DealDetailsPage() {
   const searchParams = useSearchParams();
   const campaignParam = searchParams.get('campaign');
   
-  const [deal, setDeal] = useState<Deal | null>(null);
+  const [deal, setDeal] = useState<BrandDeal | null>(null);
+  const [contentSubmissions, setContentSubmissions] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isUpdating, setIsUpdating] = useState(false);
+  const [activeTab, setActiveTab] = useState('overview');
   
   // State for actions
   const [trackingNumber, setTrackingNumber] = useState("");
@@ -154,6 +158,34 @@ export default function DealDetailsPage() {
       router.push('/brand/deals');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const fetchContentSubmissions = async () => {
+    try {
+      const response = await api.get(`/content/${dealId}/brand-review/`);
+      setContentSubmissions(response.data.submissions || []);
+    } catch (error: any) {
+      console.error('Failed to fetch content submissions:', error);
+      // Don't show error for this as it's supplementary data
+    }
+  };
+
+  const handleContentReview = async (submissionId: number, action: 'approve' | 'reject' | 'request_revision', feedback?: string, revisionNotes?: string) => {
+    try {
+      await api.post(`/content/${dealId}/content-submissions/${submissionId}/review/`, {
+        action,
+        feedback,
+        revision_notes: revisionNotes,
+      });
+      
+      // Refresh data
+      await Promise.all([fetchDeal(), fetchContentSubmissions()]);
+      
+      toast.success(`Content ${action.replace('_', ' ')}d successfully`);
+    } catch (error: any) {
+      console.error('Failed to review content:', error);
+      throw error; // Re-throw to let ContentReview component handle
     }
   };
 
@@ -262,8 +294,16 @@ export default function DealDetailsPage() {
   useEffect(() => {
     if (dealId) {
       fetchDeal();
+      fetchContentSubmissions();
     }
   }, [dealId]);
+
+  // Auto-switch to content tab when content is submitted
+  useEffect(() => {
+    if (deal && ['content_submitted', 'under_review'].includes(deal.status) && contentSubmissions.length > 0 && activeTab === 'overview') {
+      setActiveTab('content');
+    }
+  }, [deal?.status, contentSubmissions.length, activeTab]);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat("en-IN", {
@@ -556,6 +596,17 @@ export default function DealDetailsPage() {
           </CardContent>
         </Card>
 
+        {/* Tabs for Deal Content */}
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-6">
+          <TabsList className="grid w-full grid-cols-3">
+            <TabsTrigger value="overview">Deal Overview</TabsTrigger>
+            <TabsTrigger value="content" disabled={!['content_submitted', 'under_review', 'revision_requested', 'approved', 'completed'].includes(deal.status)}>
+              Content Review {contentSubmissions.length > 0 && `(${contentSubmissions.length})`}
+            </TabsTrigger>
+            <TabsTrigger value="timeline">Timeline & Actions</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="overview" className="mt-6">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Main Content */}
           <div className="lg:col-span-2 space-y-6">
@@ -652,7 +703,7 @@ export default function DealDetailsPage() {
                   <div>
                     <h4 className="font-medium text-gray-900 mb-3">Barter Products</h4>
                     <div className="space-y-3">
-                      {deal.campaign.products.map((product, index) => (
+                      {deal.campaign.products.map((product: any, index: number) => (
                         <div key={index} className="bg-gradient-to-r from-orange-50 to-amber-50 rounded-lg p-4 border border-orange-200">
                           <div className="flex justify-between items-start mb-2">
                             <h5 className="font-semibold text-orange-900">{product.name}</h5>
@@ -678,7 +729,7 @@ export default function DealDetailsPage() {
                       <div className="text-center bg-gradient-to-r from-orange-100 to-amber-100 rounded-lg p-3 border border-orange-200">
                         <div className="text-lg font-bold text-orange-800">
                           Total Product Value: {formatCurrency(
-                            deal.campaign.products.reduce((total, product) => 
+                            deal.campaign.products.reduce((total: number, product: any) => 
                               total + (product.value * product.quantity), 0
                             )
                           )}
@@ -693,7 +744,7 @@ export default function DealDetailsPage() {
                   <label className="text-sm text-gray-500">Required Platforms</label>
                   <div className="flex flex-wrap gap-2 mt-2">
                     {deal.campaign?.platforms_required?.length > 0 ? (
-                      deal.campaign.platforms_required.map(platform => (
+                      deal.campaign.platforms_required.map((platform: string) => (
                         <Badge key={platform} variant="outline" className="text-xs capitalize">
                           {platform}
                         </Badge>
@@ -769,7 +820,159 @@ export default function DealDetailsPage() {
               </CardContent>
             </Card>
 
+                        {/* Quick Actions Card */}
+            <Card className="shadow-sm">
+              <CardHeader>
+                <CardTitle>Quick Actions</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {['content_submitted', 'under_review', 'revision_requested'].includes(deal.status) && (
+                    <Button
+                      onClick={() => setActiveTab('content')}
+                      className="bg-gradient-to-r from-pink-500 to-rose-600 hover:from-pink-600 hover:to-rose-700"
+                    >
+                      <HiPhoto className="w-4 h-4 mr-2" />
+                      Review Content
+                    </Button>
+                  )}
+                  
+                  <Button
+                    onClick={() => setActiveTab('timeline')}
+                    variant="outline"
+                    className="border-blue-200 hover:bg-blue-50"
+                  >
+                    <HiCalendarDays className="w-4 h-4 mr-2" />
+                    Manage Deal
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+              </div>
+
+              {/* Sidebar */}
+              <div className="space-y-6">
+            {/* Influencer Info */}
+            <Card className="shadow-sm">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <HiUser className="w-5 h-5 text-purple-600" />
+                  Influencer Details
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center gap-3 mb-4">
+                  {deal.influencer?.profile_image ? (
+                    <img 
+                      src={deal.influencer.profile_image} 
+                      alt={deal.influencer.full_name || 'Influencer'}
+                      className="w-12 h-12 rounded-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-12 h-12 bg-gradient-to-r from-purple-500 to-pink-600 rounded-full flex items-center justify-center">
+                      <span className="text-white font-bold">
+                        {deal.influencer?.full_name?.charAt(0)?.toUpperCase() || '?'}
+                      </span>
+                    </div>
+                  )}
+                  <div className="flex-1">
+                    <h3 className="font-semibold">{deal.influencer?.full_name || 'Unknown Influencer'}</h3>
+                    <p className="text-sm text-gray-600">@{deal.influencer?.username || 'N/A'}</p>
+                  </div>
+                </div>
+                
+                <div className="space-y-3 text-sm">
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-500">Followers:</span>
+                    <span className="font-medium">{formatFollowers(deal.influencer?.followers_count || 0)}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-500">Engagement:</span>
+                    <span className="font-medium">{(deal.influencer?.engagement_rate || 0).toFixed(1)}%</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-500">Rating:</span>
+                    <div className="flex items-center gap-1">
+                      <span className="font-medium">{(deal.influencer?.rating || 0).toFixed(1)}/5</span>
+                      <span className="text-yellow-500">⭐</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Deal-specific information */}
+                <div className="mt-4 pt-4 border-t border-gray-200">
+                  <h4 className="font-medium text-gray-900 mb-3">Deal Information</h4>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">Invited:</span>
+                      <span className="font-medium">{formatDate(deal.invited_at)}</span>
+                    </div>
+                    {deal.accepted_at && (
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">Accepted:</span>
+                        <span className="font-medium text-green-600">{formatDate(deal.accepted_at)}</span>
+                      </div>
+                    )}
+                    {deal.shortlisted_at && (
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">Shortlisted:</span>
+                        <span className="font-medium text-blue-600">{formatDate(deal.shortlisted_at)}</span>
+                      </div>
+                    )}
+                    {deal.completed_at && (
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">Completed:</span>
+                        <span className="font-medium text-green-600">{formatDate(deal.completed_at)}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                
+                <div className="mt-4 pt-4 border-t border-gray-200 space-y-2">
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="w-full"
+                    onClick={() => {
+                      const url = `/brand/messages?influencer=${deal.influencer?.id}`;
+                      window.open(url, '_blank');
+                    }}
+                  >
+                    <HiChatBubbleLeftRight className="w-4 h-4 mr-2" />
+                    Message Influencer
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="w-full"
+                    onClick={() => {
+                      const url = `/influencers/${deal.influencer?.id}`;
+                      window.open(url, '_blank');
+                    }}
+                  >
+                    <HiEye className="w-4 h-4 mr-2" />
+                    View Profile
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+              </div>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="content" className="mt-6">
+            <ContentReview
+              deal={deal as any}
+              submissions={contentSubmissions}
+              onReview={handleContentReview}
+              isLoading={isUpdating}
+            />
+          </TabsContent>
+
+          <TabsContent value="timeline" className="mt-6">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Deal Actions */}
+              <div className="lg:col-span-2">
             <Card className="shadow-sm">
               <CardHeader>
                 <CardTitle>Actions</CardTitle>
@@ -938,6 +1141,13 @@ export default function DealDetailsPage() {
                       <p className="text-sm text-pink-700 mb-3">
                         The influencer has submitted content for your review.
                       </p>
+                          <Button
+                            onClick={() => setActiveTab('content')}
+                            className="bg-gradient-to-r from-pink-500 to-rose-600 hover:from-pink-600 hover:to-rose-700"
+                          >
+                            <HiPhoto className="w-4 h-4 mr-2" />
+                            Review Content
+                          </Button>
                     </div>
                   </div>
                 )}
@@ -1010,240 +1220,10 @@ export default function DealDetailsPage() {
                 )}
               </CardContent>
             </Card>
-
-            {/* Content Review */}
-            {deal.submitted_content && deal.submitted_content.length > 0 && (
-              <Card className="shadow-sm">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <HiPhoto className="w-5 h-5 text-pink-600" />
-                    Submitted Content
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {deal.submitted_content.map((content) => (
-                      <div key={content.id} className="border border-gray-200 rounded-lg p-4">
-                        <div className="flex items-center justify-between mb-3">
-                          <div className="flex items-center gap-3">
-                            <Badge variant="outline">{content.platform}</Badge>
-                            <Badge variant="outline">{content.content_type}</Badge>
-                            {getStatusBadge(content.status)}
-                          </div>
-                          <span className="text-sm text-gray-500">
-                            {formatDate(content.submitted_at)}
-                          </span>
                         </div>
                         
-                        <p className="text-sm text-gray-700 mb-3">{content.caption}</p>
-                        
-                        {content.content_url && (
-                          <div className="mb-3">
-                            <a 
-                              href={content.content_url} 
-                              target="_blank" 
-                              rel="noopener noreferrer"
-                              className="text-blue-600 hover:text-blue-700 text-sm"
-                            >
-                              View Content →
-                            </a>
-                          </div>
-                        )}
-                        
-                        {content.review_notes && (
-                          <div className="bg-gray-50 p-3 rounded text-sm">
-                            <strong>Review Notes:</strong> {content.review_notes}
-                          </div>
-                        )}
-                        
-                        {content.status === 'pending' && (
-                          <div className="flex gap-2 mt-3">
-                            <Dialog>
-                              <DialogTrigger asChild>
-                                <Button size="sm" className="bg-green-500 hover:bg-green-600">
-                                  <HiHandThumbUp className="w-4 h-4 mr-1" />
-                                  Approve
-                                </Button>
-                              </DialogTrigger>
-                              <DialogContent>
-                                <DialogHeader>
-                                  <DialogTitle>Approve Content</DialogTitle>
-                                </DialogHeader>
-                                <div className="space-y-4">
-                                  <Textarea
-                                    placeholder="Optional approval notes"
-                                    value={reviewNotes}
-                                    onChange={(e) => setReviewNotes(e.target.value)}
-                                  />
-                                  <Button 
-                                    onClick={() => {
-                                      reviewContent(content.id, true, reviewNotes);
-                                      setReviewNotes("");
-                                    }}
-                                    disabled={isUpdating}
-                                    className="w-full"
-                                  >
-                                    {isUpdating ? <InlineLoader className="mr-2" /> : null}
-                                    Approve Content
-                                  </Button>
-                                </div>
-                              </DialogContent>
-                            </Dialog>
-                            
-                            <Dialog>
-                              <DialogTrigger asChild>
-                                <Button size="sm" variant="outline" className="text-red-600 hover:text-red-700">
-                                  <HiHandThumbDown className="w-4 h-4 mr-1" />
-                                  Reject
-                                </Button>
-                              </DialogTrigger>
-                              <DialogContent>
-                                <DialogHeader>
-                                  <DialogTitle>Reject Content</DialogTitle>
-                                </DialogHeader>
-                                <div className="space-y-4">
-                                  <Textarea
-                                    placeholder="Please provide feedback on why this content is being rejected"
-                                    value={reviewNotes}
-                                    onChange={(e) => setReviewNotes(e.target.value)}
-                                    required
-                                  />
-                                  <Button 
-                                    onClick={() => {
-                                      if (!reviewNotes.trim()) {
-                                        toast.error('Please provide feedback for rejection');
-                                        return;
-                                      }
-                                      reviewContent(content.id, false, reviewNotes);
-                                      setReviewNotes("");
-                                    }}
-                                    disabled={isUpdating}
-                                    variant="outline"
-                                    className="w-full text-red-600 hover:text-red-700"
-                                  >
-                                    {isUpdating ? <InlineLoader className="mr-2" /> : null}
-                                    Reject Content
-                                  </Button>
-                                </div>
-                              </DialogContent>
-                            </Dialog>
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-          </div>
-
-          {/* Sidebar */}
+              {/* Timeline Sidebar */}
           <div className="space-y-6">
-            {/* Influencer Info */}
-            <Card className="shadow-sm">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <HiUser className="w-5 h-5 text-purple-600" />
-                  Influencer Details
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center gap-3 mb-4">
-                  {deal.influencer?.profile_image ? (
-                    <img 
-                      src={deal.influencer.profile_image} 
-                      alt={deal.influencer.full_name || 'Influencer'}
-                      className="w-12 h-12 rounded-full object-cover"
-                    />
-                  ) : (
-                    <div className="w-12 h-12 bg-gradient-to-r from-purple-500 to-pink-600 rounded-full flex items-center justify-center">
-                      <span className="text-white font-bold">
-                        {deal.influencer?.full_name?.charAt(0)?.toUpperCase() || '?'}
-                      </span>
-                    </div>
-                  )}
-                  <div className="flex-1">
-                    <h3 className="font-semibold">{deal.influencer?.full_name || 'Unknown Influencer'}</h3>
-                    <p className="text-sm text-gray-600">@{deal.influencer?.username || 'N/A'}</p>
-                  </div>
-                </div>
-                
-                <div className="space-y-3 text-sm">
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-500">Followers:</span>
-                    <span className="font-medium">{formatFollowers(deal.influencer?.followers_count || 0)}</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-500">Engagement:</span>
-                    <span className="font-medium">{(deal.influencer?.engagement_rate || 0).toFixed(1)}%</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-500">Rating:</span>
-                    <div className="flex items-center gap-1">
-                      <span className="font-medium">{(deal.influencer?.rating || 0).toFixed(1)}/5</span>
-                      <span className="text-yellow-500">⭐</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Deal-specific information */}
-                <div className="mt-4 pt-4 border-t border-gray-200">
-                  <h4 className="font-medium text-gray-900 mb-3">Deal Information</h4>
-                  <div className="space-y-2 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-gray-500">Invited:</span>
-                      <span className="font-medium">{formatDate(deal.invited_at)}</span>
-                    </div>
-                    {deal.accepted_at && (
-                      <div className="flex justify-between">
-                        <span className="text-gray-500">Accepted:</span>
-                        <span className="font-medium text-green-600">{formatDate(deal.accepted_at)}</span>
-                      </div>
-                    )}
-                    {deal.shortlisted_at && (
-                      <div className="flex justify-between">
-                        <span className="text-gray-500">Shortlisted:</span>
-                        <span className="font-medium text-blue-600">{formatDate(deal.shortlisted_at)}</span>
-                      </div>
-                    )}
-                    {deal.completed_at && (
-                      <div className="flex justify-between">
-                        <span className="text-gray-500">Completed:</span>
-                        <span className="font-medium text-green-600">{formatDate(deal.completed_at)}</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-                
-                <div className="mt-4 pt-4 border-t border-gray-200 space-y-2">
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="w-full"
-                    onClick={() => {
-                      const url = `/brand/messages?influencer=${deal.influencer?.id}`;
-                      window.open(url, '_blank');
-                    }}
-                  >
-                    <HiChatBubbleLeftRight className="w-4 h-4 mr-2" />
-                    Message Influencer
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="w-full"
-                    onClick={() => {
-                      const url = `/influencers/${deal.influencer?.id}`;
-                      window.open(url, '_blank');
-                    }}
-                  >
-                    <HiEye className="w-4 h-4 mr-2" />
-                    View Profile
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-
             {/* Timeline */}
             <Card className="shadow-sm">
               <CardHeader>
@@ -1384,6 +1364,8 @@ export default function DealDetailsPage() {
             </Card>
           </div>
         </div>
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   );

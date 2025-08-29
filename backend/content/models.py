@@ -17,12 +17,32 @@ class ContentSubmission(models.Model):
     hashtags = models.TextField(blank=True)
     mention_brand = models.BooleanField(default=True)
     post_url = models.URLField(blank=True)
+    
+    # Enhanced fields for multiple links and descriptions
+    title = models.CharField(max_length=255, blank=True, help_text='Title or description of this content piece')
+    description = models.TextField(blank=True, help_text='Detailed description of the content')
+    additional_links = models.JSONField(
+        blank=True, 
+        null=True,
+        help_text='Additional links with descriptions in format: [{"url": "...", "description": "..."}]'
+    )
+    
+    # Submission and review tracking
     submitted_at = models.DateTimeField(auto_now_add=True)
     approved = models.BooleanField(null=True, blank=True)
     feedback = models.TextField(blank=True)
     revision_requested = models.BooleanField(default=False)
     revision_notes = models.TextField(blank=True)
     approved_at = models.DateTimeField(null=True, blank=True)
+    reviewed_by = models.ForeignKey(
+        'auth.User', 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True,
+        related_name='reviewed_content_submissions',
+        help_text='Brand user who reviewed this submission'
+    )
+    review_count = models.IntegerField(default=0, help_text='Number of times this submission has been reviewed')
 
     class Meta:
         db_table = 'content_submissions'

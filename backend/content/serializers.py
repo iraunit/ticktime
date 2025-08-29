@@ -10,19 +10,21 @@ class ContentSubmissionSerializer(serializers.ModelSerializer):
     content_type_display = serializers.CharField(source='get_content_type_display', read_only=True)
     deal_title = serializers.CharField(source='deal.campaign.title', read_only=True)
     brand_name = serializers.CharField(source='deal.campaign.brand.name', read_only=True)
+    reviewed_by_username = serializers.CharField(source='reviewed_by.username', read_only=True)
 
     class Meta:
         model = ContentSubmission
         fields = (
             'id', 'deal', 'deal_title', 'brand_name', 'platform', 'platform_display',
             'content_type', 'content_type_display', 'file_url', 'file_upload',
-            'caption', 'hashtags', 'mention_brand', 'post_url',
-            'submitted_at', 'approved', 'feedback', 'revision_requested',
-            'revision_notes', 'approved_at'
+            'caption', 'hashtags', 'mention_brand', 'post_url', 'title', 'description',
+            'additional_links', 'submitted_at', 'approved', 'feedback', 'revision_requested',
+            'revision_notes', 'approved_at', 'reviewed_by_username', 'review_count'
         )
         read_only_fields = (
             'id', 'deal_title', 'brand_name', 'submitted_at', 'approved',
-            'feedback', 'revision_requested', 'revision_notes', 'approved_at'
+            'feedback', 'revision_requested', 'revision_notes', 'approved_at',
+            'reviewed_by_username', 'review_count'
         )
 
     def validate_file_upload(self, value):
@@ -52,13 +54,29 @@ class ContentSubmissionSerializer(serializers.ModelSerializer):
         
         return value
 
+    def validate_additional_links(self, value):
+        """Validate additional links format."""
+        if value is not None:
+            if not isinstance(value, list):
+                raise serializers.ValidationError("Additional links must be a list.")
+            
+            for link in value:
+                if not isinstance(link, dict):
+                    raise serializers.ValidationError("Each link must be an object with 'url' and 'description' fields.")
+                if 'url' not in link or 'description' not in link:
+                    raise serializers.ValidationError("Each link must have 'url' and 'description' fields.")
+                if not isinstance(link['url'], str) or not isinstance(link['description'], str):
+                    raise serializers.ValidationError("URL and description must be strings.")
+        
+        return value
+
     def validate(self, attrs):
         """Validate content submission requirements."""
-        # Either file_upload or file_url must be provided (only for creation)
+        # Either file_upload, file_url, or post_url must be provided (only for creation)
         if not self.instance:  # Only validate during creation
-            if not attrs.get('file_upload') and not attrs.get('file_url'):
+            if not attrs.get('file_upload') and not attrs.get('file_url') and not attrs.get('post_url'):
                 raise serializers.ValidationError(
-                    "Either file upload or file URL must be provided."
+                    "Either file upload, file URL, or post URL must be provided."
                 )
         
         return attrs
@@ -67,10 +85,64 @@ class ContentSubmissionSerializer(serializers.ModelSerializer):
         """Create content submission and update deal status."""
         content_submission = super().create(validated_data)
         
-        # Update deal status to 'content_submitted' if not already
+        # Update deal status to 'content_submitted' if deal is in appropriate state
         deal = content_submission.deal
-        if deal.status == 'accepted' or deal.status == 'active':
+        if deal.status in ['product_delivered', 'active', 'accepted', 'revision_requested']:
             deal.status = 'content_submitted'
             deal.save()
         
         return content_submission
+
+
+class ContentReviewSerializer(serializers.Serializer):
+    """
+    Serializer for brand content review actions.
+    """
+    action = serializers.ChoiceField(choices=['approve', 'reject', 'request_revision'])
+    feedback = serializers.CharField(required=False, allow_blank=True)
+    revision_notes = serializers.CharField(required=False, allow_blank=True)
+
+    def validate(self, attrs):
+        action = attrs.get('action')
+        
+        # Require feedback for reject and revision requests
+        if action in ['reject', 'request_revision'] and not attrs.get('feedback'):
+            raise serializers.ValidationError({
+                'feedback': 'Feedback is required when rejecting or requesting revision.'
+            })
+        
+        # Require revision notes for revision requests
+        if action == 'request_revision' and not attrs.get('revision_notes'):
+            raise serializers.ValidationError({
+                'revision_notes': 'Revision notes are required when requesting revision.'
+            })
+        
+        return attrs
+
+
+class ContentSubmissionListSerializer(serializers.ModelSerializer):
+    """
+    Simplified serializer for listing content submissions.
+    """
+    platform_display = serializers.CharField(source='get_platform_display', read_only=True)
+    content_type_display = serializers.CharField(source='get_content_type_display', read_only=True)
+    status_display = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ContentSubmission
+        fields = (
+            'id', 'platform', 'platform_display', 'content_type', 'content_type_display',
+            'title', 'post_url', 'submitted_at', 'approved', 'status_display',
+            'revision_requested', 'review_count'
+        )
+
+    def get_status_display(self, obj):
+        """Get human-readable status."""
+        if obj.approved is True:
+            return 'Approved'
+        elif obj.approved is False:
+            return 'Rejected'
+        elif obj.revision_requested:
+            return 'Revision Requested'
+        else:
+            return 'Under Review'

@@ -30,6 +30,7 @@ import {
   Target,
   Zap,
   ArrowLeft,
+  Upload,
 } from "@/lib/icons";
 import Image from "next/image";
 import Link from "next/link";
@@ -381,6 +382,32 @@ export function DealDetails({
                 >
                   <MapPin className="h-4 w-4 mr-2" />
                   Provide Address
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Content Submission Alert for Product Delivered Deals */}
+          {deal.status === 'product_delivered' && (
+            <Card className="bg-gradient-to-r from-green-50 to-emerald-50 border-green-200 shadow-lg hover:shadow-xl transition-all duration-300">
+              <CardHeader className="pb-2">
+                <CardTitle className="flex items-center space-x-2 text-green-800">
+                  <div className="w-6 h-6 bg-gradient-to-r from-green-500 to-emerald-500 rounded-lg flex items-center justify-center">
+                    <Upload className="h-3 w-3 text-white" />
+                  </div>
+                  <span className="text-base font-bold">Content Submission Required</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="pt-0">
+                <p className="text-sm text-green-700 mb-3">
+                  Your products have been delivered! Now it's time to create and submit your content for this campaign.
+                </p>
+                <Button
+                  onClick={() => setShowContentSubmission(true)}
+                  className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white"
+                >
+                  <Upload className="h-4 w-4 mr-2" />
+                  Submit Content
                 </Button>
               </CardContent>
             </Card>
