@@ -26,8 +26,6 @@ interface DealCardProps {
   deal: Deal;
   onAccept?: (dealId: number) => void;
   onReject?: (dealId: number, reason?: string) => void;
-  onViewDetails?: (dealId: number) => void;
-  onMessage?: (dealId: number) => void;
   isLoading?: boolean;
   className?: string;
 }
@@ -66,8 +64,6 @@ export function DealCard({
   deal,
   onAccept,
   onReject,
-  onViewDetails,
-  onMessage,
   isLoading = false,
   className,
 }: DealCardProps) {
@@ -249,8 +245,6 @@ export function DealCard({
             deal={deal}
             onAccept={onAccept}
             onReject={onReject}
-            onViewDetails={onViewDetails}
-            onMessage={onMessage}
             onContentSubmission={() => setShowContentSubmission(true)}
             isLoading={isLoading}
           />

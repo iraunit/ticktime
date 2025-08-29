@@ -70,13 +70,9 @@ export default function DealsPage() {
     }
   };
 
-  const handleViewDetails = (dealId: number) => {
-    router.push(`/deals/${dealId}`);
-  };
 
-  const handleMessage = (dealId: number) => {
-    router.push(`/messages?deal=${dealId}`);
-  };
+
+
 
   const handleRefresh = () => {
     deals.refetch();
@@ -157,8 +153,7 @@ export default function DealsPage() {
                   isLoading={isLoading}
                   onAccept={handleAccept}
                   onReject={handleReject}
-                  onViewDetails={handleViewDetails}
-                  onMessage={handleMessage}
+
                   onRefresh={handleRefresh}
                   showHeader={false}
                 />

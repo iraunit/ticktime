@@ -30,8 +30,6 @@ interface DealActionsProps {
   deal: Deal;
   onAccept?: (dealId: number) => void;
   onReject?: (dealId: number, reason?: string) => void;
-  onViewDetails?: (dealId: number) => void;
-  onMessage?: (dealId: number) => void;
   onContentSubmission?: () => void;
   isLoading?: boolean;
   className?: string;
@@ -41,8 +39,6 @@ export function DealActions({
   deal,
   onAccept,
   onReject,
-  onViewDetails,
-  onMessage,
   onContentSubmission,
   isLoading = false,
   className,
@@ -114,24 +110,27 @@ export function DealActions({
         Decline
       </Button>
       
-      <Button
-        variant="outline"
-        onClick={() => onViewDetails?.(deal.id)}
-        disabled={isLoading}
-        className="border-2 border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-gray-400 shadow-md hover:shadow-lg transition-all duration-200"
-      >
-        <HiEye className="h-4 w-4 mr-2" />
-        View Details
-      </Button>
+      <Link href={`/deals/${deal.id}`} target="_blank" rel="noopener noreferrer">
+        <Button
+          variant="outline"
+          disabled={isLoading}
+          className="border-2 border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-gray-400 shadow-md hover:shadow-lg transition-all duration-200 w-full"
+        >
+          <HiEye className="h-4 w-4 mr-2" />
+          <span>View Details</span>
+          <HiArrowTopRightOnSquare className="h-3 w-3 ml-1" />
+        </Button>
+      </Link>
       
-      <Link href={`/messages?deal_id=${deal.id}`} target="_blank" rel="noopener noreferrer">
+      <Link href={`/messages?deal=${deal.id}`} target="_blank" rel="noopener noreferrer">
         <Button
           variant="ghost"
           disabled={isLoading}
           className="border-2 border-blue-200 text-blue-700 hover:bg-blue-50 hover:border-blue-300 shadow-md hover:shadow-lg transition-all duration-200 w-full"
+          title={`Message ${deal?.campaign?.brand?.name || 'brand'} about this deal`}
         >
           <HiChatBubbleLeftRight className="h-4 w-4 mr-2" />
-          <span>Message</span>
+          <span>Message Brand</span>
           <HiArrowTopRightOnSquare className="h-3 w-3 ml-1" />
         </Button>
       </Link>
@@ -149,24 +148,27 @@ export function DealActions({
         Submit Content
       </Button>
       
-      <Button
-        variant="outline"
-        onClick={() => onViewDetails?.(deal.id)}
-        disabled={isLoading}
-        className="border-2 border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-gray-400 shadow-md hover:shadow-lg transition-all duration-200"
-      >
-        <HiEye className="h-4 w-4 mr-2" />
-        View Details
-      </Button>
+      <Link href={`/deals/${deal.id}`} target="_blank" rel="noopener noreferrer">
+        <Button
+          variant="outline"
+          disabled={isLoading}
+          className="border-2 border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-gray-400 shadow-md hover:shadow-lg transition-all duration-200 w-full"
+        >
+          <HiEye className="h-4 w-4 mr-2" />
+          <span>View Details</span>
+          <HiArrowTopRightOnSquare className="h-3 w-3 ml-1" />
+        </Button>
+      </Link>
       
-      <Link href={`/messages?deal_id=${deal.id}`} target="_blank" rel="noopener noreferrer">
+      <Link href={`/messages?deal=${deal.id}`} target="_blank" rel="noopener noreferrer">
         <Button
           variant="ghost"
           disabled={isLoading}
           className="border-2 border-blue-200 text-blue-700 hover:bg-blue-50 hover:border-blue-300 shadow-md hover:shadow-lg transition-all duration-200 w-full"
+          title={`Message ${deal?.campaign?.brand?.name || 'brand'} about this deal`}
         >
           <HiChatBubbleLeftRight className="h-4 w-4 mr-2" />
-          <span>Message</span>
+          <span>Message Brand</span>
           <HiArrowTopRightOnSquare className="h-3 w-3 ml-1" />
         </Button>
       </Link>
@@ -175,24 +177,27 @@ export function DealActions({
 
   const renderDefaultActions = () => (
     <div className="flex flex-wrap gap-3">
-      <Button
-        variant="outline"
-        onClick={() => onViewDetails?.(deal.id)}
-        disabled={isLoading}
-        className="border-2 border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-gray-400 shadow-md hover:shadow-lg transition-all duration-200 flex-1 min-w-[120px]"
-      >
-        <HiEye className="h-4 w-4 mr-2" />
-        View Details
-      </Button>
+      <Link href={`/deals/${deal.id}`} target="_blank" rel="noopener noreferrer">
+        <Button
+          variant="outline"
+          disabled={isLoading}
+          className="border-2 border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-gray-400 shadow-md hover:shadow-lg transition-all duration-200 flex-1 min-w-[120px]"
+        >
+          <HiEye className="h-4 w-4 mr-2" />
+          <span>View Details</span>
+          <HiArrowTopRightOnSquare className="h-3 w-3 ml-1" />
+        </Button>
+      </Link>
       
-      <Link href={`/messages?deal_id=${deal.id}`} target="_blank" rel="noopener noreferrer">
+      <Link href={`/messages?deal=${deal.id}`} target="_blank" rel="noopener noreferrer">
         <Button
           variant="ghost"
           disabled={isLoading}
           className="border-2 border-blue-200 text-blue-700 hover:bg-blue-50 hover:border-blue-300 shadow-md hover:shadow-lg transition-all duration-200 w-full"
+          title={`Message ${deal?.campaign?.brand?.name || 'brand'} about this deal`}
         >
           <HiChatBubbleLeftRight className="h-4 w-4 mr-2" />
-          <span>Message</span>
+          <span>Message Brand</span>
           <HiArrowTopRightOnSquare className="h-3 w-3 ml-1" />
         </Button>
       </Link>
@@ -211,7 +216,14 @@ export function DealActions({
         deal.status === "approved" ||
         deal.status === "completed" ||
         deal.status === "rejected" ||
-        deal.status === "cancelled") && renderDefaultActions()}
+        deal.status === "cancelled" ||
+        deal.status === "product_delivered" ||
+        deal.status === "product_shipped" ||
+        deal.status === "address_requested" ||
+        deal.status === "address_provided" ||
+        deal.status === "shortlisted" ||
+        deal.status === "pending" ||
+        deal.status === "dispute") && renderDefaultActions()}
 
       {/* Accept Confirmation Dialog */}
       <Dialog open={showAcceptDialog} onOpenChange={setShowAcceptDialog}>

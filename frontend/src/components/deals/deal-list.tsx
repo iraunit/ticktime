@@ -14,8 +14,6 @@ interface DealListProps {
   isLoading?: boolean;
   onAccept?: (dealId: number) => void;
   onReject?: (dealId: number, reason?: string) => void;
-  onViewDetails?: (dealId: number) => void;
-  onMessage?: (dealId: number) => void;
   onRefresh?: () => void;
   className?: string;
   showHeader?: boolean;
@@ -26,8 +24,6 @@ export function DealList({
   isLoading = false,
   onAccept,
   onReject,
-  onViewDetails,
-  onMessage,
   onRefresh,
   className,
   showHeader = true,
@@ -220,8 +216,6 @@ export function DealList({
               deal={deal}
               onAccept={onAccept}
               onReject={onReject}
-              onViewDetails={onViewDetails}
-              onMessage={onMessage}
               isLoading={isLoading}
               className="w-full"
             />

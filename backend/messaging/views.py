@@ -153,6 +153,7 @@ def deal_messages_view(request, deal_id):
                 'count': response.data['count'],
                 'next': response.data['next'],
                 'previous': response.data['previous'],
+
                 'filters_applied': {
                     'search': search_query,
                     'date_from': date_from,
@@ -168,6 +169,7 @@ def deal_messages_view(request, deal_id):
             'status': 'success',
             'messages': serializer.data,
             'total_count': messages.count(),
+
             'filters_applied': {
                 'search': search_query,
                 'date_from': date_from,

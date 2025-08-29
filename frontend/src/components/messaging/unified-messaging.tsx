@@ -32,6 +32,7 @@ interface Conversation {
   deal?: number; // For influencers (deal ID)
   deal_title: string;
   brand_name?: string; // For influencers
+  brand_logo?: string | null; // Brand logo URL
   influencer_name?: string; // For brands
   influencer_username?: string; // For brands
   influencer_avatar?: string;
@@ -90,14 +91,55 @@ export function UnifiedMessaging({ userType, targetParam }: UnifiedMessagingProp
     setIsLoading(true);
     setError(null);
     try {
+      // If we have a specific deal, fetch only that deal's conversation
+      if (dealParam) {
+        console.log('Fetching conversation for deal:', dealParam);
+        const response = await api.get(`/deals/${dealParam}/messages/`, {
+          timeout: 10000,
+        });
+        console.log('Deal conversation response:', response.data);
+        
+        // Create conversation object from deal data
+        const dealConversation: Conversation = {
+          id: parseInt(dealParam),
+          deal: parseInt(dealParam),
+          deal_title: response.data.deal_title || `Deal #${dealParam}`,
+          brand_name: response.data.brand_name || 'Brand',
+          brand_logo: response.data.brand_logo || null,
+          influencer_name: response.data.influencer_name || 'Influencer',
+          influencer_username: response.data.influencer_username || '',
+          influencer_avatar: response.data.influencer_avatar || '',
+          influencer_id: response.data.influencer_id || 0,
+          last_message: response.data.messages && response.data.messages.length > 0 
+            ? response.data.messages[response.data.messages.length - 1] 
+            : null,
+          unread_count: response.data.unread_count || 0,
+          messages_count: response.data.messages?.length || 0,
+          created_at: response.data.created_at || new Date().toISOString(),
+          updated_at: response.data.updated_at || new Date().toISOString(),
+          status: response.data.status || 'active'
+        };
+        
+
+        
+        setConversations([dealConversation]);
+        setSelectedConversation(dealConversation);
+        
+        // Set messages directly from the response
+        const received = Array.isArray(response.data?.messages) ? response.data.messages : [];
+        const ordered = received
+          .filter((m: any) => m && typeof m === 'object' && m.created_at)
+          .slice()
+          .sort((a: any, b: any) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+        setMessages(ordered);
+        
+        return;
+      }
+      
+      // Otherwise, fetch all conversations with filters
       const params: any = {
         search: searchTerm || undefined,
       };
-      
-      // Add deal filtering if deal parameter is present
-      if (dealParam) {
-        params.deal = dealParam;
-      }
       
       // Add campaign filtering if campaign parameter is present
       if (campaignParam) {
@@ -135,18 +177,18 @@ export function UnifiedMessaging({ userType, targetParam }: UnifiedMessagingProp
   };
 
   const fetchMessages = async (conversation: Conversation) => {
+    // If we have a deal parameter, messages are already loaded in fetchConversations
+    if (dealParam) {
+      console.log('Messages already loaded for deal:', dealParam);
+      return;
+    }
+    
     setIsLoadingMessages(true);
     try {
       console.log('Fetching messages for conversation:', conversation.id);
       
-      let response;
-      // If we have a deal parameter, use the deal-specific endpoint
-      if (dealParam) {
-        response = await api.get(`/deals/${dealParam}/messages/`);
-      } else {
-        // Use the general conversation endpoint
-        response = await api.get(endpoints.messagesByConversation(conversation.id));
-      }
+      // Use the general conversation endpoint
+      const response = await api.get(endpoints.messagesByConversation(conversation.id));
       
       console.log('Messages response:', response.data);
       const received = Array.isArray(response.data?.messages) ? response.data.messages : [];
@@ -428,25 +470,29 @@ export function UnifiedMessaging({ userType, targetParam }: UnifiedMessagingProp
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-xl font-semibold text-gray-900">
-              {dealParam ? 'Deal Conversation' :
+              {dealParam ? (
+                selectedConversation ? selectedConversation.deal_title : 'Deal Conversation'
+              ) :
                campaignParam ? 'Campaign Messages' :
                targetParam && userType === 'brand' && !selectedConversation ? 'New Conversation' : 
                'Messages'}
             </h1>
             <p className="text-sm text-gray-500">
               {dealParam ? (
-                selectedConversation ? 'Deal-specific messaging' : `Start conversation for deal #${dealParam}`
+                selectedConversation ? (
+                  <>
+                    Collaboration with <span className="font-medium text-blue-600">{selectedConversation.brand_name}</span>
+                    <span className="ml-2 px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-medium">
+                      Deal #{dealParam}
+                    </span>
+                  </>
+                ) : `Start conversation for deal #${dealParam}`
               ) : campaignParam ? (
                 conversations.length === 1 ? '1 conversation in this campaign' : `${conversations.length} conversations in this campaign`
               ) : targetParam && userType === 'brand' && !selectedConversation ? (
                 `Start conversation with influencer #${targetParam}`
               ) : (
                 `${conversations.length} conversations`
-              )}
-              {dealParam && (
-                <span className="ml-2 px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-medium">
-                  Deal #{dealParam}
-                </span>
               )}
               {campaignParam && (
                 <span className="ml-2 px-2 py-1 bg-purple-100 text-purple-700 rounded-full text-xs font-medium">
@@ -487,6 +533,103 @@ export function UnifiedMessaging({ userType, targetParam }: UnifiedMessagingProp
       </div>
 
       <div className="flex-1 flex overflow-hidden">
+        {/* Deal-specific conversation: Show only the conversation without sidebar */}
+        {dealParam && selectedConversation ? (
+          <div className="w-full bg-white flex flex-col">
+            {/* Conversation Header */}
+            <div className="px-4 py-3 border-b border-gray-200 bg-gray-50">
+              <div className="flex items-center space-x-3">
+                {selectedConversation.brand_logo ? (
+                  <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-white shadow-md">
+                    <img
+                      src={selectedConversation.brand_logo}
+                      alt={selectedConversation.brand_name || 'Brand'}
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                ) : (
+                  <div className={`w-10 h-10 bg-gradient-to-r ${colors.gradient} rounded-full flex items-center justify-center`}>
+                    <span className="text-sm font-bold text-white">
+                      {getDisplayAvatar(selectedConversation)}
+                    </span>
+                  </div>
+                )}
+                <div>
+                  <h2 className="font-semibold text-gray-900">
+                    {selectedConversation.deal_title}
+                  </h2>
+                  <p className="text-sm text-gray-500">
+                    with <span className="font-medium text-blue-600">{getDisplayName(selectedConversation)}</span>
+                    <span className="ml-2 text-xs bg-gray-200 text-gray-700 px-2 py-0.5 rounded">
+                      Deal #{dealParam}
+                    </span>
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Messages Area */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50">
+              {isLoadingMessages ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="animate-pulse text-gray-500">Loading messages...</div>
+                </div>
+              ) : messages.length === 0 ? (
+                <div className="text-center py-8">
+                  <HiChatBubbleLeftRight className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">Start the conversation</h3>
+                  <p className="text-gray-500 text-sm">
+                    Send your first message about <span className="font-medium">"{selectedConversation.deal_title}"</span> to <span className="font-medium text-blue-600">{selectedConversation.brand_name}</span>.
+                  </p>
+                </div>
+              ) : (
+                messages.map((message) => (
+                  <div
+                    key={message.id}
+                    className={`flex ${message.sender_type === userType ? 'justify-end' : 'justify-start'}`}
+                  >
+                    <div
+                      className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
+                        message.sender_type === userType
+                          ? `${colors.message} text-white`
+                          : 'bg-white text-gray-900 border border-gray-200'
+                      }`}
+                    >
+                      <p className="text-sm">{message.content}</p>
+                      <p className={`text-xs mt-1 ${
+                        message.sender_type === userType ? 'text-blue-100' : 'text-gray-500'
+                      }`}>
+                        {formatTime(message.created_at)}
+                      </p>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* Message Input */}
+            <div className="border-t border-gray-200 p-4 bg-white">
+              <div className="flex space-x-2">
+                <Input
+                  placeholder={`Message ${selectedConversation.brand_name} about "${selectedConversation.deal_title}"...`}
+                  value={newMessage}
+                  onChange={(e) => setNewMessage(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
+                  className="flex-1"
+                />
+                <Button 
+                  onClick={sendMessage}
+                  disabled={!newMessage.trim()}
+                  className={colors.button}
+                >
+                  <HiPaperAirplane className="w-4 h-4" />
+                </Button>
+              </div>
+            </div>
+          </div>
+        ) : (
+          /* Standard layout for non-deal conversations */
+          <>
         {/* Desktop: Two-column layout */}
         <div className="hidden lg:flex w-full">
           {/* Conversations List */}
@@ -1008,6 +1151,8 @@ export function UnifiedMessaging({ userType, targetParam }: UnifiedMessagingProp
             )}
           </div>
         </div>
+          </>
+        )}
       </div>
     </div>
   );

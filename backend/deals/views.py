@@ -13,6 +13,7 @@ from django.db.models import Q, Count, Sum, Avg, F
 from django.db.models.functions import Coalesce
 from django.utils import timezone
 from datetime import datetime, timedelta
+from messaging.models import Message, Conversation
 import logging
 
 from common.decorators import (
@@ -574,7 +575,16 @@ def deal_messages_view(request, deal_id):
         return Response({
             'status': 'success',
             'messages': serialized_messages,
-            'conversation_id': conversation.id
+            'conversation_id': conversation.id,
+            'deal_title': deal.campaign.title,
+            'brand_name': deal.campaign.brand.name,
+            'brand_logo': request.build_absolute_uri(deal.campaign.brand.logo.url) if deal.campaign.brand.logo else None,
+            'campaign_id': deal.campaign.id,
+            'deal_id': deal.id,
+            'unread_count': messages.filter(
+                sender_type='brand' if is_influencer else 'influencer',
+                **({'read_by_influencer': False} if is_influencer else {'read_by_brand': False})
+            ).count()
         }, status=status.HTTP_200_OK)
     
     elif request.method == 'POST':
