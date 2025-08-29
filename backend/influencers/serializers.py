@@ -48,7 +48,12 @@ class InfluencerProfileSerializer(serializers.ModelSerializer):
 
     def get_profile_image(self, obj):
         """Get profile image from user profile."""
-        return obj.user_profile.profile_image.url if obj.user_profile and obj.user_profile.profile_image else None
+        if obj.user_profile and obj.user_profile.profile_image:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.user_profile.profile_image.url)
+            return obj.user_profile.profile_image.url
+        return None
 
     def get_address(self, obj):
         """Get address from user profile."""
@@ -297,11 +302,21 @@ class ProfileImageUploadSerializer(serializers.ModelSerializer):
             if value.size > 5 * 1024 * 1024:
                 raise serializers.ValidationError("Profile image must be smaller than 5MB.")
             
-            # Check file type
-            allowed_types = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp']
-            if value.content_type not in allowed_types:
+            # Check file type - comprehensive list of image formats
+            allowed_types = [
+                'image/jpeg', 'image/jpg', 'image/png', 'image/webp', 
+                'image/gif', 'image/bmp', 'image/tiff', 'image/tif',
+                'image/svg+xml', 'image/x-icon', 'image/vnd.microsoft.icon'
+            ]
+            
+            # Also check file extension as backup validation
+            allowed_extensions = ['.jpg', '.jpeg', '.png', '.webp', '.gif', '.bmp', '.tiff', '.tif', '.svg', '.ico']
+            file_extension = value.name.lower().split('.')[-1] if '.' in value.name else ''
+            file_extension_with_dot = f'.{file_extension}'
+            
+            if value.content_type not in allowed_types and file_extension_with_dot not in allowed_extensions:
                 raise serializers.ValidationError(
-                    "Only JPEG, PNG, and WebP images are allowed."
+                    "Only JPEG, JPG, PNG, WebP, GIF, BMP, TIFF, SVG, and ICO images are allowed."
                 )
         
         return value
@@ -332,14 +347,21 @@ class DocumentUploadSerializer(serializers.ModelSerializer):
             if value.size > 10 * 1024 * 1024:
                 raise serializers.ValidationError("Document must be smaller than 10MB.")
             
-            # Check file type
+            # Check file type - images and PDF for documents
             allowed_types = [
-                'image/jpeg', 'image/jpg', 'image/png', 'image/webp',
+                'image/jpeg', 'image/jpg', 'image/png', 'image/webp', 
+                'image/gif', 'image/bmp', 'image/tiff', 'image/tif',
                 'application/pdf'
             ]
-            if value.content_type not in allowed_types:
+            
+            # Also check file extension as backup validation
+            allowed_extensions = ['.jpg', '.jpeg', '.png', '.webp', '.gif', '.bmp', '.tiff', '.tif', '.pdf']
+            file_extension = value.name.lower().split('.')[-1] if '.' in value.name else ''
+            file_extension_with_dot = f'.{file_extension}'
+            
+            if value.content_type not in allowed_types and file_extension_with_dot not in allowed_extensions:
                 raise serializers.ValidationError(
-                    "Only JPEG, PNG, WebP, and PDF files are allowed."
+                    "Only JPEG, JPG, PNG, WebP, GIF, BMP, TIFF, and PDF files are allowed for documents."
                 )
         
         return value

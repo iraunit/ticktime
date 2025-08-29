@@ -252,11 +252,11 @@ export function ProfileForm({ profile }: ProfileFormProps) {
                     }`}
                     onClick={isEditing ? () => document.getElementById('profile-image-input')?.click() : undefined}
                   >
-                    {profile?.user_profile?.profile_image || profileImage ? (
+                    {profile?.profile_image || profileImage ? (
                       <>
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
-                          src={profileImage ? URL.createObjectURL(profileImage) : getMediaUrl(profile?.user_profile?.profile_image)}
+                          src={profileImage ? URL.createObjectURL(profileImage) : getMediaUrl(profile?.profile_image)}
                           alt="Profile"
                           className="w-full h-full object-cover"
                         />
@@ -283,7 +283,7 @@ export function ProfileForm({ profile }: ProfileFormProps) {
                   </div>
 
                   {/* Remove button - only show if image exists and editing */}
-                  {(profile?.user_profile?.profile_image || profileImage) && isEditing && (
+                  {(profile?.profile_image || profileImage) && isEditing && (
                     <button
                       type="button"
                       onClick={(e) => {
@@ -302,7 +302,7 @@ export function ProfileForm({ profile }: ProfileFormProps) {
                 <div className="flex-1">
                   <p className="text-sm text-gray-600 mb-1">
                     {isEditing 
-                      ? `Click on the image to ${profile?.user_profile?.profile_image ? 'change' : 'upload'} your profile photo`
+                      ? `Click on the image to ${profile?.profile_image ? 'change' : 'upload'} your profile photo`
                       : 'Your profile photo'
                     }
                   </p>

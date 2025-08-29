@@ -72,7 +72,7 @@ def influencer_profile_view(request):
         }, status=status.HTTP_404_NOT_FOUND)
 
     if request.method == 'GET':
-        serializer = InfluencerProfileSerializer(profile)
+        serializer = InfluencerProfileSerializer(profile, context={'request': request})
         return Response({
             'status': 'success',
             'profile': serializer.data
@@ -90,7 +90,7 @@ def influencer_profile_view(request):
             serializer.save()
             
             # Return updated profile data
-            updated_profile = InfluencerProfileSerializer(profile)
+            updated_profile = InfluencerProfileSerializer(profile, context={'request': request})
             return Response({
                 'status': 'success',
                 'message': 'Profile updated successfully.',
@@ -125,10 +125,15 @@ def upload_profile_image_view(request):
     if serializer.is_valid():
         serializer.save()
         
+        # Get the profile image URL from user_profile
+        profile_image_url = None
+        if profile.user_profile and profile.user_profile.profile_image:
+            profile_image_url = request.build_absolute_uri(profile.user_profile.profile_image.url)
+        
         return Response({
             'status': 'success',
             'message': 'Profile image uploaded successfully.',
-            'profile_image': serializer.data['profile_image']
+            'profile_image': profile_image_url
         }, status=status.HTTP_200_OK)
     
     error_message = format_serializer_errors(serializer.errors)
