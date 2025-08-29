@@ -20,7 +20,7 @@ import { Deal } from "@/types";
 import { MapPin, Phone, Save } from "@/lib/icons";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import { api } from "@/lib/api";
+import { api, handleApiError } from "@/lib/api";
 
 const addressSchema = z.object({
   address_line1: z.string().min(1, "Address line 1 is required"),
@@ -29,7 +29,8 @@ const addressSchema = z.object({
   state: z.string().min(1, "State is required"),
   country: z.string().min(1, "Country is required"),
   zipcode: z.string().min(1, "ZIP/Postal code is required"),
-  phone_number: z.string().min(1, "Phone number is required"),
+  country_code: z.string().min(1, "Country code is required").regex(/^\+[1-9]\d{0,2}$/, "Please enter a valid country code (e.g., +1, +91, +44)"),
+  phone_number: z.string().min(1, "Phone number is required").regex(/^[1-9][\d\s\-\(\)]{7,15}$/, "Please enter a valid phone number (without country code)"),
 });
 
 type AddressFormData = z.infer<typeof addressSchema>;
@@ -53,6 +54,7 @@ export function AddressSubmission({ deal, isOpen, onClose, onSuccess }: AddressS
       state: deal.shipping_address?.state || "",
       country: deal.shipping_address?.country || "India",
       zipcode: deal.shipping_address?.zipcode || "",
+      country_code: deal.shipping_address?.country_code || "+91",
       phone_number: deal.shipping_address?.phone_number || "",
     },
   });
@@ -69,9 +71,8 @@ export function AddressSubmission({ deal, isOpen, onClose, onSuccess }: AddressS
       } else {
         toast.error(response.data?.message || "Failed to submit address. Please try again.");
       }
-    } catch (error: any) {
-      const errorMessage = error.response?.data?.message || "Failed to submit address. Please try again.";
-      toast.error(errorMessage);
+    } catch (error: unknown) {
+      toast.error(handleApiError(error));
     } finally {
       setIsSubmitting(false);
     }
@@ -205,27 +206,49 @@ export function AddressSubmission({ deal, isOpen, onClose, onSuccess }: AddressS
               />
             </div>
 
-            <FormField
-              control={form.control}
-              name="phone_number"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Phone Number *</FormLabel>
-                  <FormControl>
-                    <div className="relative">
-                      <Phone className="absolute left-3 top-3 h-4 w-4 text-gray-500" />
+            <div className="grid grid-cols-3 gap-4">
+              <FormField
+                control={form.control}
+                name="country_code"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Country Code *</FormLabel>
+                    <FormControl>
                       <Input
                         {...field}
-                        placeholder="Phone number for delivery"
-                        className="pl-10"
+                        placeholder="+91"
                         disabled={isSubmitting}
                       />
-                    </div>
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <div className="col-span-2">
+                <FormField
+                  control={form.control}
+                  name="phone_number"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Phone Number *</FormLabel>
+                      <FormControl>
+                        <div className="relative">
+                          <Phone className="absolute left-3 top-3 h-4 w-4 text-gray-500" />
+                          <Input
+                            {...field}
+                            placeholder="Phone number for delivery"
+                            className="pl-10"
+                            disabled={isSubmitting}
+                          />
+                        </div>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+            </div>
 
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mt-4">
               <p className="text-sm text-blue-800">

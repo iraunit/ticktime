@@ -346,14 +346,23 @@ class AddressSubmissionSerializer(serializers.Serializer):
     state = serializers.CharField(max_length=100)
     country = serializers.CharField(max_length=100)
     zipcode = serializers.CharField(max_length=20)
+    country_code = serializers.CharField(max_length=10, help_text="Country code (e.g., +1, +91)")
     phone_number = serializers.CharField(max_length=20)
 
     def validate_phone_number(self, value):
         """Validate phone number format."""
         import re
         # Basic phone number validation - can be enhanced based on requirements
-        if not re.match(r'^[\+]?[1-9][\d\s\-\(\)]{7,15}$', value):
-            raise serializers.ValidationError("Please enter a valid phone number.")
+        if not re.match(r'^[1-9][\d\s\-\(\)]{7,15}$', value):
+            raise serializers.ValidationError("Please enter a valid phone number (without country code).")
+        return value
+
+    def validate_country_code(self, value):
+        """Validate country code format."""
+        import re
+        # Validate country code format (+1 to +999)
+        if not re.match(r'^\+[1-9]\d{0,2}$', value):
+            raise serializers.ValidationError("Please enter a valid country code (e.g., +1, +91, +44).")
         return value
 
     def validate_zipcode(self, value):

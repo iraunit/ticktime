@@ -138,7 +138,9 @@ export interface Deal {
     state: string;
     country: string;
     zipcode: string;
+    country_code?: string;
     phone_number?: string;
+    full_phone_number?: string;
   };
   tracking_number?: string;
   tracking_url?: string;

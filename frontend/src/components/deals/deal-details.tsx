@@ -108,10 +108,10 @@ export function DealDetails({
     }).format(amount);
   };
 
-  return (
-    <div className={cn("space-y-3", className)}>
+      return (
+    <div className={cn("space-y-2", className)}>
       {/* Enhanced Header */}
-      <div className="bg-gradient-to-r from-blue-50 via-white to-purple-50 border border-blue-100 rounded-xl shadow-lg p-6 mb-6">
+      <div className="bg-gradient-to-r from-blue-50 via-white to-purple-50 border border-blue-100 rounded-xl shadow-lg p-4 mb-4">
         <div className="flex items-start justify-between">
           <div className="flex-1">
             <div className="flex items-center space-x-3 mb-2">
@@ -120,10 +120,10 @@ export function DealDetails({
               </div>
               <div>
                 <h1 className="text-3xl font-bold text-gray-900 leading-tight">
-                  Deal Details
+                  {deal?.campaign?.title || 'Campaign'}
                 </h1>
                 <p className="text-base text-gray-600 font-medium">
-                  {deal?.campaign?.title || 'Campaign'}
+                  Collaboration Opportunity
                 </p>
               </div>
             </div>
@@ -158,12 +158,12 @@ export function DealDetails({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-2">
         {/* Main Content */}
-        <div className="lg:col-span-2 space-y-3">
+        <div className="lg:col-span-2 space-y-2">
           {/* Compact Brand Information */}
           <Card className="bg-white/80 backdrop-blur-sm border-0 shadow-lg hover:shadow-xl transition-all duration-300">
-            <CardHeader className="pb-2">
+            <CardHeader className="pb-1 pt-3">
               <CardTitle className="flex items-center space-x-3">
                 {deal?.campaign?.brand?.logo && (
                   <div className="relative">
@@ -211,7 +211,7 @@ export function DealDetails({
                 </div>
               </CardTitle>
             </CardHeader>
-            <CardContent className="pt-0">
+            <CardContent className="pt-0 pb-3">
               <p className="text-sm text-gray-600 leading-relaxed">
                 {deal?.campaign?.brand?.description || '—'}
               </p>
@@ -220,7 +220,7 @@ export function DealDetails({
 
           {/* Compact Campaign Description */}
           <Card className="bg-white/80 backdrop-blur-sm border-0 shadow-lg hover:shadow-xl transition-all duration-300">
-            <CardHeader className="pb-2">
+            <CardHeader className="pb-1 pt-3">
               <CardTitle className="flex items-center space-x-2">
                 <div className="w-6 h-6 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-lg flex items-center justify-center">
                   <Target className="h-3 w-3 text-white" />
@@ -228,21 +228,21 @@ export function DealDetails({
                 <span className="text-base font-bold">Campaign Overview</span>
               </CardTitle>
             </CardHeader>
-            <CardContent className="pt-0">
-              <p className="text-sm text-gray-700 leading-relaxed">
-                {deal?.campaign?.description || '—'}
-              </p>
+                          <CardContent className="pt-0 pb-3">
+                <p className="text-sm text-gray-700 leading-relaxed">
+                  {deal?.campaign?.description || '—'}
+                </p>
               
               {typeof deal?.campaign?.content_requirements === 'object' && deal?.campaign?.content_requirements?.special_instructions && (
-                <div className="mt-3 p-3 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-200">
-                  <h4 className="font-semibold text-blue-900 mb-1 flex items-center">
-                    <span className="w-1.5 h-1.5 bg-blue-500 rounded-full mr-2"></span>
-                    Special Instructions
-                  </h4>
-                  <p className="text-sm text-blue-800">
-                    {deal.campaign.content_requirements.special_instructions}
-                  </p>
-                </div>
+                                  <div className="mt-2 p-2 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-200">
+                    <h4 className="font-semibold text-blue-900 mb-1 flex items-center text-sm">
+                      <span className="w-1.5 h-1.5 bg-blue-500 rounded-full mr-2"></span>
+                      Special Instructions
+                    </h4>
+                    <p className="text-xs text-blue-800">
+                      {deal.campaign.content_requirements.special_instructions}
+                    </p>
+                  </div>
               )}
             </CardContent>
           </Card>
@@ -257,7 +257,7 @@ export function DealDetails({
                 <span className="text-base font-bold">Content Requirements</span>
               </CardTitle>
             </CardHeader>
-            <CardContent className="pt-0 space-y-3">
+            <CardContent className="pt-0 pb-3 space-y-2">
               {/* Platforms */}
               <div>
                 <h4 className="font-semibold text-gray-900 mb-2 flex items-center">
@@ -298,20 +298,20 @@ export function DealDetails({
                   <span className="w-1 h-1 bg-purple-500 rounded-full mr-2"></span>
                   Deliverables
                 </h4>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                  <div className="bg-white/50 backdrop-blur-sm rounded-lg p-2 border border-gray-200">
-                    <div className="text-base font-bold text-blue-600">{(typeof deal?.campaign?.content_requirements === 'object' && deal?.campaign?.content_requirements?.post_count) ?? 0}</div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-1">
+                  <div className="bg-white/50 backdrop-blur-sm rounded-lg p-1.5 border border-gray-200">
+                    <div className="text-sm font-bold text-blue-600">{(typeof deal?.campaign?.content_requirements === 'object' && deal?.campaign?.content_requirements?.post_count) ?? 0}</div>
                     <div className="text-xs text-gray-600">Posts</div>
                   </div>
                   {typeof deal?.campaign?.content_requirements === 'object' && deal?.campaign?.content_requirements?.story_count && (
-                    <div className="bg-white/50 backdrop-blur-sm rounded-lg p-2 border border-gray-200">
-                      <div className="text-base font-bold text-green-600">{deal.campaign.content_requirements.story_count}</div>
+                    <div className="bg-white/50 backdrop-blur-sm rounded-lg p-1.5 border border-gray-200">
+                      <div className="text-sm font-bold text-green-600">{deal.campaign.content_requirements.story_count}</div>
                       <div className="text-xs text-gray-600">Stories</div>
                     </div>
                   )}
                   {typeof deal?.campaign?.content_requirements === 'object' && deal?.campaign?.content_requirements?.reel_count && (
-                    <div className="bg-white/50 backdrop-blur-sm rounded-lg p-2 border border-gray-200">
-                      <div className="text-base font-bold text-purple-600">{deal.campaign.content_requirements.reel_count}</div>
+                    <div className="bg-white/50 backdrop-blur-sm rounded-lg p-1.5 border border-gray-200">
+                      <div className="text-sm font-bold text-purple-600">{deal.campaign.content_requirements.reel_count}</div>
                       <div className="text-xs text-gray-600">Reels</div>
                     </div>
                   )}
@@ -330,29 +330,29 @@ export function DealDetails({
                 <span className="text-base font-bold">Campaign Timeline</span>
               </CardTitle>
             </CardHeader>
-            <CardContent className="pt-0 space-y-3">
+            <CardContent className="pt-0 pb-3 space-y-2">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-3 border border-blue-200">
-                  <h4 className="font-semibold text-blue-900 mb-1">Application Deadline</h4>
-                  <p className="text-sm text-blue-700">
+                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-2 border border-blue-200">
+                  <h4 className="font-semibold text-blue-900 mb-1 text-sm">Application Deadline</h4>
+                  <p className="text-xs text-blue-700">
                     {formatDate(deal?.campaign?.application_deadline || new Date().toISOString())}
                   </p>
                 </div>
-                <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg p-3 border border-green-200">
-                  <h4 className="font-semibold text-green-900 mb-1">Campaign Start</h4>
-                  <p className="text-sm text-green-700">
+                <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg p-2 border border-green-200">
+                  <h4 className="font-semibold text-green-900 mb-1 text-sm">Campaign Start</h4>
+                  <p className="text-xs text-green-700">
                     {formatDate(deal?.campaign?.campaign_start_date || new Date().toISOString())}
                   </p>
                 </div>
-                <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg p-3 border border-purple-200">
-                  <h4 className="font-semibold text-purple-900 mb-1">Campaign End</h4>
-                  <p className="text-sm text-purple-700">
+                <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg p-2 border border-purple-200">
+                  <h4 className="font-semibold text-purple-900 mb-1 text-sm">Campaign End</h4>
+                  <p className="text-xs text-purple-700">
                     {formatDate(deal?.campaign?.campaign_end_date || new Date().toISOString())}
                   </p>
                 </div>
-                <div className="bg-gradient-to-r from-orange-50 to-red-50 rounded-lg p-3 border border-orange-200">
-                  <h4 className="font-semibold text-orange-900 mb-1">Invited On</h4>
-                  <p className="text-sm text-orange-700">
+                <div className="bg-gradient-to-r from-orange-50 to-red-50 rounded-lg p-2 border border-orange-200">
+                  <h4 className="font-semibold text-orange-900 mb-1 text-sm">Invited On</h4>
+                  <p className="text-xs text-orange-700">
                     {formatDateTime(deal?.invited_at || new Date().toISOString())}
                   </p>
                 </div>
@@ -361,7 +361,7 @@ export function DealDetails({
           </Card>
 
           {/* Address Request Alert for Barter/Hybrid Deals */}
-          {deal.status === 'address_requested' && (deal.campaign?.deal_type === 'product' || deal.campaign?.deal_type === 'hybrid') && (
+          {(['address_requested', 'shortlisted', 'accepted'].includes(deal.status)) && (deal.campaign?.deal_type === 'product' || deal.campaign?.deal_type === 'hybrid') && (
             <Card className="bg-gradient-to-r from-orange-50 to-amber-50 border-orange-200 shadow-lg hover:shadow-xl transition-all duration-300">
               <CardHeader className="pb-2">
                 <CardTitle className="flex items-center space-x-2 text-orange-800">
@@ -397,7 +397,7 @@ export function DealDetails({
         </div>
 
         {/* Compact Sidebar */}
-        <div className="space-y-3">
+        <div className="space-y-2">
           {/* Compact Deal Value */}
           <Card className="bg-white/80 backdrop-blur-sm border-0 shadow-lg hover:shadow-xl transition-all duration-300">
             <CardHeader className="pb-2">
@@ -408,30 +408,30 @@ export function DealDetails({
                 <span className="text-base font-bold">Deal Value</span>
               </CardTitle>
             </CardHeader>
-            <CardContent className="pt-0 space-y-3">
-              <div className="text-center bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg p-3 border border-green-200">
-                <div className="text-2xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
+            <CardContent className="pt-0 pb-3 space-y-2">
+              <div className="text-center bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg p-2 border border-green-200">
+                <div className="text-xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
                   {formatCurrency(deal.total_value || 0)}
                 </div>
-                <p className="text-sm text-green-700 font-medium">Total Value</p>
+                <p className="text-xs text-green-700 font-medium">Total Value</p>
               </div>
               
               <Separator className="bg-gray-200" />
               
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between items-center bg-white/50 backdrop-blur-sm rounded-lg p-2">
+              <div className="space-y-1 text-sm">
+                <div className="flex justify-between items-center bg-white/50 backdrop-blur-sm rounded-lg p-1.5">
                   <span className="text-gray-600">Deal Type:</span>
                   <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
                     {deal.campaign?.deal_type || 'N/A'}
                   </Badge>
                 </div>
                 {deal.campaign?.product_value && (
-                  <div className="flex justify-between items-center bg-white/50 backdrop-blur-sm rounded-lg p-2">
+                  <div className="flex justify-between items-center bg-white/50 backdrop-blur-sm rounded-lg p-1.5">
                     <span className="text-gray-600">Product Value:</span>
                     <span className="font-semibold text-green-600">{formatCurrency(deal.campaign.product_value)}</span>
                   </div>
                 )}
-                <div className="flex justify-between items-center bg-white/50 backdrop-blur-sm rounded-lg p-2">
+                <div className="flex justify-between items-center bg-white/50 backdrop-blur-sm rounded-lg p-1.5">
                   <span className="text-gray-600">Payment Status:</span>
                   <Badge variant="outline" className={cn(
                     "text-xs",
@@ -456,7 +456,7 @@ export function DealDetails({
                   <span className="text-base font-bold">Barter Products</span>
                 </CardTitle>
               </CardHeader>
-              <CardContent className="pt-0 space-y-3">
+              <CardContent className="pt-0 pb-3 space-y-2">
                 {deal.campaign.products.map((product, index) => (
                   <div key={index} className="bg-gradient-to-r from-orange-50 to-amber-50 rounded-lg p-3 border border-orange-200">
                     <div className="flex justify-between items-start mb-2">

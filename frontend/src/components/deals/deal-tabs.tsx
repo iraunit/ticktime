@@ -34,7 +34,7 @@ export function DealTabs({ deal, onAccept, onReject, isLoading }: DealTabsProps)
   const tabs = [
     {
       id: 'details' as TabType,
-      label: 'Deal Details',
+      label: 'Overview',
       icon: FileText,
       badge: null,
     },
@@ -43,7 +43,7 @@ export function DealTabs({ deal, onAccept, onReject, isLoading }: DealTabsProps)
 
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-2">
       {/* Enhanced Tab Navigation */}
       <Card className="bg-white/80 backdrop-blur-sm border-0 shadow-lg">
         <div className="flex space-x-1 p-1">
@@ -81,7 +81,7 @@ export function DealTabs({ deal, onAccept, onReject, isLoading }: DealTabsProps)
       </Card>
 
       {/* Content Area */}
-      <div className="min-h-[500px]">
+      <div className="min-h-[400px]">
         {activeTab === 'details' && (
           <DealDetails
             deal={deal}

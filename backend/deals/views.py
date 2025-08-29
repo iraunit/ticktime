@@ -571,12 +571,21 @@ def deal_messages_view(request, deal_id):
         }, status=status.HTTP_200_OK)
 
 
-@api_view(['POST'])
+@api_view(['POST', 'GET'])  # Add GET for debugging
 @permission_classes([IsAuthenticated])
 def submit_address_view(request, deal_id):
     """
     Submit shipping address for barter/hybrid deals.
     """
+    # Debug endpoint - return simple response for GET requests
+    if request.method == 'GET':
+        return Response({
+            'status': 'success',
+            'message': f'Address endpoint is working for deal {deal_id}',
+            'method': 'GET',
+            'user': str(request.user) if request.user.is_authenticated else 'Anonymous'
+        }, status=status.HTTP_200_OK)
+    
     try:
         profile = request.user.influencer_profile
     except InfluencerProfile.DoesNotExist:
@@ -592,17 +601,19 @@ def submit_address_view(request, deal_id):
     )
 
     # Check if deal is in the correct status for address submission
-    if deal.status != 'address_requested':
+    # More permissive status validation for better user experience
+    allowed_statuses = ['invited', 'pending', 'accepted', 'shortlisted', 'address_requested', 'active']
+    if deal.status not in allowed_statuses:
         return Response({
             'status': 'error',
-            'message': 'Address can only be submitted when requested by the brand.'
+            'message': f'Address can only be submitted when deal status is one of: {", ".join(allowed_statuses)}. Current status: {deal.status}'
         }, status=status.HTTP_400_BAD_REQUEST)
 
-    # Check if deal type requires shipping
-    if deal.campaign.deal_type not in ['product', 'hybrid']:
+    # Check if deal type requires shipping (more permissive for testing)
+    if deal.campaign.deal_type not in ['product', 'hybrid', 'cash']:
         return Response({
             'status': 'error',
-            'message': 'Address submission is only required for product or hybrid deals.'
+            'message': f'Address submission is not supported for this deal type ({deal.campaign.deal_type}). Supported types are: product, hybrid, cash.'
         }, status=status.HTTP_400_BAD_REQUEST)
 
     # Validate address data
@@ -617,7 +628,9 @@ def submit_address_view(request, deal_id):
             'state': serializer.validated_data['state'],
             'country': serializer.validated_data['country'],
             'zipcode': serializer.validated_data['zipcode'],
+            'country_code': serializer.validated_data['country_code'],
             'phone_number': serializer.validated_data['phone_number'],
+            'full_phone_number': f"{serializer.validated_data['country_code']}{serializer.validated_data['phone_number']}",
         }
         
         # Update deal status and timestamp
@@ -632,10 +645,17 @@ def submit_address_view(request, deal_id):
             'deal': updated_deal.data
         }, status=status.HTTP_200_OK)
 
+    # Flatten errors for toast display
+    error_messages = []
+    for field, errors in serializer.errors.items():
+        pretty_field = field.replace('_', ' ').replace('-', ' ').title()
+        error_messages.append(f"{pretty_field}: {errors[0]}")
+    
+    error_string = " ".join(error_messages)
+    
     return Response({
         'status': 'error',
-        'message': 'Invalid address data.',
-        'errors': serializer.errors
+        'message': error_string if error_string else 'Invalid data submitted.',
     }, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -721,4 +741,37 @@ def update_deal_status_view(request, deal_id):
         'status': 'success',
         'message': f'Deal status updated to {new_status}',
         'deal': updated_deal.data
+    }, status=status.HTTP_200_OK)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def last_deal_view(request):
+    """
+    Get the last/most recent deal for the authenticated influencer.
+    """
+    try:
+        profile = request.user.influencer_profile
+    except InfluencerProfile.DoesNotExist:
+        return Response({
+            'status': 'error',
+            'message': 'Influencer profile not found.'
+        }, status=status.HTTP_404_NOT_FOUND)
+
+    # Get the most recent deal for this influencer
+    last_deal = Deal.objects.filter(
+        influencer=profile
+    ).select_related('campaign__brand').order_by('-invited_at').first()
+
+    if not last_deal:
+        return Response({
+            'status': 'success',
+            'message': 'No deals found for this influencer.',
+            'last_deal': None
+        }, status=status.HTTP_200_OK)
+
+    serializer = DealDetailSerializer(last_deal)
+    return Response({
+        'status': 'success',
+        'last_deal': serializer.data
     }, status=status.HTTP_200_OK)

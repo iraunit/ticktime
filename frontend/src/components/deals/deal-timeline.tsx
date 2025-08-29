@@ -1,5 +1,6 @@
 "use client";
 
+import React from "react";
 import { Deal, DealStatus } from "@/types";
 import { cn } from "@/lib/utils";
 import { 
@@ -150,7 +151,7 @@ const statusInfo: Record<DealStatus, {
   },
 };
 
-export function DealTimeline({ deal, className }: DealTimelineProps) {
+function DealTimeline({ deal, className }: DealTimelineProps): React.JSX.Element {
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString("en-US", {
       month: "short",
@@ -358,3 +359,5 @@ export function DealTimeline({ deal, className }: DealTimelineProps) {
     </div>
   );
 }
+
+export { DealTimeline };

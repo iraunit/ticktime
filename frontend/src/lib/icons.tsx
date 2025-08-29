@@ -78,6 +78,7 @@ export const Briefcase = make("BriefcaseIcon", "lni-briefcase", "ri-briefcase-2-
 export const Star = make("StarIcon", "lni-star", "ri-star-line", "bx-star");
 export const TrendingUp = make("ArrowTrendingUpIcon", "lni-stats-up", "ri-line-chart-line", "bx-trending-up");
 export const TrendingDown = make("ArrowTrendingDownIcon", "lni-stats-down", "ri-stock-line", "bx-trending-down");
+export const Truck = make("TruckIcon", "lni-truck", "ri-truck-line", "bxs-truck");
 export const Shield = make("ShieldCheckIcon", "lni-shield", "ri-shield-check-line", "bx-shield");
 export const Wifi = make(null, "lni-signal", "ri-wifi-line", "bx-wifi");
 export const WifiOff = make(null, "lni-network", "ri-wifi-off-line", "bx-wifi-off");
