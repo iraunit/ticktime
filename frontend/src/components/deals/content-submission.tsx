@@ -67,7 +67,7 @@ const contentSubmissionSchema = z.object({
     caption: z.string().optional(),
     post_url: z.string().url("Please enter a valid URL").optional().or(z.literal("")),
     hashtags: z.string().optional(),
-    mention_brand: z.boolean().default(true),
+    mention_brand: z.boolean(),
     additional_links: z.array(additionalLinkSchema).optional(),
 }).refine((data) => {
     // At least one of file upload, file URL, or post URL must be provided
@@ -158,7 +158,7 @@ export function ContentSubmission({deal, isOpen, onClose, onSuccess}: ContentSub
                 hashtags: data.hashtags,
                 mention_brand: data.mention_brand,
                 additional_links: data.additional_links?.filter(link => link.url && link.description) || [],
-                file: selectedFile,
+                file: selectedFile ?? undefined,
                 onProgress: progressCallback,
                 signal: controller.signal,
             };

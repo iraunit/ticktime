@@ -20,6 +20,11 @@ const statusColors = {
   invited: "bg-blue-100 text-blue-800",
   pending: "bg-yellow-100 text-yellow-800",
   accepted: "bg-green-100 text-green-800",
+  shortlisted: "bg-teal-100 text-teal-800",
+  address_requested: "bg-amber-100 text-amber-800",
+  address_provided: "bg-lime-100 text-lime-800",
+  product_shipped: "bg-sky-100 text-sky-800",
+  product_delivered: "bg-cyan-100 text-cyan-800",
   active: "bg-purple-100 text-purple-800",
   content_submitted: "bg-indigo-100 text-indigo-800",
   under_review: "bg-orange-100 text-orange-800",
@@ -28,7 +33,7 @@ const statusColors = {
   completed: "bg-gray-100 text-gray-800",
   rejected: "bg-red-100 text-red-800",
   cancelled: "bg-gray-100 text-gray-800",
-  dispute: "bg-red-100 text-red-800",
+  dispute: "bg-rose-100 text-rose-800",
 };
 
 export function DealInvitationCard({

@@ -428,7 +428,7 @@ export default function CampaignDetailPage() {
                   >
                     <HiChatBubbleLeftRight className="w-4 h-4" />
                     All Messages
-                    {campaign.deals?.filter(deal => deal.unread_count && deal.unread_count > 0).length > 0 && (
+                    {campaign.deals && campaign.deals.filter(deal => deal.unread_count && deal.unread_count > 0).length > 0 && (
                       <Badge className="ml-1 bg-red-500 text-white text-xs px-1.5 py-0.5 rounded-full">
                         {campaign.deals.reduce((total, deal) => total + (deal.unread_count || 0), 0)}
                       </Badge>

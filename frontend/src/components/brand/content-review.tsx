@@ -22,12 +22,30 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Deal } from "@/types";
 
 // Extended interface for brand deal management
-interface BrandDeal extends Deal {
+interface BrandDeal {
+  id: number;
+  campaign: Deal['campaign'];
   influencer?: {
     id: number;
     username: string;
     full_name?: string;
   };
+  status: Deal['status'];
+  invited_at: string;
+  responded_at?: string;
+  completed_at?: string;
+  rejection_reason?: string;
+  total_value: number;
+  payment_status?: 'pending' | 'processing' | 'completed' | 'failed';
+  shipping_address?: Deal['shipping_address'];
+  tracking_number?: string;
+  tracking_url?: string;
+  shipped_at?: string;
+  delivered_at?: string;
+  address_requested_at?: string;
+  address_provided_at?: string;
+  shortlisted_at?: string;
+  notes?: string;
 }
 import { 
   CheckCircle,
