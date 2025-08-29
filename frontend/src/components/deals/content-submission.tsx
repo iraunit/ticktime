@@ -29,6 +29,7 @@ import Image from "next/image";
 // import { FileUpload, ImageUpload, VideoUpload } from "@/components/ui/file-upload";
 import {ErrorDisplay} from "@/components/ui/error-display";
 import {useErrorHandling} from "@/hooks/use-error-handling";
+import {toast} from "sonner";
 
 interface ContentSubmissionProps {
     deal: Deal;
@@ -38,12 +39,12 @@ interface ContentSubmissionProps {
 }
 
 const PLATFORM_OPTIONS = [
-    {value: "Instagram", label: "Instagram"},
-    {value: "YouTube", label: "YouTube"},
-    {value: "TikTok", label: "TikTok"},
-    {value: "Twitter", label: "Twitter"},
-    {value: "Facebook", label: "Facebook"},
-    {value: "LinkedIn", label: "LinkedIn"},
+    {value: "instagram", label: "Instagram"},
+    {value: "youtube", label: "YouTube"},
+    {value: "tiktok", label: "TikTok"},
+    {value: "twitter", label: "Twitter"},
+    {value: "facebook", label: "Facebook"},
+    {value: "linkedin", label: "LinkedIn"},
 ];
 
 const CONTENT_TYPE_OPTIONS = [
@@ -157,7 +158,7 @@ export function ContentSubmission({deal, isOpen, onClose, onSuccess}: ContentSub
                 post_url: data.post_url,
                 hashtags: data.hashtags,
                 mention_brand: data.mention_brand,
-                additional_links: data.additional_links?.filter(link => link.url && link.description) || [],
+                additional_links: (data.additional_links || []).filter(link => link.url && link.description),
                 file: selectedFile ?? undefined,
                 onProgress: progressCallback,
                 signal: controller.signal,
@@ -178,6 +179,23 @@ export function ContentSubmission({deal, isOpen, onClose, onSuccess}: ContentSub
         } catch (err: any) {
             if (err.name !== 'AbortError') {
                 setError(err);
+                
+                // Show validation errors as toast messages
+                if (err.response?.data?.errors) {
+                    const errors = err.response.data.errors;
+                    Object.keys(errors).forEach(field => {
+                        const fieldErrors = errors[field];
+                        if (Array.isArray(fieldErrors)) {
+                            fieldErrors.forEach(error => {
+                                toast.error(`${field}: ${error}`);
+                            });
+                        }
+                    });
+                } else if (err.response?.data?.message) {
+                    toast.error(err.response.data.message);
+                } else {
+                    toast.error('Failed to submit content. Please try again.');
+                }
             }
         } finally {
             setIsUploading(false);

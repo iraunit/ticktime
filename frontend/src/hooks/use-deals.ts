@@ -62,7 +62,7 @@ export function useDeal(id: number) {
   const contentSubmissionsQuery = useQuery({
     queryKey: ['contentSubmissions', id],
     queryFn: () => dealsApi.getContentSubmissions(id),
-    select: (response) => response.data || [],
+    select: (response) => response.data.submissions || [],
     enabled: !!id && !isAuthLoading && isAuthenticatedState,
   });
 
@@ -71,8 +71,15 @@ export function useDeal(id: number) {
     mutationFn: (data: {
       platform: string;
       content_type: string;
-      file?: File;
+      title?: string;
+      description?: string;
       caption?: string;
+      hashtags?: string;
+      mention_brand?: boolean;
+      post_url?: string;
+      file_url?: string;
+      additional_links?: Array<{url: string; description: string}>;
+      file?: File;
       onProgress?: (progress: { loaded: number; total: number; percentage: number }) => void;
       signal?: AbortSignal;
     }) => dealsApi.submitContent(id, data, data.onProgress, data.signal),

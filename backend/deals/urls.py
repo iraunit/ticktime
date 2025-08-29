@@ -1,4 +1,4 @@
-from django.urls import path
+from django.urls import path, include
 from . import views
 
 app_name = 'deals'
@@ -9,9 +9,8 @@ urlpatterns = [
     path('deals/<int:deal_id>/', views.deal_detail_view, name='deal_detail'),
     path('deals/<int:deal_id>/action/', views.deal_action_view, name='deal_action'),
     path('deals/<int:deal_id>/timeline/', views.deal_timeline_view, name='deal_timeline'),
-    path('deals/<int:deal_id>/submit-content/', views.submit_content_view, name='submit_content'),
-    path('deals/<int:deal_id>/content-submissions/', views.content_submissions_view, name='content_submissions'),
-    # Removed - moved to content app
+    path('deals/<int:deal_id>/submit-content/', views.submit_content_placeholder, name='submit_content_legacy'),  # Legacy endpoint for compatibility
+    path('deals/<int:deal_id>/content-submissions/', views.content_submissions_placeholder, name='content_submissions_legacy'),  # Legacy endpoint for compatibility
     path('deals/<int:deal_id>/messages/', views.deal_messages_view, name='deal_messages'),
     path('deals/<int:deal_id>/submit-address/', views.submit_address_view, name='submit_address'),
     path('deals/<int:deal_id>/update-status/', views.update_deal_status_view, name='update_deal_status'),

@@ -69,6 +69,9 @@ def content_submissions_view(request, deal_id):
                 deal.status = 'under_review'
                 deal.save()
             
+            # Create notification for brand about content submission
+            _create_content_notification(deal, submission, 'submitted')
+            
             return Response({
                 'status': 'success',
                 'message': 'Content submitted successfully.',
@@ -227,6 +230,9 @@ def content_review_view(request, deal_id, submission_id):
 
         # Update deal status based on submission reviews
         _update_deal_status_after_review(deal)
+        
+        # Create notification for influencer about content review
+        _create_content_notification(deal, submission, action)
 
         return Response({
             'status': 'success',
@@ -312,12 +318,11 @@ def _update_deal_status_after_review(deal):
     has_revision_requested = any(submission.revision_requested for submission in submissions)
     
     # Update deal status accordingly
-    if all_approved and deal.status in ['under_review', 'revision_requested']:
-        deal.status = 'approved'
+    if all_approved and deal.status in ['under_review', 'revision_requested', 'approved']:
+        # All content approved - complete the deal
+        deal.status = 'completed'
+        deal.completed_at = timezone.now()
         deal.save()
-        
-        # Check if deal should be completed (all content approved)
-        _check_and_complete_deal(deal)
         
     elif has_revision_requested and deal.status != 'revision_requested':
         deal.status = 'revision_requested'
@@ -328,14 +333,64 @@ def _update_deal_status_after_review(deal):
         deal.save()
 
 
-def _check_and_complete_deal(deal):
+def _create_content_notification(deal, submission, action):
     """
-    Check if deal should be marked as completed.
+    Create a notification message in the deal conversation about content events.
     """
-    # Deal can be completed if all content is approved
-    submissions = deal.content_submissions.all()
+    from messaging.models import Conversation, Message
     
-    if submissions.exists() and all(submission.approved is True for submission in submissions):
-        deal.status = 'completed'
-        deal.completed_at = timezone.now()
-        deal.save()
+    try:
+        # Get or create conversation for this deal
+        conversation, created = Conversation.objects.get_or_create(deal=deal)
+        
+        # Create notification message based on action
+        if action == 'submitted':
+            content = f"🎬 Content submitted: {submission.title or f'{submission.get_content_type_display()} for {submission.get_platform_display()}'}"
+            sender_type = 'influencer'
+            sender_user = deal.influencer.user
+            read_by_influencer = True
+            read_by_brand = False
+        elif action == 'approve':
+            content = f"✅ Content approved: {submission.title or f'{submission.get_content_type_display()} for {submission.get_platform_display()}'}"
+            if deal.status == 'completed':
+                content += "\n🎉 Deal completed successfully!"
+            sender_type = 'brand'
+            sender_user = submission.reviewed_by
+            read_by_influencer = False
+            read_by_brand = True
+        elif action == 'reject':
+            content = f"❌ Content rejected: {submission.title or f'{submission.get_content_type_display()} for {submission.get_platform_display()}'}"
+            if submission.feedback:
+                content += f"\nFeedback: {submission.feedback}"
+            sender_type = 'brand'
+            sender_user = submission.reviewed_by
+            read_by_influencer = False
+            read_by_brand = True
+        elif action == 'request_revision':
+            content = f"🔄 Revision requested: {submission.title or f'{submission.get_content_type_display()} for {submission.get_platform_display()}'}"
+            if submission.revision_notes:
+                content += f"\nRevision notes: {submission.revision_notes}"
+            sender_type = 'brand'
+            sender_user = submission.reviewed_by
+            read_by_influencer = False
+            read_by_brand = True
+        else:
+            return  # Unknown action
+        
+        # Create the notification message
+        Message.objects.create(
+            conversation=conversation,
+            sender_type=sender_type,
+            sender_user=sender_user,
+            content=content,
+            read_by_influencer=read_by_influencer,
+            read_by_brand=read_by_brand
+        )
+        
+    except Exception as e:
+        # Log error but don't fail the main operation
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Failed to create content notification: {e}")
+
+

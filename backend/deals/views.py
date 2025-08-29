@@ -483,58 +483,7 @@ def earnings_tracking_view(request):
     }, status=status.HTTP_200_OK)
 
 
-@api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def submit_content_view(request, deal_id):
-    """
-    Submit content for a deal (placeholder implementation).
-    """
-    try:
-        profile = request.user.influencer_profile
-    except InfluencerProfile.DoesNotExist:
-        return Response({
-            'status': 'error',
-            'message': 'Influencer profile not found.'
-        }, status=status.HTTP_404_NOT_FOUND)
 
-    deal = get_object_or_404(
-        Deal.objects.select_related('campaign__brand'),
-        id=deal_id,
-        influencer=profile
-    )
-
-    # Placeholder implementation
-    return Response({
-        'status': 'success',
-        'message': 'Content submission endpoint - implementation pending'
-    }, status=status.HTTP_200_OK)
-
-
-@api_view(['GET'])
-@permission_classes([IsAuthenticated])
-def content_submissions_view(request, deal_id):
-    """
-    Get content submissions for a deal (placeholder implementation).
-    """
-    try:
-        profile = request.user.influencer_profile
-    except InfluencerProfile.DoesNotExist:
-        return Response({
-            'status': 'error',
-            'message': 'Influencer profile not found.'
-        }, status=status.HTTP_404_NOT_FOUND)
-
-    deal = get_object_or_404(
-        Deal.objects.select_related('campaign__brand'),
-        id=deal_id,
-        influencer=profile
-    )
-
-    # Placeholder implementation
-    return Response({
-        'status': 'success',
-        'submissions': []
-    }, status=status.HTTP_200_OK)
 
 
 @api_view(['GET', 'POST'])
@@ -822,4 +771,98 @@ def last_deal_view(request):
     return Response({
         'status': 'success',
         'last_deal': serializer.data
+    }, status=status.HTTP_200_OK)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def submit_content_placeholder(request, deal_id):
+    """
+    Legacy endpoint that redirects to the content submission API.
+    """
+    try:
+        profile = request.user.influencer_profile
+    except InfluencerProfile.DoesNotExist:
+        return Response({
+            'status': 'error',
+            'message': 'Influencer profile not found.'
+        }, status=status.HTTP_404_NOT_FOUND)
+
+    deal = get_object_or_404(
+        Deal.objects.select_related('campaign__brand'),
+        id=deal_id,
+        influencer=profile
+    )
+
+    # Check if deal allows content submission
+    if deal.status not in ['product_delivered', 'active', 'accepted', 'revision_requested']:
+        return Response({
+            'status': 'error',
+            'message': f'Content cannot be submitted for this deal in its current status: {deal.get_status_display()}.'
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+    # Add deal to the data
+    data = request.data.copy()
+    data['deal'] = deal.id
+
+    # Import and use the serializer directly
+    from content.serializers import ContentSubmissionSerializer
+    serializer = ContentSubmissionSerializer(data=data)
+    
+    if serializer.is_valid():
+        submission = serializer.save()
+        
+        # Update deal status to content_submitted if needed
+        if deal.status in ['product_delivered', 'active', 'accepted', 'revision_requested']:
+            deal.status = 'content_submitted'
+            deal.save()
+        
+        # Create notification for brand about content submission
+        from content.views import _create_content_notification
+        _create_content_notification(deal, submission, 'submitted')
+        
+        return Response({
+            'status': 'success',
+            'message': 'Content submitted successfully.',
+            'submission': ContentSubmissionSerializer(submission).data
+        }, status=status.HTTP_201_CREATED)
+
+    return Response({
+        'status': 'error',
+        'message': 'Invalid submission data.',
+        'errors': serializer.errors
+    }, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def content_submissions_placeholder(request, deal_id):
+    """
+    Legacy endpoint that redirects to the content submissions list API.
+    """
+    try:
+        profile = request.user.influencer_profile
+    except InfluencerProfile.DoesNotExist:
+        return Response({
+            'status': 'error',
+            'message': 'Influencer profile not found.'
+        }, status=status.HTTP_404_NOT_FOUND)
+
+    deal = get_object_or_404(
+        Deal.objects.select_related('campaign__brand'),
+        id=deal_id,
+        influencer=profile
+    )
+
+    # Get content submissions for this deal
+    submissions = deal.content_submissions.all().order_by('-submitted_at')
+    
+    # Import the serializer
+    from content.serializers import ContentSubmissionSerializer
+    serializer = ContentSubmissionSerializer(submissions, many=True)
+    
+    return Response({
+        'status': 'success',
+        'submissions': serializer.data,
+        'total_count': submissions.count()
     }, status=status.HTTP_200_OK)

@@ -16,6 +16,7 @@ import { ContentReview } from "@/components/brand/content-review";
 import { Deal } from "@/types";
 import { toast } from "@/lib/toast";
 import { api } from "@/lib/api";
+import { brandApi } from "@/lib/api-client";
 import { 
   HiUser,
   HiMegaphone,
@@ -163,7 +164,7 @@ export default function DealDetailsPage() {
 
   const fetchContentSubmissions = async () => {
     try {
-      const response = await api.get(`/content/${dealId}/brand-review/`);
+      const response = await brandApi.getContentSubmissions(parseInt(dealId));
       setContentSubmissions(response.data.submissions || []);
     } catch (error: any) {
       console.error('Failed to fetch content submissions:', error);
@@ -173,7 +174,7 @@ export default function DealDetailsPage() {
 
   const handleContentReview = async (submissionId: number, action: 'approve' | 'reject' | 'request_revision', feedback?: string, revisionNotes?: string) => {
     try {
-      await api.post(`/content/${dealId}/content-submissions/${submissionId}/review/`, {
+      await brandApi.reviewContent(parseInt(dealId), submissionId, {
         action,
         feedback,
         revision_notes: revisionNotes,

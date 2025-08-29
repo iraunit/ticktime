@@ -133,8 +133,15 @@ export const dealsApi = {
     data: {
       platform: string;
       content_type: string;
-      file?: File;
+      title?: string;
+      description?: string;
       caption?: string;
+      hashtags?: string;
+      mention_brand?: boolean;
+      post_url?: string;
+      file_url?: string;
+      additional_links?: Array<{url: string; description: string}>;
+      file?: File;
     },
     onProgress?: (progress: { loaded: number; total: number; percentage: number }) => void,
     signal?: AbortSignal
@@ -142,12 +149,20 @@ export const dealsApi = {
     const formData = new FormData();
     formData.append('platform', data.platform);
     formData.append('content_type', data.content_type);
-    if (data.file) formData.append('file', data.file);
+    if (data.title) formData.append('title', data.title);
+    if (data.description) formData.append('description', data.description);
     if (data.caption) formData.append('caption', data.caption);
+    if (data.hashtags) formData.append('hashtags', data.hashtags);
+    if (data.mention_brand !== undefined) formData.append('mention_brand', data.mention_brand.toString());
+    if (data.post_url) formData.append('post_url', data.post_url);
+    if (data.file_url) formData.append('file_url', data.file_url);
+    if (data.additional_links && data.additional_links.length > 0) {
+      formData.append('additional_links', JSON.stringify(data.additional_links));
+    }
+    if (data.file) formData.append('file_upload', data.file);
     
-    // Axios will automatically handle CSRF tokens from HTTP-only cookies
-    return api.post(`/deals/${id}/submit-content/`, formData, {
-      // Let axios set Content-Type automatically for multipart/form-data
+    // Use content API endpoint
+    return api.post(`/content/deals/${id}/content-submissions/`, formData, {
       signal,
       onUploadProgress: (progressEvent: any) => {
         if (onProgress && progressEvent.total) {
@@ -161,6 +176,8 @@ export const dealsApi = {
       },
     });
   },
+
+  getContentSubmissions: (id: number) => api.get(`/deals/${id}/content-submissions/`),
   
   getMessages: (id: number) => api.get(`/deals/${id}/messages/`),
   
@@ -231,4 +248,33 @@ export const analyticsApi = {
       rating,
       review,
     }),
+};
+
+// Brand API functions
+export const brandApi = {
+  getDeal: (id: number) => api.get(`/brands/deals/${id}/`),
+  
+  getContentSubmissions: (dealId: number) => api.get(`/content/deals/${dealId}/brand-review/`),
+  
+  reviewContent: (dealId: number, submissionId: number, data: {
+    action: 'approve' | 'reject' | 'request_revision';
+    feedback?: string;
+    revision_notes?: string;
+  }) => api.post(`/content/deals/${dealId}/content-submissions/${submissionId}/review/`, data),
+  
+  updateDealStatus: (dealId: number, data: {
+    status: string;
+    notes?: string;
+    tracking_number?: string;
+    tracking_url?: string;
+  }) => api.patch(`/brands/deals/${dealId}/status/`, data),
+  
+  updateDealNotes: (dealId: number, notes: string) => api.patch(`/brands/deals/${dealId}/notes/`, { notes }),
+  
+  requestAddress: (dealId: number) => api.post(`/brands/deals/${dealId}/request-address/`),
+  
+  updateTracking: (dealId: number, data: {
+    tracking_number: string;
+    tracking_url?: string;
+  }) => api.patch(`/brands/deals/${dealId}/tracking/`, data),
 };
