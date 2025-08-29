@@ -10,6 +10,7 @@ import { DealTimeline } from "./deal-timeline";
 import { DealActions } from "./deal-actions";
 import { ContentSubmissionModal } from "./content-submission";
 import { ContentStatus } from "./content-status";
+import { ContentSubmissionsList } from "./content-submissions-list";
 import { AddressSubmission } from "./address-submission";
 import { useDeal } from "@/hooks/use-deals";
 import { cn } from "@/lib/utils";
@@ -78,9 +79,9 @@ export function DealDetails({
   isLoading = false,
   className,
 }: DealDetailsProps) {
+  const { contentSubmissions } = useDeal(deal.id);
   const [showContentSubmission, setShowContentSubmission] = useState(false);
   const [showAddressSubmission, setShowAddressSubmission] = useState(false);
-  const { contentSubmissions } = useDeal(deal.id);
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString("en-US", {
       weekday: "long",
@@ -351,6 +352,13 @@ export function DealDetails({
               onResubmit={() => setShowContentSubmission(true)}
             />
           )}
+
+          {/* Content Submissions */}
+          <ContentSubmissionsList 
+            deal={deal} 
+            submissions={contentSubmissions.data || []}
+            onRefresh={() => contentSubmissions.refetch()}
+          />
         </div>
 
         {/* Sidebar */}
@@ -433,6 +441,8 @@ export function DealDetails({
               </CardContent>
             </Card>
           )}
+
+
 
           {/* Actions */}
           <Card className="bg-white/90 backdrop-blur-sm border-0 shadow-md">

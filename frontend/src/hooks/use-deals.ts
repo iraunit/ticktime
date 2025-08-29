@@ -90,10 +90,48 @@ export function useDeal(id: number) {
     },
   });
 
+  // Delete content submission mutation
+  const deleteContentSubmissionMutation = useMutation({
+    mutationFn: (submissionId: number) => 
+      dealsApi.deleteContentSubmission(id, submissionId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['deal', id] });
+      queryClient.invalidateQueries({ queryKey: ['deals'] });
+      queryClient.invalidateQueries({ queryKey: ['contentSubmissions', id] });
+    },
+  });
+
+  // Update content submission mutation
+  const updateContentSubmissionMutation = useMutation({
+    mutationFn: (data: {
+      submissionId: number;
+      platform: string;
+      content_type: string;
+      title?: string;
+      description?: string;
+      caption?: string;
+      hashtags?: string;
+      mention_brand?: boolean;
+      post_url?: string;
+      file_url?: string;
+      additional_links?: Array<{url: string; description: string}>;
+      file?: File;
+      onProgress?: (progress: { loaded: number; total: number; percentage: number }) => void;
+      signal?: AbortSignal;
+    }) => dealsApi.updateContentSubmission(id, data.submissionId, data, data.onProgress, data.signal),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['deal', id] });
+      queryClient.invalidateQueries({ queryKey: ['deals'] });
+      queryClient.invalidateQueries({ queryKey: ['contentSubmissions', id] });
+    },
+  });
+
   return {
     deal: dealQuery,
     contentSubmissions: contentSubmissionsQuery,
     submitContent: submitContentMutation,
+    deleteContentSubmission: deleteContentSubmissionMutation,
+    updateContentSubmission: updateContentSubmissionMutation,
   };
 }
 

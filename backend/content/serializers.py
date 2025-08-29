@@ -1,5 +1,21 @@
 from rest_framework import serializers
-from .models import ContentSubmission
+from .models import ContentSubmission, ContentReviewHistory
+
+
+class ContentReviewHistorySerializer(serializers.ModelSerializer):
+    """
+    Serializer for content review history tracking.
+    """
+    reviewed_by_username = serializers.CharField(source='reviewed_by.username', read_only=True)
+    action_display = serializers.CharField(source='get_action_display', read_only=True)
+
+    class Meta:
+        model = ContentReviewHistory
+        fields = (
+            'id', 'action', 'action_display', 'feedback', 'revision_notes',
+            'reviewed_at', 'reviewed_by_username'
+        )
+        read_only_fields = fields
 
 
 class ContentSubmissionSerializer(serializers.ModelSerializer):
@@ -11,6 +27,7 @@ class ContentSubmissionSerializer(serializers.ModelSerializer):
     deal_title = serializers.CharField(source='deal.campaign.title', read_only=True)
     brand_name = serializers.CharField(source='deal.campaign.brand.name', read_only=True)
     reviewed_by_username = serializers.CharField(source='reviewed_by.username', read_only=True)
+    review_history = ContentReviewHistorySerializer(many=True, read_only=True)
 
     class Meta:
         model = ContentSubmission
@@ -18,13 +35,14 @@ class ContentSubmissionSerializer(serializers.ModelSerializer):
             'id', 'deal', 'deal_title', 'brand_name', 'platform', 'platform_display',
             'content_type', 'content_type_display', 'file_url', 'file_upload',
             'caption', 'hashtags', 'mention_brand', 'post_url', 'title', 'description',
-            'additional_links', 'submitted_at', 'approved', 'feedback', 'revision_requested',
-            'revision_notes', 'approved_at', 'reviewed_by_username', 'review_count'
+            'additional_links', 'submitted_at', 'updated_at', 'last_revision_update',
+            'approved', 'feedback', 'revision_requested', 'revision_notes', 'approved_at',
+            'reviewed_by_username', 'review_count', 'review_history'
         )
         read_only_fields = (
-            'id', 'deal_title', 'brand_name', 'submitted_at', 'approved',
-            'feedback', 'revision_requested', 'revision_notes', 'approved_at',
-            'reviewed_by_username', 'review_count'
+            'id', 'deal_title', 'brand_name', 'submitted_at', 'updated_at', 'last_revision_update',
+            'approved', 'feedback', 'revision_requested', 'revision_notes', 'approved_at',
+            'reviewed_by_username', 'review_count', 'review_history'
         )
 
     def validate_file_upload(self, value):

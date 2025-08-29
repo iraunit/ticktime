@@ -179,6 +179,58 @@ export const dealsApi = {
 
   getContentSubmissions: (id: number) => api.get(`/deals/${id}/content-submissions/`),
   
+  deleteContentSubmission: (dealId: number, submissionId: number) => 
+    api.delete(`/content/deals/${dealId}/content-submissions/${submissionId}/`),
+
+  updateContentSubmission: async (
+    dealId: number,
+    submissionId: number,
+    data: {
+      platform: string;
+      content_type: string;
+      title?: string;
+      description?: string;
+      caption?: string;
+      hashtags?: string;
+      mention_brand?: boolean;
+      post_url?: string;
+      file_url?: string;
+      additional_links?: Array<{url: string; description: string}>;
+      file?: File;
+    },
+    onProgress?: (progress: { loaded: number; total: number; percentage: number }) => void,
+    signal?: AbortSignal
+  ) => {
+    const formData = new FormData();
+    formData.append('platform', data.platform);
+    formData.append('content_type', data.content_type);
+    if (data.title) formData.append('title', data.title);
+    if (data.description) formData.append('description', data.description);
+    if (data.caption) formData.append('caption', data.caption);
+    if (data.hashtags) formData.append('hashtags', data.hashtags);
+    if (data.mention_brand !== undefined) formData.append('mention_brand', data.mention_brand.toString());
+    if (data.post_url) formData.append('post_url', data.post_url);
+    if (data.file_url) formData.append('file_url', data.file_url);
+    if (data.additional_links && data.additional_links.length > 0) {
+      formData.append('additional_links', JSON.stringify(data.additional_links));
+    }
+    if (data.file) formData.append('file_upload', data.file);
+    
+    return api.put(`/content/deals/${dealId}/content-submissions/${submissionId}/`, formData, {
+      signal,
+      onUploadProgress: (progressEvent: any) => {
+        if (onProgress && progressEvent.total) {
+          const progress = {
+            loaded: progressEvent.loaded,
+            total: progressEvent.total,
+            percentage: Math.round((progressEvent.loaded * 100) / progressEvent.total),
+          };
+          onProgress(progress);
+        }
+      },
+    });
+  },
+  
   getMessages: (id: number) => api.get(`/deals/${id}/messages/`),
   
   sendMessage: async (

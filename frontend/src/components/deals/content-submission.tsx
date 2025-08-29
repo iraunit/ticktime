@@ -1,6 +1,6 @@
 "use client";
 
-import {useCallback, useState} from "react";
+import {useCallback, useState, useEffect} from "react";
 import {useFieldArray, useForm} from "react-hook-form";
 import {zodResolver} from "@hookform/resolvers/zod";
 import {z} from "zod";
@@ -31,11 +31,33 @@ import {ErrorDisplay} from "@/components/ui/error-display";
 import {useErrorHandling} from "@/hooks/use-error-handling";
 import {toast} from "sonner";
 
+interface ContentSubmission {
+    id: number;
+    platform: string;
+    platform_display: string;
+    content_type: string;
+    content_type_display: string;
+    title?: string;
+    description?: string;
+    file_url?: string;
+    post_url?: string;
+    caption?: string;
+    hashtags?: string;
+    additional_links?: Array<{ url: string; description: string }>;
+    submitted_at: string;
+    approved?: boolean | null;
+    feedback?: string;
+    revision_requested: boolean;
+    revision_notes?: string;
+    review_count: number;
+}
+
 interface ContentSubmissionProps {
     deal: Deal;
     isOpen: boolean;
     onClose: () => void;
     onSuccess?: () => void;
+    editingSubmission?: ContentSubmission | null;
 }
 
 const PLATFORM_OPTIONS = [
@@ -80,28 +102,28 @@ const contentSubmissionSchema = z.object({
 
 type ContentSubmissionFormData = z.infer<typeof contentSubmissionSchema>;
 
-export function ContentSubmission({deal, isOpen, onClose, onSuccess}: ContentSubmissionProps) {
+export function ContentSubmission({deal, isOpen, onClose, onSuccess, editingSubmission}: ContentSubmissionProps) {
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const [uploadProgress, setUploadProgress] = useState(0);
     const [isUploading, setIsUploading] = useState(false);
     const [uploadComplete, setUploadComplete] = useState(false);
     const [abortController, setAbortController] = useState<AbortController | null>(null);
 
-    const {submitContent} = useDeal(deal.id);
+    const {submitContent, updateContentSubmission} = useDeal(deal.id);
     const {error, isError, setError, clearError} = useErrorHandling();
 
     const form = useForm<ContentSubmissionFormData>({
         resolver: zodResolver(contentSubmissionSchema),
         defaultValues: {
-            platform: "",
-            content_type: "",
-            title: "",
-            description: "",
-            caption: "",
-            post_url: "",
-            hashtags: "",
+            platform: editingSubmission?.platform || "",
+            content_type: editingSubmission?.content_type || "",
+            title: editingSubmission?.title || "",
+            description: editingSubmission?.description || "",
+            caption: editingSubmission?.caption || "",
+            post_url: editingSubmission?.post_url || "",
+            hashtags: editingSubmission?.hashtags || "",
             mention_brand: true,
-            additional_links: [],
+            additional_links: editingSubmission?.additional_links || [],
         },
     });
 
@@ -109,6 +131,35 @@ export function ContentSubmission({deal, isOpen, onClose, onSuccess}: ContentSub
         control: form.control,
         name: "additional_links",
     });
+
+    // Reset form when editingSubmission changes
+    useEffect(() => {
+        if (editingSubmission) {
+            form.reset({
+                platform: editingSubmission.platform || "",
+                content_type: editingSubmission.content_type || "",
+                title: editingSubmission.title || "",
+                description: editingSubmission.description || "",
+                caption: editingSubmission.caption || "",
+                post_url: editingSubmission.post_url || "",
+                hashtags: editingSubmission.hashtags || "",
+                mention_brand: true,
+                additional_links: editingSubmission.additional_links || [],
+            });
+        } else {
+            form.reset({
+                platform: "",
+                content_type: "",
+                title: "",
+                description: "",
+                caption: "",
+                post_url: "",
+                hashtags: "",
+                mention_brand: true,
+                additional_links: [],
+            });
+        }
+    }, [editingSubmission, form]);
 
     const handleFileSelect = useCallback((file: File) => {
         setSelectedFile(file);
@@ -164,7 +215,17 @@ export function ContentSubmission({deal, isOpen, onClose, onSuccess}: ContentSub
                 signal: controller.signal,
             };
 
-            await submitContent.mutateAsync(submissionData);
+            if (editingSubmission) {
+                // Update existing submission
+                const updateData = {
+                    ...submissionData,
+                    submissionId: editingSubmission.id,
+                };
+                await updateContentSubmission.mutateAsync(updateData);
+            } else {
+                // Create new submission
+                await submitContent.mutateAsync(submissionData);
+            }
 
             setUploadComplete(true);
             setUploadProgress(100);
@@ -278,9 +339,9 @@ export function ContentSubmission({deal, isOpen, onClose, onSuccess}: ContentSub
         <Dialog open={isOpen} onOpenChange={handleClose}>
             <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
-                    <DialogTitle>Submit Content</DialogTitle>
+                    <DialogTitle>{editingSubmission ? 'Edit Content Submission' : 'Submit Content'}</DialogTitle>
                     <DialogDescription>
-                        Submit your content (files, links, or posts) for the campaign: {deal.campaign?.title}
+                        {editingSubmission ? 'Update your content submission' : 'Submit your content (files, links, or posts)'} for the campaign: {deal.campaign?.title}
                     </DialogDescription>
                 </DialogHeader>
 
@@ -619,7 +680,7 @@ export function ContentSubmission({deal, isOpen, onClose, onSuccess}: ContentSub
                                 Uploaded
                             </>
                         ) : (
-                            "Submit Content"
+                            editingSubmission ? "Update Content" : "Submit Content"
                         )}
                     </Button>
                 </DialogFooter>

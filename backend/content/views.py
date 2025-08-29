@@ -126,10 +126,36 @@ def content_submission_detail_view(request, deal_id, submission_id):
                 'message': 'Approved submissions cannot be modified.'
             }, status=status.HTTP_400_BAD_REQUEST)
 
+        # Check if this is an update after revision request
+        was_revision_requested = submission.revision_requested
+
         serializer = ContentSubmissionSerializer(submission, data=request.data, partial=True)
         
         if serializer.is_valid():
-            serializer.save()
+            updated_submission = serializer.save()
+            
+            # If this was an update after revision request, reset status for new review
+            if was_revision_requested:
+                from django.utils import timezone
+                updated_submission.revision_requested = False
+                updated_submission.approved = None  # Reset to pending
+                updated_submission.feedback = ''
+                updated_submission.revision_notes = ''
+                updated_submission.last_revision_update = timezone.now()
+                updated_submission.save()
+                
+                # Update deal status back to under_review
+                deal = updated_submission.deal
+                deal.status = 'under_review'
+                deal.save()
+                
+                # Create notification for brand about resubmission
+                _create_content_notification(
+                    deal, 
+                    updated_submission, 
+                    'resubmitted',
+                    f"Content has been updated and resubmitted for review"
+                )
             
             return Response({
                 'status': 'success',
@@ -227,6 +253,16 @@ def content_review_view(request, deal_id, submission_id):
         submission.reviewed_by = request.user
         submission.review_count += 1
         submission.save()
+
+        # Save review history
+        from .models import ContentReviewHistory
+        ContentReviewHistory.objects.create(
+            content_submission=submission,
+            reviewed_by=request.user,
+            action=action,
+            feedback=feedback,
+            revision_notes=revision_notes
+        )
 
         # Update deal status based on submission reviews
         _update_deal_status_after_review(deal)
@@ -333,7 +369,7 @@ def _update_deal_status_after_review(deal):
         deal.save()
 
 
-def _create_content_notification(deal, submission, action):
+def _create_content_notification(deal, submission, action, custom_message=None):
     """
     Create a notification message in the deal conversation about content events.
     """
@@ -374,6 +410,12 @@ def _create_content_notification(deal, submission, action):
             sender_user = submission.reviewed_by
             read_by_influencer = False
             read_by_brand = True
+        elif action == 'resubmitted':
+            content = custom_message or f"🔄 Content resubmitted: {submission.title or f'{submission.get_content_type_display()} for {submission.get_platform_display()}'}"
+            sender_type = 'influencer'
+            sender_user = deal.influencer.user
+            read_by_influencer = True
+            read_by_brand = False
         else:
             return  # Unknown action
         
