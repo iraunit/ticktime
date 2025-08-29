@@ -273,7 +273,7 @@ class CampaignSerializer(serializers.ModelSerializer):
     def get_deals(self, obj):
         # Use a lightweight serializer to avoid nested campaign serialization recursion
         from deals.serializers import DealListLiteSerializer
-        deals = obj.deals.all().select_related('influencer')
+        deals = obj.deals.all().select_related('influencer').prefetch_related('conversation__messages')
         return DealListLiteSerializer(deals, many=True, context=self.context).data
 
     def get_total_invited(self, obj):

@@ -442,7 +442,7 @@ export default function CreateCampaignPage() {
       const liveDate = new Date(campaignData.campaign_live_date);
       const today = new Date();
       const minDate = new Date();
-      minDate.setDate(today.getDate() + 15);
+      minDate.setDate(today.getDate() + 14);
       
       if (liveDate < minDate) {
         errors.push('Campaign live date must be at least 15 days from today.');

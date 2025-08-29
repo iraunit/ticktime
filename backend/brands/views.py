@@ -1402,6 +1402,15 @@ def brand_conversations_view(request):
             Q(messages__content__icontains=search)
         ).distinct()
 
+    # Apply deal filter
+    deal_filter = request.GET.get('deal')
+    if deal_filter:
+        try:
+            deal_id = int(deal_filter)
+            conversations = conversations.filter(deal__id=deal_id)
+        except (ValueError, TypeError):
+            pass
+
     # Apply status filter
     status_filter = request.GET.get('status')
     if status_filter:

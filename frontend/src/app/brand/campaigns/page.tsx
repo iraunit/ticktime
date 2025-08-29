@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -79,7 +79,7 @@ export default function BrandCampaignsPage() {
   const [dealType, setDealType] = useState<string>("all");
   const [platform, setPlatform] = useState<string>("all");
 
-  const fetchCampaigns = async (pageNum: number = 1, append: boolean = false) => {
+  const fetchCampaigns = useCallback(async (pageNum: number = 1, append: boolean = false) => {
     setIsLoading(true);
     try {
       console.log('Fetching campaigns...');
@@ -127,7 +127,7 @@ export default function BrandCampaignsPage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [searchTerm, campaignTime, sortBy, dealType, platform]);
 
   useEffect(() => {
     const timeoutId = setTimeout(() => {

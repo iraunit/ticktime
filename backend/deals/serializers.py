@@ -177,6 +177,9 @@ class DealListLiteSerializer(serializers.ModelSerializer):
     is_active = serializers.ReadOnlyField()
     response_deadline_passed = serializers.ReadOnlyField()
     days_until_deadline = serializers.SerializerMethodField()
+    conversation = serializers.SerializerMethodField()
+    last_message = serializers.SerializerMethodField()
+    unread_count = serializers.SerializerMethodField()
 
     class Meta:
         model = Deal
@@ -185,7 +188,7 @@ class DealListLiteSerializer(serializers.ModelSerializer):
             'response_deadline_passed', 'days_until_deadline',
             'invited_at', 'responded_at', 'accepted_at', 'completed_at',
             'payment_status', 'payment_date', 'brand_rating', 'brand_review',
-            'influencer_rating', 'influencer_review'
+            'influencer_rating', 'influencer_review', 'conversation', 'last_message', 'unread_count'
         )
         read_only_fields = ('id', 'invited_at', 'responded_at', 'accepted_at', 'completed_at')
 
@@ -201,6 +204,46 @@ class DealListLiteSerializer(serializers.ModelSerializer):
             d = obj.campaign.application_deadline - tz.now()
             return max(0, d.days)
         return None
+
+    def get_conversation(self, obj):
+        """Get conversation information for this deal."""
+        try:
+            conversation = obj.conversation
+            return {
+                'id': conversation.id,
+                'created_at': conversation.created_at,
+                'updated_at': conversation.updated_at,
+            }
+        except Conversation.DoesNotExist:
+            return None
+
+    def get_last_message(self, obj):
+        """Get the last message in this deal's conversation."""
+        try:
+            last_message = obj.conversation.last_message
+            if last_message:
+                return {
+                    'id': last_message.id,
+                    'content': last_message.content,
+                    'sender_type': last_message.sender_type,
+                    'created_at': last_message.created_at,
+                }
+            return None
+        except Conversation.DoesNotExist:
+            return None
+
+    def get_unread_count(self, obj):
+        """Get unread messages count for the current user."""
+        try:
+            conversation = obj.conversation
+            request = self.context.get('request')
+            if request and hasattr(request.user, 'brand_user'):
+                return conversation.unread_count_for_brand
+            elif request and hasattr(request.user, 'influencer_profile'):
+                return conversation.unread_count_for_influencer
+            return 0
+        except Conversation.DoesNotExist:
+            return 0
 
 class DealDetailSerializer(serializers.ModelSerializer):
     """

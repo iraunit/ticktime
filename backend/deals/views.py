@@ -540,35 +540,73 @@ def content_submissions_view(request, deal_id):
 @permission_classes([IsAuthenticated])
 def deal_messages_view(request, deal_id):
     """
-    Get or send messages for a deal (placeholder implementation).
+    Get or send messages for a specific deal. Creates conversation if it doesn't exist.
     """
-    try:
-        profile = request.user.influencer_profile
-    except InfluencerProfile.DoesNotExist:
+    from messaging.serializers import MessageSerializer, ConversationSerializer
+    
+    deal = get_object_or_404(Deal.objects.select_related('campaign__brand'), id=deal_id)
+    
+    # Check if user is authorized to access this deal
+    is_brand_user = hasattr(request.user, 'brand_user') and request.user.brand_user.brand == deal.campaign.brand
+    is_influencer = hasattr(request.user, 'influencer_profile') and request.user.influencer_profile == deal.influencer
+    
+    if not (is_brand_user or is_influencer):
         return Response({
             'status': 'error',
-            'message': 'Influencer profile not found.'
-        }, status=status.HTTP_404_NOT_FOUND)
-
-    deal = get_object_or_404(
-        Deal.objects.select_related('campaign__brand'),
-        id=deal_id,
-        influencer=profile
-    )
-
+            'message': 'You do not have permission to access this deal\'s messages.'
+        }, status=status.HTTP_403_FORBIDDEN)
+    
+    # Get or create conversation for this deal
+    conversation, created = Conversation.objects.get_or_create(deal=deal)
+    
     if request.method == 'GET':
-        # Placeholder implementation for getting messages
+        # Get all messages in this conversation
+        messages = Message.objects.filter(conversation=conversation).order_by('created_at')
+        
+        # Mark messages as read based on user type
+        if is_brand_user:
+            messages.filter(sender_type='influencer', read_by_brand=False).update(read_by_brand=True)
+        elif is_influencer:
+            messages.filter(sender_type='brand', read_by_influencer=False).update(read_by_influencer=True)
+        
+        serialized_messages = MessageSerializer(messages, many=True).data
+        
         return Response({
             'status': 'success',
-            'messages': []
+            'messages': serialized_messages,
+            'conversation_id': conversation.id
         }, status=status.HTTP_200_OK)
     
     elif request.method == 'POST':
-        # Placeholder implementation for sending messages
+        # Send a new message
+        content = request.data.get('content', '').strip()
+        if not content:
+            return Response({
+                'status': 'error',
+                'message': 'Message content is required.'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Determine sender type
+        sender_type = 'brand' if is_brand_user else 'influencer'
+        
+        # Create message
+        message = Message.objects.create(
+            conversation=conversation,
+            sender_type=sender_type,
+            sender_user=request.user,
+            content=content,
+            read_by_brand=is_brand_user,  # Mark as read by sender
+            read_by_influencer=is_influencer  # Mark as read by sender
+        )
+        
+        # Serialize the message
+        serialized_message = MessageSerializer(message).data
+        
         return Response({
             'status': 'success',
-            'message': 'Message sent successfully'
-        }, status=status.HTTP_200_OK)
+            'message_data': serialized_message,
+            'conversation_id': conversation.id
+        }, status=status.HTTP_201_CREATED)
 
 
 @api_view(['POST', 'GET'])  # Add GET for debugging

@@ -65,13 +65,18 @@ export function UnifiedMessaging({ userType, targetParam }: UnifiedMessagingProp
   const [searchTerm, setSearchTerm] = useState("");
   const [newMessage, setNewMessage] = useState("");
   const [error, setError] = useState<string | null>(null);
+  
+  // Get URL parameters for filtering
+  const searchParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : new URLSearchParams();
+  const dealParam = searchParams.get('deal');
+  const conversationParam = searchParams.get('conversation');
 
   // API endpoints based on user type
   const getApiEndpoints = () => {
     return {
-      conversations: userType === 'brand' ? '/brands/conversations/' : '/conversations/',
+      conversations: userType === 'brand' ? '/brands/conversations/' : '/messaging/conversations/',
       // Use unified conversation-based endpoint for both roles
-      messagesByConversation: (conversationId: number) => `/conversations/${conversationId}/messages/`,
+      messagesByConversation: (conversationId: number) => `/messaging/conversations/${conversationId}/messages/`,
       // Keep first-message only for brand
       firstMessage: userType === 'brand' ? ((influencerId: string) => `/brands/influencers/${influencerId}/message/`) : null,
     };
@@ -84,10 +89,17 @@ export function UnifiedMessaging({ userType, targetParam }: UnifiedMessagingProp
     setIsLoading(true);
     setError(null);
     try {
+      const params: any = {
+        search: searchTerm || undefined,
+      };
+      
+      // Add deal filtering if deal parameter is present
+      if (dealParam) {
+        params.deal = dealParam;
+      }
+      
       const response = await api.get(endpoints.conversations, {
-        params: {
-          search: searchTerm || undefined,
-        },
+        params,
         timeout: 10000,
       });
       console.log('Conversations response:', response.data);
@@ -120,7 +132,16 @@ export function UnifiedMessaging({ userType, targetParam }: UnifiedMessagingProp
     setIsLoadingMessages(true);
     try {
       console.log('Fetching messages for conversation:', conversation.id);
-      const response = await api.get(endpoints.messagesByConversation(conversation.id));
+      
+      let response;
+      // If we have a deal parameter, use the deal-specific endpoint
+      if (dealParam) {
+        response = await api.get(`/deals/${dealParam}/messages/`);
+      } else {
+        // Use the general conversation endpoint
+        response = await api.get(endpoints.messagesByConversation(conversation.id));
+      }
+      
       console.log('Messages response:', response.data);
       const received = Array.isArray(response.data?.messages) ? response.data.messages : [];
       // Ensure chronological order: oldest at top, newest at bottom
@@ -143,9 +164,18 @@ export function UnifiedMessaging({ userType, targetParam }: UnifiedMessagingProp
     if (!newMessage.trim() || !selectedConversation) return;
 
     try {
-      const response = await api.post(endpoints.messagesByConversation(selectedConversation.id), {
-        content: newMessage.trim()
-      });
+      let response;
+      // If we have a deal parameter, use the deal-specific endpoint
+      if (dealParam) {
+        response = await api.post(`/deals/${dealParam}/messages/`, {
+          content: newMessage.trim()
+        });
+      } else {
+        // Use the general conversation endpoint
+        response = await api.post(endpoints.messagesByConversation(selectedConversation.id), {
+          content: newMessage.trim()
+        });
+      }
       
       const created = response.data?.message_data;
       if (created && typeof created === 'object') {
@@ -175,25 +205,50 @@ export function UnifiedMessaging({ userType, targetParam }: UnifiedMessagingProp
   };
 
   const sendFirstMessage = async () => {
-    if (!newMessage.trim() || !targetParam || userType !== 'brand') return;
+    if (!newMessage.trim() || userType !== 'brand') return;
+    if (!dealParam && !targetParam) return;
     
     try {
-      const response = await api.post(endpoints.firstMessage!(targetParam), {
-        content: newMessage.trim(),
-      });
+      let response;
+      
+      if (dealParam) {
+        // Create deal-specific conversation
+        response = await api.post(`/deals/${dealParam}/messages/`, {
+          content: newMessage.trim(),
+        });
+      } else if (targetParam) {
+        // Create general influencer conversation
+        response = await api.post(endpoints.firstMessage!(targetParam), {
+          content: newMessage.trim(),
+        });
+      }
+      
       setNewMessage("");
       
       // Refresh conversations and select newly created one
       await fetchConversations();
-      const convId = response.data?.conversation_id;
-      const created = (convId && (conversations.find(c => c.id === convId) || null)) || null;
-      if (created) setSelectedConversation(created);
-      else {
-        // fallback: pick first matching influencer if appears after refresh
-        const match = conversations.find((c: any) => (c as any).influencer_id?.toString() === targetParam);
-        if (match) setSelectedConversation(match as any);
+      const convId = response?.data?.conversation_id;
+      
+      if (convId) {
+        const created = conversations.find(c => c.id === convId);
+        if (created) {
+          setSelectedConversation(created);
+        }
+      } else {
+        // Fallback: find conversation by deal or influencer ID
+        if (dealParam) {
+          const match = conversations.find(c => {
+            const dealId = getInfluencerDealId(c);
+            return dealId?.toString() === dealParam;
+          });
+          if (match) setSelectedConversation(match);
+        } else if (targetParam) {
+          const match = conversations.find((c: any) => (c as any).influencer_id?.toString() === targetParam);
+          if (match) setSelectedConversation(match as any);
+        }
       }
-      toast.success('Message sent. Conversation created.');
+      
+      toast.success(dealParam ? 'Deal conversation started.' : 'Message sent. Conversation created.');
     } catch (error: any) {
       console.error('Failed to start conversation:', error);
       toast.error(error?.response?.data?.message || 'Failed to start conversation.');
@@ -203,23 +258,55 @@ export function UnifiedMessaging({ userType, targetParam }: UnifiedMessagingProp
   // Initial load of conversations
   useEffect(() => {
     fetchConversations();
-  }, []);
+  }, [dealParam]); // Refetch when deal parameter changes
 
-  // Auto-select conversation based on target parameter
+  // Auto-select conversation based on target parameter, deal, or conversation ID
   useEffect(() => {
-    if (!targetParam || conversations.length === 0) return;
+    if (conversations.length === 0) return;
     
     let match;
-    if (userType === 'brand') {
-      match = conversations.find((c: any) => (c as any).influencer_id?.toString() === targetParam);
-    } else {
-      match = conversations.find((c: any) => (c as any).brand_id?.toString() === targetParam);
+    
+    // Priority 1: Specific conversation ID
+    if (conversationParam) {
+      match = conversations.find(c => c.id.toString() === conversationParam);
+    }
+    
+    // Priority 2: Specific deal ID (HIGHEST PRIORITY for deal-based conversations)
+    if (!match && dealParam) {
+      match = conversations.find(c => {
+        const dealId = getInfluencerDealId(c);
+        return dealId?.toString() === dealParam;
+      });
+      
+      // If we found a deal-specific conversation, select it immediately
+      if (match) {
+        setSelectedConversation(match as any);
+        return;
+      }
+      
+      // If no conversation exists for this deal, clear selection to show new conversation interface
+      setSelectedConversation(null);
+      return;
+    }
+    
+    // Priority 3: Target parameter (influencer/brand ID) - only if no deal parameter
+    if (!match && targetParam && !dealParam) {
+      if (userType === 'brand') {
+        match = conversations.find((c: any) => (c as any).influencer_id?.toString() === targetParam);
+      } else {
+        match = conversations.find((c: any) => (c as any).brand_id?.toString() === targetParam);
+      }
     }
     
     if (match) {
       setSelectedConversation(match as any);
+    } else {
+      // If we have a targetParam but no match and no dealParam, clear selection to show new conversation interface
+      if (targetParam && !dealParam) {
+        setSelectedConversation(null);
+      }
     }
-  }, [conversations, targetParam]);
+  }, [conversations, targetParam, dealParam, conversationParam]);
 
   // Search with debounce
   useEffect(() => {
@@ -335,22 +422,53 @@ export function UnifiedMessaging({ userType, targetParam }: UnifiedMessagingProp
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-xl font-semibold text-gray-900">
-              Messages
+              {dealParam ? 'Deal Conversation' : 
+               targetParam && userType === 'brand' && !selectedConversation ? 'New Conversation' : 
+               'Messages'}
             </h1>
             <p className="text-sm text-gray-500">
-              {conversations.length} conversations
+              {dealParam ? (
+                selectedConversation ? 'Deal-specific messaging' : `Start conversation for deal #${dealParam}`
+              ) : targetParam && userType === 'brand' && !selectedConversation ? (
+                `Start conversation with influencer #${targetParam}`
+              ) : (
+                `${conversations.length} conversations`
+              )}
+              {dealParam && (
+                <span className="ml-2 px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-medium">
+                  Deal #{dealParam}
+                </span>
+              )}
+              {targetParam && userType === 'brand' && !selectedConversation && !dealParam && (
+                <span className="ml-2 px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs font-medium">
+                  Influencer #{targetParam}
+                </span>
+              )}
             </p>
           </div>
           
-          <Button 
-            variant="ghost" 
-            size="sm"
-            onClick={fetchConversations}
-            disabled={isLoading}
-            className="text-gray-600 hover:text-gray-900"
-          >
-            <HiArrowPath className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
-          </Button>
+          <div className="flex items-center gap-2">
+            {dealParam && (
+              <Button 
+                variant="ghost" 
+                size="sm"
+                onClick={() => window.close()}
+                className="text-gray-600 hover:text-gray-900"
+              >
+                <HiArrowLeft className="h-4 w-4 mr-1" />
+                Close
+              </Button>
+            )}
+            <Button 
+              variant="ghost" 
+              size="sm"
+              onClick={fetchConversations}
+              disabled={isLoading}
+              className="text-gray-600 hover:text-gray-900"
+            >
+              <HiArrowPath className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -420,7 +538,6 @@ export function UnifiedMessaging({ userType, targetParam }: UnifiedMessagingProp
               ) : (
                 <div>
                   {conversations.map((conversation) => {
-                    console.log('Rendering conversation:', conversation);
                     return (
                     <div
                       key={conversation.id}
@@ -452,7 +569,10 @@ export function UnifiedMessaging({ userType, targetParam }: UnifiedMessagingProp
                             </div>
                             
                             <p className="text-xs text-gray-500 mb-2 truncate">
-                              {conversation.deal_title}
+                              {dealParam && getInfluencerDealId(conversation)?.toString() === dealParam ? 
+                                `🎯 Deal #${dealParam}: ${conversation.deal_title}` : 
+                                conversation.deal_title
+                              }
                             </p>
                             
                             <div className="flex items-center justify-between">
@@ -499,9 +619,8 @@ export function UnifiedMessaging({ userType, targetParam }: UnifiedMessagingProp
                           {getDisplayName(selectedConversation)}
                         </h3>
                         <p className="text-sm text-gray-500">
-                          {selectedConversation.deal_title}
+                          {dealParam ? `Deal #${dealParam}: ${selectedConversation.deal_title}` : selectedConversation.deal_title}
                         </p>
-                        {/* Deal identifier: show human-friendly title only */}
                       </div>
                     </div>
                     
@@ -595,20 +714,24 @@ export function UnifiedMessaging({ userType, targetParam }: UnifiedMessagingProp
                 <div className="text-center max-w-md">
                   <HiChatBubbleLeftRight className="w-16 h-16 text-gray-300 mx-auto mb-4" />
                   <h3 className="text-lg font-medium text-gray-900 mb-2">
-                    {targetParam && userType === 'brand'
+                    {dealParam && userType === 'brand'
+                      ? `Start deal conversation`
+                      : targetParam && userType === 'brand'
                       ? `Start a new conversation`
                       : 'Select a conversation'}
                   </h3>
                   <p className="text-gray-500 mb-4">
-                    {targetParam && userType === 'brand'
-                      ? `Send the first message to create a conversation with this influencer.`
+                    {dealParam && userType === 'brand'
+                      ? `Send the first message to start a conversation for deal #${dealParam}.`
+                      : targetParam && userType === 'brand'
+                      ? `Send the first message to create a conversation with influencer #${targetParam}.`
                       : 'Choose a conversation from the list to start messaging.'}
                   </p>
-                  {targetParam && userType === 'brand' && (
+                  {(dealParam || targetParam) && userType === 'brand' && (
                     <div className="flex items-center gap-3 max-w-md">
                       <div className="flex-1 bg-gray-100 rounded-full px-4 py-3 flex items-center">
                         <Input
-                          placeholder="Type your message..."
+                          placeholder={dealParam ? "Start conversation for this deal..." : "Type your message..."}
                           value={newMessage}
                           onChange={(e) => setNewMessage(e.target.value)}
                           onKeyPress={handleNewConversationKeyPress}
@@ -696,7 +819,6 @@ export function UnifiedMessaging({ userType, targetParam }: UnifiedMessagingProp
                 ) : (
                   <div>
                     {conversations.map((conversation) => {
-                      console.log('Rendering mobile conversation:', conversation);
                       return (
                       <div
                         key={conversation.id}
@@ -728,7 +850,10 @@ export function UnifiedMessaging({ userType, targetParam }: UnifiedMessagingProp
                               </div>
                               
                               <p className="text-xs text-gray-500 mb-2 truncate">
-                                {conversation.deal_title}
+                                {dealParam && getInfluencerDealId(conversation)?.toString() === dealParam ? 
+                                  `🎯 Deal #${dealParam}: ${conversation.deal_title}` : 
+                                  conversation.deal_title
+                                }
                               </p>
                               
                               <div className="flex items-center justify-between">
@@ -782,9 +907,8 @@ export function UnifiedMessaging({ userType, targetParam }: UnifiedMessagingProp
                           {getDisplayName(selectedConversation)}
                         </h3>
                         <p className="text-sm text-gray-500">
-                          {selectedConversation.deal_title}
+                          {dealParam ? `Deal #${dealParam}: ${selectedConversation.deal_title}` : selectedConversation.deal_title}
                         </p>
-                        {/* Deal identifier: show human-friendly title only */}
                       </div>
                     </div>
                   </div>

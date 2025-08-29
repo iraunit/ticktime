@@ -1172,22 +1172,23 @@ export default function CampaignDetailPage() {
                             <HiEye className="w-4 h-4 mr-2" />
                             View Details
                           </Button>
-                          {deal.conversation && (
-                            <Button 
-                              variant="outline" 
-                              size="sm"
-                              onClick={() => router.push(`/brand/messages?deal=${deal.id}`)}
-                              className="flex-1 bg-gradient-to-r from-green-50 to-emerald-50 border-green-200 text-green-700 hover:from-green-100 hover:to-emerald-100 font-medium relative"
-                            >
-                              <HiChatBubbleLeftRight className="w-4 h-4 mr-2" />
-                              Messages
-                              {deal.unread_count && deal.unread_count > 0 && (
-                                <Badge className="ml-2 bg-red-500 text-white text-xs px-2 py-0.5 rounded-full">
-                                  {deal.unread_count}
-                                </Badge>
-                              )}
-                            </Button>
-                          )}
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => {
+                              const url = `/brand/messages?deal=${deal.id}`;
+                              window.open(url, '_blank');
+                            }}
+                            className="flex-1 bg-gradient-to-r from-green-50 to-emerald-50 border-green-200 text-green-700 hover:from-green-100 hover:to-emerald-100 font-medium relative"
+                          >
+                            <HiChatBubbleLeftRight className="w-4 h-4 mr-2" />
+                            {deal.conversation ? 'Messages' : 'Start Chat'}
+                            {deal.unread_count && deal.unread_count > 0 && (
+                              <Badge className="ml-2 bg-red-500 text-white text-xs px-2 py-0.5 rounded-full">
+                                {deal.unread_count}
+                              </Badge>
+                            )}
+                          </Button>
                         </div>
                       </div>
                     ))}
@@ -1218,58 +1219,179 @@ export default function CampaignDetailPage() {
             <Card className="border-0 shadow-xl bg-white/80 backdrop-blur-sm overflow-hidden">
               <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-green-500 to-emerald-500"></div>
               <CardHeader className="pb-4">
-                <CardTitle className="text-xl font-bold text-gray-900 flex items-center gap-2">
-                  <HiChatBubbleLeftRight className="w-5 h-5 text-green-600" />
-                  Recent Conversations
-                </CardTitle>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                    <HiChatBubbleLeftRight className="w-5 h-5 text-green-600" />
+                    Deal Conversations
+                  </CardTitle>
+                  <div className="text-sm text-gray-500">
+                    {campaign.deals?.filter(deal => deal.conversation).length || 0} active conversations
+                  </div>
+                </div>
               </CardHeader>
               <CardContent>
-                {campaign.deals && campaign.deals.some(deal => deal.last_message) ? (
+                {campaign.deals && campaign.deals.length > 0 ? (
                   <div className="space-y-4">
                     {campaign.deals
-                      .filter(deal => deal.last_message)
-                      .sort((a, b) => new Date(b.last_message!.created_at).getTime() - new Date(a.last_message!.created_at).getTime())
-                      .slice(0, 5)
+                      .filter(deal => deal.conversation) // Only show deals with conversations
+                      .sort((a, b) => {
+                        // Sort by last message time, then by deal creation time
+                        const aTime = a.last_message?.created_at || a.invited_at;
+                        const bTime = b.last_message?.created_at || b.invited_at;
+                        return new Date(bTime).getTime() - new Date(aTime).getTime();
+                      })
                       .map((deal) => (
-                        <div key={deal.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
-                          <div className="flex items-start justify-between mb-2">
+                        <div key={deal.id} className="group border border-gray-200 rounded-xl p-4 hover:shadow-md hover:border-green-300 transition-all duration-200 bg-gradient-to-br from-white to-gray-50/50">
+                          <div className="flex items-start justify-between mb-3">
                             <div className="flex items-center gap-3">
-                              <div className="w-10 h-10 bg-gradient-to-br from-purple-400 to-pink-400 rounded-full flex items-center justify-center text-white font-semibold text-sm">
-                                {deal.influencer.full_name.charAt(0).toUpperCase()}
+                              <div className="relative">
+                                <div className="w-12 h-12 bg-gradient-to-br from-green-400 to-emerald-600 rounded-full flex items-center justify-center text-white font-bold text-sm shadow-md">
+                                  {deal.influencer.full_name.charAt(0).toUpperCase()}
+                                </div>
+                                {deal.influencer.is_verified && (
+                                  <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-blue-500 border-2 border-white rounded-full flex items-center justify-center">
+                                    <HiCheckBadge className="w-3 h-3 text-white" />
+                                  </div>
+                                )}
                               </div>
-                              <div>
-                                <h4 className="font-medium text-gray-900">{deal.influencer.full_name}</h4>
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <h4 className="font-semibold text-gray-900">{deal.influencer.full_name}</h4>
+                                  <Badge 
+                                    className={`text-xs font-medium px-2 py-1 rounded-full ${dealStatusColors[deal.status as keyof typeof dealStatusColors] || 'bg-gray-100 text-gray-800'}`}
+                                  >
+                                    {deal.status_display}
+                                  </Badge>
+                                </div>
                                 <p className="text-sm text-gray-600">@{deal.influencer.username}</p>
                               </div>
                             </div>
-                            <span className="text-xs text-gray-500">{formatDate(deal.last_message!.created_at)}</span>
+                            <div className="text-right">
+                              <span className="text-xs text-gray-500">
+                                {deal.last_message ? formatDate(deal.last_message.created_at) : formatDate(deal.invited_at)}
+                              </span>
+                              {deal.unread_count && deal.unread_count > 0 && (
+                                <div className="mt-1">
+                                  <Badge className="bg-red-500 text-white text-xs px-2 py-1 rounded-full animate-pulse">
+                                    {deal.unread_count} new
+                                  </Badge>
+                                </div>
+                              )}
+                            </div>
                           </div>
-                          <p className="text-sm text-gray-700 mb-3 line-clamp-2">
-                            {deal.last_message!.content}
-                          </p>
+                          
+                          {/* Last Message Preview */}
+                          {deal.last_message ? (
+                            <div className="mb-3 p-3 bg-white/70 rounded-lg border border-gray-100">
+                              <div className="flex items-start gap-2">
+                                <div className="text-xs font-medium text-gray-600 uppercase tracking-wide">
+                                  {deal.last_message.sender_type === 'brand' ? 'You' : deal.influencer.full_name}:
+                                </div>
+                              </div>
+                              <p className="text-sm text-gray-700 line-clamp-2 mt-1 leading-relaxed">
+                                {deal.last_message.content}
+                              </p>
+                            </div>
+                          ) : (
+                            <div className="mb-3 p-3 bg-yellow-50 rounded-lg border border-yellow-200">
+                              <p className="text-sm text-yellow-700 italic">
+                                No messages yet - Start the conversation!
+                              </p>
+                            </div>
+                          )}
+                          
+                          {/* Action Buttons */}
                           <div className="flex items-center gap-2">
                             <Button 
                               variant="outline" 
                               size="sm"
-                              onClick={() => router.push(`/brand/messages?conversation=${String(deal.conversation?.id || '')}`)}
+                              onClick={() => {
+                                const url = `/brand/messages?deal=${deal.id}`;
+                                window.open(url, '_blank');
+                              }}
+                              className="flex-1 bg-gradient-to-r from-green-50 to-emerald-50 border-green-200 text-green-700 hover:from-green-100 hover:to-emerald-100 hover:border-green-300 font-medium group-hover:scale-105 transition-all duration-200"
                             >
-                              <HiChatBubbleLeftRight className="w-4 h-4 mr-1" />
-                              View Conversation
+                              <HiChatBubbleLeftRight className="w-4 h-4 mr-2" />
+                              Open Chat
+                              <span className="ml-1 text-xs opacity-60">(New Tab)</span>
                             </Button>
-                            {deal.unread_count && deal.unread_count > 0 && (
-                              <Badge variant="destructive" className="text-xs">
-                                {deal.unread_count} unread
-                              </Badge>
-                            )}
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              onClick={() => router.push(`/brand/deals/${deal.id}`)}
+                              className="bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100 hover:border-blue-300"
+                            >
+                              <HiEye className="w-4 h-4" />
+                            </Button>
                           </div>
                         </div>
                       ))}
+                    
+                    {/* Show deals without conversations */}
+                    {campaign.deals.filter(deal => !deal.conversation).length > 0 && (
+                      <div className="mt-6">
+                        <h4 className="text-sm font-medium text-gray-700 mb-3 flex items-center gap-2">
+                          <HiUsers className="w-4 h-4" />
+                          Start new deal conversations ({campaign.deals.filter(deal => !deal.conversation).length})
+                        </h4>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          {campaign.deals
+                            .filter(deal => !deal.conversation)
+                            .slice(0, 6) // Limit to 6 to avoid clutter
+                            .map((deal) => (
+                              <div key={deal.id} className="p-3 bg-gray-50 rounded-lg border border-gray-200">
+                                <div className="flex items-center gap-2 mb-2">
+                                  <div className="w-8 h-8 bg-gradient-to-br from-gray-400 to-gray-600 rounded-full flex items-center justify-center text-white font-semibold text-xs">
+                                    {deal.influencer.full_name.charAt(0).toUpperCase()}
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-medium text-gray-900 truncate">{deal.influencer.full_name}</p>
+                                    <p className="text-xs text-gray-600">@{deal.influencer.username}</p>
+                                  </div>
+                                  <Badge 
+                                    className={`text-xs ${dealStatusColors[deal.status as keyof typeof dealStatusColors] || 'bg-gray-100 text-gray-800'}`}
+                                  >
+                                    {deal.status_display}
+                                  </Badge>
+                                </div>
+                                <Button 
+                                  variant="outline" 
+                                  size="sm"
+                                  onClick={() => {
+                                    const url = `/brand/messages?deal=${deal.id}`;
+                                    window.open(url, '_blank');
+                                  }}
+                                  className="w-full text-xs"
+                                >
+                                  Start Deal Conversation
+                                </Button>
+                              </div>
+                            ))}
+                        </div>
+                        {campaign.deals.filter(deal => !deal.conversation).length > 6 && (
+                          <p className="text-xs text-gray-500 mt-2 text-center">
+                            +{campaign.deals.filter(deal => !deal.conversation).length - 6} more deals
+                          </p>
+                        )}
+                      </div>
+                    )}
                   </div>
                 ) : (
-                  <div className="text-center py-8">
-                    <HiChatBubbleLeftRight className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                    <h3 className="text-lg font-semibold text-gray-900 mb-2">No messages yet</h3>
-                    <p className="text-gray-600">Start conversations with your invited influencers.</p>
+                  <div className="text-center py-12">
+                    <div className="w-20 h-20 bg-gradient-to-br from-green-100 to-emerald-100 rounded-2xl flex items-center justify-center mx-auto mb-6">
+                      <HiChatBubbleLeftRight className="w-10 h-10 text-green-600" />
+                    </div>
+                    <h3 className="text-xl font-bold text-gray-900 mb-3">No deals yet</h3>
+                                            <p className="text-gray-600 mb-6 max-w-md mx-auto">
+                          Once you invite influencers to this campaign, you can start deal-specific conversations with them here.
+                        </p>
+                    <Button 
+                      onClick={() => router.push('/brand/influencers')}
+                      className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white shadow-lg hover:shadow-xl transition-all duration-200"
+                    >
+                      <HiMagnifyingGlass className="w-5 h-5 mr-2" />
+                      Find Influencers
+                    </Button>
                   </div>
                 )}
               </CardContent>
