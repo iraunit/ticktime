@@ -6,31 +6,6 @@ module.exports = {
         './components/**/*.{ts,tsx}',
         './app/**/*.{ts,tsx}',
         './src/**/*.{ts,tsx}',
-        // Ensure custom animation classes are not purged
-        './src/app/globals.css',
-    ],
-    // Safelist important classes to prevent purging
-    safelist: [
-        'animate-in',
-        'fade-in-0',
-        'slide-in-from-left',
-        'slide-in-from-left-2',
-        'duration-300',
-        'transition-all',
-        'ease-in-out',
-        'w-64',
-        'w-16',
-        'ml-64',
-        'ml-16',
-        // Sidebar specific classes
-        'fixed',
-        'inset-y-0',
-        'left-0',
-        'z-50',
-        'bg-white',
-        'border-r',
-        'border-gray-200',
-        'shadow-lg',
     ],
     prefix: "",
     theme: {

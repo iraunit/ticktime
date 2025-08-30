@@ -24,40 +24,21 @@ export function SidebarProvider({ children }: { children: ReactNode }) {
     setHasMounted(true);
   }, []);
 
-  // Load initial state from localStorage only after mounting with better error handling
+  // Load initial state from localStorage only after mounting
   useEffect(() => {
     if (hasMounted && typeof window !== 'undefined') {
-      try {
-        const savedState = localStorage.getItem('sidebar-collapsed');
-        if (savedState !== null) {
-          const parsedState = JSON.parse(savedState);
-          // Only update if the parsed state is a boolean
-          if (typeof parsedState === 'boolean') {
-            setIsCollapsed(parsedState);
-          }
-        }
-      } catch (error) {
-        // If localStorage is corrupted, clear it and use default
-        console.warn('Failed to parse sidebar state from localStorage:', error);
-        try {
-          localStorage.removeItem('sidebar-collapsed');
-        } catch (e) {
-          // Ignore if we can't clear localStorage
-        }
+      const savedState = localStorage.getItem('sidebar-collapsed');
+      if (savedState !== null) {
+        setIsCollapsed(JSON.parse(savedState));
       }
       setIsInitialized(true);
     }
   }, [hasMounted]);
 
-  // Save state to localStorage when it changes with error handling
+  // Save state to localStorage when it changes
   useEffect(() => {
     if (isInitialized && hasMounted && typeof window !== 'undefined') {
-      try {
-        localStorage.setItem('sidebar-collapsed', JSON.stringify(isCollapsed));
-      } catch (error) {
-        // Ignore localStorage errors (e.g., quota exceeded, private browsing)
-        console.warn('Failed to save sidebar state to localStorage:', error);
-      }
+      localStorage.setItem('sidebar-collapsed', JSON.stringify(isCollapsed));
     }
   }, [isCollapsed, isInitialized, hasMounted]);
 
