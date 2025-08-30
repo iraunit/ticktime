@@ -5,33 +5,7 @@ import { usePathname } from "next/navigation";
 import { useSidebar } from "@/contexts/sidebar-context";
 import { useState, useEffect } from "react";
 
-// Debug utility for brand sidebar
-const SIDEBAR_DEBUG = {
-  log: (message: string, data?: any) => {
-    const timestamp = new Date().toISOString();
-    const env = process.env.NODE_ENV;
-    const host = typeof window !== 'undefined' ? window.location.host : 'unknown';
-    const viewport = typeof window !== 'undefined' ? 
-      `${window.innerWidth}x${window.innerHeight}` : 'unknown';
-    console.log(`[BRAND-SIDEBAR-DEBUG ${timestamp}] [ENV: ${env}] [HOST: ${host}] [VIEWPORT: ${viewport}]`, message, data ? data : '');
-    
-    // CSS debugging for production
-    if (env === 'production' && typeof document !== 'undefined') {
-      const sidebarEl = document.querySelector('[class*="fixed"][class*="inset-y-0"]');
-      if (sidebarEl) {
-        const computedStyle = window.getComputedStyle(sidebarEl);
-        console.log(`[PROD-CSS-DEBUG] Sidebar computed width: ${computedStyle.width}`);
-        console.log(`[PROD-CSS-DEBUG] Sidebar computed classes: ${sidebarEl.className}`);
-      }
-    }
-  },
-  error: (message: string, error?: any) => {
-    const timestamp = new Date().toISOString();
-    const env = process.env.NODE_ENV;
-    const host = typeof window !== 'undefined' ? window.location.host : 'unknown';
-    console.error(`[BRAND-SIDEBAR-ERROR ${timestamp}] [ENV: ${env}] [HOST: ${host}]`, message, error ? error : '');
-  }
-};
+
 import { 
   HiHome, 
   HiUsers, 
@@ -40,9 +14,7 @@ import {
   HiBookmark, 
   HiChartBar,
   HiCog6Tooth,
-  HiDocumentText,
-  HiBars3,
-  HiXMark
+  HiDocumentText
 } from "react-icons/hi2";
 import { api } from "@/lib/api";
 
@@ -59,39 +31,21 @@ const navigation = [
 
 export function BrandSidebar() {
   const pathname = usePathname();
-  const { isCollapsed, isHoverExpanded, setIsHoverExpanded, toggleSidebar } = useSidebar();
+  const { isCollapsed, isHoverExpanded, setIsHoverExpanded } = useSidebar();
   const [brandLogo, setBrandLogo] = useState<string | null>(null);
   const [brandName, setBrandName] = useState<string>("TickTime");
 
-  // Debug sidebar state on every render
-  SIDEBAR_DEBUG.log('BrandSidebar render', {
-    pathname,
-    isCollapsed,
-    isHoverExpanded,
-    brandName,
-    hasBrandLogo: !!brandLogo
-  });
-
   // Fetch brand data for logo and name
   useEffect(() => {
-    SIDEBAR_DEBUG.log('Fetching brand data...');
     const fetchBrandData = async () => {
       try {
         const response = await api.get('/brands/settings/');
-        SIDEBAR_DEBUG.log('Brand data API response', {
-          status: response.data.status,
-          brand: response.data.brand
-        });
         if (response.data.status === 'success') {
           setBrandLogo(response.data.brand.logo);
           setBrandName(response.data.brand.name || "TickTime");
-          SIDEBAR_DEBUG.log('Brand data set successfully', {
-            logo: response.data.brand.logo,
-            name: response.data.brand.name || "TickTime"
-          });
         }
       } catch (error) {
-        SIDEBAR_DEBUG.error('Error fetching brand data for sidebar', error);
+        console.error('Error fetching brand data for sidebar:', error);
       }
     };
 
@@ -101,59 +55,18 @@ export function BrandSidebar() {
   // Determine if sidebar should appear expanded (either manually or by hover)
   const isExpanded = !isCollapsed || isHoverExpanded;
 
-  SIDEBAR_DEBUG.log('Expansion state calculated', {
-    isCollapsed,
-    isHoverExpanded,
-    isExpanded,
-    calculation: `!${isCollapsed} || ${isHoverExpanded} = ${isExpanded}`
-  });
-
   // Handle hover states for auto-expand/collapse
   const handleMouseEnter = () => {
-    SIDEBAR_DEBUG.log('Mouse enter event', {
-      isCollapsed,
-      willExpand: isCollapsed
-    });
     if (isCollapsed) {
       setIsHoverExpanded(true);
-      SIDEBAR_DEBUG.log('Set hover expanded to true');
     }
   };
 
   const handleMouseLeave = () => {
-    SIDEBAR_DEBUG.log('Mouse leave event', {
-      isCollapsed,
-      willCollapse: isCollapsed
-    });
     if (isCollapsed) {
       setIsHoverExpanded(false);
-      SIDEBAR_DEBUG.log('Set hover expanded to false');
     }
   };
-
-  // Handle toggle button click
-  const handleToggleClick = () => {
-    SIDEBAR_DEBUG.log('🔘 Toggle button clicked (Simple state - no localStorage)', {
-      current_isCollapsed: isCollapsed,
-      will_become: !isCollapsed,
-      approach: 'Pure React state'
-    });
-    toggleSidebar();
-    
-    // Debug after toggle
-    setTimeout(() => {
-      SIDEBAR_DEBUG.log('🔘 After toggle state check', {
-        isCollapsed_after_toggle: isCollapsed,
-        note: 'State should update immediately, no localStorage delays'
-      });
-    }, 100);
-  };
-
-  SIDEBAR_DEBUG.log('Rendering sidebar with classes', {
-    isExpanded,
-    widthClass: isExpanded ? 'w-64' : 'w-16',
-    fullClassList: `fixed inset-y-0 left-0 z-50 bg-white border-r border-gray-200 shadow-lg transition-all duration-300 ease-in-out ${isExpanded ? 'w-64' : 'w-16'}`
-  });
 
   return (
     <div 
@@ -162,8 +75,6 @@ export function BrandSidebar() {
       }`}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
-      onTouchStart={() => SIDEBAR_DEBUG.log('Touch start detected')}
-      onTouchEnd={() => SIDEBAR_DEBUG.log('Touch end detected')}
     >
       <div className="flex flex-col h-full">
         {/* Enhanced Logo Section */}
@@ -214,22 +125,7 @@ export function BrandSidebar() {
             </div>
           )}
           
-          {/* Toggle Button - Always visible */}
-          <div className={`${isExpanded ? 'ml-auto' : 'ml-3'} flex-shrink-0 flex items-center gap-1`}>
-            <button
-              onClick={handleToggleClick}
-              className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors duration-200 group"
-              title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-            >
-              {isCollapsed ? (
-                <HiBars3 className="w-4 h-4 text-gray-600 group-hover:text-gray-800" />
-              ) : (
-                <HiXMark className="w-4 h-4 text-gray-600 group-hover:text-gray-800" />
-              )}
-            </button>
-            
 
-          </div>
         </div>
 
         {/* Navigation */}
