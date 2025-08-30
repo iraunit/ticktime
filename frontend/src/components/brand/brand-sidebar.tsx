@@ -133,11 +133,20 @@ export function BrandSidebar() {
 
   // Handle toggle button click
   const handleToggleClick = () => {
-    SIDEBAR_DEBUG.log('Toggle button clicked', {
+    SIDEBAR_DEBUG.log('🔘 Toggle button clicked (Simple state - no localStorage)', {
       current_isCollapsed: isCollapsed,
-      will_become: !isCollapsed
+      will_become: !isCollapsed,
+      approach: 'Pure React state'
     });
     toggleSidebar();
+    
+    // Debug after toggle
+    setTimeout(() => {
+      SIDEBAR_DEBUG.log('🔘 After toggle state check', {
+        isCollapsed_after_toggle: isCollapsed,
+        note: 'State should update immediately, no localStorage delays'
+      });
+    }, 100);
   };
 
   SIDEBAR_DEBUG.log('Rendering sidebar with classes', {
@@ -206,7 +215,7 @@ export function BrandSidebar() {
           )}
           
           {/* Toggle Button - Always visible */}
-          <div className={`${isExpanded ? 'ml-auto' : 'ml-3'} flex-shrink-0`}>
+          <div className={`${isExpanded ? 'ml-auto' : 'ml-3'} flex-shrink-0 flex items-center gap-1`}>
             <button
               onClick={handleToggleClick}
               className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors duration-200 group"
@@ -218,6 +227,8 @@ export function BrandSidebar() {
                 <HiXMark className="w-4 h-4 text-gray-600 group-hover:text-gray-800" />
               )}
             </button>
+            
+
           </div>
         </div>
 

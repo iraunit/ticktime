@@ -38,93 +38,22 @@ const SidebarContext = createContext<SidebarContextType | undefined>(undefined);
 export function SidebarProvider({ children }: { children: ReactNode }) {
   const [isCollapsed, setIsCollapsed] = useState(true); // Default to collapsed
   const [isHoverExpanded, setIsHoverExpanded] = useState(false);
-  const [isInitialized, setIsInitialized] = useState(false);
-  const [hasMounted, setHasMounted] = useState(false);
   const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Debug environment and initial states
-  DEBUG.log('SidebarProvider initialized', {
-    isCollapsed,
-    isHoverExpanded,
-    isInitialized,
-    hasMounted,
-    typeof_window: typeof window,
-    localStorage_available: typeof window !== 'undefined' && window.localStorage,
-    navigator_userAgent: typeof window !== 'undefined' ? window.navigator.userAgent : 'unavailable'
+  DEBUG.log('🚀 SidebarProvider constructor - Simple state (NO localStorage)', {
+    initial_isCollapsed: true,
+    initial_isHoverExpanded: false,
+    using_localStorage: false,
+    reason: 'Removed localStorage to fix production issues'
   });
 
-  // Mark as mounted to prevent hydration issues
-  useEffect(() => {
-    DEBUG.log('Component mounting...');
-    setHasMounted(true);
-    DEBUG.log('Component mounted, hasMounted set to true');
-  }, []);
-
-  // Load initial state from localStorage only after mounting
-  useEffect(() => {
-    DEBUG.log('Loading state from localStorage effect triggered', {
-      hasMounted,
-      typeof_window: typeof window,
-      window_available: typeof window !== 'undefined'
-    });
-
-    if (hasMounted && typeof window !== 'undefined') {
-      try {
-        const savedState = localStorage.getItem('sidebar-collapsed');
-        DEBUG.log('Retrieved savedState from localStorage', {
-          savedState,
-          savedState_type: typeof savedState,
-          localStorage_available: !!window.localStorage
-        });
-
-        if (savedState !== null) {
-          const parsedState = JSON.parse(savedState);
-          DEBUG.log('Parsed savedState, setting isCollapsed', {
-            parsedState,
-            parsedState_type: typeof parsedState,
-            current_isCollapsed: isCollapsed
-          });
-          setIsCollapsed(parsedState);
-        } else {
-          DEBUG.log('No saved state found, keeping default collapsed state');
-        }
-        
-        setIsInitialized(true);
-        DEBUG.log('Initialization complete');
-      } catch (error) {
-        DEBUG.error('Error loading from localStorage', error);
-        setIsInitialized(true);
-      }
-    } else {
-      DEBUG.log('Cannot load from localStorage', {
-        hasMounted,
-        window_available: typeof window !== 'undefined'
-      });
-    }
-  }, [hasMounted]);
-
-  // Save state to localStorage when it changes
-  useEffect(() => {
-    DEBUG.log('Save state effect triggered', {
-      isInitialized,
-      hasMounted,
-      typeof_window: typeof window,
-      isCollapsed,
-      shouldSave: isInitialized && hasMounted && typeof window !== 'undefined'
-    });
-
-    if (isInitialized && hasMounted && typeof window !== 'undefined') {
-      try {
-        localStorage.setItem('sidebar-collapsed', JSON.stringify(isCollapsed));
-        DEBUG.log('Successfully saved state to localStorage', {
-          saved_value: isCollapsed,
-          stringified_value: JSON.stringify(isCollapsed)
-        });
-      } catch (error) {
-        DEBUG.error('Error saving to localStorage', error);
-      }
-    }
-  }, [isCollapsed, isInitialized, hasMounted]);
+  // Debug environment and initial states  
+  DEBUG.log('SidebarProvider simple state initialized', {
+    isCollapsed,
+    isHoverExpanded,
+    approach: 'Simple React state - no localStorage',
+    default_behavior: 'Always starts collapsed, user can toggle as needed'
+  });
 
   const toggleSidebar = () => {
     DEBUG.log('toggleSidebar called', {
@@ -147,7 +76,8 @@ export function SidebarProvider({ children }: { children: ReactNode }) {
   const handleSetCollapsed = (collapsed: boolean) => {
     DEBUG.log('handleSetCollapsed called', {
       current_isCollapsed: isCollapsed,
-      new_value: collapsed
+      new_value: collapsed,
+      note: 'Simple state update - no localStorage involved'
     });
     setIsCollapsed(collapsed);
     // Clear hover expansion when manually setting state
@@ -181,6 +111,23 @@ export function SidebarProvider({ children }: { children: ReactNode }) {
       }, 3000); // Auto-collapse after 3 seconds of no hover
     }
   };
+
+  // Track isCollapsed state changes
+  useEffect(() => {
+    DEBUG.log('🔄 isCollapsed STATE CHANGED', {
+      new_isCollapsed_value: isCollapsed,
+      is_expanded: !isCollapsed,
+      component_should_show_as: isCollapsed ? 'collapsed (w-16)' : 'expanded (w-64)'
+    });
+  }, [isCollapsed]);
+
+  // Track isHoverExpanded state changes  
+  useEffect(() => {
+    DEBUG.log('👆 isHoverExpanded STATE CHANGED', {
+      new_isHoverExpanded_value: isHoverExpanded,
+      combined_expansion_state: !isCollapsed || isHoverExpanded
+    });
+  }, [isHoverExpanded]);
 
   // Cleanup timeout on unmount
   useEffect(() => {
