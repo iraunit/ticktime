@@ -19,9 +19,14 @@ function BrandLayoutContent({
       <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100">
         <div className="flex">
           <BrandSidebar />
-          <div className={`flex-1 transition-all duration-300 ease-in-out ${
-            isExpanded ? 'ml-64' : 'ml-16'
-          }`}>
+          <div 
+            className={`flex-1 transition-all duration-300 ease-in-out ${
+              isExpanded ? 'ml-64' : 'ml-16'
+            }`}
+            style={{
+              marginLeft: isExpanded ? '16rem' : '4rem', // Fallback for CSS purging
+            }}
+          >
             <main className="p-6 animate-in fade-in-0 duration-300">
               {children}
             </main>

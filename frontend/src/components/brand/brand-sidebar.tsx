@@ -32,6 +32,12 @@ export function BrandSidebar() {
   const { isCollapsed, isHoverExpanded, setIsHoverExpanded } = useSidebar();
   const [brandLogo, setBrandLogo] = useState<string | null>(null);
   const [brandName, setBrandName] = useState<string>("TickTime");
+  const [isMounted, setIsMounted] = useState(false);
+
+  // Mark as mounted to prevent hydration issues
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   // Fetch brand data for logo and name
   useEffect(() => {
@@ -66,6 +72,33 @@ export function BrandSidebar() {
     }
   };
 
+  // Prevent hydration mismatch by showing a consistent state initially
+  if (!isMounted) {
+    return (
+      <div className="fixed inset-y-0 left-0 z-50 bg-white border-r border-gray-200 shadow-lg w-16">
+        <div className="flex flex-col h-full">
+          <div className="flex items-center h-16 px-4 border-b border-gray-200 bg-gradient-to-br from-white via-gray-50 to-gray-100">
+            <div className="w-9 h-9 bg-gradient-to-br from-red-500 via-orange-500 to-red-600 rounded-xl flex items-center justify-center shadow-lg">
+              <span className="text-white font-bold text-sm">T</span>
+            </div>
+          </div>
+          <nav className="flex-1 px-2 py-6 space-y-2">
+            {navigation.map((item) => (
+              <div
+                key={item.name}
+                className="group flex items-center px-3 py-2.5 text-sm font-medium rounded-xl text-gray-700"
+              >
+                <div className="h-5 w-5 p-0.5 rounded-lg text-gray-400 flex-shrink-0">
+                  <item.icon className="w-full h-full" />
+                </div>
+              </div>
+            ))}
+          </nav>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div 
       className={`fixed inset-y-0 left-0 z-50 bg-white border-r border-gray-200 shadow-lg transition-all duration-300 ease-in-out ${
@@ -73,6 +106,7 @@ export function BrandSidebar() {
       }`}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
+      suppressHydrationWarning
     >
       <div className="flex flex-col h-full">
         {/* Enhanced Logo Section */}
