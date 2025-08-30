@@ -30,12 +30,13 @@ urlpatterns = [
     path('api/influencers/', include('influencers.urls', namespace='influencers')),
     path('api/brands/', include('brands.urls', namespace='brands')),
     path('api/campaigns/', include('campaigns.urls', namespace='campaigns')),
+    path('api/common/', include('common.urls', namespace='common')),
     path('api/', include('deals.urls', namespace='deals')),
-    path('api/', include('content.urls', namespace='content')),
+    path('api/content/deals/', include('content.urls', namespace='content')),
     
     # Communication and analytics
-    path('api/', include('messaging.urls', namespace='messaging')),
-    path('api/', include('dashboard.urls', namespace='dashboard')),
+    path('api/messaging/', include('messaging.urls', namespace='messaging')),
+    path('api/dashboard/', include('dashboard.urls', namespace='dashboard')),
     
     # Core app removed - functionality distributed to other apps
 ]

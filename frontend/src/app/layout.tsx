@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { AppProviders } from "@/components/providers/app-providers";
+import { HydrationBoundary } from "@/components/providers/hydration-boundary";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -9,8 +10,8 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "TickTime | Influencer Marketing Platform",
-  description: "Connect with brands and manage your influencer collaborations",
+  title: "TickTime - Influencer Marketing Platform",
+  description: "Connect brands with influencers for authentic marketing campaigns",
 };
 
 export default function RootLayout({
@@ -21,9 +22,11 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={`${inter.variable} font-sans antialiased`} suppressHydrationWarning>
-        <AppProviders>
-          {children}
-        </AppProviders>
+        <HydrationBoundary>
+          <AppProviders>
+            {children}
+          </AppProviders>
+        </HydrationBoundary>
       </body>
     </html>
   );

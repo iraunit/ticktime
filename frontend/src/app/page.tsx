@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { MainLayout } from "@/components/layout/main-layout";
 import { useUserContext } from "@/components/providers/app-providers";
 import { useEffect } from "react";
+import { GlobalLoader } from "@/components/ui/global-loader";
 
 export default function Home() {
   const { user, isLoading, refresh } = useUserContext();
@@ -21,32 +22,7 @@ export default function Home() {
   if (isLoading) {
     return (
       <MainLayout>
-        <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center">
-          <div className="text-center">
-            {/* Main loader */}
-            <div className="mb-6">
-              <div className="flex space-x-3 mb-4">
-                {[0, 1, 2].map((i) => (
-                  <div
-                    key={i}
-                    className="w-4 h-4 rounded-full bg-gradient-to-r from-red-500 to-orange-500 animate-bounce shadow-lg"
-                    style={{
-                      animationDelay: `${i * 0.15}s`,
-                      animationDuration: '1s'
-                    }}
-                  />
-                ))}
-              </div>
-            </div>
-            
-            
-            {/* Subtle background animation */}
-            <div className="absolute inset-0 pointer-events-none">
-              <div className="absolute top-1/4 left-1/4 w-32 h-32 bg-red-100 rounded-full opacity-20 animate-pulse" style={{ animationDelay: '0.5s' }} />
-              <div className="absolute bottom-1/4 right-1/4 w-24 h-24 bg-orange-100 rounded-full opacity-20 animate-pulse" style={{ animationDelay: '1s' }} />
-            </div>
-          </div>
-        </div>
+        <GlobalLoader />
       </MainLayout>
     );
   }

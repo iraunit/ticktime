@@ -8,26 +8,44 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { AutoSaveForm } from '@/components/ui/enhanced-form';
 import { ErrorDisplay } from '@/components/ui/error-display';
-import { LoadingOverlay } from '@/components/ui/loading-overlay';
+import { OverlayLoader } from '@/components/ui/global-loader';
 import { useProfile } from '@/hooks/use-profile';
 import { useErrorHandling } from '@/hooks/use-error-handling';
 import { InfluencerProfile } from '@/types';
 import { getMediaUrl } from '@/lib/utils';
 
 // Import icons from our icon system
-import { AlertCircle, CheckCircle, Loader2, Save, Settings, X } from '@/lib/icons';
+import { AlertCircle, CheckCircle, Save, Settings, X } from '@/lib/icons';
+
+// Import custom components
+import { CommonProfileForm } from '@/components/profile/common-profile-form';
+import { InfluencerCategories } from '@/components/profile/influencer-categories';
 
 const profileSchema = z.object({
+  // User fields
   first_name: z.string().min(1, 'First name is required'),
   last_name: z.string().min(1, 'Last name is required'),
+  
+  // Common profile fields
+  gender: z.string().optional(),
+  country_code: z.string().min(1, 'Country code is required'),
   phone_number: z.string().min(1, 'Phone number is required'),
+  country: z.string().optional(),
+  state: z.string().optional(),
+  city: z.string().optional(),
+  zipcode: z.string().optional(),
+  address_line1: z.string().optional(),
+  address_line2: z.string().optional(),
+  
+  // Influencer specific fields
   bio: z.string().optional(),
-  address: z.string().optional(),
   industry: z.string().min(1, 'Industry is required'),
+  categories: z.array(z.string()).optional(),
 });
 
 type ProfileFormData = z.infer<typeof profileSchema>;
@@ -49,12 +67,25 @@ export function ProfileForm({ profile }: ProfileFormProps) {
   const form = useForm<ProfileFormData>({
     resolver: zodResolver(profileSchema),
     defaultValues: {
+      // User fields
       first_name: profile?.user?.first_name || '',
       last_name: profile?.user?.last_name || '',
-      phone_number: profile?.phone_number || '',
+      
+      // Common profile fields from user_profile
+      gender: profile?.user_profile?.gender || '',
+      country_code: profile?.user_profile?.country_code || '+91',
+      phone_number: profile?.user_profile?.phone_number || '',
+      country: profile?.user_profile?.country || '',
+      state: profile?.user_profile?.state || '',
+      city: profile?.user_profile?.city || '',
+      zipcode: profile?.user_profile?.zipcode || '',
+      address_line1: profile?.user_profile?.address_line1 || '',
+      address_line2: profile?.user_profile?.address_line2 || '',
+      
+      // Influencer specific fields
       bio: profile?.bio || '',
-      address: profile?.address || '',
       industry: profile?.industry || '',
+      categories: profile?.categories || [],
     },
     mode: 'onChange',
   });
@@ -119,12 +150,25 @@ export function ProfileForm({ profile }: ProfileFormProps) {
     if (isEditing) {
       // Reset form to original values when canceling
       form.reset({
+        // User fields
         first_name: profile?.user?.first_name || '',
         last_name: profile?.user?.last_name || '',
-        phone_number: profile?.phone_number || '',
+        
+        // Common profile fields from user_profile
+        gender: profile?.user_profile?.gender || '',
+        country_code: profile?.user_profile?.country_code || '+91',
+        phone_number: profile?.user_profile?.phone_number || '',
+        country: profile?.user_profile?.country || '',
+        state: profile?.user_profile?.state || '',
+        city: profile?.user_profile?.city || '',
+        zipcode: profile?.user_profile?.zipcode || '',
+        address_line1: profile?.user_profile?.address_line1 || '',
+        address_line2: profile?.user_profile?.address_line2 || '',
+        
+        // Influencer specific fields
         bio: profile?.bio || '',
-        address: profile?.address || '',
         industry: profile?.industry || '',
+        categories: profile?.categories || [],
       });
       setProfileImage(null);
     }
@@ -208,11 +252,11 @@ export function ProfileForm({ profile }: ProfileFormProps) {
                     }`}
                     onClick={isEditing ? () => document.getElementById('profile-image-input')?.click() : undefined}
                   >
-                    {profile?.profile_image || profileImage ? (
+                    {profile?.user_profile?.profile_image || profileImage ? (
                       <>
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
-                          src={profileImage ? URL.createObjectURL(profileImage) : getMediaUrl(profile?.profile_image)}
+                          src={profileImage ? URL.createObjectURL(profileImage) : getMediaUrl(profile?.user_profile?.profile_image)}
                           alt="Profile"
                           className="w-full h-full object-cover"
                         />
@@ -239,7 +283,7 @@ export function ProfileForm({ profile }: ProfileFormProps) {
                   </div>
 
                   {/* Remove button - only show if image exists and editing */}
-                  {(profile?.profile_image || profileImage) && isEditing && (
+                  {(profile?.user_profile?.profile_image || profileImage) && isEditing && (
                     <button
                       type="button"
                       onClick={(e) => {
@@ -258,7 +302,7 @@ export function ProfileForm({ profile }: ProfileFormProps) {
                 <div className="flex-1">
                   <p className="text-sm text-gray-600 mb-1">
                     {isEditing 
-                      ? `Click on the image to ${profile?.profile_image ? 'change' : 'upload'} your profile photo`
+                      ? `Click on the image to ${profile?.user_profile?.profile_image ? 'change' : 'upload'} your profile photo`
                       : 'Your profile photo'
                     }
                   </p>
@@ -275,7 +319,18 @@ export function ProfileForm({ profile }: ProfileFormProps) {
               {profileImage && isEditing && (
                 <div className="flex items-center gap-3 pt-1">
                   <Button type="button" size="sm" onClick={handleImageUpload} disabled={isSubmitting}>
-                    {isSubmitting ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Uploading...</> : 'Save Image'}
+                    {isSubmitting ? <><div className="flex space-x-1 mr-2">
+                  {[0, 1, 2].map((i) => (
+                    <div
+                      key={i}
+                      className="w-1.5 h-1.5 rounded-full bg-white animate-pulse"
+                      style={{
+                        animationDelay: `${i * 0.2}s`,
+                        animationDuration: '1.4s'
+                      }}
+                    />
+                  ))}
+                </div>Uploading...</> : 'Save Image'}
                   </Button>
                   <span className="text-xs text-gray-500">Click to save your new profile image</span>
                 </div>
@@ -322,58 +377,137 @@ export function ProfileForm({ profile }: ProfileFormProps) {
             </div>
 
             {/* Contact Fields */}
-            <FormField
-              control={form.control}
-              name="phone_number"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Phone Number *</FormLabel>
-                  <FormControl>
-                    <Input 
-                      {...field} 
-                      disabled={!isEditing}
-                      className={!isEditing ? 'bg-gray-50' : ''}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <FormField
+                control={form.control}
+                name="country_code"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Country Code *</FormLabel>
+                    <FormControl>
+                      <Select 
+                        onValueChange={field.onChange} 
+                        value={field.value}
+                        disabled={!isEditing}
+                      >
+                        <SelectTrigger className={!isEditing ? 'bg-gray-50' : ''}>
+                          <SelectValue placeholder="+91" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="+1">+1 (US/CA)</SelectItem>
+                          <SelectItem value="+44">+44 (UK)</SelectItem>
+                          <SelectItem value="+91">+91 (IN)</SelectItem>
+                          <SelectItem value="+61">+61 (AU)</SelectItem>
+                          <SelectItem value="+49">+49 (DE)</SelectItem>
+                          <SelectItem value="+33">+33 (FR)</SelectItem>
+                          <SelectItem value="+81">+81 (JP)</SelectItem>
+                          <SelectItem value="+86">+86 (CN)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <div className="md:col-span-2">
+                <FormField
+                  control={form.control}
+                  name="phone_number"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Phone Number *</FormLabel>
+                      <FormControl>
+                        <Input 
+                          {...field} 
+                          disabled={!isEditing}
+                          className={!isEditing ? 'bg-gray-50' : ''}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+            </div>
 
             {/* Industry Field */}
-            <FormField
-              control={form.control}
-              name="industry"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Industry *</FormLabel>
-                  <FormControl>
-                    <Select 
-                      onValueChange={field.onChange} 
-                      value={field.value}
-                      disabled={!isEditing}
-                    >
-                      <SelectTrigger className={!isEditing ? 'bg-gray-50' : ''}>
-                        <SelectValue placeholder="Select your industry" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="food_lifestyle">Food & Lifestyle</SelectItem>
-                        <SelectItem value="fashion_beauty">Fashion & Beauty</SelectItem>
-                        <SelectItem value="fitness_wellness">Fitness & Wellness</SelectItem>
-                        <SelectItem value="travel_adventure">Travel & Adventure</SelectItem>
-                        <SelectItem value="technology">Technology</SelectItem>
-                        <SelectItem value="business_finance">Business & Finance</SelectItem>
-                        <SelectItem value="entertainment">Entertainment</SelectItem>
-                        <SelectItem value="education">Education</SelectItem>
-                        <SelectItem value="parenting_family">Parenting & Family</SelectItem>
-                        <SelectItem value="other">Other</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
+            <div className="space-y-4 border-t border-gray-200 pt-4 mt-4">
+              <h3 className="font-medium text-gray-900">Content Information</h3>
+              
+              <FormField
+                control={form.control}
+                name="industry"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Industry *</FormLabel>
+                    <FormControl>
+                      <Select 
+                        onValueChange={field.onChange} 
+                        value={field.value}
+                        disabled={!isEditing}
+                      >
+                        <SelectTrigger className={!isEditing ? 'bg-gray-50' : ''}>
+                          <SelectValue placeholder="Select your industry" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="food_lifestyle">Food & Lifestyle</SelectItem>
+                          <SelectItem value="fashion_beauty">Fashion & Beauty</SelectItem>
+                          <SelectItem value="fitness_health">Fitness & Health</SelectItem>
+                          <SelectItem value="travel">Travel</SelectItem>
+                          <SelectItem value="tech_gaming">Tech & Gaming</SelectItem>
+                          <SelectItem value="business_finance">Business & Finance</SelectItem>
+                          <SelectItem value="entertainment">Entertainment</SelectItem>
+                          <SelectItem value="education">Education</SelectItem>
+                          <SelectItem value="other">Other</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
+              {/* Categories Field */}
+              {isEditing ? (
+                <div className="mt-4">
+                  <FormField
+                    control={form.control}
+                    name="categories"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Content Categories</FormLabel>
+                        <FormControl>
+                          <InfluencerCategories
+                            selectedCategories={field.value || []}
+                            onChange={field.onChange}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              ) : (
+                <div className="mt-4">
+                  <FormLabel>Content Categories</FormLabel>
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {(() => {
+                      const categories = form.getValues().categories;
+                      return categories && categories.length > 0 ? (
+                        categories.map((category) => (
+                          <Badge key={category} className="bg-red-100 text-red-800">
+                            {category}
+                          </Badge>
+                        ))
+                      ) : (
+                        <p className="text-sm text-gray-500">No categories selected</p>
+                      );
+                    })()}
+                  </div>
+                </div>
               )}
-            />
+            </div>
 
             {/* Bio Field */}
             <FormField
@@ -396,26 +530,155 @@ export function ProfileForm({ profile }: ProfileFormProps) {
               )}
             />
 
-            {/* Address Field */}
+            {/* Gender Selection */}
             <FormField
               control={form.control}
-              name="address"
+              name="gender"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Address</FormLabel>
+                  <FormLabel>Gender</FormLabel>
                   <FormControl>
-                    <Textarea 
-                      {...field} 
-                      placeholder="Your current address..."
-                      rows={2}
+                    <Select 
+                      onValueChange={field.onChange} 
+                      value={field.value}
                       disabled={!isEditing}
-                      className={!isEditing ? 'bg-gray-50' : ''}
-                    />
+                    >
+                      <SelectTrigger className={!isEditing ? 'bg-gray-50' : ''}>
+                        <SelectValue placeholder="Select your gender" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="male">Male</SelectItem>
+                        <SelectItem value="female">Female</SelectItem>
+                        <SelectItem value="other">Other</SelectItem>
+                        <SelectItem value="prefer_not_to_say">Prefer not to say</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
+
+            {/* Location Fields */}
+            <div className="space-y-4 border-t border-gray-200 pt-4 mt-4">
+              <h3 className="font-medium text-gray-900">Location Information</h3>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <FormField
+                  control={form.control}
+                  name="country"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Country</FormLabel>
+                      <FormControl>
+                        <Input 
+                          {...field} 
+                          disabled={!isEditing}
+                          className={!isEditing ? 'bg-gray-50' : ''}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="state"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>State/Province</FormLabel>
+                      <FormControl>
+                        <Input 
+                          {...field} 
+                          disabled={!isEditing}
+                          className={!isEditing ? 'bg-gray-50' : ''}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <FormField
+                  control={form.control}
+                  name="city"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>City</FormLabel>
+                      <FormControl>
+                        <Input 
+                          {...field} 
+                          disabled={!isEditing}
+                          className={!isEditing ? 'bg-gray-50' : ''}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="zipcode"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Zip/Postal Code</FormLabel>
+                      <FormControl>
+                        <Input 
+                          {...field} 
+                          disabled={!isEditing}
+                          className={!isEditing ? 'bg-gray-50' : ''}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <div className="grid grid-cols-1 gap-3">
+                <FormField
+                  control={form.control}
+                  name="address_line1"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Address Line 1</FormLabel>
+                      <FormControl>
+                        <Input 
+                          {...field} 
+                          disabled={!isEditing}
+                          className={!isEditing ? 'bg-gray-50' : ''}
+                          placeholder="Street address, apartment, etc."
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="address_line2"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Address Line 2 (Optional)</FormLabel>
+                      <FormControl>
+                        <Input 
+                          {...field} 
+                          disabled={!isEditing}
+                          className={!isEditing ? 'bg-gray-50' : ''}
+                          placeholder="Suite, floor, building, etc. (optional)"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+            </div>
 
             {/* Save Button - only show when editing */}
             {isEditing && (
@@ -423,7 +686,18 @@ export function ProfileForm({ profile }: ProfileFormProps) {
                 <Button type="submit" disabled={isSubmitting || !form.formState.isValid}>
                   {isSubmitting ? (
                     <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      <div className="flex space-x-1 mr-2">
+                  {[0, 1, 2].map((i) => (
+                    <div
+                      key={i}
+                      className="w-1.5 h-1.5 rounded-full bg-white animate-pulse"
+                      style={{
+                        animationDelay: `${i * 0.2}s`,
+                        animationDuration: '1.4s'
+                      }}
+                    />
+                  ))}
+                </div>
                       Saving...
                     </>
                   ) : (

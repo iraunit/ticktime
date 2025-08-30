@@ -1,0 +1,78 @@
+"use client";
+
+import { createContext, useContext, useState, ReactNode, useEffect, useRef } from 'react';
+
+interface SidebarContextType {
+  isCollapsed: boolean;
+  setIsCollapsed: (collapsed: boolean) => void;
+  toggleSidebar: () => void;
+  isHoverExpanded: boolean;
+  setIsHoverExpanded: (expanded: boolean) => void;
+}
+
+const SidebarContext = createContext<SidebarContextType | undefined>(undefined);
+
+export function SidebarProvider({ children }: { children: ReactNode }) {
+  const [isCollapsed, setIsCollapsed] = useState(true); // Default to collapsed
+  const [isHoverExpanded, setIsHoverExpanded] = useState(false);
+  const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const toggleSidebar = () => {
+    setIsCollapsed(prev => !prev);
+    // Clear any hover expansion when manually toggling
+    setIsHoverExpanded(false);
+  };
+
+  const handleSetCollapsed = (collapsed: boolean) => {
+    setIsCollapsed(collapsed);
+    // Clear hover expansion when manually setting state
+    if (!collapsed) {
+      setIsHoverExpanded(false);
+    }
+  };
+
+  const handleSetHoverExpanded = (expanded: boolean) => {
+    setIsHoverExpanded(expanded);
+    
+    // Clear any existing timeout
+    if (hoverTimeoutRef.current) {
+      clearTimeout(hoverTimeoutRef.current);
+    }
+
+    // If expanding on hover, set a timeout to collapse after delay
+    if (expanded && isCollapsed) {
+      hoverTimeoutRef.current = setTimeout(() => {
+        setIsHoverExpanded(false);
+      }, 3000); // Auto-collapse after 3 seconds of no hover
+    }
+  };
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (hoverTimeoutRef.current) {
+        clearTimeout(hoverTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  return (
+    <SidebarContext.Provider value={{ 
+      isCollapsed, 
+      setIsCollapsed: handleSetCollapsed, 
+      toggleSidebar,
+      isHoverExpanded,
+      setIsHoverExpanded: handleSetHoverExpanded
+    }}>
+      {children}
+    </SidebarContext.Provider>
+  );
+}
+
+export function useSidebar() {
+  const context = useContext(SidebarContext);
+  if (context === undefined) {
+    throw new Error('useSidebar must be used within a SidebarProvider');
+  }
+  return context;
+} 

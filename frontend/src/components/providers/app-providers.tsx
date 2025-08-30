@@ -11,6 +11,7 @@ export type CurrentUser = {
   first_name: string;
   last_name: string;
   email: string;
+  account_type: 'influencer' | 'brand' | 'user';
   influencer_profile?: {
     username?: string;
     industry?: string;
@@ -20,6 +21,15 @@ export type CurrentUser = {
     total_followers?: number;
     average_engagement_rate?: number;
     profile_image?: string;
+  } | null;
+  brand_profile?: {
+    brand_id: number;
+    brand_name: string;
+    role: string;
+    can_create_campaigns: boolean;
+    can_manage_users: boolean;
+    can_approve_content: boolean;
+    can_view_analytics: boolean;
   } | null;
 } | null;
 
@@ -42,8 +52,11 @@ export function useUserContext(): UserContextValue {
 export function AppProviders({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<CurrentUser>(null);
   const [loadingUser, setLoadingUser] = useState<boolean>(true);
+  const [hasFetched, setHasFetched] = useState<boolean>(false);
 
   const fetchUser = useCallback(async () => {
+    if (hasFetched) return; // Prevent multiple calls
+    
     setLoadingUser(true);
     try {
       const res = await authApi.checkAuth();
@@ -52,25 +65,44 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
       setUser(null);
     } finally {
       setLoadingUser(false);
+      setHasFetched(true);
+    }
+  }, [hasFetched]);
+
+  const refreshUser = useCallback(async () => {
+    setHasFetched(false);
+    setLoadingUser(true);
+    try {
+      const res = await authApi.checkAuth();
+      setUser(res.data?.user ?? null);
+    } catch {
+      setUser(null);
+    } finally {
+      setLoadingUser(false);
+      setHasFetched(true);
     }
   }, []);
 
   useEffect(() => {
-    // Prime CSRF cookie for session-authenticated requests (noop if already set)
-    authApi.csrf().catch(() => {});
-    // Fetch current user once on app mount
-    fetchUser();
-  }, []);
+    if (!hasFetched && typeof window !== 'undefined') {
+      // Only run on client side to prevent hydration mismatches
+      // Prime CSRF cookie for session-authenticated requests (noop if already set)
+      authApi.csrf().catch(() => {});
+      // Fetch current user once on app mount
+      fetchUser();
+    }
+  }, [fetchUser, hasFetched]);
 
   // In development, proactively unregister any existing service workers and clear caches
   useEffect(() => {
-    if (process.env.NODE_ENV === "development") {
-      if (typeof window !== "undefined" && "serviceWorker" in navigator) {
+    if (process.env.NODE_ENV === "development" && typeof window !== "undefined") {
+      // Only run on client side to prevent hydration mismatches
+      if ("serviceWorker" in navigator) {
         navigator.serviceWorker.getRegistrations().then((registrations) => {
           registrations.forEach((registration) => registration.unregister());
         }).catch(() => {});
       }
-      if (typeof window !== "undefined" && "caches" in window) {
+      if ("caches" in window) {
         caches.keys().then((keys) => {
           keys.forEach((key) => caches.delete(key));
         }).catch(() => {});
@@ -81,8 +113,8 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
   const userValue = useMemo<UserContextValue>(() => ({
     user,
     isLoading: loadingUser,
-    refresh: fetchUser,
-  }), [user, loadingUser]);
+    refresh: refreshUser,
+  }), [user, loadingUser, refreshUser]);
 
   return (
     <ErrorProvider>

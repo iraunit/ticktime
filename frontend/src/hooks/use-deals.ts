@@ -62,7 +62,7 @@ export function useDeal(id: number) {
   const contentSubmissionsQuery = useQuery({
     queryKey: ['contentSubmissions', id],
     queryFn: () => dealsApi.getContentSubmissions(id),
-    select: (response) => response.data || [],
+    select: (response) => response.data.submissions || [],
     enabled: !!id && !isAuthLoading && isAuthenticatedState,
   });
 
@@ -71,11 +71,54 @@ export function useDeal(id: number) {
     mutationFn: (data: {
       platform: string;
       content_type: string;
-      file?: File;
+      title?: string;
+      description?: string;
       caption?: string;
+      hashtags?: string;
+      mention_brand?: boolean;
+      post_url?: string;
+      file_url?: string;
+      additional_links?: Array<{url: string; description: string}>;
+      file?: File;
       onProgress?: (progress: { loaded: number; total: number; percentage: number }) => void;
       signal?: AbortSignal;
     }) => dealsApi.submitContent(id, data, data.onProgress, data.signal),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['deal', id] });
+      queryClient.invalidateQueries({ queryKey: ['deals'] });
+      queryClient.invalidateQueries({ queryKey: ['contentSubmissions', id] });
+    },
+  });
+
+  // Delete content submission mutation
+  const deleteContentSubmissionMutation = useMutation({
+    mutationFn: (submissionId: number) => 
+      dealsApi.deleteContentSubmission(id, submissionId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['deal', id] });
+      queryClient.invalidateQueries({ queryKey: ['deals'] });
+      queryClient.invalidateQueries({ queryKey: ['contentSubmissions', id] });
+    },
+  });
+
+  // Update content submission mutation
+  const updateContentSubmissionMutation = useMutation({
+    mutationFn: (data: {
+      submissionId: number;
+      platform: string;
+      content_type: string;
+      title?: string;
+      description?: string;
+      caption?: string;
+      hashtags?: string;
+      mention_brand?: boolean;
+      post_url?: string;
+      file_url?: string;
+      additional_links?: Array<{url: string; description: string}>;
+      file?: File;
+      onProgress?: (progress: { loaded: number; total: number; percentage: number }) => void;
+      signal?: AbortSignal;
+    }) => dealsApi.updateContentSubmission(id, data.submissionId, data, data.onProgress, data.signal),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['deal', id] });
       queryClient.invalidateQueries({ queryKey: ['deals'] });
@@ -87,6 +130,8 @@ export function useDeal(id: number) {
     deal: dealQuery,
     contentSubmissions: contentSubmissionsQuery,
     submitContent: submitContentMutation,
+    deleteContentSubmission: deleteContentSubmissionMutation,
+    updateContentSubmission: updateContentSubmissionMutation,
   };
 }
 

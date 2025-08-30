@@ -82,7 +82,12 @@ export function BrandSignupForm() {
   });
 
   const onSubmit = async (data: BrandSignupFormData) => {
-    await brandSignup.mutateAsync(data);
+    try {
+      await brandSignup.mutateAsync(data);
+    } catch (error: any) {
+      // Error toast is already handled in the useAuth hook
+      // Since backend now sends simple string errors, we don't set field-specific errors
+    }
   };
 
   return (

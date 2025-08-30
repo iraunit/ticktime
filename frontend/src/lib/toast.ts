@@ -1,15 +1,17 @@
-// Simple toast utility
+import { toast as sonnerToast } from "sonner";
+
+// Toast utility using Sonner
 export const toast = {
   success: (message: string) => {
-    // In a real implementation, this would show a toast notification
-    // For now, we'll just silently handle it
+    sonnerToast.success(message);
   },
   error: (message: string) => {
-    // In a real implementation, this would show an error toast
-    // For now, we'll just silently handle it
+    sonnerToast.error(message);
   },
   info: (message: string) => {
-    // In a real implementation, this would show an info toast
-    // For now, we'll just silently handle it
+    sonnerToast.info(message);
+  },
+  warning: (message: string) => {
+    sonnerToast.warning(message);
   },
 };

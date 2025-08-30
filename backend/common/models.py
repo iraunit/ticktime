@@ -13,6 +13,35 @@ INDUSTRY_CHOICES = [
     ('other', 'Other'),
 ]
 
+# Content categories for influencers
+CONTENT_CATEGORIES = [
+    ('fashion', 'Fashion'),
+    ('beauty', 'Beauty'),
+    ('fitness', 'Fitness'),
+    ('health', 'Health'),
+    ('food', 'Food'),
+    ('cooking', 'Cooking'),
+    ('travel', 'Travel'),
+    ('lifestyle', 'Lifestyle'),
+    ('tech', 'Technology'),
+    ('gaming', 'Gaming'),
+    ('music', 'Music'),
+    ('dance', 'Dance'),
+    ('comedy', 'Comedy'),
+    ('education', 'Education'),
+    ('business', 'Business'),
+    ('finance', 'Finance'),
+    ('parenting', 'Parenting'),
+    ('pets', 'Pets'),
+    ('sports', 'Sports'),
+    ('art', 'Art'),
+    ('photography', 'Photography'),
+    ('entertainment', 'Entertainment'),
+    ('news', 'News'),
+    ('politics', 'Politics'),
+    ('other', 'Other'),
+]
+
 # Social media platform choices
 PLATFORM_CHOICES = [
     ('instagram', 'Instagram'),
@@ -27,9 +56,9 @@ PLATFORM_CHOICES = [
 
 # Deal type choices
 DEAL_TYPE_CHOICES = [
-    ('paid', 'Paid'),
-    ('barter', 'Barter'),
-    ('hybrid', 'Hybrid'),
+    ('cash', 'Cash Payment'),
+    ('product', 'Barter Only'),
+    ('hybrid', 'Cash + Barter'),
 ]
 
 # Deal status choices
@@ -37,6 +66,11 @@ DEAL_STATUS_CHOICES = [
     ('invited', 'Invited'),
     ('pending', 'Pending'),
     ('accepted', 'Accepted'),
+    ('shortlisted', 'Shortlisted'),
+    ('address_requested', 'Address Requested'),
+    ('address_provided', 'Address Provided'),
+    ('product_shipped', 'Product Shipped'),
+    ('product_delivered', 'Product Delivered'),
     ('active', 'Active'),
     ('content_submitted', 'Content Submitted'),
     ('under_review', 'Under Review'),
@@ -56,3 +90,25 @@ CONTENT_TYPE_CHOICES = [
     ('reel', 'Reel'),
     ('post', 'Post'),
 ]
+
+
+class Category(models.Model):
+    """
+    Canonical content category used across the platform for influencers and campaigns.
+    Keep this centralized to ensure consistency.
+    """
+    key = models.SlugField(max_length=50, unique=True)
+    name = models.CharField(max_length=100, unique=True)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'categories'
+        indexes = [
+            models.Index(fields=['key']),
+            models.Index(fields=['is_active']),
+        ]
+
+    def __str__(self):
+        return self.name

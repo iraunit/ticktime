@@ -7,15 +7,33 @@ export interface User {
   is_verified: boolean;
 }
 
+export interface UserProfile {
+  id: number;
+  user: number;
+  gender?: 'male' | 'female' | 'other' | 'prefer_not_to_say';
+  country_code: string;
+  phone_number: string;
+  phone_verified: boolean;
+  email_verified: boolean;
+  country?: string;
+  state?: string;
+  city?: string;
+  zipcode?: string;
+  address_line1?: string;
+  address_line2?: string;
+  profile_image?: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface InfluencerProfile {
   id: number;
   user: User;
-  phone_number: string;
+  user_profile: UserProfile;
   username: string;
   industry: string;
+  categories?: string[];
   bio: string;
-  profile_image?: string;
-  address: string;
   aadhar_number?: string;
   aadhar_document?: string;
   is_verified: boolean;
@@ -49,8 +67,29 @@ export interface Brand {
   logo?: string;
   description: string;
   website?: string;
+  industry: string;
+  contact_email: string;
   rating?: number;
   total_collaborations?: number;
+}
+
+export interface BrandUser {
+  id: number;
+  user: User;
+  user_profile: UserProfile;
+  brand: Brand;
+  role: 'owner' | 'admin' | 'manager' | 'editor' | 'viewer';
+  is_active: boolean;
+  joined_at?: string;
+  last_activity: string;
+}
+
+export interface Product {
+  name: string;
+  description?: string;
+  value: number;
+  quantity: number;
+  variants?: any;
 }
 
 export interface Campaign {
@@ -58,20 +97,25 @@ export interface Campaign {
   brand: Brand;
   title: string;
   description: string;
-  deal_type: 'paid' | 'barter' | 'hybrid';
+  deal_type: 'cash' | 'product' | 'hybrid';
   cash_amount: number;
   product_value: number;
+  products?: Product[];
+  total_value: number;
   content_requirements: {
-    platforms: string[];
-    content_types: string[];
-    post_count: number;
+    platforms?: string[];
+    content_types?: string[];
+    post_count?: number;
     story_count?: number;
     reel_count?: number;
     special_instructions?: string;
-  };
+    description?: string;
+  } | string;
+  platforms_required?: string[];
   application_deadline: string;
-  campaign_start_date: string;
-  campaign_end_date: string;
+  campaign_start_date?: string;
+  campaign_end_date?: string;
+  campaign_live_date?: string;
   created_at: string;
 }
 
@@ -86,12 +130,37 @@ export interface Deal {
   rejection_reason?: string;
   total_value: number;
   payment_status?: 'pending' | 'processing' | 'completed' | 'failed';
+  // Barter deal specific fields
+  shipping_address?: {
+    address_line1: string;
+    address_line2?: string;
+    city: string;
+    state: string;
+    country: string;
+    zipcode: string;
+    country_code?: string;
+    phone_number?: string;
+    full_phone_number?: string;
+  };
+  tracking_number?: string;
+  tracking_url?: string;
+  shipped_at?: string;
+  delivered_at?: string;
+  address_requested_at?: string;
+  address_provided_at?: string;
+  shortlisted_at?: string;
+  notes?: string;
 }
 
 export type DealStatus = 
   | 'invited'
   | 'pending'
   | 'accepted'
+  | 'shortlisted'
+  | 'address_requested'
+  | 'address_provided'
+  | 'product_shipped'
+  | 'product_delivered'
   | 'active'
   | 'content_submitted'
   | 'under_review'
@@ -130,9 +199,20 @@ export interface Message {
 
 export interface Conversation {
   id: number;
-  deal: number;
+  deal: {
+    id: number;
+    status: string;
+    campaign_title?: string;
+  } | number;
+  deal_title?: string;
+  brand_name?: string;
+  influencer_name?: string;
+  influencer_username?: string;
+  influencer_avatar?: string;
+  influencer_id?: number;
   last_message?: Message;
   unread_count: number;
+  messages_count?: number;
   created_at: string;
   updated_at: string;
 }
@@ -226,9 +306,18 @@ export interface SignupForm {
 export interface ProfileUpdateForm {
   first_name: string;
   last_name: string;
+  gender?: string;
+  country_code: string;
   phone_number: string;
-  bio: string;
-  address: string;
+  country?: string;
+  state?: string;
+  city?: string;
+  zipcode?: string;
+  address_line1?: string;
+  address_line2?: string;
+  bio?: string;
+  industry: string;
+  categories?: string[];
   profile_image?: File;
 }
 

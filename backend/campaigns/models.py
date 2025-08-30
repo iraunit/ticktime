@@ -10,6 +10,7 @@ class Campaign(models.Model):
     that influencers can participate in.
     """
     brand = models.ForeignKey('brands.Brand', on_delete=models.CASCADE, related_name='campaigns')
+    created_by = models.ForeignKey('auth.User', on_delete=models.SET_NULL, null=True, blank=True, related_name='created_campaigns')
     title = models.CharField(max_length=200)
     description = models.TextField()
     objectives = models.TextField(blank=True)
@@ -26,23 +27,33 @@ class Campaign(models.Model):
         default=0.00,
         validators=[MinValueValidator(0)]
     )
-    product_name = models.CharField(max_length=200, blank=True)
-    product_description = models.TextField(blank=True)
-    product_images = models.JSONField(default=list, blank=True)
-    product_quantity = models.IntegerField(default=1, validators=[MinValueValidator(1)])
-    available_sizes = models.JSONField(default=list, blank=True)
-    available_colors = models.JSONField(default=list, blank=True)
+    # Support multiple barter products instead of a single product
+    products = models.JSONField(default=list, blank=True, help_text='List of product objects for barter campaigns')
     content_requirements = models.JSONField(default=dict, blank=True)
     platforms_required = models.JSONField(default=list, blank=True)
-    content_count = models.IntegerField(default=1, validators=[MinValueValidator(1)])
+
     special_instructions = models.TextField(blank=True)
+    target_influencers = models.IntegerField(default=1, validators=[MinValueValidator(1)])
+    content_count = models.IntegerField(default=0, help_text='Number of content pieces expected')
+    # Keep legacy text field to avoid destructive/complex migration; new FK holds the canonical industry
+    industry = models.CharField(max_length=50, default='other')
+    industry_category = models.ForeignKey('common.Category', on_delete=models.PROTECT, related_name='campaign_industries', null=True, blank=True)
+    execution_mode = models.CharField(
+        max_length=20,
+        choices=[
+            ('manual', 'Manual'),
+            ('hybrid', 'Hybrid'),
+            ('managed', 'Managed'),
+        ],
+        default='manual'
+    )
     application_deadline = models.DateTimeField(null=True, blank=True)
     product_delivery_date = models.DateTimeField(null=True, blank=True)
-    content_creation_start = models.DateTimeField(null=True, blank=True)
-    content_creation_end = models.DateTimeField(null=True, blank=True)
-    submission_deadline = models.DateTimeField()
-    campaign_start_date = models.DateTimeField()
-    campaign_end_date = models.DateTimeField()
+    # Timelines
+    submission_deadline = models.DateTimeField(null=True, blank=True)
+    barter_submission_after_days = models.IntegerField(null=True, blank=True, help_text='For barter deals, days after product received to submit content')
+    campaign_live_date = models.DateTimeField(null=True, blank=True)
+    application_deadline_visible_to_influencers = models.BooleanField(default=True)
     payment_schedule = models.TextField(blank=True)
     shipping_details = models.TextField(blank=True)
     custom_terms = models.TextField(blank=True)
@@ -55,9 +66,11 @@ class Campaign(models.Model):
         db_table = 'campaigns'
         indexes = [
             models.Index(fields=['brand']),
+            models.Index(fields=['created_by']),
             models.Index(fields=['deal_type']),
+            models.Index(fields=['industry']),
             models.Index(fields=['application_deadline']),
-            models.Index(fields=['campaign_start_date']),
+            models.Index(fields=['campaign_live_date']),
             models.Index(fields=['is_active']),
             models.Index(fields=['created_at']),
         ]
@@ -68,6 +81,18 @@ class Campaign(models.Model):
     @property
     def total_value(self):
         """Calculate total deal value (cash + product value)"""
+        # For barter/hybrid deals, calculate from products array if available
+        if self.deal_type in ['product', 'hybrid'] and self.products:
+            calculated_product_value = 0
+            if isinstance(self.products, list):
+                for product in self.products:
+                    if isinstance(product, dict):
+                        value = product.get('value', 0)
+                        quantity = product.get('quantity', 1)
+                        if isinstance(value, (int, float)) and isinstance(quantity, (int, float)):
+                            calculated_product_value += value * quantity
+            return self.cash_amount + calculated_product_value
+        # Fallback to stored product_value for backward compatibility
         return self.cash_amount + self.product_value
 
     @property

@@ -78,6 +78,7 @@ export const Briefcase = make("BriefcaseIcon", "lni-briefcase", "ri-briefcase-2-
 export const Star = make("StarIcon", "lni-star", "ri-star-line", "bx-star");
 export const TrendingUp = make("ArrowTrendingUpIcon", "lni-stats-up", "ri-line-chart-line", "bx-trending-up");
 export const TrendingDown = make("ArrowTrendingDownIcon", "lni-stats-down", "ri-stock-line", "bx-trending-down");
+export const Truck = make("TruckIcon", "lni-truck", "ri-truck-line", "bxs-truck");
 export const Shield = make("ShieldCheckIcon", "lni-shield", "ri-shield-check-line", "bx-shield");
 export const Wifi = make(null, "lni-signal", "ri-wifi-line", "bx-wifi");
 export const WifiOff = make(null, "lni-network", "ri-wifi-off-line", "bx-wifi-off");
@@ -96,6 +97,13 @@ export const PhoneIcon = Phone;
 export const Mail = make("EnvelopeIcon", "lni-envelope", "ri-mail-line", "bx-envelope");
 export const Play = make("PlayIcon", "lni-play", "ri-play-line", "bx-play");
 export const Camera = make("CameraIcon", "lni-camera", "ri-camera-line", "bx-camera");
+export const RotateCcw = make("ArrowUturnLeftIcon", "lni-reload", "ri-anticlockwise-line", "bx-undo");
+export const ExternalLink = make("ArrowTopRightOnSquareIcon", "lni-link", "ri-external-link-line", "bx-link-external");
+export const ThumbsUp = make("HandThumbUpIcon", "lni-thumbs-up", "ri-thumb-up-line", "bx-like");
+export const ThumbsDown = make("HandThumbDownIcon", "lni-thumbs-down", "ri-thumb-down-line", "bx-dislike");
+export const Link = make("LinkIcon", "lni-link", "ri-link", "bx-link");
+export const Plus = make("PlusIcon", "lni-plus", "ri-add-line", "bx-plus");
+export const Trash2 = make("TrashIcon", "lni-trash", "ri-delete-bin-2-line", "bx-trash");
 
 // Export the HiHandRaised icon directly
 export { HiHandRaised };

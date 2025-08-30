@@ -101,24 +101,16 @@ ASGI_APPLICATION = "backend.asgi.application"
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
 
 # Use PostgreSQL in production, SQLite for development
-if os.environ.get("USE_POSTGRESQL", "False").lower() == "true":
-    DATABASES = {
-        "default": {
-            "ENGINE": "django.db.backends.postgresql",
-            "NAME": os.environ.get("DB_NAME", "influencer_platform"),
-            "USER": os.environ.get("DB_USER", "postgres"),
-            "PASSWORD": os.environ.get("DB_PASSWORD", "password"),
-            "HOST": os.environ.get("DB_HOST", "localhost"),
-            "PORT": os.environ.get("DB_PORT", "5432"),
-        }
+DATABASES = {
+    "default": {
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": os.environ.get("DB_NAME", "influencer_platform"),
+        "USER": os.environ.get("DB_USER", "postgres"),
+        "PASSWORD": os.environ.get("DB_PASSWORD", "password"),
+        "HOST": os.environ.get("DB_HOST", "localhost"),
+        "PORT": os.environ.get("DB_PORT", "5432"),
     }
-else:
-    DATABASES = {
-        "default": {
-            "ENGINE": "django.db.backends.sqlite3",
-            "NAME": BASE_DIR / "db.sqlite3",
-        }
-    }
+}
 
 
 # Password validation
@@ -198,10 +190,14 @@ MEDIA_ROOT = BASE_DIR / "media"
 STATIC_URL = "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 
-# Additional locations of static files
-STATICFILES_DIRS = [
-    BASE_DIR / "static",
-]
+# Additional locations of static files (use only if directory exists)
+_optional_static_dir = BASE_DIR / "static"
+if _optional_static_dir.exists():
+    STATICFILES_DIRS = [
+        _optional_static_dir,
+    ]
+else:
+    STATICFILES_DIRS = []
 
 # Static files finders
 STATICFILES_FINDERS = [
@@ -383,3 +379,6 @@ PERFORMANCE_MONITORING = {
     "ENABLE_QUERY_LOGGING": DEBUG,
     "MAX_QUERY_COUNT": 50,  # Alert if more than 50 queries per request
 }
+
+# Site URL for absolute URL generation
+SITE_URL = os.environ.get("SITE_URL", "http://localhost:8000")

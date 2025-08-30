@@ -9,7 +9,7 @@ import { NetworkStatusIndicator } from "@/components/ui/error-display";
 import { ErrorProvider } from '@/contexts/error-context';
 import { LoadingProvider } from '@/contexts/loading-context';
 import { GlobalErrorHandler } from '@/components/error-handling/global-error-handler';
-import { GlobalLoadingOverlay } from '@/components/ui/loading-overlay';
+
 import { PerformanceMonitor } from '@/lib/performance-monitor';
 import { ServiceWorkerCache } from '@/lib/cache-manager';
 import { ClientOnly } from '@/components/providers/client-only';
@@ -60,7 +60,6 @@ export function MainLayout({
         <ErrorBoundary>
           <ClientOnly>
             <GlobalErrorHandler />
-            <GlobalLoadingOverlay />
             <NetworkStatusIndicator />
           </ClientOnly>
           

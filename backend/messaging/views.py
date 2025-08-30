@@ -153,6 +153,7 @@ def deal_messages_view(request, deal_id):
                 'count': response.data['count'],
                 'next': response.data['next'],
                 'previous': response.data['previous'],
+
                 'filters_applied': {
                     'search': search_query,
                     'date_from': date_from,
@@ -168,6 +169,7 @@ def deal_messages_view(request, deal_id):
             'status': 'success',
             'messages': serializer.data,
             'total_count': messages.count(),
+
             'filters_applied': {
                 'search': search_query,
                 'date_from': date_from,
@@ -285,25 +287,76 @@ def message_detail_view(request, deal_id, message_id):
             'errors': serializer.errors
         }, status=status.HTTP_400_BAD_REQUEST)
 
-    elif request.method == 'DELETE':
-        # Only allow deleting own messages
-        if message.sender_user != request.user:
-            return Response({
-                'status': 'error',
-                'message': 'You can only delete your own messages.'
-            }, status=status.HTTP_403_FORBIDDEN)
-        
-        # Only allow deleting within 5 minutes of sending
-        time_limit = timezone.now() - timedelta(minutes=5)
-        if message.created_at < time_limit:
-            return Response({
-                'status': 'error',
-                'message': 'Message can only be deleted within 5 minutes of sending.'
-            }, status=status.HTTP_400_BAD_REQUEST)
-        
-        message.delete()
-        
-        return Response({
-            'status': 'success',
-            'message': 'Message deleted successfully.'
-        }, status=status.HTTP_200_OK)
+
+@api_view(['GET', 'POST'])
+@permission_classes([IsAuthenticated])
+def conversation_messages_view(request, conversation_id):
+    """
+    Unified endpoint to list/send messages by conversation id for both roles.
+    Ensures the authenticated user (brand user or influencer) has access to the
+    underlying deal.
+    """
+    conversation = get_object_or_404(Conversation.objects.select_related('deal__campaign__brand', 'deal__influencer'), id=conversation_id)
+
+    # Authorization: ensure user owns this conversation via influencer profile or brand
+    is_influencer = hasattr(request.user, 'influencer_profile')
+    is_brand = hasattr(request.user, 'brand_user')
+
+    if is_influencer:
+        try:
+            if conversation.deal.influencer != request.user.influencer_profile:
+                return Response({'status': 'error', 'message': 'Not authorized to access this conversation.'}, status=status.HTTP_403_FORBIDDEN)
+        except InfluencerProfile.DoesNotExist:
+            return Response({'status': 'error', 'message': 'Influencer profile not found.'}, status=status.HTTP_404_NOT_FOUND)
+    elif is_brand:
+        brand_user = getattr(request.user, 'brand_user', None)
+        if not brand_user or conversation.deal.campaign.brand != brand_user.brand:
+            return Response({'status': 'error', 'message': 'Not authorized to access this conversation.'}, status=status.HTTP_403_FORBIDDEN)
+    else:
+        return Response({'status': 'error', 'message': 'Unauthorized.'}, status=status.HTTP_401_UNAUTHORIZED)
+
+    if request.method == 'GET':
+        messages = conversation.messages.all().order_by('-created_at')
+
+        # Optional filters
+        search_query = request.GET.get('search')
+        if search_query:
+            messages = messages.filter(content__icontains=search_query)
+
+        # Mark as read based on role
+        if is_influencer:
+            unread = messages.filter(sender_type='brand', read_by_influencer=False)
+            for m in unread:
+                m.mark_as_read('influencer')
+        else:
+            unread = messages.filter(sender_type='influencer', read_by_brand=False)
+            for m in unread:
+                m.mark_as_read('brand')
+
+        paginator = DealPagination()
+        page = paginator.paginate_queryset(messages, request)
+        if page is not None:
+            serializer = MessageSerializer(page, many=True, context={'request': request})
+            response = paginator.get_paginated_response(serializer.data)
+            response.data = {
+                'status': 'success',
+                'messages': response.data['results'],
+                'count': response.data['count'],
+                'next': response.data['next'],
+                'previous': response.data['previous']
+            }
+            return response
+
+        serializer = MessageSerializer(messages, many=True, context={'request': request})
+        return Response({'status': 'success', 'messages': serializer.data, 'total_count': messages.count()}, status=status.HTTP_200_OK)
+
+    # POST
+    serializer = MessageSerializer(data=request.data)
+    if serializer.is_valid():
+        sender_type = 'influencer' if is_influencer else 'brand'
+        message = serializer.save(conversation=conversation, sender_type=sender_type, sender_user=request.user)
+        conversation.updated_at = timezone.now()
+        conversation.save()
+        return Response({'status': 'success', 'message': 'Message sent successfully.', 'message_data': MessageSerializer(message, context={'request': request}).data}, status=status.HTTP_201_CREATED)
+
+    return Response({'status': 'error', 'message': 'Invalid message data.', 'errors': serializer.errors}, status=status.HTTP_400_BAD_REQUEST)

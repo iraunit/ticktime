@@ -35,7 +35,7 @@ export function ProfileCompletion({
         completed: !!(
           profile.user?.first_name &&
           profile.user?.last_name &&
-          profile.phone_number &&
+          profile.user_profile?.phone_number &&
           profile.industry
         ),
         icon: '👤',
@@ -44,7 +44,7 @@ export function ProfileCompletion({
       {
         id: 'profile_image',
         label: 'Profile Photo',
-        completed: !!profile.profile_image,
+        completed: !!profile.user_profile?.profile_image,
         icon: '📸',
         description: 'Upload your professional photo'
       },
@@ -58,7 +58,7 @@ export function ProfileCompletion({
       {
         id: 'address',
         label: 'Location',
-        completed: !!(profile.address && profile.address.length > 10),
+        completed: !!(profile.user_profile?.address_line1 && profile.user_profile.address_line1.length > 10),
         icon: '📍',
         description: 'Your current address'
       },

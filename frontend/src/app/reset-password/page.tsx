@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { MainLayout } from "@/components/layout/main-layout";
 import { ResetPasswordForm } from "@/components/auth/reset-password-form";
-import { Loader2 } from "@/lib/icons";
+import { GlobalLoader } from "@/components/ui/global-loader";
 
 interface ResetPasswordPageProps {
   searchParams: Promise<{ token?: string }>;
@@ -22,7 +22,7 @@ export default async function ResetPasswordPage({ searchParams }: ResetPasswordP
             </p>
             <a
               href="/forgot-password"
-              className="text-blue-600 hover:underline"
+              className="text-red-600 hover:underline"
             >
               Request a new reset link
             </a>
@@ -37,8 +37,8 @@ export default async function ResetPasswordPage({ searchParams }: ResetPasswordP
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
         <Suspense
           fallback={
-            <div className="flex items-center justify-center">
-              <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+                        <div className="flex items-center justify-center relative">
+                             <GlobalLoader />
             </div>
           }
         >

@@ -32,6 +32,14 @@ class Conversation(models.Model):
             read_by_influencer=False
         ).count()
 
+    @property
+    def unread_count_for_brand(self):
+        """Count unread messages for the brand"""
+        return self.messages.filter(
+            sender_type='influencer',
+            read_by_brand=False
+        ).count()
+
 
 class Message(models.Model):
     """

@@ -1,220 +1,181 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
-import { useDealMessages } from "@/hooks/use-deals";
+import { useState, useEffect, useRef } from "react";
+import { Deal, Message } from "@/types";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils";
+import { HiPaperAirplane } from "react-icons/hi2";
 import { MessageBubble } from "./message-bubble";
-import { MessageInput } from "./message-input";
 import { ConversationHeader } from "./conversation-header";
 import { TypingIndicator } from "./typing-indicator";
-import { LoadingSpinner } from "./loading-spinner";
 import { ScrollToBottom } from "./scroll-to-bottom";
-import { Message, Deal } from "@/types";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { HiExclamationTriangle } from "react-icons/hi2";
 
 interface MessagingInterfaceProps {
   deal: Deal;
   className?: string;
 }
 
-export function MessagingInterface({ deal, className = "" }: MessagingInterfaceProps) {
-  const { messages, sendMessage } = useDealMessages(deal.id);
+export function MessagingInterface({ deal, className }: MessagingInterfaceProps) {
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [newMessage, setNewMessage] = useState("");
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSending, setIsSending] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
-  const [typingTimeout, setTypingTimeout] = useState<NodeJS.Timeout | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const messagesContainerRef = useRef<HTMLDivElement>(null);
 
-  const [hasScrolledToBottom, setHasScrolledToBottom] = useState(false);
-  const [isLoadingMore, setIsLoadingMore] = useState(false);
-  const [showScrollToBottom, setShowScrollToBottom] = useState(false);
-  const [newMessagesCount, setNewMessagesCount] = useState(0);
-
-  // Auto-scroll to bottom when new messages arrive (only for initial load)
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
   useEffect(() => {
-    const messageList = Array.isArray(messages.data) ? messages.data : messages.data?.data;
-    if (messageList && messageList.length > 0 && !hasScrolledToBottom) {
-      scrollToBottom();
-      setHasScrolledToBottom(true);
-    }
-  }, [messages.data, hasScrolledToBottom]);
-
-  // Handle infinite scroll and scroll to bottom button
-  const handleScroll = useCallback(() => {
-    const container = messagesContainerRef.current;
-    if (!container) return;
-
-    const { scrollTop, scrollHeight, clientHeight } = container;
-    const isNearBottom = scrollHeight - scrollTop - clientHeight < 100;
-
-    // Show/hide scroll to bottom button
-    setShowScrollToBottom(!isNearBottom);
-    
-    // Reset new messages count when scrolled to bottom
-    if (isNearBottom && newMessagesCount > 0) {
-      setNewMessagesCount(0);
-    }
-
-    // Check if scrolled to top for loading more messages
-    const messageList = Array.isArray(messages.data) ? messages.data : messages.data?.data;
-    if (scrollTop === 0 && !isLoadingMore && messageList && messageList.length > 0) {
-      setIsLoadingMore(true);
-      // In a real app, this would trigger loading more messages
-      // For now, we'll just simulate loading
-      setTimeout(() => {
-        setIsLoadingMore(false);
-      }, 1000);
-    }
-  }, [messages.data, isLoadingMore, newMessagesCount]);
-
-  const handleScrollToBottom = () => {
     scrollToBottom();
-    setShowScrollToBottom(false);
-    setNewMessagesCount(0);
-  };
+  }, [messages]);
 
   useEffect(() => {
-    const container = messagesContainerRef.current;
-    if (container) {
-      container.addEventListener('scroll', handleScroll);
-      return () => container.removeEventListener('scroll', handleScroll);
-    }
-  }, [handleScroll]);
+    // Load messages for this deal
+    loadMessages();
+  }, [deal.id]);
 
-  // Handle sending messages
-  const handleSendMessage = async (messageText: string, file?: File) => {
+  const loadMessages = async () => {
     try {
-      await sendMessage.mutateAsync({
-        message: messageText,
-        file,
-      });
+      setIsLoading(true);
+      // TODO: Replace with actual API call
+      // const response = await api.get(`/deals/${deal.id}/messages/`);
+      // setMessages(response.data);
+      
+      // Mock data for now
+      setMessages([
+        {
+          id: 1,
+          conversation: deal.id,
+          sender: 'influencer',
+          message: "Hi! I'm interested in your collaboration offer. Could you provide more details about the campaign requirements?",
+          sent_at: new Date(Date.now() - 86400000).toISOString(),
+          read_at: new Date(Date.now() - 86300000).toISOString()
+        },
+        {
+          id: 2,
+          conversation: deal.id,
+          sender: 'brand',
+          message: "Hello! Thanks for your interest. We'd love to have you create content showcasing our latest product line. The campaign focuses on authentic lifestyle content.",
+          sent_at: new Date(Date.now() - 43200000).toISOString(),
+          read_at: new Date(Date.now() - 43100000).toISOString()
+        },
+        {
+          id: 3,
+          conversation: deal.id,
+          sender: 'influencer',
+          message: "That sounds great! What's the timeline for content delivery?",
+          sent_at: new Date(Date.now() - 21600000).toISOString(),
+          read_at: undefined
+        }
+      ]);
     } catch (error) {
-      console.error("Failed to send message:", error);
+      console.error('Failed to load messages:', error);
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  // Handle typing indicators
-  const handleTypingStart = () => {
-    setIsTyping(true);
-    
-    // Clear existing timeout
-    if (typingTimeout) {
-      clearTimeout(typingTimeout);
+  const sendMessage = async () => {
+    if (!newMessage.trim() || isSending) return;
+
+    try {
+      setIsSending(true);
+      
+      // TODO: Replace with actual API call
+      // const response = await api.post(`/deals/${deal.id}/messages/`, {
+      //   content: newMessage.trim()
+      // });
+
+      // Mock sending message
+      const mockMessage: Message = {
+        id: messages.length + 1,
+        conversation: deal.id,
+        sender: 'influencer', // This should be determined by current user role
+        message: newMessage.trim(),
+        sent_at: new Date().toISOString(),
+        read_at: undefined
+      };
+
+      setMessages(prev => [...prev, mockMessage]);
+      setNewMessage("");
+      
+    } catch (error) {
+      console.error('Failed to send message:', error);
+    } finally {
+      setIsSending(false);
     }
-    
-    // Set new timeout to stop typing indicator
-    const timeout = setTimeout(() => {
-      setIsTyping(false);
-    }, 3000);
-    
-    setTypingTimeout(timeout);
   };
 
-  const handleTypingStop = () => {
-    setIsTyping(false);
-    if (typingTimeout) {
-      clearTimeout(typingTimeout);
-      setTypingTimeout(null);
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
     }
   };
 
-  // Cleanup timeout on unmount
-  useEffect(() => {
-    return () => {
-      if (typingTimeout) {
-        clearTimeout(typingTimeout);
-      }
-    };
-  }, [typingTimeout]);
-
-  if (messages.isLoading) {
+  if (isLoading) {
     return (
-      <div className={`h-full bg-white border shadow-sm flex items-center justify-center ${className}`}>
-        <LoadingSpinner />
-      </div>
-    );
-  }
-
-  if (messages.isError) {
-    return (
-      <div className={`h-full bg-white border shadow-sm p-4 flex items-center justify-center ${className}`}>
-        <Alert className="border-red-200 bg-red-50">
-          <HiExclamationTriangle className="h-4 w-4 text-red-600" />
-          <AlertDescription className="text-red-800">
-            Failed to load messages. Please try again.
-          </AlertDescription>
-        </Alert>
+      <div className={cn("flex items-center justify-center", className)}>
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
+          <p className="text-sm text-gray-500 mt-2">Loading messages...</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className={`h-full bg-white border shadow-sm flex flex-col overflow-hidden ${className}`}>
-      {/* Conversation Header */}
-      <ConversationHeader deal={deal} />
-      
-      {/* Messages Container - Individually scrollable */}
-      <div 
-        ref={messagesContainerRef}
-        className="flex-1 overflow-y-auto p-3 space-y-3 bg-gray-50 relative min-h-0"
-      >
-        {(() => {
-          const messageList = Array.isArray(messages.data) ? messages.data : messages.data?.data;
-          return messageList && messageList.length > 0 ? (
-            <>
-              {/* Loading more indicator */}
-              {isLoadingMore && (
-                <div className="flex justify-center py-2">
-                  <LoadingSpinner size="sm" />
-                </div>
-              )}
-              
-              {messageList.map((message: Message) => (
-                <MessageBubble
-                  key={message.id}
-                  message={message}
-                  isOwn={message.sender === 'influencer'}
-                />
-              ))}
-            </>
-          ) : (
-            <div className="flex items-center justify-center h-full">
-              <div className="text-center text-gray-500">
-                <p className="text-base font-medium">No messages yet</p>
-                <p className="text-sm">Start a conversation with the brand</p>
-              </div>
-            </div>
-          );
-        })()}
-            
-        
-        {/* Typing Indicator */}
-        {isTyping && (
-          <TypingIndicator />
+    <div className={cn("flex flex-col", className)}>
+      {/* Messages Area */}
+      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        {messages.length === 0 ? (
+          <div className="text-center py-8">
+            <p className="text-gray-500">No messages yet. Start the conversation!</p>
+          </div>
+        ) : (
+          <>
+            {messages.map((message) => (
+              <MessageBubble
+                key={message.id}
+                message={message}
+                isOwn={message.sender === 'influencer'} // This should be based on current user role
+              />
+            ))}
+            {isTyping && <TypingIndicator />}
+            <div ref={messagesEndRef} />
+          </>
         )}
-        
-        {/* Scroll anchor */}
-        <div ref={messagesEndRef} />
       </div>
 
-      {/* Scroll to Bottom Button */}
-      <ScrollToBottom
-        show={showScrollToBottom}
-        onClick={handleScrollToBottom}
-        unreadCount={newMessagesCount}
-      />
-      
       {/* Message Input */}
-      <MessageInput
-        onSendMessage={handleSendMessage}
-        onTypingStart={handleTypingStart}
-        onTypingStop={handleTypingStop}
-        isLoading={sendMessage.isPending}
-        disabled={deal.status === 'completed' || deal.status === 'cancelled'}
-      />
+      <div className="border-t bg-gray-50 p-4">
+        <div className="flex space-x-2">
+          <Input
+            value={newMessage}
+            onChange={(e) => setNewMessage(e.target.value)}
+            onKeyPress={handleKeyPress}
+            placeholder="Type your message..."
+            className="flex-1"
+            disabled={isSending}
+          />
+          <Button
+            onClick={sendMessage}
+            disabled={!newMessage.trim() || isSending}
+            size="sm"
+          >
+            {isSending ? (
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+            ) : (
+              <HiPaperAirplane className="w-4 h-4" />
+            )}
+          </Button>
+        </div>
+      </div>
+
+      <ScrollToBottom show={true} onClick={scrollToBottom} />
     </div>
   );
 }

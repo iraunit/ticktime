@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { MainLayout } from "@/components/layout/main-layout";
 import { ForgotPasswordForm } from "@/components/auth/forgot-password-form";
-import { Loader2 } from "@/lib/icons";
+import { GlobalLoader } from "@/components/ui/global-loader";
 
 export default function ForgotPasswordPage() {
   return (
@@ -10,7 +10,7 @@ export default function ForgotPasswordPage() {
         <Suspense
           fallback={
             <div className="flex items-center justify-center">
-              <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+              <GlobalLoader />
             </div>
           }
         >

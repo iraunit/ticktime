@@ -13,6 +13,7 @@ from django.db.models import Q, Count, Sum, Avg, F
 from django.db.models.functions import Coalesce
 from django.utils import timezone
 from datetime import datetime, timedelta
+from messaging.models import Message, Conversation
 import logging
 
 from common.decorators import (
@@ -25,7 +26,8 @@ from common.cache_utils import CacheManager
 
 from .serializers import (
     DealListSerializer, DealDetailSerializer, DealActionSerializer,
-    DealTimelineSerializer, EarningsPaymentSerializer, CollaborationHistorySerializer
+    DealTimelineSerializer, EarningsPaymentSerializer, CollaborationHistorySerializer,
+    AddressSubmissionSerializer, DealStatusUpdateSerializer
 )
 from .models import Deal
 from influencers.models import InfluencerProfile, SocialMediaAccount
@@ -196,8 +198,7 @@ def deal_action_view(request, deal_id):
         action = serializer.validated_data['action']
         
         if action == 'accept':
-            deal.status = 'accepted'
-            deal.accepted_at = timezone.now()
+            deal.set_status_with_timestamp('accepted')
             deal.custom_terms_agreed = serializer.validated_data.get('custom_terms', '')
             deal.negotiation_notes = serializer.validated_data.get('negotiation_notes', '')
             
@@ -207,7 +208,7 @@ def deal_action_view(request, deal_id):
             message = 'Deal accepted successfully.'
             
         elif action == 'reject':
-            deal.status = 'rejected'
+            deal.set_status_with_timestamp('rejected')
             deal.rejection_reason = serializer.validated_data.get('rejection_reason', '')
             message = 'Deal rejected successfully.'
 
@@ -482,65 +483,302 @@ def earnings_tracking_view(request):
     }, status=status.HTTP_200_OK)
 
 
-@api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def submit_content_view(request, deal_id):
-    """
-    Submit content for a deal (placeholder implementation).
-    """
-    try:
-        profile = request.user.influencer_profile
-    except InfluencerProfile.DoesNotExist:
-        return Response({
-            'status': 'error',
-            'message': 'Influencer profile not found.'
-        }, status=status.HTTP_404_NOT_FOUND)
 
-    deal = get_object_or_404(
-        Deal.objects.select_related('campaign__brand'),
-        id=deal_id,
-        influencer=profile
-    )
-
-    # Placeholder implementation
-    return Response({
-        'status': 'success',
-        'message': 'Content submission endpoint - implementation pending'
-    }, status=status.HTTP_200_OK)
-
-
-@api_view(['GET'])
-@permission_classes([IsAuthenticated])
-def content_submissions_view(request, deal_id):
-    """
-    Get content submissions for a deal (placeholder implementation).
-    """
-    try:
-        profile = request.user.influencer_profile
-    except InfluencerProfile.DoesNotExist:
-        return Response({
-            'status': 'error',
-            'message': 'Influencer profile not found.'
-        }, status=status.HTTP_404_NOT_FOUND)
-
-    deal = get_object_or_404(
-        Deal.objects.select_related('campaign__brand'),
-        id=deal_id,
-        influencer=profile
-    )
-
-    # Placeholder implementation
-    return Response({
-        'status': 'success',
-        'submissions': []
-    }, status=status.HTTP_200_OK)
 
 
 @api_view(['GET', 'POST'])
 @permission_classes([IsAuthenticated])
 def deal_messages_view(request, deal_id):
     """
-    Get or send messages for a deal (placeholder implementation).
+    Get or send messages for a specific deal. Creates conversation if it doesn't exist.
+    """
+    from messaging.serializers import MessageSerializer, ConversationSerializer
+    
+    deal = get_object_or_404(Deal.objects.select_related('campaign__brand'), id=deal_id)
+    
+    # Check if user is authorized to access this deal
+    is_brand_user = hasattr(request.user, 'brand_user') and request.user.brand_user.brand == deal.campaign.brand
+    is_influencer = hasattr(request.user, 'influencer_profile') and request.user.influencer_profile == deal.influencer
+    
+    if not (is_brand_user or is_influencer):
+        return Response({
+            'status': 'error',
+            'message': 'You do not have permission to access this deal\'s messages.'
+        }, status=status.HTTP_403_FORBIDDEN)
+    
+    # Get or create conversation for this deal
+    conversation, created = Conversation.objects.get_or_create(deal=deal)
+    
+    if request.method == 'GET':
+        # Get all messages in this conversation
+        messages = Message.objects.filter(conversation=conversation).order_by('created_at')
+        
+        # Mark messages as read based on user type
+        if is_brand_user:
+            messages.filter(sender_type='influencer', read_by_brand=False).update(read_by_brand=True)
+        elif is_influencer:
+            messages.filter(sender_type='brand', read_by_influencer=False).update(read_by_influencer=True)
+        
+        serialized_messages = MessageSerializer(messages, many=True).data
+        
+        return Response({
+            'status': 'success',
+            'messages': serialized_messages,
+            'conversation_id': conversation.id,
+            'deal_title': deal.campaign.title,
+            'brand_name': deal.campaign.brand.name,
+            'brand_logo': request.build_absolute_uri(deal.campaign.brand.logo.url) if deal.campaign.brand.logo else None,
+            'campaign_id': deal.campaign.id,
+            'deal_id': deal.id,
+            'unread_count': messages.filter(
+                sender_type='brand' if is_influencer else 'influencer',
+                **({'read_by_influencer': False} if is_influencer else {'read_by_brand': False})
+            ).count()
+        }, status=status.HTTP_200_OK)
+    
+    elif request.method == 'POST':
+        # Send a new message
+        content = request.data.get('content', '').strip()
+        if not content:
+            return Response({
+                'status': 'error',
+                'message': 'Message content is required.'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Determine sender type
+        sender_type = 'brand' if is_brand_user else 'influencer'
+        
+        # Create message
+        message = Message.objects.create(
+            conversation=conversation,
+            sender_type=sender_type,
+            sender_user=request.user,
+            content=content,
+            read_by_brand=is_brand_user,  # Mark as read by sender
+            read_by_influencer=is_influencer  # Mark as read by sender
+        )
+        
+        # Serialize the message
+        serialized_message = MessageSerializer(message).data
+        
+        return Response({
+            'status': 'success',
+            'message_data': serialized_message,
+            'conversation_id': conversation.id
+        }, status=status.HTTP_201_CREATED)
+
+
+@api_view(['POST', 'GET'])  # Add GET for debugging
+@permission_classes([IsAuthenticated])
+def submit_address_view(request, deal_id):
+    """
+    Submit shipping address for barter/hybrid deals.
+    """
+    # Debug endpoint - return simple response for GET requests
+    if request.method == 'GET':
+        return Response({
+            'status': 'success',
+            'message': f'Address endpoint is working for deal {deal_id}',
+            'method': 'GET',
+            'user': str(request.user) if request.user.is_authenticated else 'Anonymous'
+        }, status=status.HTTP_200_OK)
+    
+    try:
+        profile = request.user.influencer_profile
+    except InfluencerProfile.DoesNotExist:
+        return Response({
+            'status': 'error',
+            'message': 'Influencer profile not found.'
+        }, status=status.HTTP_404_NOT_FOUND)
+
+    deal = get_object_or_404(
+        Deal.objects.select_related('campaign__brand'),
+        id=deal_id,
+        influencer=profile
+    )
+
+    # Check if deal is in the correct status for address submission
+    # More permissive status validation for better user experience
+    allowed_statuses = ['invited', 'pending', 'accepted', 'shortlisted', 'address_requested', 'active']
+    if deal.status not in allowed_statuses:
+        return Response({
+            'status': 'error',
+            'message': f'Address can only be submitted when deal status is one of: {", ".join(allowed_statuses)}. Current status: {deal.status}'
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+    # Check if deal type requires shipping (more permissive for testing)
+    if deal.campaign.deal_type not in ['product', 'hybrid', 'cash']:
+        return Response({
+            'status': 'error',
+            'message': f'Address submission is not supported for this deal type ({deal.campaign.deal_type}). Supported types are: product, hybrid, cash.'
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+    # Validate address data
+    serializer = AddressSubmissionSerializer(data=request.data)
+    
+    if serializer.is_valid():
+        # Save address to deal
+        deal.shipping_address = {
+            'address_line1': serializer.validated_data['address_line1'],
+            'address_line2': serializer.validated_data.get('address_line2', ''),
+            'city': serializer.validated_data['city'],
+            'state': serializer.validated_data['state'],
+            'country': serializer.validated_data['country'],
+            'zipcode': serializer.validated_data['zipcode'],
+            'country_code': serializer.validated_data['country_code'],
+            'phone_number': serializer.validated_data['phone_number'],
+            'full_phone_number': f"{serializer.validated_data['country_code']}{serializer.validated_data['phone_number']}",
+        }
+        
+        # Update deal status and timestamp
+        deal.set_status_with_timestamp('address_provided')
+        deal.save()
+
+        # Return updated deal information
+        updated_deal = DealDetailSerializer(deal)
+        return Response({
+            'status': 'success',
+            'message': 'Address submitted successfully.',
+            'deal': updated_deal.data
+        }, status=status.HTTP_200_OK)
+
+    # Flatten errors for toast display
+    error_messages = []
+    for field, errors in serializer.errors.items():
+        pretty_field = field.replace('_', ' ').replace('-', ' ').title()
+        error_messages.append(f"{pretty_field}: {errors[0]}")
+    
+    error_string = " ".join(error_messages)
+    
+    return Response({
+        'status': 'error',
+        'message': error_string if error_string else 'Invalid data submitted.',
+    }, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def update_deal_status_view(request, deal_id):
+    """
+    Update deal status with additional information (for brand users).
+    This endpoint handles status transitions like shortlisting, requesting address, 
+    marking as shipped, etc.
+    """
+    # This would typically check if user has brand permissions
+    # For now, we'll implement basic functionality
+    
+    try:
+        from brands.models import BrandUser
+        brand_user = BrandUser.objects.get(user=request.user)
+    except BrandUser.DoesNotExist:
+        return Response({
+            'status': 'error',
+            'message': 'Brand user profile not found.'
+        }, status=status.HTTP_404_NOT_FOUND)
+
+    # Get deal and verify brand owns it
+    deal = get_object_or_404(
+        Deal.objects.select_related('campaign__brand'),
+        id=deal_id,
+        campaign__brand=brand_user.brand
+    )
+
+    # Validate the request data
+    serializer = DealStatusUpdateSerializer(data=request.data)
+    if not serializer.is_valid():
+        return Response({
+            'status': 'error',
+            'message': 'Invalid data provided.',
+            'errors': serializer.errors
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+    # Get the validated data
+    new_status = serializer.validated_data['status']
+    notes = serializer.validated_data.get('notes', '')
+    tracking_number = serializer.validated_data.get('tracking_number', '')
+    tracking_url = serializer.validated_data.get('tracking_url', '')
+
+    # Validate status transition
+    valid_transitions = {
+        'accepted': ['shortlisted'],
+        'shortlisted': ['address_requested'],
+        'address_provided': ['product_shipped'],
+        'product_shipped': ['product_delivered'],
+        'product_delivered': ['active'],
+        'active': ['content_submitted'],
+        'content_submitted': ['under_review'],
+        'under_review': ['approved', 'revision_requested'],
+        'revision_requested': ['under_review'],
+        'approved': ['completed']
+    }
+
+    if new_status not in valid_transitions.get(deal.status, []):
+        return Response({
+            'status': 'error',
+            'message': f'Cannot transition from {deal.status} to {new_status}'
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+    # Update deal with new status and additional information
+    deal.set_status_with_timestamp(new_status)
+    
+    if notes:
+        deal.notes = notes
+    
+    if new_status == 'product_shipped':
+        if tracking_number:
+            deal.tracking_number = tracking_number
+        if tracking_url:
+            deal.tracking_url = tracking_url
+
+    deal.save()
+
+    # Return updated deal information
+    updated_deal = DealDetailSerializer(deal)
+    return Response({
+        'status': 'success',
+        'message': f'Deal status updated to {new_status}',
+        'deal': updated_deal.data
+    }, status=status.HTTP_200_OK)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def last_deal_view(request):
+    """
+    Get the last/most recent deal for the authenticated influencer.
+    """
+    try:
+        profile = request.user.influencer_profile
+    except InfluencerProfile.DoesNotExist:
+        return Response({
+            'status': 'error',
+            'message': 'Influencer profile not found.'
+        }, status=status.HTTP_404_NOT_FOUND)
+
+    # Get the most recent deal for this influencer
+    last_deal = Deal.objects.filter(
+        influencer=profile
+    ).select_related('campaign__brand').order_by('-invited_at').first()
+
+    if not last_deal:
+        return Response({
+            'status': 'success',
+            'message': 'No deals found for this influencer.',
+            'last_deal': None
+        }, status=status.HTTP_200_OK)
+
+    serializer = DealDetailSerializer(last_deal)
+    return Response({
+        'status': 'success',
+        'last_deal': serializer.data
+    }, status=status.HTTP_200_OK)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def submit_content_placeholder(request, deal_id):
+    """
+    Legacy endpoint that redirects to the content submission API.
     """
     try:
         profile = request.user.influencer_profile
@@ -556,16 +794,75 @@ def deal_messages_view(request, deal_id):
         influencer=profile
     )
 
-    if request.method == 'GET':
-        # Placeholder implementation for getting messages
+    # Check if deal allows content submission
+    if deal.status not in ['product_delivered', 'active', 'accepted', 'revision_requested']:
         return Response({
-            'status': 'success',
-            'messages': []
-        }, status=status.HTTP_200_OK)
+            'status': 'error',
+            'message': f'Content cannot be submitted for this deal in its current status: {deal.get_status_display()}.'
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+    # Add deal to the data
+    data = request.data.copy()
+    data['deal'] = deal.id
+
+    # Import and use the serializer directly
+    from content.serializers import ContentSubmissionSerializer
+    serializer = ContentSubmissionSerializer(data=data)
     
-    elif request.method == 'POST':
-        # Placeholder implementation for sending messages
+    if serializer.is_valid():
+        submission = serializer.save()
+        
+        # Update deal status to content_submitted if needed
+        if deal.status in ['product_delivered', 'active', 'accepted', 'revision_requested']:
+            deal.status = 'content_submitted'
+            deal.save()
+        
+        # Create notification for brand about content submission
+        from content.views import _create_content_notification
+        _create_content_notification(deal, submission, 'submitted')
+        
         return Response({
             'status': 'success',
-            'message': 'Message sent successfully'
-        }, status=status.HTTP_200_OK)
+            'message': 'Content submitted successfully.',
+            'submission': ContentSubmissionSerializer(submission).data
+        }, status=status.HTTP_201_CREATED)
+
+    return Response({
+        'status': 'error',
+        'message': 'Invalid submission data.',
+        'errors': serializer.errors
+    }, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def content_submissions_placeholder(request, deal_id):
+    """
+    Legacy endpoint that redirects to the content submissions list API.
+    """
+    try:
+        profile = request.user.influencer_profile
+    except InfluencerProfile.DoesNotExist:
+        return Response({
+            'status': 'error',
+            'message': 'Influencer profile not found.'
+        }, status=status.HTTP_404_NOT_FOUND)
+
+    deal = get_object_or_404(
+        Deal.objects.select_related('campaign__brand'),
+        id=deal_id,
+        influencer=profile
+    )
+
+    # Get content submissions for this deal
+    submissions = deal.content_submissions.all().order_by('-submitted_at')
+    
+    # Import the serializer
+    from content.serializers import ContentSubmissionSerializer
+    serializer = ContentSubmissionSerializer(submissions, many=True)
+    
+    return Response({
+        'status': 'success',
+        'submissions': serializer.data,
+        'total_count': submissions.count()
+    }, status=status.HTTP_200_OK)

@@ -6,12 +6,12 @@ import { CollaborationHistory } from "@/components/analytics/collaboration-histo
 import { EarningsDashboard } from "@/components/analytics/earnings-dashboard";
 import { PerformanceMetrics } from "@/components/analytics/performance-metrics";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { RequireAuth } from "@/components/auth/require-auth";
+import { RequireInfluencerAuth } from "@/components/auth/require-influencer-auth";
 import { HiChartBar, HiClock, HiBanknotes, HiTrophy } from "react-icons/hi2";
 
 export default function AnalyticsPage() {
 	return (
-		<RequireAuth>
+		<RequireInfluencerAuth>
 			<MainLayout showFooter={false}>
 				<div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100">
 					<div className="container mx-auto px-4 py-4 max-w-7xl">
@@ -75,6 +75,6 @@ export default function AnalyticsPage() {
 					</div>
 				</div>
 			</MainLayout>
-		</RequireAuth>
+		</RequireInfluencerAuth>
 	);
 }
