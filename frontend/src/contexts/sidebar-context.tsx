@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useState, ReactNode, useEffect, useRef } from 'react';
+import { createContext, useContext, useState, ReactNode, useEffect, useRef, useCallback } from 'react';
 
 interface SidebarContextType {
   isCollapsed: boolean;
@@ -8,6 +8,7 @@ interface SidebarContextType {
   toggleSidebar: () => void;
   isHoverExpanded: boolean;
   setIsHoverExpanded: (expanded: boolean) => void;
+  isInitialized: boolean;
 }
 
 const SidebarContext = createContext<SidebarContextType | undefined>(undefined);
@@ -27,42 +28,67 @@ export function SidebarProvider({ children }: { children: ReactNode }) {
   // Load initial state from localStorage only after mounting
   useEffect(() => {
     if (hasMounted && typeof window !== 'undefined') {
-      const savedState = localStorage.getItem('sidebar-collapsed');
-      if (savedState !== null) {
-        setIsCollapsed(JSON.parse(savedState));
+      try {
+        const savedState = localStorage.getItem('sidebar-collapsed');
+        if (savedState !== null) {
+          const parsed = JSON.parse(savedState);
+          // Validate the parsed value is boolean
+          if (typeof parsed === 'boolean') {
+            setIsCollapsed(parsed);
+          }
+        }
+      } catch (error) {
+        console.warn('Failed to parse sidebar state from localStorage:', error);
+        // Fall back to default state if parsing fails
+      } finally {
+        setIsInitialized(true);
       }
+    } else if (hasMounted) {
+      // If localStorage is not available, still mark as initialized
       setIsInitialized(true);
     }
   }, [hasMounted]);
 
-  // Save state to localStorage when it changes
+  // Save state to localStorage when it changes (with error handling)
   useEffect(() => {
     if (isInitialized && hasMounted && typeof window !== 'undefined') {
-      localStorage.setItem('sidebar-collapsed', JSON.stringify(isCollapsed));
+      try {
+        localStorage.setItem('sidebar-collapsed', JSON.stringify(isCollapsed));
+      } catch (error) {
+        console.warn('Failed to save sidebar state to localStorage:', error);
+      }
     }
   }, [isCollapsed, isInitialized, hasMounted]);
 
-  const toggleSidebar = () => {
+  const clearHoverTimeout = useCallback(() => {
+    if (hoverTimeoutRef.current) {
+      clearTimeout(hoverTimeoutRef.current);
+      hoverTimeoutRef.current = null;
+    }
+  }, []);
+
+  const toggleSidebar = useCallback(() => {
     setIsCollapsed(prev => !prev);
     // Clear any hover expansion when manually toggling
     setIsHoverExpanded(false);
-  };
+    clearHoverTimeout();
+  }, [clearHoverTimeout]);
 
-  const handleSetCollapsed = (collapsed: boolean) => {
+  const handleSetCollapsed = useCallback((collapsed: boolean) => {
     setIsCollapsed(collapsed);
     // Clear hover expansion when manually setting state
     if (!collapsed) {
       setIsHoverExpanded(false);
+      clearHoverTimeout();
     }
-  };
+  }, [clearHoverTimeout]);
 
-  const handleSetHoverExpanded = (expanded: boolean) => {
+  const handleSetHoverExpanded = useCallback((expanded: boolean) => {
+    // Only allow hover expansion if component is initialized
+    if (!isInitialized) return;
+
     setIsHoverExpanded(expanded);
-    
-    // Clear any existing timeout
-    if (hoverTimeoutRef.current) {
-      clearTimeout(hoverTimeoutRef.current);
-    }
+    clearHoverTimeout();
 
     // If expanding on hover, set a timeout to collapse after delay
     if (expanded && isCollapsed) {
@@ -70,25 +96,34 @@ export function SidebarProvider({ children }: { children: ReactNode }) {
         setIsHoverExpanded(false);
       }, 3000); // Auto-collapse after 3 seconds of no hover
     }
-  };
+  }, [isCollapsed, isInitialized, clearHoverTimeout]);
 
   // Cleanup timeout on unmount
   useEffect(() => {
     return () => {
-      if (hoverTimeoutRef.current) {
-        clearTimeout(hoverTimeoutRef.current);
-      }
+      clearHoverTimeout();
     };
-  }, []);
+  }, [clearHoverTimeout]);
+
+  // Reset hover state when collapsed state changes
+  useEffect(() => {
+    if (!isCollapsed) {
+      setIsHoverExpanded(false);
+      clearHoverTimeout();
+    }
+  }, [isCollapsed, clearHoverTimeout]);
+
+  const contextValue: SidebarContextType = {
+    isCollapsed,
+    setIsCollapsed: handleSetCollapsed,
+    toggleSidebar,
+    isHoverExpanded,
+    setIsHoverExpanded: handleSetHoverExpanded,
+    isInitialized,
+  };
 
   return (
-    <SidebarContext.Provider value={{ 
-      isCollapsed, 
-      setIsCollapsed: handleSetCollapsed, 
-      toggleSidebar,
-      isHoverExpanded,
-      setIsHoverExpanded: handleSetHoverExpanded
-    }}>
+    <SidebarContext.Provider value={contextValue}>
       {children}
     </SidebarContext.Provider>
   );
@@ -100,4 +135,4 @@ export function useSidebar() {
     throw new Error('useSidebar must be used within a SidebarProvider');
   }
   return context;
-} 
+}
