@@ -66,4 +66,4 @@ RUN chmod +x ./entrypoint.sh
 RUN ./entrypoint.sh
 
 # Run the application (Gunicorn)
-CMD ["gunicorn", "backend.wsgi:application", "--workers=2", "--threads=2", "--bind=0.0.0.0:8000", "--timeout=90", "--log-level=info"]
+CMD ["gunicorn", "backend.wsgi:application", "--workers=2", "--threads=2", "--bind=0.0.0.0:8000", "--timeout=300", "--log-level=info"]

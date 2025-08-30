@@ -6,6 +6,9 @@ const nextConfig: NextConfig = {
     unoptimized: process.env.NODE_ENV === 'development',
   },
 
+  // Enable standalone output for Docker optimization
+  output: 'standalone',
+
   webpack: (config, { dev, isServer }) => {
     if (dev && !isServer) {
       config.watchOptions = {
@@ -13,8 +16,6 @@ const nextConfig: NextConfig = {
         aggregateTimeout: 300,
       };
     }
-
-
 
     return config;
   },
