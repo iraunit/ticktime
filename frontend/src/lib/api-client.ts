@@ -262,8 +262,6 @@ export const dealsApi = {
       },
     });
   },
-  
-  getContentSubmissions: (id: number) => api.get(`/deals/${id}/content-submissions/`),
 };
 
 // Dashboard API functions

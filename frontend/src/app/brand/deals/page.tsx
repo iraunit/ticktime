@@ -1,26 +1,22 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DealListSkeleton } from "@/components/ui/skeleton-layouts";
 import { toast } from "@/lib/toast";
-import { api } from "@/lib/api";
+import api from "@/lib/api";
 import { 
   HiEye, 
-  HiChatBubbleLeftRight, 
-  HiCalendarDays,
   HiCurrencyDollar,
   HiUsers,
   HiDocument,
   HiCheckCircle,
-  HiClock,
-  HiXCircle,
   HiMagnifyingGlass,
   HiChevronLeft,
   HiChevronRight,
@@ -106,7 +102,7 @@ export default function BrandDealsPage() {
     items_per_page: 20
   });
 
-  const fetchDealsByCampaigns = async () => {
+  const fetchDealsByCampaigns = useCallback(async () => {
     setIsLoading(true);
     try {
       const response = await api.get('/brands/deals/by-campaigns/', {
@@ -120,7 +116,7 @@ export default function BrandDealsPage() {
       });
       
       setCampaigns(response.data.campaigns || []);
-      setPagination(response.data.pagination || pagination);
+      setPagination(prev => response.data.pagination || prev);
     } catch (error: any) {
       console.error('Failed to fetch deals by campaigns:', error);
       toast.error(error.response?.data?.message || 'Failed to load deals. Please try again.');
@@ -128,9 +124,9 @@ export default function BrandDealsPage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [searchTerm, statusFilter, sortBy, pagination.current_page, pagination.items_per_page]);
 
-  const fetchDeals = async () => {
+  const fetchDeals = useCallback(async () => {
     setIsLoading(true);
     try {
       const response = await api.get('/brands/deals/', {
@@ -144,7 +140,7 @@ export default function BrandDealsPage() {
       });
       
       setDeals(response.data.deals || []);
-      setPagination(response.data.pagination || pagination);
+      setPagination(prev => response.data.pagination || prev);
     } catch (error: any) {
       console.error('Failed to fetch deals:', error);
       toast.error(error.response?.data?.message || 'Failed to load deals. Please try again.');
@@ -152,7 +148,7 @@ export default function BrandDealsPage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [searchTerm, statusFilter, sortBy, pagination.current_page, pagination.items_per_page]);
 
   useEffect(() => {
     const timeoutId = setTimeout(() => {
@@ -164,7 +160,7 @@ export default function BrandDealsPage() {
     }, searchTerm ? 500 : 0);
 
     return () => clearTimeout(timeoutId);
-  }, [viewMode, searchTerm, statusFilter, sortBy, pagination.current_page]);
+  }, [viewMode, searchTerm, statusFilter, sortBy, pagination.current_page, fetchDealsByCampaigns, fetchDeals]);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat("en-IN", {
