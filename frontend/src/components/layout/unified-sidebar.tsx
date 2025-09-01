@@ -209,7 +209,7 @@ export function UnifiedSidebar({userType}: UnifiedSidebarProps) {
                                         <img
                                             src={logoData.brandLogo}
                                             alt={`${logoData.brandName} logo`}
-                                            className="w-full h-full object-cover"
+                                            className="w-full h-full object-contain"
                                             onError={(e) => {
                                                 // Fallback to default logo if image fails to load
                                                 e.currentTarget.style.display = 'none';
@@ -325,7 +325,7 @@ export function UnifiedSidebar({userType}: UnifiedSidebarProps) {
                                         src={logoData?.logo || ''}
                                         alt="Profile"
                                         fallback={getUserInitials()}
-                                        className="h-10 w-10 rounded-full shadow-md group-hover:shadow-lg transition-all duration-300 transform group-hover:scale-105"
+                                        className="h-10 w-10 object-contain rounded-full shadow-md group-hover:shadow-lg transition-all duration-300 transform group-hover:scale-105"
                                     />
                                 </div>
 

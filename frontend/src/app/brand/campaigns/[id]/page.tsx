@@ -80,7 +80,7 @@ interface Campaign {
   };
   industry?: string;
   industry_display?: string;
-  execution_mode?: 'manual' | 'hybrid' | 'managed' | string;
+      execution_mode?: 'manual' | 'manual_managed' | 'fully_managed' | string;
   target_influencers?: number;
   application_deadline_visible_to_influencers?: boolean;
   barter_submission_after_days?: number | null;

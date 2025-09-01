@@ -662,7 +662,7 @@ def brand_deals_view(request):
             F('campaign__application_deadline'),
             F('invited_at'),
         ),
-        total_value=ExpressionWrapper(
+        deal_total_value=ExpressionWrapper(
             Coalesce(F('campaign__cash_amount'), 0) + Coalesce(F('campaign__product_value'), 0),
             output_field=DecimalField(max_digits=12, decimal_places=2),
         ),
@@ -675,9 +675,9 @@ def brand_deals_view(request):
     elif ordering == 'deadline_asc':
         deals = deals.order_by('deadline_sort')
     elif ordering == 'value_desc':
-        deals = deals.order_by('-total_value')
+        deals = deals.order_by('-deal_total_value')
     elif ordering == 'value_asc':
-        deals = deals.order_by('total_value')
+        deals = deals.order_by('deal_total_value')
     else:
         deals = deals.order_by('-last_activity_at')
 

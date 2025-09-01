@@ -42,8 +42,8 @@ class Campaign(models.Model):
         max_length=20,
         choices=[
             ('manual', 'Manual'),
-            ('hybrid', 'Hybrid'),
-            ('managed', 'Managed'),
+            ('manual_managed', 'Manual + Managed by Us'),
+            ('fully_managed', 'Managed by Us Fully'),
         ],
         default='manual'
     )
