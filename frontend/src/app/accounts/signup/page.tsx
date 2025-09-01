@@ -65,7 +65,7 @@ export default function SignupPage() {
               {/* Account Type Cards */}
               <div className="space-y-4">
                 {/* Brand Account */}
-                <Link href="/signup/brand">
+                <Link href="/accounts/signup/brand">
                   <Card className="shadow-lg border-0 bg-white/80 backdrop-blur-sm hover:shadow-xl transition-all duration-200 hover:scale-[1.02] cursor-pointer group">
                     <CardContent className="p-6">
                       <div className="flex items-center space-x-4">
@@ -83,7 +83,7 @@ export default function SignupPage() {
                 </Link>
 
                 {/* Influencer Account */}
-                <Link href="/signup/influencer">
+                <Link href="/accounts/signup/influencer">
                   <Card className="shadow-lg border-0 bg-white/80 backdrop-blur-sm hover:shadow-xl transition-all duration-200 hover:scale-[1.02] cursor-pointer group">
                     <CardContent className="p-6">
                       <div className="flex items-center space-x-4">
@@ -105,7 +105,7 @@ export default function SignupPage() {
               <div className="text-center mt-8 p-4">
                 <p className="text-sm text-gray-600">
                   Already have an account?{" "}
-                  <Link href="/login" className="font-medium text-blue-600 hover:text-blue-700">
+                  <Link href="/accounts/login" className="font-medium text-blue-600 hover:text-blue-700">
                     Sign in
                   </Link>
                 </p>

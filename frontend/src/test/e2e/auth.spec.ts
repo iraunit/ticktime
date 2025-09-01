@@ -13,12 +13,12 @@ test.describe('Authentication Flow', () => {
 
   test('should navigate to login page', async ({ page }) => {
     await page.getByRole('link', { name: /sign in/i }).click()
-    await expect(page).toHaveURL('/login')
+    await expect(page).toHaveURL('/accounts/login')
     await expect(page.getByRole('heading', { name: /sign in/i })).toBeVisible()
   })
 
   test('should show validation errors on empty login form', async ({ page }) => {
-    await page.goto('/login')
+    await page.goto('/accounts/login')
     await page.getByRole('button', { name: /sign in/i }).click()
     
     await expect(page.getByText(/email is required/i)).toBeVisible()
@@ -26,7 +26,7 @@ test.describe('Authentication Flow', () => {
   })
 
   test('should show email validation error', async ({ page }) => {
-    await page.goto('/login')
+    await page.goto('/accounts/login')
     await page.getByLabel(/email/i).fill('invalid-email')
     await page.getByRole('button', { name: /sign in/i }).click()
     
@@ -35,12 +35,12 @@ test.describe('Authentication Flow', () => {
 
   test('should navigate to signup page', async ({ page }) => {
     await page.getByRole('link', { name: /get started/i }).click()
-    await expect(page).toHaveURL('/signup')
+    await expect(page).toHaveURL('/accounts/signup')
     await expect(page.getByRole('heading', { name: /create account/i })).toBeVisible()
   })
 
   test('should show all signup form fields', async ({ page }) => {
-    await page.goto('/signup')
+    await page.goto('/accounts/signup')
     
     await expect(page.getByLabel(/first name/i)).toBeVisible()
     await expect(page.getByLabel(/last name/i)).toBeVisible()
@@ -53,7 +53,7 @@ test.describe('Authentication Flow', () => {
   })
 
   test('should show password mismatch error', async ({ page }) => {
-    await page.goto('/signup')
+    await page.goto('/accounts/signup')
     
     await page.getByLabel(/^password$/i).fill('password123')
     await page.getByLabel(/confirm password/i).fill('different123')
@@ -63,10 +63,10 @@ test.describe('Authentication Flow', () => {
   })
 
   test('should navigate to forgot password page', async ({ page }) => {
-    await page.goto('/login')
+    await page.goto('/accounts/login')
     await page.getByRole('link', { name: /forgot password/i }).click()
     
-    await expect(page).toHaveURL('/forgot-password')
+    await expect(page).toHaveURL('/accounts/forgot-password')
     await expect(page.getByRole('heading', { name: /forgot password/i })).toBeVisible()
   })
 })
@@ -74,7 +74,7 @@ test.describe('Authentication Flow', () => {
 test.describe('Authenticated User Flow', () => {
   test.beforeEach(async ({ page }) => {
     // Mock successful login
-    await page.route('**/api/auth/login/', async route => {
+    await page.route('**/api/auth/accounts/login/', async route => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -111,7 +111,7 @@ test.describe('Authenticated User Flow', () => {
   })
 
   test('should login and redirect to dashboard', async ({ page }) => {
-    await page.goto('/login')
+    await page.goto('/accounts/login')
     
     await page.getByLabel(/email/i).fill('test@example.com')
     await page.getByLabel(/password/i).fill('password123')
@@ -122,7 +122,7 @@ test.describe('Authenticated User Flow', () => {
   })
 
   test('should display dashboard stats', async ({ page }) => {
-    await page.goto('/login')
+    await page.goto('/accounts/login')
     
     await page.getByLabel(/email/i).fill('test@example.com')
     await page.getByLabel(/password/i).fill('password123')

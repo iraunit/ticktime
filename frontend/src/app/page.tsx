@@ -57,12 +57,12 @@ export default function Home() {
               
               <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12">
                 <Button size="lg" className="bg-red-600 hover:bg-red-700 text-white px-8 py-4 text-lg font-semibold rounded-lg shadow-lg hover:shadow-xl transition-all duration-300" asChild>
-                  <Link href="/signup">
+                  <Link href="/accounts/signup">
                     Get Started Free →
                   </Link>
                 </Button>
                 <Button size="lg" variant="outline" className="border-gray-300 text-gray-700 hover:bg-gray-50 px-8 py-4 text-lg font-semibold rounded-lg transition-all duration-300" asChild>
-                  <Link href="/login">
+                  <Link href="/accounts/login">
                     Sign In
                   </Link>
                 </Button>
@@ -335,12 +335,12 @@ export default function Home() {
               
               <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12">
                 <Button size="lg" className="bg-white text-red-600 hover:bg-gray-100 text-lg px-8 py-4 font-semibold rounded-lg shadow-lg hover:shadow-xl transition-all duration-300" asChild>
-                  <Link href="/signup">
+                  <Link href="/accounts/signup">
                     Start Creating Today →
                   </Link>
                 </Button>
                 <Button size="lg" variant="ghost" className="border-2 border-white text-white hover:bg-white hover:text-red-600 text-lg px-8 py-4 font-semibold rounded-lg transition-all duration-300" asChild>
-                  <Link href="/login">Already have an account?</Link>
+                  <Link href="/accounts/login">Already have an account?</Link>
                 </Button>
               </div>
               

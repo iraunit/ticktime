@@ -66,7 +66,7 @@ export function ForgotPasswordForm() {
                 Send another email
               </Button>
               <Button asChild className="w-full">
-                <Link href="/login">
+                <Link href="/accounts/login">
                   <ArrowLeft className="mr-2 h-4 w-4" />
                   Back to sign in
                 </Link>
@@ -148,7 +148,7 @@ export function ForgotPasswordForm() {
 
         <div className="text-center">
           <Link
-            href="/login"
+            href="/accounts/login"
             className="text-sm text-primary hover:underline inline-flex items-center"
           >
             <ArrowLeft className="mr-1 h-3 w-3" />

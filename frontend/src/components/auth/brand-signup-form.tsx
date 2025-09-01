@@ -405,7 +405,7 @@ export function BrandSignupForm() {
 
                     <div className="text-center text-sm text-gray-600">
                       Already have an account?{" "}
-                      <Link href="/login" className="font-medium text-blue-600 hover:text-blue-700">
+                      <Link href="/accounts/login" className="font-medium text-blue-600 hover:text-blue-700">
                         Sign in
                       </Link>
                     </div>

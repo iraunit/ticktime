@@ -22,7 +22,7 @@ export function RequireBrandAuth({ children }: RequireBrandAuthProps) {
       
       // If not authenticated, redirect to login
       if (!isAuthenticated() || !user) {
-        router.replace('/login');
+        router.replace('/accounts/login');
         return;
       }
       

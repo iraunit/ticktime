@@ -513,7 +513,7 @@ export function SignupForm() {
 
                     <div className="text-center text-sm text-gray-600 pt-4">
                       Already have an account?{" "}
-                      <Link href="/login" className="font-medium text-purple-600 hover:text-purple-700">
+                      <Link href="/accounts/login" className="font-medium text-purple-600 hover:text-purple-700">
                         Sign in
                       </Link>
                     </div>

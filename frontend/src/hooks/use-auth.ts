@@ -204,7 +204,7 @@ export function useAuth() {
       authApi.resetPassword(token, password),
     onSuccess: () => {
       toast.success('Password reset successful! You can now log in with your new password.');
-      router.push('/login');
+      router.push('/accounts/login');
     },
     onError: (error: any) => {
       const errorMessage = formatErrorMessage(error);

@@ -208,7 +208,7 @@ export function LoginForm() {
                         )}
                       />
                       <Link
-                        href="/forgot-password"
+                        href="/accounts/forgot-password"
                         className="text-sm text-blue-600 hover:text-blue-700 font-medium"
                       >
                         Forgot password?
@@ -235,7 +235,7 @@ export function LoginForm() {
 
                     <div className="text-center text-sm text-gray-600">
                       Don't have an account?{" "}
-                      <Link href="/signup" className="font-medium text-blue-600 hover:text-blue-700">
+                      <Link href="/accounts/signup" className="font-medium text-blue-600 hover:text-blue-700">
                         Sign up
                       </Link>
                     </div>
@@ -250,12 +250,12 @@ export function LoginForm() {
                     </div>
 
                     <div className="grid grid-cols-2 gap-3">
-                      <Link href="/signup/brand">
+                      <Link href="/accounts/signup/brand">
                         <Button variant="outline" className="w-full h-11 border-gray-200 hover:bg-gray-50">
                           Brand
                         </Button>
                       </Link>
-                      <Link href="/signup/influencer">
+                      <Link href="/accounts/signup/influencer">
                         <Button variant="outline" className="w-full h-11 border-gray-200 hover:bg-gray-50">
                           Creator
                         </Button>

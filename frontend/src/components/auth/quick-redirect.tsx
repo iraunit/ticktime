@@ -22,11 +22,11 @@ export function QuickRedirect({ user, pathname }: QuickRedirectProps) {
                               pathname.startsWith('/profile');
 
     // Skip redirect for auth pages
-    const isAuthPage = pathname.startsWith('/login') || 
-                      pathname.startsWith('/signup') || 
-                      pathname.startsWith('/forgot-password') || 
-                      pathname.startsWith('/reset-password') ||
-                      pathname.startsWith('/verify-email');
+    const isAuthPage = pathname.startsWith('/accounts/login') || 
+                      pathname.startsWith('/accounts/signup') || 
+                      pathname.startsWith('/accounts/forgot-password') || 
+                      pathname.startsWith('/accounts/reset-password') ||
+                      pathname.startsWith('/accounts/verify-email');
 
     if (isAuthPage) {
       return;
