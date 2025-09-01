@@ -682,3 +682,104 @@ class InfluencerPublicSerializer(serializers.ModelSerializer):
 
     def get_platforms(self, obj):
         return list(obj.social_accounts.filter(is_active=True).values_list('platform', flat=True))
+
+
+class SocialAccountPublicSerializer(serializers.ModelSerializer):
+    """
+    Public serializer for social media accounts.
+    """
+    class Meta:
+        model = SocialMediaAccount
+        fields = (
+            'id', 'platform', 'username', 'followers_count', 
+            'engagement_rate', 'is_active', 'verified'
+        )
+
+
+class InfluencerPublicProfileSerializer(serializers.ModelSerializer):
+    """
+    Comprehensive public profile serializer for individual influencer profile pages.
+    """
+    user_first_name = serializers.CharField(source='user.first_name', read_only=True)
+    user_last_name = serializers.CharField(source='user.last_name', read_only=True)
+    username = serializers.CharField(source='user.username', read_only=True)
+    profile_image = serializers.SerializerMethodField()
+    total_followers = serializers.ReadOnlyField()
+    average_engagement_rate = serializers.ReadOnlyField()
+    social_accounts_count = serializers.SerializerMethodField()
+    social_accounts = SocialAccountPublicSerializer(many=True, read_only=True)
+    recent_collaborations = serializers.SerializerMethodField()
+    performance_metrics = serializers.SerializerMethodField()
+
+    class Meta:
+        model = InfluencerProfile
+        fields = (
+            'id', 'user_first_name', 'user_last_name', 'username', 'bio', 
+            'industry', 'categories', 'profile_image', 'is_verified',
+            'total_followers', 'average_engagement_rate', 'social_accounts_count',
+            'created_at', 'social_accounts', 'recent_collaborations', 'performance_metrics'
+        )
+
+    def get_social_accounts_count(self, obj):
+        """Get count of active social media accounts."""
+        return obj.social_accounts.filter(is_active=True).count()
+
+    def get_profile_image(self, obj):
+        """Get profile image from user profile."""
+        if obj.user_profile and obj.user_profile.profile_image:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.user_profile.profile_image.url)
+            return obj.user_profile.profile_image.url
+        return None
+
+    def get_recent_collaborations(self, obj):
+        """Get recent collaborations (deals) for this influencer."""
+        from deals.models import Deal
+        recent_deals = Deal.objects.filter(
+            influencer=obj,
+            status__in=['completed', 'active']
+        ).select_related('campaign__brand').order_by('-invited_at')[:5]
+        
+        collaborations = []
+        for deal in recent_deals:
+            collaborations.append({
+                'id': deal.id,
+                'brand_name': deal.campaign.brand.name if deal.campaign.brand else 'Unknown Brand',
+                'campaign_title': deal.campaign.title,
+                'status': deal.status,
+                'created_at': deal.invited_at.isoformat(),
+                'rating': getattr(deal, 'influencer_rating', None)
+            })
+        
+        return collaborations
+
+    def get_performance_metrics(self, obj):
+        """Get performance metrics for this influencer."""
+        from deals.models import Deal
+        from django.db.models import Avg, Count
+        
+        deals = Deal.objects.filter(influencer=obj)
+        completed_deals = deals.filter(status='completed')
+        
+        total_campaigns = deals.count()
+        completed_campaigns = completed_deals.count()
+        
+        # Calculate average rating from completed deals
+        avg_rating = completed_deals.aggregate(
+            avg_rating=Avg('influencer_rating')
+        )['avg_rating'] or 0.0
+        
+        # Calculate completion rate
+        completion_rate = (completed_campaigns / total_campaigns * 100) if total_campaigns > 0 else 0
+        
+        # Mock response rate for now (could be calculated from messaging data)
+        response_rate = 95  # This would need to be calculated from actual response data
+        
+        return {
+            'total_campaigns': total_campaigns,
+            'completed_campaigns': completed_campaigns,
+            'average_rating': round(avg_rating, 1),
+            'response_rate': response_rate,
+            'completion_rate': round(completion_rate, 0)
+        }

@@ -907,6 +907,60 @@ def profile_completion_status_view(request):
     }, status=status.HTTP_200_OK)
 
 
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+@user_rate_limit(requests_per_minute=30)
+@log_performance(threshold=1.0)
+def public_influencer_profile_view(request, influencer_id):
+    """
+    Get public influencer profile information.
+    - Brands can view any influencer profile
+    - Influencers can only view their own profile
+    """
+    try:
+        # Get the requested influencer profile
+        influencer_profile = get_object_or_404(InfluencerProfile, id=influencer_id, user__is_active=True)
+        
+        # Check permissions based on user type
+        if hasattr(request.user, 'brand_user') and request.user.brand_user:
+            # Brand users can view any influencer profile
+            pass
+        elif hasattr(request.user, 'influencer_profile') and request.user.influencer_profile:
+            # Influencers can only view their own profile
+            if request.user.influencer_profile.id != int(influencer_id):
+                return Response({
+                    'status': 'error',
+                    'message': 'You can only view your own profile.'
+                }, status=status.HTTP_403_FORBIDDEN)
+        else:
+            # User has no valid profile type
+            return Response({
+                'status': 'error',
+                'message': 'Access denied. Invalid user type.'
+            }, status=status.HTTP_403_FORBIDDEN)
+        
+        # Serialize the profile data
+        from .serializers import InfluencerPublicProfileSerializer
+        serializer = InfluencerPublicProfileSerializer(influencer_profile, context={'request': request})
+        
+        return Response({
+            'status': 'success',
+            'influencer': serializer.data
+        }, status=status.HTTP_200_OK)
+        
+    except InfluencerProfile.DoesNotExist:
+        return Response({
+            'status': 'error',
+            'message': 'Influencer profile not found.'
+        }, status=status.HTTP_404_NOT_FOUND)
+    except Exception as e:
+        logger.error(f"Error fetching public influencer profile: {e}")
+        return Response({
+            'status': 'error',
+            'message': 'Failed to load influencer profile.'
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def provide_shipping_address_view(request, deal_id):
