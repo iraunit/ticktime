@@ -9,6 +9,7 @@ import { useUserContext } from "@/components/providers/app-providers";
 import { usePathname } from "next/navigation";
 import { OptimizedAvatar } from "@/components/ui/optimized-image";
 import { getMediaUrl } from "@/lib/utils";
+import { getDashboardRoute } from "@/lib/redirect-utils";
 
 export function Header() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -18,6 +19,7 @@ export function Header() {
   const pathname = usePathname();
 
   const isAuthenticated = !!user;
+  const dashboardUrl = getDashboardRoute(user);
 
   const isActive = (href: string) => pathname === href || pathname?.startsWith(href + "/");
 
@@ -59,7 +61,7 @@ export function Header() {
           {/* Desktop Navigation - Only show if authenticated */}
           {isAuthenticated && (
             <nav className="hidden md:flex items-center space-x-6">
-              <Link href="/dashboard" className={`${linkBase} ${isActive("/dashboard") ? linkActive : linkInactive}`}>
+              <Link href={dashboardUrl} className={`${linkBase} ${isActive(dashboardUrl) ? linkActive : linkInactive}`}>
                 Dashboard
               </Link>
               <Link href="/deals" className={`${linkBase} ${isActive("/deals") ? linkActive : linkInactive}`}>
@@ -129,10 +131,10 @@ export function Header() {
             ) : (
               <div className="flex items-center space-x-2">
                 <Button variant="ghost" size="sm" asChild className="h-8 px-3 text-sm">
-                  <Link href="/accounts/login">Sign in</Link>
+                  <Link href="/login">Sign in</Link>
                 </Button>
                 <Button size="sm" asChild className="h-8 px-3 text-sm">
-                  <Link href="/accounts/signup">Get started</Link>
+                  <Link href="/signup">Get started</Link>
                 </Button>
               </div>
             )}
@@ -155,8 +157,8 @@ export function Header() {
             {isAuthenticated ? (
               <nav className="flex flex-col space-y-2">
                 <Link 
-                  href="/dashboard" 
-                  className={`${linkBase} ${isActive("/dashboard") ? linkActive : linkInactive} py-2`}
+                  href={dashboardUrl} 
+                  className={`${linkBase} ${isActive(dashboardUrl) ? linkActive : linkInactive} py-2`}
                   onClick={() => setIsMobileMenuOpen(false)}
                 >
                   Dashboard
@@ -206,12 +208,12 @@ export function Header() {
             ) : (
               <div className="flex flex-col space-y-2">
                 <Button variant="ghost" size="sm" asChild className="h-8 justify-start">
-                  <Link href="/accounts/login" onClick={() => setIsMobileMenuOpen(false)}>
+                  <Link href="/login" onClick={() => setIsMobileMenuOpen(false)}>
                     Sign in
                   </Link>
                 </Button>
                 <Button size="sm" asChild className="h-8 justify-start">
-                  <Link href="/accounts/signup" onClick={() => setIsMobileMenuOpen(false)}>
+                  <Link href="/signup" onClick={() => setIsMobileMenuOpen(false)}>
                     Get started
                   </Link>
                 </Button>

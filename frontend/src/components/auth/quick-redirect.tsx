@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
+import { getDashboardRoute } from "@/lib/redirect-utils";
 
 interface QuickRedirectProps {
   user: any;
@@ -34,23 +35,22 @@ export function QuickRedirect({ user, pathname }: QuickRedirectProps) {
 
     // Immediate redirect for brand users on influencer pages
     if (user.account_type === 'brand' && user.brand_profile && isInfluencerRoute) {
-      router.replace('/brand');
+      const dashboardRoute = getDashboardRoute(user);
+      router.replace(dashboardRoute);
       return;
     }
 
     // Immediate redirect for influencer users on brand pages
     if (user.account_type === 'influencer' && user.influencer_profile && isBrandRoute) {
-      router.replace('/dashboard');
+      const dashboardRoute = getDashboardRoute(user);
+      router.replace(dashboardRoute);
       return;
     }
 
     // Handle root path redirect
     if (pathname === '/' || pathname === '') {
-      if (user.account_type === 'brand' && user.brand_profile) {
-        router.replace('/brand');
-      } else if (user.account_type === 'influencer' && user.influencer_profile) {
-        router.replace('/dashboard');
-      }
+      const dashboardRoute = getDashboardRoute(user);
+      router.replace(dashboardRoute);
     }
   }, [user, pathname, router]);
 
