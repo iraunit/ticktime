@@ -3,3 +3,8 @@ export { SocialAccountsManager } from './social-accounts-manager';
 export { DocumentUpload } from './document-upload';
 export { ProfileCompletion } from './profile-completion';
 export { ImageUpload } from './image-upload';
+export { MainProfileForm } from './main-profile-form';
+export { SocialAccountsForm } from './social-accounts-form';
+export { PreferencesForm } from './preferences-form';
+export { ProfileCompletionCard } from './profile-completion-card';
+export { ProfileAvatarSection } from './profile-avatar-section';

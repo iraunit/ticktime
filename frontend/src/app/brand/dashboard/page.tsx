@@ -5,11 +5,11 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { StatsCard } from "@/components/dashboard/stats-card";
-import { 
-  HiMegaphone, 
-  HiUsers, 
-  HiCheckCircle, 
-  HiClock, 
+import {
+  HiMegaphone,
+  HiUsers,
+  HiCheckCircle,
+  HiClock,
   HiChartBar,
   HiEye,
   HiArrowPath,
@@ -82,7 +82,7 @@ export default function BrandDashboard() {
       description: "All campaigns created",
     },
     {
-      title: "Active Campaigns", 
+      title: "Active Campaigns",
       value: brandStats.active_campaigns || 0,
       icon: HiClock,
       description: "Currently running campaigns",
@@ -120,7 +120,7 @@ export default function BrandDashboard() {
         <div className="relative mb-6">
           {/* Background decoration */}
           <div className="absolute inset-0 bg-gradient-to-r from-blue-500/5 via-indigo-500/5 to-purple-500/5 rounded-xl -m-2"></div>
-          
+
           <div className="relative flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 p-4">
             <div>
               <h1 className="text-2xl font-bold bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 bg-clip-text text-transparent mb-1 flex items-center gap-2">
@@ -133,7 +133,7 @@ export default function BrandDashboard() {
                 Manage your campaigns and track influencer collaborations with our comprehensive brand dashboard.
               </p>
             </div>
-            
+
             <div className="flex items-center gap-3">
               <div className="text-right hidden sm:block">
                 <p className="text-xs text-gray-500">Last updated</p>
@@ -141,8 +141,8 @@ export default function BrandDashboard() {
                   {new Date().toLocaleTimeString()}
                 </p>
               </div>
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 size="sm"
                 onClick={handleRefresh}
                 disabled={stats.isLoading}
@@ -184,32 +184,32 @@ export default function BrandDashboard() {
             </div>
             <Card className="p-6 bg-gradient-to-br from-white via-white to-gray-50 border border-gray-200 shadow-md">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <Button 
+                <Button
                   onClick={handleCreateCampaign}
                   className="w-full justify-start bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white shadow-md"
                 >
                   <HiMegaphone className="w-4 h-4 mr-2" />
                   Create Campaign
                 </Button>
-                <Button 
+                <Button
                   onClick={handleSearchInfluencers}
-                  variant="outline" 
+                  variant="outline"
                   className="w-full justify-start border-purple-200 hover:bg-purple-50 hover:border-purple-300"
                 >
                   <HiUsers className="w-4 h-4 mr-2" />
                   Search Influencers
                 </Button>
-                <Button 
+                <Button
                   onClick={handleReviewContent}
-                  variant="outline" 
+                  variant="outline"
                   className="w-full justify-start border-orange-200 hover:bg-orange-50 hover:border-orange-300"
                 >
                   <HiEye className="w-4 h-4 mr-2" />
                   Review Content ({brandStats.pending_content || 0})
                 </Button>
-                <Button 
+                <Button
                   onClick={handleViewAnalytics}
-                  variant="outline" 
+                  variant="outline"
                   className="w-full justify-start border-green-200 hover:bg-green-50 hover:border-green-300"
                 >
                   <HiChartBar className="w-4 h-4 mr-2" />

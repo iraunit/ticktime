@@ -1,115 +1,89 @@
 "use client";
 
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { api } from '@/lib/api';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { brandApi } from '@/lib/api-client';
 import { useAuth } from '@/hooks/use-auth';
 
 export function useBrandDashboard() {
-  const queryClient = useQueryClient();
   const { isAuthenticatedState, isAuthLoading } = useAuth();
 
-  // Get brand dashboard stats
-  const stats = useQuery({
-    queryKey: ['brand-dashboard-stats'],
-    queryFn: async () => {
-      try {
-        const response = await api.get('/brands/dashboard/');
-        return response.data.dashboard;
-      } catch (error: any) {
-        console.error('Brand dashboard API error:', error);
-        
-        // Handle different types of errors
-        if (error.response?.status === 404) {
-          throw new Error('Brand profile not found. Please complete your brand profile setup.');
-        } else if (error.response?.status === 403) {
-          throw new Error('You do not have permission to view analytics.');
-        } else if (error.response?.status === 401) {
-          throw new Error('Please log in to view your dashboard.');
-        } else if (error.response?.data?.message) {
-          throw new Error(error.response.data.message);
-        } else {
-          throw new Error('Failed to load dashboard data. Please try again later.');
-        }
-      }
-    },
-    select: (data) => data?.stats || {},
+  // Get brand dashboard data (includes stats, recent deals, recent campaigns)
+  const dashboardQuery = useQuery({
+    queryKey: ['brand', 'dashboard'],
+    queryFn: () => brandApi.getDashboard(),
+    select: (response) => response.data.dashboard,
     enabled: !isAuthLoading && isAuthenticatedState,
-    staleTime: 5 * 60 * 1000, // 5 minutes
-    retry: 1, // Only retry once
-    retryDelay: 2000, // Wait 2 seconds before retry
-    refetchOnWindowFocus: false, // Prevent refetch on window focus
+    retry: 3,
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
   });
 
-  // Get recent deals for brand
-  const recentDeals = useQuery({
-    queryKey: ['brand-recent-deals'],
-    queryFn: async () => {
-      try {
-        const response = await api.get('/brands/dashboard/');
-        return response.data.dashboard?.recent_deals || [];
-      } catch (error: any) {
-        console.error('Brand recent deals API error:', error);
-        
-        // Handle different types of errors
-        if (error.response?.status === 404) {
-          throw new Error('Brand profile not found. Please complete your brand profile setup.');
-        } else if (error.response?.status === 403) {
-          throw new Error('You do not have permission to view deals.');
-        } else if (error.response?.status === 401) {
-          throw new Error('Please log in to view your deals.');
-        } else if (error.response?.data?.message) {
-          throw new Error(error.response.data.message);
-        } else {
-          throw new Error('Failed to load recent deals. Please try again later.');
-        }
-      }
-    },
-    enabled: !isAuthLoading && isAuthenticatedState,
-    staleTime: 2 * 60 * 1000, // 2 minutes
-    retry: 1, // Only retry once
-    retryDelay: 2000, // Wait 2 seconds before retry
-    refetchOnWindowFocus: false, // Prevent refetch on window focus
-  });
+  // Extract stats from dashboard data
+  const stats = {
+    data: dashboardQuery.data?.stats,
+    isLoading: dashboardQuery.isLoading,
+    error: dashboardQuery.error,
+    refetch: dashboardQuery.refetch,
+  };
 
-  // Get recent campaigns for brand
-  const recentCampaigns = useQuery({
-    queryKey: ['brand-recent-campaigns'],
-    queryFn: async () => {
-      try {
-        const response = await api.get('/brands/dashboard/');
-        return response.data.dashboard?.recent_campaigns || [];
-      } catch (error: any) {
-        console.error('Brand recent campaigns API error:', error);
-        
-        // Handle different types of errors
-        if (error.response?.status === 404) {
-          throw new Error('Brand profile not found. Please complete your brand profile setup.');
-        } else if (error.response?.status === 403) {
-          throw new Error('You do not have permission to view campaigns.');
-        } else if (error.response?.status === 401) {
-          throw new Error('Please log in to view your campaigns.');
-        } else if (error.response?.data?.message) {
-          throw new Error(error.response.data.message);
-        } else {
-          throw new Error('Failed to load recent campaigns. Please try again later.');
-        }
-      }
-    },
-    enabled: !isAuthLoading && isAuthenticatedState,
-    staleTime: 2 * 60 * 1000, // 2 minutes
-    retry: 1, // Only retry once
-    retryDelay: 2000, // Wait 2 seconds before retry
-    refetchOnWindowFocus: false, // Prevent refetch on window focus
-  });
+  // Extract recent deals from dashboard data
+  const recentDeals = {
+    data: dashboardQuery.data?.recent_deals || [],
+    isLoading: dashboardQuery.isLoading,
+    error: dashboardQuery.error,
+    refetch: dashboardQuery.refetch,
+  };
 
   return {
     stats,
     recentDeals,
-    recentCampaigns,
-    refetch: () => {
-      queryClient.invalidateQueries({ queryKey: ['brand-dashboard-stats'] });
-      queryClient.invalidateQueries({ queryKey: ['brand-recent-deals'] });
-      queryClient.invalidateQueries({ queryKey: ['brand-recent-campaigns'] });
-    }
+    dashboard: dashboardQuery,
   };
-} 
+}
+
+export function useBrandDeals(params?: {
+  status?: string;
+  page?: number;
+  limit?: number;
+}) {
+  const queryClient = useQueryClient();
+  const { isAuthenticatedState, isAuthLoading } = useAuth();
+
+  // Get brand deals list
+  const dealsQuery = useQuery({
+    queryKey: ['brand', 'deals', params],
+    queryFn: () => brandApi.getDeals(params),
+    select: (response) => response.data.deals as any[] || [],
+    enabled: !isAuthLoading && isAuthenticatedState,
+  });
+
+  return {
+    deals: dealsQuery,
+  };
+}
+
+// Placeholder for notifications since brands might not have the same notification system
+export function useBrandNotifications() {
+  const { isAuthenticatedState, isAuthLoading } = useAuth();
+
+  // For now, return empty notifications as the backend doesn't seem to have brand notifications
+  const notificationsQuery = useQuery({
+    queryKey: ['brand', 'notifications'],
+    queryFn: () => Promise.resolve({ data: { notifications: [] } }),
+    select: (response) => response.data.notifications as any[],
+    enabled: !isAuthLoading && isAuthenticatedState,
+  });
+
+  // Placeholder mark as read
+  const markReadMutation = {
+    mutateAsync: async (id: number) => {
+      console.warn('Brand notifications not yet implemented');
+      return Promise.resolve();
+    },
+    isPending: false,
+  };
+
+  return {
+    notifications: notificationsQuery,
+    markAsRead: markReadMutation,
+  };
+}

@@ -51,7 +51,9 @@ export function AnalyticsOverview() {
 
   const performanceData = performance.data;
   const earningsData = earnings.data;
-  const historyData = collaborationHistory.data;
+  const historyData = Array.isArray(collaborationHistory.data) 
+    ? collaborationHistory.data 
+    : (collaborationHistory.data?.collaborations || []);
 
   // Define colorful stat cards with gradients and responsive design
   const statCards = [
@@ -203,7 +205,7 @@ export function AnalyticsOverview() {
           </CardHeader>
           <CardContent className="p-3">
             <div className="space-y-2">
-              {historyData?.slice(0, 5).map((collab: CollaborationHistory, index: number) => (
+              {historyData.length > 0 ? historyData.slice(0, 5).map((collab: CollaborationHistory, index: number) => (
                 <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded-md">
                   <div className="flex items-center gap-2">
                     <div className="w-8 h-8 bg-gradient-to-r from-blue-400 to-indigo-500 rounded-lg flex items-center justify-center text-white text-xs font-bold">
@@ -219,7 +221,13 @@ export function AnalyticsOverview() {
                     <p className="text-xs text-gray-500">{collab.status || 'Completed'}</p>
                   </div>
                 </div>
-              ))}
+              )) : (
+                <div className="text-center py-6">
+                  <HiCalendarDays className="w-12 h-12 text-gray-300 mx-auto mb-2" />
+                  <p className="text-sm text-gray-500">No collaborations yet</p>
+                  <p className="text-xs text-gray-400">Start collaborating with brands to see your history here</p>
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>

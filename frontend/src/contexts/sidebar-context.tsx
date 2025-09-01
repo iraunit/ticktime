@@ -13,18 +13,37 @@ interface SidebarContextType {
 const SidebarContext = createContext<SidebarContextType | undefined>(undefined);
 
 export function SidebarProvider({ children }: { children: ReactNode }) {
-  const [isCollapsed, setIsCollapsed] = useState(true); // Default to collapsed
+  const [isCollapsed, setIsCollapsed] = useState(true); // Default to collapsed for auto-close behavior
   const [isHoverExpanded, setIsHoverExpanded] = useState(false);
+  const [isInitialized, setIsInitialized] = useState(false);
   const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Initialize from localStorage after mounting to avoid hydration errors
+  useEffect(() => {
+    const savedState = localStorage.getItem('sidebar-collapsed');
+    if (savedState !== null) {
+      setIsCollapsed(JSON.parse(savedState));
+    }
+    setIsInitialized(true);
+  }, []);
+
   const toggleSidebar = () => {
-    setIsCollapsed(prev => !prev);
+    setIsCollapsed(prev => {
+      const newValue = !prev;
+      if (isInitialized) {
+        localStorage.setItem('sidebar-collapsed', JSON.stringify(newValue));
+      }
+      return newValue;
+    });
     // Clear any hover expansion when manually toggling
     setIsHoverExpanded(false);
   };
 
   const handleSetCollapsed = (collapsed: boolean) => {
     setIsCollapsed(collapsed);
+    if (isInitialized) {
+      localStorage.setItem('sidebar-collapsed', JSON.stringify(collapsed));
+    }
     // Clear hover expansion when manually setting state
     if (!collapsed) {
       setIsHoverExpanded(false);
@@ -39,11 +58,9 @@ export function SidebarProvider({ children }: { children: ReactNode }) {
       clearTimeout(hoverTimeoutRef.current);
     }
 
-    // If expanding on hover, set a timeout to collapse after delay
-    if (expanded && isCollapsed) {
-      hoverTimeoutRef.current = setTimeout(() => {
-        setIsHoverExpanded(false);
-      }, 3000); // Auto-collapse after 3 seconds of no hover
+    // If collapsing hover, immediately hide
+    if (!expanded) {
+      setIsHoverExpanded(false);
     }
   };
 

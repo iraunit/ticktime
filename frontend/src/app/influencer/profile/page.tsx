@@ -35,7 +35,7 @@ export default function ProfilePage() {
     if (!profile.data) return [];
 
     const p = profile.data as any;
-    
+
     return [
       {
         id: 'personal',
@@ -87,25 +87,25 @@ export default function ProfilePage() {
 
   if (profile.isLoading) {
     return (
-      <RequireAuth>
-        <MainLayout showFooter={false}>
-          <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100">
-            <div className="max-w-7xl mx-auto px-4 py-4">
-              <div className="animate-pulse">
-                <div className="h-8 bg-gray-200 rounded w-48 mb-6"></div>
-                <div className="grid grid-cols-12 gap-4">
-                  <div className="col-span-3 space-y-3">
-                    {[1, 2, 3, 4, 5].map(i => (
-                      <div key={i} className="h-12 bg-gray-200 rounded-lg"></div>
-                    ))}
-                  </div>
-                  <div className="col-span-9 h-96 bg-gray-200 rounded-lg"></div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </MainLayout>
-      </RequireAuth>
+             <RequireAuth>
+         <MainLayout showHeader={false} showFooter={false}>
+           <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100">
+             <div className="max-w-7xl mx-auto px-4 py-4">
+               <div className="animate-pulse">
+                 <div className="h-8 bg-gray-200 rounded w-48 mb-6"></div>
+                 <div className="grid grid-cols-12 gap-4">
+                   <div className="col-span-3 space-y-3">
+                     {[1, 2, 3, 4, 5].map(i => (
+                       <div key={i} className="h-12 bg-gray-200 rounded-lg"></div>
+                     ))}
+                   </div>
+                   <div className="col-span-9 h-96 bg-gray-200 rounded-lg"></div>
+                 </div>
+               </div>
+             </div>
+           </div>
+         </MainLayout>
+       </RequireAuth>
     );
   }
 
@@ -147,15 +147,15 @@ export default function ProfilePage() {
   };
 
   return (
-    <RequireAuth>
-      <MainLayout showFooter={false}>
+         <RequireAuth>
+       <MainLayout showHeader={false} showFooter={false}>
         <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100">
           <div className="max-w-7xl mx-auto px-2 sm:px-4 py-2 sm:py-4">
             {/* Compact Header */}
             <div className="relative mb-4 sm:mb-6">
               {/* Background decoration */}
               <div className="absolute inset-0 bg-gradient-to-r from-blue-500/5 via-purple-500/5 to-green-500/5 rounded-lg sm:rounded-xl -m-2 sm:-m-3"></div>
-              
+
               <div className="relative p-3 sm:p-4">
                 <div className="flex items-start sm:items-center mb-2 sm:mb-3">
                   <div className="w-1 h-6 sm:h-8 bg-gradient-to-b from-blue-500 to-purple-500 rounded-full mr-2 sm:mr-3 flex-shrink-0"></div>
@@ -186,7 +186,7 @@ export default function ProfilePage() {
                     {profileSections.map((section) => {
                       const colors = getColorScheme(section.color);
                       const Icon = section.icon;
-                      
+
                       return (
                         <button
                           key={section.id}
@@ -230,7 +230,7 @@ export default function ProfilePage() {
                       </span>
                     </div>
                     <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
-                      <div 
+                      <div
                         className={`h-2 rounded-full transition-all duration-500 ${
                           completionPercentage === 100 ? 'bg-gradient-to-r from-green-500 to-emerald-500' :
                           completionPercentage >= 67 ? 'bg-gradient-to-r from-yellow-500 to-orange-500' :
@@ -265,8 +265,8 @@ export default function ProfilePage() {
                     <div className="flex justify-between items-center p-2.5 bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg border border-purple-200">
                       <span className="text-sm font-medium text-purple-700">Industry</span>
                       <span className="text-sm font-bold text-purple-800 text-right max-w-20 truncate">
-                        {profile.data?.industry ? 
-                          profile.data.industry.replace('_', ' ').replace(/\b\w/g, (l: string) => l.toUpperCase()) 
+                        {profile.data?.industry ?
+                          profile.data.industry.replace('_', ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())
                           : 'Not set'
                         }
                       </span>

@@ -84,11 +84,11 @@ export function useAuth() {
       // Redirect based on account type
       const user = response?.data?.user;
       if (user?.account_type === 'brand') {
-        router.push('/brand');
+        router.push('/brand/dashboard');
       } else if (user?.account_type === 'influencer') {
-        router.push('/dashboard');
+        router.push('/influencer/dashboard');
       } else {
-        router.push('/dashboard'); // fallback
+        router.push('/influencer/dashboard'); // fallback
       }
     },
     onError: (error: any) => {
