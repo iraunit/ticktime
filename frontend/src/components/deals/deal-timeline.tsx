@@ -16,6 +16,7 @@ import {
     Upload,
     XCircle
 } from "@/lib/icons";
+import {HiXCircle} from "react-icons/hi2";
 
 interface DealTimelineProps {
     deal: Deal;
@@ -361,6 +362,21 @@ function DealTimeline({deal, className}: DealTimelineProps): React.JSX.Element {
                     </div>
                     <p className="text-sm text-orange-700 mt-1">
                         Please check the feedback and resubmit your content.
+                    </p>
+                </div>
+            )}
+
+            {/* Rejection reason display */}
+            {deal.status === "rejected" && deal.rejection_reason && (
+                <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+                    <div className="flex items-center">
+                        <HiXCircle className="w-4 h-4 text-red-600 mr-2"/>
+                        <span className="text-sm font-medium text-red-800">
+              Deal Rejected
+            </span>
+                    </div>
+                    <p className="text-sm text-red-700 mt-1">
+                        <strong>Reason:</strong> {deal.rejection_reason}
                     </p>
                 </div>
             )}

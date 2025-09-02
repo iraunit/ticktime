@@ -83,11 +83,11 @@ interface BrandDeal {
     shipping_address?: any;
     tracking_number?: string;
     tracking_url?: string;
-         content_reviewed_at?: string;
-     under_review_at?: string;
-     revision_requested_at?: string;
-     approved_at?: string;
-     completed_at?: string;
+    content_reviewed_at?: string;
+    under_review_at?: string;
+    revision_requested_at?: string;
+    approved_at?: string;
+    completed_at?: string;
     submitted_content: {
         id: number;
         content_type: string;
@@ -102,6 +102,7 @@ interface BrandDeal {
     brand_review?: string;
     influencer_rating?: number;
     influencer_review?: string;
+    rejection_reason?: string;
     notes: string;
 }
 
@@ -139,6 +140,7 @@ export default function DealDetailsPage() {
     const [rating, setRating] = useState(5);
     const [review, setReview] = useState("");
     const [notes, setNotes] = useState("");
+    const [isEditingNotes, setIsEditingNotes] = useState(false);
 
     const fetchDeal = useCallback(async () => {
         setIsLoading(true);
@@ -278,11 +280,17 @@ export default function DealDetailsPage() {
             const response = await api.patch(`/brands/deals/${dealId}/notes/`, {notes});
             console.log('Notes update response:', response); // Debug log
             toast.success('Notes updated successfully');
+            setIsEditingNotes(false); // Exit edit mode after successful update
         } catch (error: any) {
             console.error('Failed to update notes:', error);
             console.error('Error details:', error.response?.data); // Debug log
             toast.error('Failed to update notes.');
         }
+    };
+
+    const cancelEditNotes = () => {
+        setNotes(deal?.notes || ""); // Reset to original notes
+        setIsEditingNotes(false);
     };
 
     useEffect(() => {
@@ -846,94 +854,127 @@ export default function DealDetailsPage() {
                                         )}
 
                                         {/* Comprehensive Information Section - Always Visible */}
-                                        <div className="bg-gradient-to-r from-gray-50 to-white p-4 rounded-lg border border-gray-200">
-                                          <h4 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                                            <HiInformationCircle className="w-5 h-5 text-gray-600" />
-                                            Complete Deal Information
-                                          </h4>
-                                          
-                                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                            {/* Shipping Information */}
-                                            {deal.shipping_address && (
-                                              <div className="bg-blue-50 p-3 rounded-lg border border-blue-200">
-                                                <h5 className="font-medium text-blue-900 mb-2 flex items-center gap-2">
-                                                  <HiMapPin className="w-4 h-4" />
-                                                  Shipping Address
-                                                </h5>
-                                                <div className="text-sm text-blue-800 space-y-1">
-                                                  <p><strong>Address:</strong> {deal.shipping_address.address_line1 || deal.shipping_address.address_line_1 || 'N/A'}</p>
-                                                  {(deal.shipping_address.address_line2 || deal.shipping_address.address_line_2) && (
-                                                    <p><strong>Address Line 2:</strong> {deal.shipping_address.address_line2 || deal.shipping_address.address_line_2}</p>
-                                                  )}
-                                                  <p><strong>City:</strong> {deal.shipping_address.city || 'N/A'}</p>
-                                                  <p><strong>State:</strong> {deal.shipping_address.state || 'N/A'}</p>
-                                                  <p><strong>ZIP/Postal Code:</strong> {deal.shipping_address.zipcode || deal.shipping_address.postal_code || 'N/A'}</p>
-                                                  <p><strong>Country:</strong> {deal.shipping_address.country || 'N/A'}</p>
-                                                  {deal.shipping_address.phone_number && (
-                                                    <p><strong>Phone:</strong> {deal.shipping_address.country_code && `${deal.shipping_address.country_code} `}{deal.shipping_address.phone_number}</p>
-                                                  )}
-                                                </div>
-                                              </div>
-                                            )}
-                                            
-                                                                                         {/* Tracking Information */}
-                                             {deal.tracking_number && (
-                                               <div className="bg-indigo-50 p-3 rounded-lg border border-indigo-200">
-                                                 <h5 className="font-medium text-indigo-900 mb-2 flex items-center gap-2">
-                                                   <HiTruck className="w-4 h-4" />
-                                                   Tracking Information
-                                                 </h5>
-                                                 <div className="text-sm text-indigo-800 space-y-1">
-                                                   <p><strong>Tracking Number:</strong> {deal.tracking_number}</p>
-                                                   {deal.tracking_url && (
-                                                     <p><strong>Track Package:</strong> <a href={deal.tracking_url} target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:underline">{deal.tracking_url}</a></p>
-                                                   )}
-                                                   {deal.shipped_at && (
-                                                     <p><strong>Shipped Date:</strong> {new Date(deal.shipped_at).toLocaleDateString()}</p>
-                                                   )}
-                                                   {deal.delivered_at && (
-                                                     <p><strong>Delivered Date:</strong> {new Date(deal.delivered_at).toLocaleDateString()}</p>
-                                                   )}
-                                                 </div>
-                                               </div>
-                                             )}
-                                             
-                                             {/* Content Information */}
-                                             {deal.content_submitted_at && (
-                                               <div className="bg-pink-50 p-3 rounded-lg border border-pink-200">
-                                                 <h5 className="font-medium text-pink-900 mb-2 flex items-center gap-2">
-                                                   <HiPhoto className="w-4 h-4" />
-                                                   Content Information
-                                                 </h5>
-                                                 <div className="text-sm text-pink-800 space-y-1">
-                                                   <p><strong>Content Submitted:</strong> {new Date(deal.content_submitted_at).toLocaleDateString()}</p>
-                                                   {deal.submitted_content && deal.submitted_content.length > 0 && (
-                                                     <p><strong>Content Count:</strong> {deal.submitted_content.length} submission(s)</p>
-                                                   )}
-                                                 </div>
-                                               </div>
-                                             )}
-                                             
-                                             {/* Deal Completion Information */}
-                                             {deal.completed_at && (
-                                               <div className="bg-green-50 p-3 rounded-lg border border-green-200">
-                                                 <h5 className="font-medium text-green-900 mb-2 flex items-center gap-2">
-                                                   <HiCheckCircle className="w-4 h-4" />
-                                                   Deal Completion
-                                                 </h5>
-                                                 <div className="text-sm text-green-800 space-y-1">
-                                                   <p><strong>Completed Date:</strong> {new Date(deal.completed_at).toLocaleDateString()}</p>
-                                                   {deal.brand_rating && (
-                                                     <p><strong>Brand Rating:</strong> {deal.brand_rating}/5 ⭐</p>
-                                                   )}
-                                                   {deal.brand_review && (
-                                                     <p><strong>Brand Review:</strong> {deal.brand_review}</p>
-                                                   )}
-                                                 </div>
-                                               </div>
-                                             )}
-                                           </div>
-                                         </div>
+                                        <div
+                                            className="bg-gradient-to-r from-gray-50 to-white p-4 rounded-lg border border-gray-200">
+                                            <h4 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                                                <HiInformationCircle className="w-5 h-5 text-gray-600"/>
+                                                Complete Deal Information
+                                            </h4>
+
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                {/* Shipping Information */}
+                                                {deal.shipping_address && (
+                                                    <div className="bg-blue-50 p-3 rounded-lg border border-blue-200">
+                                                        <h5 className="font-medium text-blue-900 mb-2 flex items-center gap-2">
+                                                            <HiMapPin className="w-4 h-4"/>
+                                                            Shipping Address
+                                                        </h5>
+                                                        <div className="text-sm text-blue-800 space-y-1">
+                                                            <p>
+                                                                <strong>Address:</strong> {deal.shipping_address.address_line1 || deal.shipping_address.address_line_1 || 'N/A'}
+                                                            </p>
+                                                            {(deal.shipping_address.address_line2 || deal.shipping_address.address_line_2) && (
+                                                                <p><strong>Address Line
+                                                                    2:</strong> {deal.shipping_address.address_line2 || deal.shipping_address.address_line_2}
+                                                                </p>
+                                                            )}
+                                                            <p>
+                                                                <strong>City:</strong> {deal.shipping_address.city || 'N/A'}
+                                                            </p>
+                                                            <p>
+                                                                <strong>State:</strong> {deal.shipping_address.state || 'N/A'}
+                                                            </p>
+                                                            <p><strong>ZIP/Postal
+                                                                Code:</strong> {deal.shipping_address.zipcode || deal.shipping_address.postal_code || 'N/A'}
+                                                            </p>
+                                                            <p>
+                                                                <strong>Country:</strong> {deal.shipping_address.country || 'N/A'}
+                                                            </p>
+                                                            {deal.shipping_address.phone_number && (
+                                                                <p>
+                                                                    <strong>Phone:</strong> {deal.shipping_address.country_code && `${deal.shipping_address.country_code} `}{deal.shipping_address.phone_number}
+                                                                </p>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                )}
+
+                                                {/* Tracking Information */}
+                                                {deal.tracking_number && (
+                                                    <div
+                                                        className="bg-indigo-50 p-3 rounded-lg border border-indigo-200">
+                                                        <h5 className="font-medium text-indigo-900 mb-2 flex items-center gap-2">
+                                                            <HiTruck className="w-4 h-4"/>
+                                                            Tracking Information
+                                                        </h5>
+                                                        <div className="text-sm text-indigo-800 space-y-1">
+                                                            <p><strong>Tracking Number:</strong> {deal.tracking_number}
+                                                            </p>
+                                                            {deal.tracking_url && (
+                                                                <p><strong>Track Package:</strong> <a
+                                                                    href={deal.tracking_url} target="_blank"
+                                                                    rel="noopener noreferrer"
+                                                                    className="text-indigo-600 hover:underline">{deal.tracking_url}</a>
+                                                                </p>
+                                                            )}
+                                                            {deal.shipped_at && (
+                                                                <p><strong>Shipped
+                                                                    Date:</strong> {new Date(deal.shipped_at).toLocaleDateString()}
+                                                                </p>
+                                                            )}
+                                                            {deal.delivered_at && (
+                                                                <p><strong>Delivered
+                                                                    Date:</strong> {new Date(deal.delivered_at).toLocaleDateString()}
+                                                                </p>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                )}
+
+                                                {/* Content Information */}
+                                                {deal.content_submitted_at && (
+                                                    <div className="bg-pink-50 p-3 rounded-lg border border-pink-200">
+                                                        <h5 className="font-medium text-pink-900 mb-2 flex items-center gap-2">
+                                                            <HiPhoto className="w-4 h-4"/>
+                                                            Content Information
+                                                        </h5>
+                                                        <div className="text-sm text-pink-800 space-y-1">
+                                                            <p><strong>Content
+                                                                Submitted:</strong> {new Date(deal.content_submitted_at).toLocaleDateString()}
+                                                            </p>
+                                                            {deal.submitted_content && deal.submitted_content.length > 0 && (
+                                                                <p><strong>Content
+                                                                    Count:</strong> {deal.submitted_content.length} submission(s)
+                                                                </p>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                )}
+
+                                                {/* Deal Completion Information */}
+                                                {deal.completed_at && (
+                                                    <div className="bg-green-50 p-3 rounded-lg border border-green-200">
+                                                        <h5 className="font-medium text-green-900 mb-2 flex items-center gap-2">
+                                                            <HiCheckCircle className="w-4 h-4"/>
+                                                            Deal Completion
+                                                        </h5>
+                                                        <div className="text-sm text-green-800 space-y-1">
+                                                            <p><strong>Completed
+                                                                Date:</strong> {new Date(deal.completed_at).toLocaleDateString()}
+                                                            </p>
+                                                            {deal.brand_rating && (
+                                                                <p><strong>Brand Rating:</strong> {deal.brand_rating}/5
+                                                                    ⭐</p>
+                                                            )}
+                                                            {deal.brand_review && (
+                                                                <p><strong>Brand Review:</strong> {deal.brand_review}
+                                                                </p>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
                                     </CardContent>
                                 </Card>
 
@@ -1004,25 +1045,25 @@ export default function DealDetailsPage() {
                                         </CardTitle>
                                     </CardHeader>
                                     <CardContent className="p-4">
-                                                                                 <div className="flex items-center gap-3 mb-4">
-                                             {deal.influencer?.profile_image ? (
-                                                 <img
-                                                     src={deal.influencer.profile_image}
-                                                     alt={deal.influencer.full_name || 'Influencer'}
-                                                     className="w-14 h-14 rounded-full object-cover border-2 border-purple-200 shadow-md"
-                                                     onError={(e) => {
-                                                         const target = e.target as HTMLImageElement;
-                                                         target.style.display = 'none';
-                                                         target.nextElementSibling?.classList.remove('hidden');
-                                                     }}
-                                                 />
-                                             ) : null}
-                                             <div
-                                                 className={`w-14 h-14 bg-gradient-to-r from-purple-500 to-pink-600 rounded-full flex items-center justify-center shadow-md ${deal.influencer?.profile_image ? 'hidden' : ''}`}>
+                                        <div className="flex items-center gap-3 mb-4">
+                                            {deal.influencer?.profile_image ? (
+                                                <img
+                                                    src={deal.influencer.profile_image}
+                                                    alt={deal.influencer.full_name || 'Influencer'}
+                                                    className="w-14 h-14 rounded-full object-cover border-2 border-purple-200 shadow-md"
+                                                    onError={(e) => {
+                                                        const target = e.target as HTMLImageElement;
+                                                        target.style.display = 'none';
+                                                        target.nextElementSibling?.classList.remove('hidden');
+                                                    }}
+                                                />
+                                            ) : null}
+                                            <div
+                                                className={`w-14 h-14 bg-gradient-to-r from-purple-500 to-pink-600 rounded-full flex items-center justify-center shadow-md ${deal.influencer?.profile_image ? 'hidden' : ''}`}>
                                                  <span className="text-white font-bold text-xl">
                                                      {deal.influencer?.full_name?.charAt(0)?.toUpperCase() || '?'}
                                                  </span>
-                                             </div>
+                                            </div>
                                             <div className="flex-1 min-w-0">
                                                 <h3 className="font-bold text-gray-900 text-lg truncate">{deal.influencer?.full_name || 'Unknown Influencer'}</h3>
                                                 <p className="text-sm text-gray-600">@{deal.influencer?.username || 'N/A'}</p>
@@ -1228,100 +1269,132 @@ export default function DealDetailsPage() {
                                                     Completed
                                                 </Button>
                                             </div>
-                                                                                 </div>
-                                         
-                                         {/* Always Visible Information Section */}
-                                         <div className="mb-6 p-4 bg-gradient-to-r from-gray-50 to-white rounded-lg border border-gray-200">
-                                           <h4 className="font-medium text-gray-900 mb-3 flex items-center gap-2">
-                                             <HiInformationCircle className="w-4 h-4 text-gray-600" />
-                                             Deal Information & History
-                                           </h4>
-                                           
-                                           {/* Shipping Information - Always Visible */}
-                                           {deal.shipping_address && (
-                                             <div className="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
-                                               <h5 className="font-medium text-blue-900 mb-2 flex items-center gap-2">
-                                                 <HiMapPin className="w-4 h-4" />
-                                                 Shipping Address
-                                               </h5>
-                                               <div className="text-sm text-blue-800 space-y-1">
-                                                 <p><strong>Address:</strong> {deal.shipping_address.address_line1 || deal.shipping_address.address_line_1 || 'N/A'}</p>
-                                                 {(deal.shipping_address.address_line2 || deal.shipping_address.address_line_2) && (
-                                                   <p><strong>Address Line 2:</strong> {deal.shipping_address.address_line2 || deal.shipping_address.address_line_2}</p>
-                                                 )}
-                                                 <p><strong>City:</strong> {deal.shipping_address.city || 'N/A'}</p>
-                                                 <p><strong>State:</strong> {deal.shipping_address.state || 'N/A'}</p>
-                                                 <p><strong>ZIP/Postal Code:</strong> {deal.shipping_address.zipcode || deal.shipping_address.postal_code || 'N/A'}</p>
-                                                 <p><strong>Country:</strong> {deal.shipping_address.country || 'N/A'}</p>
-                                                 {deal.shipping_address.phone_number && (
-                                                   <p><strong>Phone:</strong> {deal.shipping_address.country_code && `${deal.shipping_address.country_code} `}{deal.shipping_address.phone_number}</p>
-                                                 )}
-                                               </div>
-                                             </div>
-                                           )}
-                                           
-                                           {/* Tracking Information - Always Visible */}
-                                           {deal.tracking_number && (
-                                             <div className="mb-4 p-3 bg-indigo-50 rounded-lg border border-indigo-200">
-                                               <h5 className="font-medium text-indigo-900 mb-2 flex items-center gap-2">
-                                                 <HiTruck className="w-4 h-4" />
-                                                 Tracking Information
-                                               </h5>
-                                               <div className="text-sm text-indigo-800 space-y-1">
-                                                 <p><strong>Tracking Number:</strong> {deal.tracking_number}</p>
-                                                 {deal.tracking_url && (
-                                                   <p><strong>Track Package:</strong> <a href={deal.tracking_url} target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:underline">{deal.tracking_url}</a></p>
-                                                 )}
-                                                 {deal.shipped_at && (
-                                                   <p><strong>Shipped Date:</strong> {new Date(deal.shipped_at).toLocaleDateString()}</p>
-                                                 )}
-                                                 {deal.delivered_at && (
-                                                   <p><strong>Delivered Date:</strong> {new Date(deal.delivered_at).toLocaleDateString()}</p>
-                                                 )}
-                                               </div>
-                                             </div>
-                                           )}
-                                           
-                                           {/* Content Information - Always Visible */}
-                                           {deal.content_submitted_at && (
-                                             <div className="mb-4 p-3 bg-pink-50 rounded-lg border border-pink-200">
-                                               <h5 className="font-medium text-pink-900 mb-2 flex items-center gap-2">
-                                                 <HiPhoto className="w-4 h-4" />
-                                                 Content Information
-                                               </h5>
-                                               <div className="text-sm text-pink-800 space-y-1">
-                                                 <p><strong>Content Submitted:</strong> {new Date(deal.content_submitted_at).toLocaleDateString()}</p>
-                                                 {deal.content_reviewed_at && (
-                                                   <p><strong>Content Reviewed:</strong> {new Date(deal.content_reviewed_at).toLocaleDateString()}</p>
-                                                 )}
-                                                 {deal.submitted_content && deal.submitted_content.length > 0 && (
-                                                   <p><strong>Content Count:</strong> {deal.submitted_content.length} submission(s)</p>
-                                                 )}
-                                               </div>
-                                             </div>
-                                           )}
-                                           
-                                           {/* Deal Completion Information - Always Visible */}
-                                           {deal.completed_at && (
-                                             <div className="p-3 bg-green-50 rounded-lg border border-green-200">
-                                               <h5 className="font-medium text-green-900 mb-2 flex items-center gap-2">
-                                                 <HiCheckCircle className="w-4 h-4" />
-                                                 Deal Completion
-                                               </h5>
-                                               <div className="text-sm text-green-800 space-y-1">
-                                                 <p><strong>Completed Date:</strong> {new Date(deal.completed_at).toLocaleDateString()}</p>
-                                                 {deal.brand_rating && (
-                                                   <p><strong>Brand Rating:</strong> {deal.brand_rating}/5 ⭐</p>
-                                                 )}
-                                                 {deal.brand_review && (
-                                                   <p><strong>Brand Review:</strong> {deal.brand_review}</p>
-                                                 )}
-                                               </div>
-                                             </div>
-                                           )}
-                                         </div>
-                                         
-                                         {/* Deal Accepted - Shortlist */}
+                                        </div>
+
+                                        {/* Always Visible Information Section */}
+                                        <div
+                                            className="mb-6 p-4 bg-gradient-to-r from-gray-50 to-white rounded-lg border border-gray-200">
+                                            <h4 className="font-medium text-gray-900 mb-3 flex items-center gap-2">
+                                                <HiInformationCircle className="w-4 h-4 text-gray-600"/>
+                                                Deal Information & History
+                                            </h4>
+
+                                            {/* Shipping Information - Always Visible */}
+                                            {deal.shipping_address && (
+                                                <div className="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                                                    <h5 className="font-medium text-blue-900 mb-2 flex items-center gap-2">
+                                                        <HiMapPin className="w-4 h-4"/>
+                                                        Shipping Address
+                                                    </h5>
+                                                    <div className="text-sm text-blue-800 space-y-1">
+                                                        <p>
+                                                            <strong>Address:</strong> {deal.shipping_address.address_line1 || deal.shipping_address.address_line_1 || 'N/A'}
+                                                        </p>
+                                                        {(deal.shipping_address.address_line2 || deal.shipping_address.address_line_2) && (
+                                                            <p><strong>Address Line
+                                                                2:</strong> {deal.shipping_address.address_line2 || deal.shipping_address.address_line_2}
+                                                            </p>
+                                                        )}
+                                                        <p><strong>City:</strong> {deal.shipping_address.city || 'N/A'}
+                                                        </p>
+                                                        <p>
+                                                            <strong>State:</strong> {deal.shipping_address.state || 'N/A'}
+                                                        </p>
+                                                        <p><strong>ZIP/Postal
+                                                            Code:</strong> {deal.shipping_address.zipcode || deal.shipping_address.postal_code || 'N/A'}
+                                                        </p>
+                                                        <p>
+                                                            <strong>Country:</strong> {deal.shipping_address.country || 'N/A'}
+                                                        </p>
+                                                        {deal.shipping_address.phone_number && (
+                                                            <p>
+                                                                <strong>Phone:</strong> {deal.shipping_address.country_code && `${deal.shipping_address.country_code} `}{deal.shipping_address.phone_number}
+                                                            </p>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {/* Tracking Information - Always Visible */}
+                                            {deal.tracking_number && (
+                                                <div
+                                                    className="mb-4 p-3 bg-indigo-50 rounded-lg border border-indigo-200">
+                                                    <h5 className="font-medium text-indigo-900 mb-2 flex items-center gap-2">
+                                                        <HiTruck className="w-4 h-4"/>
+                                                        Tracking Information
+                                                    </h5>
+                                                    <div className="text-sm text-indigo-800 space-y-1">
+                                                        <p><strong>Tracking Number:</strong> {deal.tracking_number}</p>
+                                                        {deal.tracking_url && (
+                                                            <p><strong>Track Package:</strong> <a
+                                                                href={deal.tracking_url} target="_blank"
+                                                                rel="noopener noreferrer"
+                                                                className="text-indigo-600 hover:underline">{deal.tracking_url}</a>
+                                                            </p>
+                                                        )}
+                                                        {deal.shipped_at && (
+                                                            <p><strong>Shipped
+                                                                Date:</strong> {new Date(deal.shipped_at).toLocaleDateString()}
+                                                            </p>
+                                                        )}
+                                                        {deal.delivered_at && (
+                                                            <p><strong>Delivered
+                                                                Date:</strong> {new Date(deal.delivered_at).toLocaleDateString()}
+                                                            </p>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {/* Content Information - Always Visible */}
+                                            {deal.content_submitted_at && (
+                                                <div className="mb-4 p-3 bg-pink-50 rounded-lg border border-pink-200">
+                                                    <h5 className="font-medium text-pink-900 mb-2 flex items-center gap-2">
+                                                        <HiPhoto className="w-4 h-4"/>
+                                                        Content Information
+                                                    </h5>
+                                                    <div className="text-sm text-pink-800 space-y-1">
+                                                        <p><strong>Content
+                                                            Submitted:</strong> {new Date(deal.content_submitted_at).toLocaleDateString()}
+                                                        </p>
+                                                        {deal.content_reviewed_at && (
+                                                            <p><strong>Content
+                                                                Reviewed:</strong> {new Date(deal.content_reviewed_at).toLocaleDateString()}
+                                                            </p>
+                                                        )}
+                                                        {deal.submitted_content && deal.submitted_content.length > 0 && (
+                                                            <p><strong>Content
+                                                                Count:</strong> {deal.submitted_content.length} submission(s)
+                                                            </p>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {/* Deal Completion Information - Always Visible */}
+                                            {deal.completed_at && (
+                                                <div className="p-3 bg-green-50 rounded-lg border border-green-200">
+                                                    <h5 className="font-medium text-green-900 mb-2 flex items-center gap-2">
+                                                        <HiCheckCircle className="w-4 h-4"/>
+                                                        Deal Completion
+                                                    </h5>
+                                                    <div className="text-sm text-green-800 space-y-1">
+                                                        <p><strong>Completed
+                                                            Date:</strong> {new Date(deal.completed_at).toLocaleDateString()}
+                                                        </p>
+                                                        {deal.brand_rating && (
+                                                            <p><strong>Brand Rating:</strong> {deal.brand_rating}/5 ⭐
+                                                            </p>
+                                                        )}
+                                                        {deal.brand_review && (
+                                                            <p><strong>Brand Review:</strong> {deal.brand_review}</p>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        {/* Deal Accepted - Shortlist */}
                                         {deal.status === 'accepted' && (
                                             <div className="space-y-4">
                                                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
@@ -1454,22 +1527,22 @@ export default function DealDetailsPage() {
                                                         information.
                                                     </p>
 
-                                                                                                         {deal.shipping_address && (
-                                                         <div className="bg-white p-3 rounded border text-sm mb-3">
-                                                             <p className="font-medium">Shipping Address:</p>
-                                                             <p>{deal.shipping_address.address_line1 || deal.shipping_address.address_line_1 || 'N/A'}</p>
-                                                             {(deal.shipping_address.address_line2 || deal.shipping_address.address_line_2) && (
-                                                                 <p>{deal.shipping_address.address_line2 || deal.shipping_address.address_line_2}</p>
-                                                             )}
-                                                             <p>
-                                                                 {deal.shipping_address.city || 'N/A'}, {deal.shipping_address.state || 'N/A'} {deal.shipping_address.zipcode || deal.shipping_address.postal_code || 'N/A'}
-                                                             </p>
-                                                             <p>{deal.shipping_address.country || 'N/A'}</p>
-                                                             {deal.shipping_address.phone_number && (
-                                                                 <p>Phone: {deal.shipping_address.country_code && `${deal.shipping_address.country_code} `}{deal.shipping_address.phone_number}</p>
-                                                             )}
-                                                         </div>
-                                                     )}
+                                                    {deal.shipping_address && (
+                                                        <div className="bg-white p-3 rounded border text-sm mb-3">
+                                                            <p className="font-medium">Shipping Address:</p>
+                                                            <p>{deal.shipping_address.address_line1 || deal.shipping_address.address_line_1 || 'N/A'}</p>
+                                                            {(deal.shipping_address.address_line2 || deal.shipping_address.address_line_2) && (
+                                                                <p>{deal.shipping_address.address_line2 || deal.shipping_address.address_line_2}</p>
+                                                            )}
+                                                            <p>
+                                                                {deal.shipping_address.city || 'N/A'}, {deal.shipping_address.state || 'N/A'} {deal.shipping_address.zipcode || deal.shipping_address.postal_code || 'N/A'}
+                                                            </p>
+                                                            <p>{deal.shipping_address.country || 'N/A'}</p>
+                                                            {deal.shipping_address.phone_number && (
+                                                                <p>Phone: {deal.shipping_address.country_code && `${deal.shipping_address.country_code} `}{deal.shipping_address.phone_number}</p>
+                                                            )}
+                                                        </div>
+                                                    )}
 
                                                     <div className="space-y-3">
                                                         <div>
@@ -1718,31 +1791,79 @@ export default function DealDetailsPage() {
                                             </div>
                                         )}
 
-                                        {/* Deal Information Editing */}
+                                        {/* Deal Information Display/Editing */}
                                         <div className="pt-6 border-t border-gray-200">
                                             <h4 className="font-medium text-gray-900 mb-3 flex items-center gap-2">
                                                 <HiDocumentText className="w-4 h-4 text-gray-600"/>
-                                                Edit Deal Information
+                                                Deal Information
                                             </h4>
-                                            <div className="space-y-3">
+                                            <div className="space-y-4">
+                                                {/* Rejection Reason Display */}
+                                                {deal?.rejection_reason && (
+                                                    <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                                                        <div className="flex items-center gap-2 mb-2">
+                                                            <HiXCircle className="w-4 h-4 text-red-600"/>
+                                                            <span className="text-sm font-medium text-red-800">Reason to Reject</span>
+                                                        </div>
+                                                        <p className="text-sm text-red-700">{deal.rejection_reason}</p>
+                                                    </div>
+                                                )}
+
+                                                {/* Deal Notes Section */}
                                                 <div>
-                                                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                                                        Deal Notes
-                                                    </label>
-                                                    <Textarea
-                                                        placeholder="Add or update notes about this deal..."
-                                                        value={notes}
-                                                        onChange={(e) => setNotes(e.target.value)}
-                                                        className="h-20"
-                                                    />
-                                                    <Button
-                                                        onClick={updateNotes}
-                                                        size="sm"
-                                                        variant="outline"
-                                                        className="mt-2"
-                                                    >
-                                                        Update Notes
-                                                    </Button>
+                                                    <div className="flex items-center justify-between mb-2">
+                                                        <label className="block text-sm font-medium text-gray-700">
+                                                            Deal Notes
+                                                        </label>
+                                                        {!isEditingNotes && (
+                                                            <Button
+                                                                onClick={() => setIsEditingNotes(true)}
+                                                                size="sm"
+                                                                variant="ghost"
+                                                                className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                                                            >
+                                                                Edit
+                                                            </Button>
+                                                        )}
+                                                    </div>
+
+                                                    {isEditingNotes ? (
+                                                        <div className="space-y-2">
+                                                            <Textarea
+                                                                placeholder="Add or update notes about this deal..."
+                                                                value={notes}
+                                                                onChange={(e) => setNotes(e.target.value)}
+                                                                className="h-20"
+                                                            />
+                                                            <div className="flex gap-2">
+                                                                <Button
+                                                                    onClick={updateNotes}
+                                                                    size="sm"
+                                                                    variant="outline"
+                                                                >
+                                                                    Update Notes
+                                                                </Button>
+                                                                <Button
+                                                                    onClick={cancelEditNotes}
+                                                                    size="sm"
+                                                                    variant="ghost"
+                                                                    className="text-gray-600 hover:text-gray-700"
+                                                                >
+                                                                    Cancel
+                                                                </Button>
+                                                            </div>
+                                                        </div>
+                                                    ) : (
+                                                        <div
+                                                            className="bg-gray-50 border border-gray-200 rounded-lg p-3 min-h-[5rem]">
+                                                            {deal?.notes ? (
+                                                                <p className="text-sm text-gray-700 whitespace-pre-wrap">{deal.notes}</p>
+                                                            ) : (
+                                                                <p className="text-sm text-gray-500 italic">No notes
+                                                                    added yet</p>
+                                                            )}
+                                                        </div>
+                                                    )}
                                                 </div>
                                             </div>
                                         </div>

@@ -62,10 +62,10 @@ export default function InfluencerDealsPage() {
         }
     };
 
-    const handleRejectDeal = async (dealId: number) => {
+    const handleRejectDeal = async (dealId: number, reason?: string) => {
         try {
-            console.log('Deals page: handleRejectDeal called for deal:', dealId);
-            await rejectDeal.mutateAsync({id: dealId});
+            console.log('Deals page: handleRejectDeal called for deal:', dealId, 'with reason:', reason);
+            await rejectDeal.mutateAsync({id: dealId, reason});
             toast.success("Deal rejected successfully.");
         } catch (error) {
             console.error('Deals page: handleRejectDeal failed:', error);
