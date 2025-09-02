@@ -30,7 +30,7 @@ export function CollaborationHistory() {
     // Create CSV content
     const csvContent = [
       ['Brand', 'Campaign', 'Deal Type', 'Value', 'Platforms', 'Status', 'Completed Date', 'Rating'].join(','),
-      ...(collaborationHistory.data?.results || []).map((collaboration: CollaborationHistoryType) => [
+      ...((collaborationHistory.data as any)?.results || collaborationHistory.data?.collaborations || []).map((collaboration: CollaborationHistoryType) => [
         collaboration.brand.name,
         collaboration.campaign_title,
         collaboration.deal_type,
@@ -93,7 +93,7 @@ export function CollaborationHistory() {
     );
   }
 
-  const collaborations = (collaborationHistory.data?.results as CollaborationHistoryType[]) || [];
+  const collaborations = ((collaborationHistory.data as any)?.results || collaborationHistory.data?.collaborations || []) as CollaborationHistoryType[];
   const brands: string[] = Array.from(new Set(collaborations.map((c: CollaborationHistoryType) => c.brand.name)));
 
   // Filter collaborations

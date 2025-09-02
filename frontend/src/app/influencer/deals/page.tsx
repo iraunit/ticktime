@@ -144,6 +144,8 @@ export default function InfluencerDealsPage() {
                                 onStatusFilterChange={setStatusFilter}
                                 dealTypeFilter={dealTypeFilter}
                                 onDealTypeFilterChange={setDealTypeFilter}
+                                onClearFilters={clearFilters}
+                                hasActiveFilters={hasActiveFilters}
                             />
                         </div>
                     </div>

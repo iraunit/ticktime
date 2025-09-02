@@ -59,35 +59,35 @@ export function AnalyticsOverview() {
   const statCards = [
     {
       title: "Total Collaborations",
-      value: performanceData?.total_collaborations || 0,
+      value: (performanceData?.metrics as any)?.total_collaborations || historyData.length || 0,
       description: "All time partnerships",
       icon: HiCalendarDays,
       iconBg: "bg-gradient-to-r from-blue-500 to-indigo-500",
       cardBg: "bg-gradient-to-br from-blue-50 to-indigo-50",
       textColor: "text-blue-800",
       border: "border-blue-200",
-      trend: performanceData?.growth_metrics?.deals_growth ? {
-        value: performanceData.growth_metrics.deals_growth,
-        isPositive: performanceData.growth_metrics.deals_growth > 0
+      trend: (performanceData?.metrics as any)?.growth_metrics?.deals_growth ? {
+        value: (performanceData?.metrics as any).growth_metrics.deals_growth,
+        isPositive: (performanceData?.metrics as any).growth_metrics.deals_growth > 0
       } : undefined
     },
     {
       title: "Total Earnings",
-      value: `₹${earningsData?.total_earnings?.toLocaleString() || 0}`,
+      value: `₹${(earningsData as any)?.total_earnings?.toLocaleString() || 0}`,
       description: "Revenue generated",
       icon: HiBanknotes,
       iconBg: "bg-gradient-to-r from-green-500 to-emerald-500",
       cardBg: "bg-gradient-to-br from-green-50 to-emerald-50",
       textColor: "text-green-800",
       border: "border-green-200",
-      trend: earningsData?.growth_metrics?.earnings_growth ? {
-        value: earningsData.growth_metrics.earnings_growth,
-        isPositive: earningsData.growth_metrics.earnings_growth > 0
+      trend: (earningsData as any)?.growth_metrics?.earnings_growth ? {
+        value: (earningsData as any).growth_metrics.earnings_growth,
+        isPositive: (earningsData as any).growth_metrics.earnings_growth > 0
       } : undefined
     },
     {
       title: "Average Rating",
-      value: performanceData?.average_rating ? `${performanceData.average_rating.toFixed(1)} ★` : "N/A",
+      value: (performanceData?.metrics as any)?.average_rating ? `${(performanceData?.metrics as any).average_rating.toFixed(1)} ★` : "N/A",
       description: "Brand satisfaction",
       icon: HiStar,
       iconBg: "bg-gradient-to-r from-yellow-500 to-orange-500",
@@ -97,7 +97,7 @@ export function AnalyticsOverview() {
     },
     {
       title: "Completion Rate",
-      value: performanceData?.completion_rate ? `${performanceData.completion_rate}%` : "0%",
+      value: (performanceData?.metrics as any)?.completion_rate ? `${(performanceData?.metrics as any).completion_rate}%` : "0%",
       description: "Successfully completed",
       icon: HiTrophy,
       iconBg: "bg-gradient-to-r from-purple-500 to-pink-500",
@@ -107,7 +107,7 @@ export function AnalyticsOverview() {
     },
     {
       title: "Active Deals",
-      value: performanceData?.active_deals || 0,
+      value: (performanceData?.metrics as any)?.active_deals || 0,
       description: "Currently ongoing",
       icon: HiUsers,
       iconBg: "bg-gradient-to-r from-cyan-500 to-blue-500",
@@ -117,8 +117,8 @@ export function AnalyticsOverview() {
     },
     {
       title: "Growth Rate",
-      value: performanceData?.growth_metrics?.overall_growth ? 
-        `${performanceData.growth_metrics.overall_growth > 0 ? '+' : ''}${performanceData.growth_metrics.overall_growth}%` 
+      value: (performanceData?.metrics as any)?.growth_metrics?.overall_growth ? 
+        `${(performanceData?.metrics as any).growth_metrics.overall_growth > 0 ? '+' : ''}${(performanceData?.metrics as any).growth_metrics.overall_growth}%` 
         : "0%",
       description: "Month over month",
       icon: HiArrowTrendingUp,

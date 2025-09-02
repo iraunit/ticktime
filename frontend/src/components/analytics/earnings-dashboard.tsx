@@ -96,7 +96,7 @@ export function EarningsDashboard() {
               </div>
               <div>
                 <p className="text-xs sm:text-sm text-green-700 font-medium">Total Earnings</p>
-                <p className="text-lg sm:text-2xl font-bold text-green-800">₹{earningsData?.total_earnings?.toLocaleString() || 0}</p>
+                <p className="text-lg sm:text-2xl font-bold text-green-800">₹{(earningsData as any)?.total_earnings?.toLocaleString() || 0}</p>
               </div>
             </div>
             
@@ -107,7 +107,7 @@ export function EarningsDashboard() {
               <div>
                 <p className="text-xs sm:text-sm text-blue-700 font-medium">This Month</p>
                 <p className="text-lg sm:text-2xl font-bold text-blue-800">
-                  ₹{earningsData?.monthly_earnings?.[earningsData.monthly_earnings.length - 1]?.amount?.toLocaleString() || 0}
+                  ₹{(earningsData as any)?.monthly_earnings?.[(earningsData as any).monthly_earnings.length - 1]?.amount?.toLocaleString() || 0}
                 </p>
               </div>
             </div>
@@ -119,8 +119,8 @@ export function EarningsDashboard() {
               <div>
                 <p className="text-xs sm:text-sm text-purple-700 font-medium">Avg Monthly</p>
                 <p className="text-lg sm:text-2xl font-bold text-purple-800">
-                  ₹{earningsData?.monthly_earnings ? 
-                    Math.round(earningsData.monthly_earnings.reduce((sum: number, month: any) => sum + month.amount, 0) / earningsData.monthly_earnings.length).toLocaleString() 
+                  ₹{(earningsData as any)?.monthly_earnings ? 
+                    Math.round((earningsData as any).monthly_earnings.reduce((sum: number, month: any) => sum + month.amount, 0) / (earningsData as any).monthly_earnings.length).toLocaleString() 
                     : 0}
                 </p>
               </div>
@@ -133,7 +133,7 @@ export function EarningsDashboard() {
               <div>
                 <p className="text-xs sm:text-sm text-orange-700 font-medium">Top Brand</p>
                 <p className="text-sm sm:text-lg font-bold text-orange-800 truncate">
-                  {earningsData?.top_brands?.[0]?.brand?.name || "N/A"}
+                  {(earningsData as any)?.top_brands?.[0]?.brand?.name || "N/A"}
                 </p>
               </div>
             </div>
@@ -151,7 +151,7 @@ export function EarningsDashboard() {
           </CardHeader>
           <CardContent className="p-4 sm:p-6">
             <ResponsiveContainer width="100%" height={250}>
-              <LineChart data={earningsData?.monthly_earnings || []}>
+              <LineChart data={(earningsData as any)?.monthly_earnings || []}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="month" fontSize={12} />
                 <YAxis fontSize={12} />
@@ -181,7 +181,7 @@ export function EarningsDashboard() {
             <ResponsiveContainer width="100%" height={250}>
               <PieChart>
                 <Pie
-                  data={earningsData?.earnings_by_brand || []}
+                  data={(earningsData as any)?.earnings_by_brand || []}
                   cx="50%"
                   cy="50%"
                   labelLine={false}
@@ -190,7 +190,7 @@ export function EarningsDashboard() {
                   fill="#8884d8"
                   dataKey="amount"
                 >
-                  {(earningsData?.earnings_by_brand || []).map((entry: any, index: number) => (
+                  {((earningsData as any)?.earnings_by_brand || []).map((entry: any, index: number) => (
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                   ))}
                 </Pie>
@@ -208,9 +208,9 @@ export function EarningsDashboard() {
           <p className="text-xs sm:text-sm text-gray-600">Recent payment transactions</p>
         </CardHeader>
         <CardContent className="p-4 sm:p-6">
-          {earningsData?.payment_history && earningsData.payment_history.length > 0 ? (
+          {(earningsData as any)?.payment_history && (earningsData as any).payment_history.length > 0 ? (
             <div className="space-y-3">
-              {earningsData.payment_history.slice(0, 5).map((payment: any, index: number) => (
+              {(earningsData as any).payment_history.slice(0, 5).map((payment: any, index: number) => (
                 <div key={index} className="flex flex-col sm:flex-row sm:items-center justify-between p-3 bg-gray-50 rounded-lg border gap-2 sm:gap-0">
                   <div className="flex items-center gap-3">
                     <div className="w-8 h-8 bg-gradient-to-r from-green-500 to-emerald-500 rounded-lg flex items-center justify-center">
