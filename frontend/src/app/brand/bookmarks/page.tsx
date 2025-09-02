@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -60,7 +60,7 @@ export default function BrandBookmarksPage() {
   const [isEditingNotes, setIsEditingNotes] = useState<number | null>(null);
   const [editNotes, setEditNotes] = useState("");
 
-  const fetchBookmarks = async () => {
+  const fetchBookmarks = useCallback(async () => {
     setIsLoading(true);
     try {
       const response = await api.get('/brands/bookmarks/', {
@@ -77,7 +77,7 @@ export default function BrandBookmarksPage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [searchTerm, categoryFilter]);
 
   const removeBookmark = async (bookmarkId: number) => {
     try {
