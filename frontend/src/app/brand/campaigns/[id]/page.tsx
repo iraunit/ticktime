@@ -380,50 +380,46 @@ export default function CampaignDetailPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100">
       <div className="container mx-auto px-4 py-4 max-w-7xl">
-        {/* Modern Header */}
-        <div className="relative mb-6 overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/10 via-purple-500/10 to-pink-500/10 rounded-2xl"></div>
-          <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-purple-400/20 to-pink-400/20 rounded-full -mr-16 -mt-16"></div>
-          <div className="absolute bottom-0 left-0 w-24 h-24 bg-gradient-to-tr from-blue-400/20 to-indigo-400/20 rounded-full -ml-12 -mb-12"></div>
-          
-          <div className="relative flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 p-6">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-xl flex items-center justify-center">
-                <HiSparkles className="w-6 h-6 text-white" />
+        {/* Compact Header */}
+        <div className="bg-gradient-to-r from-blue-50 via-white to-indigo-50 border border-blue-200 rounded-xl shadow-md p-4 mb-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-lg flex items-center justify-center">
+                <HiSparkles className="w-5 h-5 text-white" />
               </div>
               <div>
-                <h1 className="text-3xl font-bold bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 bg-clip-text text-transparent mb-1">
+                <h1 className="text-xl font-bold text-gray-900 mb-1">
                   {isEditing ? 'Edit Campaign' : campaign.title}
                 </h1>
-                <p className="text-gray-600">
+                <p className="text-sm text-gray-600">
                   {isEditing ? 'Update campaign details and settings' : 'Campaign overview and performance metrics'}
                 </p>
               </div>
             </div>
             
-            <div className="flex items-center gap-3">
-              
+            <div className="flex items-center gap-2">
               {!isEditing ? (
                 <>
-                  {/* Campaign Messages Button */}
                   <Button 
                     variant="outline"
+                    size="sm"
                     onClick={() => {
                       const url = `/brand/messages?campaign=${campaign.id}`;
                       window.open(url, '_blank');
                     }}
-                    className="flex items-center gap-2 bg-gradient-to-r from-purple-50 to-indigo-50 border-purple-200 text-purple-700 hover:from-purple-100 hover:to-indigo-100 hover:border-purple-300"
+                    className="text-xs px-2 py-1"
                   >
-                    <HiChatBubbleLeftRight className="w-4 h-4" />
-                                         All Messages
+                    <HiChatBubbleLeftRight className="w-3 h-3 mr-1" />
+                    Messages
                   </Button>
 
                   <Button 
                     variant="outline"
+                    size="sm"
                     onClick={handleEdit}
-                    className="flex items-center gap-2"
+                    className="text-xs px-2 py-1"
                   >
-                    <HiPencilSquare className="w-4 h-4" />
+                    <HiPencilSquare className="w-3 h-3 mr-1" />
                     Edit
                   </Button>
                   
@@ -431,9 +427,10 @@ export default function CampaignDetailPage() {
                     <DialogTrigger asChild>
                       <Button 
                         variant="outline"
-                        className="flex items-center gap-2 text-red-600 border-red-200 hover:bg-red-50"
+                        size="sm"
+                        className="text-xs px-2 py-1 text-red-600 border-red-200 hover:bg-red-50"
                       >
-                        <HiTrash className="w-4 h-4" />
+                        <HiTrash className="w-3 h-3 mr-1" />
                         Delete
                       </Button>
                     </DialogTrigger>
@@ -457,20 +454,23 @@ export default function CampaignDetailPage() {
                   </Dialog>
                 </>
               ) : (
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2">
                   <Button 
                     variant="outline"
+                    size="sm"
                     onClick={handleCancel}
                     disabled={isSaving}
+                    className="text-xs"
                   >
                     Cancel
                   </Button>
                   <Button 
+                    size="sm"
                     onClick={handleSave}
                     disabled={isSaving}
-                    className="flex items-center gap-2"
+                    className="text-xs"
                   >
-                    {isSaving ? 'Saving...' : 'Save Changes'}
+                    {isSaving ? 'Saving...' : 'Save'}
                   </Button>
                 </div>
               )}
@@ -479,68 +479,68 @@ export default function CampaignDetailPage() {
         </div>
 
         {/* Compact Campaign Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-          <Card className="border-0 shadow-md bg-gradient-to-br from-blue-50 to-indigo-100 hover:shadow-lg transition-all duration-200">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-blue-500 rounded-lg flex items-center justify-center">
-                  <HiUserGroup className="w-5 h-5 text-white" />
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+          <Card className="border-0 shadow-md bg-gradient-to-br from-blue-50 to-indigo-100">
+            <CardContent className="p-3">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center">
+                  <HiUserGroup className="w-4 h-4 text-white" />
                 </div>
                 <div>
-                  <p className="text-xs font-medium text-blue-700 uppercase tracking-wide">Invited</p>
-                  <p className="text-2xl font-bold text-blue-900">{campaign.total_invited || 0}</p>
+                  <p className="text-xs font-medium text-blue-700">Invited</p>
+                  <p className="text-lg font-bold text-blue-900">{campaign.total_invited || 0}</p>
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="border-0 shadow-md bg-gradient-to-br from-emerald-50 to-green-100 hover:shadow-lg transition-all duration-200">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-emerald-500 rounded-lg flex items-center justify-center">
-                  <HiCheck className="w-5 h-5 text-white" />
+          <Card className="border-0 shadow-md bg-gradient-to-br from-emerald-50 to-green-100">
+            <CardContent className="p-3">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 bg-emerald-500 rounded-lg flex items-center justify-center">
+                  <HiCheck className="w-4 h-4 text-white" />
                 </div>
                 <div>
-                  <p className="text-xs font-medium text-emerald-700 uppercase tracking-wide">Accepted</p>
-                  <p className="text-2xl font-bold text-emerald-900">{campaign.total_accepted || 0}</p>
+                  <p className="text-xs font-medium text-emerald-700">Accepted</p>
+                  <p className="text-lg font-bold text-emerald-900">{campaign.total_accepted || 0}</p>
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="border-0 shadow-md bg-gradient-to-br from-purple-50 to-pink-100 hover:shadow-lg transition-all duration-200">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-purple-500 rounded-lg flex items-center justify-center">
-                  <HiCheckCircle className="w-5 h-5 text-white" />
+          <Card className="border-0 shadow-md bg-gradient-to-br from-purple-50 to-pink-100">
+            <CardContent className="p-3">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 bg-purple-500 rounded-lg flex items-center justify-center">
+                  <HiCheckCircle className="w-4 h-4 text-white" />
                 </div>
                 <div>
-                  <p className="text-xs font-medium text-purple-700 uppercase tracking-wide">Completed</p>
-                  <p className="text-2xl font-bold text-purple-900">{campaign.total_completed || 0}</p>
+                  <p className="text-xs font-medium text-purple-700">Completed</p>
+                  <p className="text-lg font-bold text-purple-900">{campaign.total_completed || 0}</p>
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="border-0 shadow-md bg-gradient-to-br from-amber-50 to-orange-100 hover:shadow-lg transition-all duration-200">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-amber-500 rounded-lg flex items-center justify-center">
-                  <HiXCircle className="w-5 h-5 text-white" />
+          <Card className="border-0 shadow-md bg-gradient-to-br from-amber-50 to-orange-100">
+            <CardContent className="p-3">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 bg-amber-500 rounded-lg flex items-center justify-center">
+                  <HiXCircle className="w-4 h-4 text-white" />
                 </div>
                 <div>
-                  <p className="text-xs font-medium text-amber-700 uppercase tracking-wide">Rejected</p>
-                  <p className="text-2xl font-bold text-amber-900">{campaign.total_rejected || 0}</p>
+                  <p className="text-xs font-medium text-amber-700">Rejected</p>
+                  <p className="text-lg font-bold text-amber-900">{campaign.total_rejected || 0}</p>
                 </div>
               </div>
             </CardContent>
           </Card>
         </div>
 
-        {/* Modern Tabs */}
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+        {/* Compact Tabs */}
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-3">
           <div className="border-b border-gray-200">
-            <nav className="flex space-x-8">
+            <nav className="flex space-x-6">
               {[
                 { id: 'overview', label: 'Overview', icon: HiEye },
                 { id: 'influencers', label: `Influencers (${campaign.deals?.length || 0})`, icon: HiUsers },
@@ -553,13 +553,13 @@ export default function CampaignDetailPage() {
                   <button
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id)}
-                    className={`group inline-flex items-center gap-2 py-4 px-1 border-b-2 font-medium text-sm transition-all duration-200 ${
+                    className={`group inline-flex items-center gap-2 py-3 px-1 border-b-2 font-medium text-sm transition-all duration-200 ${
                       isActive
                         ? 'border-indigo-500 text-indigo-600'
                         : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                     }`}
                   >
-                    <Icon className={`w-4 h-4 transition-colors duration-200 ${
+                    <Icon className={`w-3 h-3 transition-colors duration-200 ${
                       isActive ? 'text-indigo-600' : 'text-gray-400 group-hover:text-gray-600'
                     }`} />
                     {tab.label}
@@ -570,15 +570,14 @@ export default function CampaignDetailPage() {
           </div>
 
           {/* Overview Tab */}
-          <TabsContent value="overview" className="space-y-4">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <TabsContent value="overview" className="space-y-3">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
               {/* Main Content */}
-              <div className="lg:col-span-2 space-y-4">
+              <div className="lg:col-span-2 space-y-3">
                 {/* Campaign Details */}
-                <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm overflow-hidden">
-                  <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500"></div>
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                <Card className="border-0 shadow-md bg-white/90 backdrop-blur-sm">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-base font-bold text-gray-900 flex items-center gap-2">
                       <HiDocumentText className="w-4 h-4 text-indigo-600" />
                       Campaign Details
                     </CardTitle>
@@ -622,13 +621,13 @@ export default function CampaignDetailPage() {
                     ) : (
                       <>
                         <div>
-                          <h3 className="text-lg font-semibold text-gray-900">{campaign.title}</h3>
-                          <p className="text-gray-600 mt-2">{campaign.description}</p>
+                          <h3 className="text-base font-semibold text-gray-900">{campaign.title}</h3>
+                          <p className="text-sm text-gray-600 mt-2">{campaign.description}</p>
                         </div>
                         
                         <div>
-                          <h4 className="font-medium text-gray-900 mb-2">Objectives</h4>
-                          <p className="text-gray-600">{campaign.objectives}</p>
+                          <h4 className="text-sm font-medium text-gray-900 mb-2">Objectives</h4>
+                          <p className="text-sm text-gray-600">{campaign.objectives}</p>
                         </div>
                       </>
                     )}
@@ -636,10 +635,9 @@ export default function CampaignDetailPage() {
                 </Card>
 
                 {/* Deal Structure */}
-                <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm overflow-hidden">
-                  <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-emerald-500 to-green-500"></div>
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                <Card className="border-0 shadow-md bg-white/90 backdrop-blur-sm">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-base font-bold text-gray-900 flex items-center gap-2">
                       <HiBanknotes className="w-4 h-4 text-emerald-600" />
                       Deal Structure
                     </CardTitle>
@@ -766,10 +764,9 @@ export default function CampaignDetailPage() {
                 </Card>
 
                 {/* Requirements */}
-                <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm overflow-hidden">
-                  <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-purple-500 to-pink-500"></div>
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                <Card className="border-0 shadow-md bg-white/90 backdrop-blur-sm">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-base font-bold text-gray-900 flex items-center gap-2">
                       <HiCog6Tooth className="w-4 h-4 text-purple-600" />
                       Requirements
                     </CardTitle>
@@ -880,12 +877,11 @@ export default function CampaignDetailPage() {
               </div>
 
               {/* Sidebar */}
-              <div className="space-y-4">
+              <div className="space-y-3">
                 {/* Timeline */}
-                <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm overflow-hidden">
-                  <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-500 to-indigo-500"></div>
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                <Card className="border-0 shadow-md bg-white/90 backdrop-blur-sm">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-base font-bold text-gray-900 flex items-center gap-2">
                       <HiCalendarDays className="w-4 h-4 text-blue-600" />
                       Timeline
                     </CardTitle>
@@ -983,10 +979,9 @@ export default function CampaignDetailPage() {
                 </Card>
 
                 {/* Campaign Info */}
-                <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm overflow-hidden">
-                  <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-gray-500 to-gray-600"></div>
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                <Card className="border-0 shadow-md bg-white/90 backdrop-blur-sm">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-base font-bold text-gray-900 flex items-center gap-2">
                       <HiSparkles className="w-4 h-4 text-gray-600" />
                       Campaign Info
                     </CardTitle>
@@ -1037,10 +1032,9 @@ export default function CampaignDetailPage() {
 
           {/* Influencers Tab */}
           <TabsContent value="influencers" className="space-y-4">
-            <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm overflow-hidden">
-              <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-indigo-500 to-purple-500"></div>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-lg font-bold text-gray-900 flex items-center gap-2">
+            <Card className="border-0 shadow-md bg-white/90 backdrop-blur-sm">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base font-bold text-gray-900 flex items-center gap-2">
                   <HiUserGroup className="w-4 h-4 text-indigo-600" />
                   Influencer Collaborations ({campaign.deals?.length || 0})
                 </CardTitle>
@@ -1131,8 +1125,8 @@ export default function CampaignDetailPage() {
                     <div className="w-20 h-20 bg-gradient-to-br from-indigo-100 to-purple-100 rounded-2xl flex items-center justify-center mx-auto mb-6">
                       <HiUserGroup className="w-10 h-10 text-indigo-600" />
                     </div>
-                    <h3 className="text-xl font-bold text-gray-900 mb-3">No influencers invited yet</h3>
-                    <p className="text-gray-600 mb-6 max-w-md mx-auto">Start building your campaign by discovering and inviting talented influencers who align with your brand.</p>
+                    <h3 className="text-lg font-bold text-gray-900 mb-3">No influencers invited yet</h3>
+                    <p className="text-sm text-gray-600 mb-6 max-w-md mx-auto">Start building your campaign by discovering and inviting talented influencers who align with your brand.</p>
                     <Button 
                       onClick={() => router.push('/brand/influencers')}
                       size="lg"
@@ -1148,20 +1142,19 @@ export default function CampaignDetailPage() {
           </TabsContent>
 
           {/* Messages Tab */}
-                  <TabsContent value="messages" className="space-y-4">
-        <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm overflow-hidden">
-          <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-green-500 to-emerald-500"></div>
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-lg font-bold text-gray-900 flex items-center gap-2">
-                <HiChatBubbleLeftRight className="w-4 h-4 text-green-600" />
-                Deal Conversations
-              </CardTitle>
-              <div className="text-sm text-gray-500">
-                {campaign.deals?.filter(deal => deal.conversation).length || 0} active conversations
-              </div>
-            </div>
-          </CardHeader>
+          <TabsContent value="messages" className="space-y-4">
+            <Card className="border-0 shadow-md bg-white/90 backdrop-blur-sm">
+              <CardHeader className="pb-2">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-base font-bold text-gray-900 flex items-center gap-2">
+                    <HiChatBubbleLeftRight className="w-4 h-4 text-green-600" />
+                    Deal Conversations
+                  </CardTitle>
+                  <div className="text-sm text-gray-500">
+                    {campaign.deals?.filter(deal => deal.conversation).length || 0} active conversations
+                  </div>
+                </div>
+              </CardHeader>
           <CardContent>
                 {campaign.deals && campaign.deals.length > 0 ? (
                   <div className="space-y-3">
@@ -1306,10 +1299,10 @@ export default function CampaignDetailPage() {
                     <div className="w-20 h-20 bg-gradient-to-br from-green-100 to-emerald-100 rounded-2xl flex items-center justify-center mx-auto mb-6">
                       <HiChatBubbleLeftRight className="w-10 h-10 text-green-600" />
                     </div>
-                    <h3 className="text-xl font-bold text-gray-900 mb-3">No deals yet</h3>
-                                            <p className="text-gray-600 mb-6 max-w-md mx-auto">
-                          Once you invite influencers to this campaign, you can start deal-specific conversations with them here.
-                        </p>
+                    <h3 className="text-lg font-bold text-gray-900 mb-3">No deals yet</h3>
+                    <p className="text-sm text-gray-600 mb-6 max-w-md mx-auto">
+                      Once you invite influencers to this campaign, you can start deal-specific conversations with them here.
+                    </p>
                     <Button 
                       onClick={() => router.push('/brand/influencers')}
                       className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white shadow-lg hover:shadow-xl transition-all duration-200"
@@ -1324,12 +1317,11 @@ export default function CampaignDetailPage() {
           </TabsContent>
 
           {/* Analytics Tab */}
-          <TabsContent value="analytics" className="space-y-6">
-            <Card className="border-0 shadow-xl bg-white/80 backdrop-blur-sm overflow-hidden">
-              <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-amber-500 to-orange-500"></div>
-              <CardHeader className="pb-4">
-                <CardTitle className="text-xl font-bold text-gray-900 flex items-center gap-2">
-                  <HiStar className="w-5 h-5 text-amber-600" />
+          <TabsContent value="analytics" className="space-y-4">
+            <Card className="border-0 shadow-md bg-white/90 backdrop-blur-sm">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base font-bold text-gray-900 flex items-center gap-2">
+                  <HiStar className="w-4 h-4 text-amber-600" />
                   Campaign Analytics
                 </CardTitle>
               </CardHeader>
@@ -1338,8 +1330,8 @@ export default function CampaignDetailPage() {
                   <div className="w-20 h-20 bg-gradient-to-br from-amber-100 to-orange-100 rounded-2xl flex items-center justify-center mx-auto mb-6">
                     <HiStar className="w-10 h-10 text-amber-600" />
                   </div>
-                  <h3 className="text-xl font-bold text-gray-900 mb-3">Analytics Coming Soon</h3>
-                  <p className="text-gray-600 max-w-md mx-auto">Get detailed insights into your campaign performance, reach, engagement, and ROI metrics.</p>
+                  <h3 className="text-lg font-bold text-gray-900 mb-3">Analytics Coming Soon</h3>
+                  <p className="text-sm text-gray-600 max-w-md mx-auto">Get detailed insights into your campaign performance, reach, engagement, and ROI metrics.</p>
                 </div>
               </CardContent>
             </Card>
