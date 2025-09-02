@@ -83,8 +83,11 @@ interface BrandDeal {
     shipping_address?: any;
     tracking_number?: string;
     tracking_url?: string;
-    content_reviewed_at?: string;
-    completed_at?: string;
+         content_reviewed_at?: string;
+     under_review_at?: string;
+     revision_requested_at?: string;
+     approved_at?: string;
+     completed_at?: string;
     submitted_content: {
         id: number;
         content_type: string;
@@ -842,89 +845,95 @@ export default function DealDetailsPage() {
                                             </div>
                                         )}
 
-                                        {/* Shipping Information for Barter Deals */}
-                                        {deal.shipping_address && (
-                                            <div>
-                                                <h4 className="font-medium text-gray-900 mb-3">Shipping Information</h4>
-                                                <div
-                                                    className="p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-200">
-                                                    <div className="flex items-center gap-2 mb-3">
-                                                        <HiMapPin className="w-5 h-5 text-blue-600"/>
-                                                        <p className="font-semibold text-blue-900">Complete Delivery
-                                                            Address</p>
-                                                    </div>
-                                                    <div
-                                                        className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-blue-800">
-                                                        <div>
-                                                            <p className="font-medium text-blue-900 mb-1">Contact
-                                                                Person</p>
-                                                            <p className="bg-white p-2 rounded border">{deal.shipping_address.full_name || 'N/A'}</p>
-                                                        </div>
-                                                        {deal.shipping_address.phone_number && (
-                                                            <div>
-                                                                <p className="font-medium text-blue-900 mb-1">Phone
-                                                                    Number</p>
-                                                                <p className="bg-white p-2 rounded border">
-                                                                    {deal.shipping_address.country_code && `${deal.shipping_address.country_code} `}
-                                                                    {deal.shipping_address.phone_number}
-                                                                </p>
-                                                            </div>
-                                                        )}
-                                                        <div className="md:col-span-2">
-                                                            <p className="font-medium text-blue-900 mb-1">Address</p>
-                                                            <div className="bg-white p-3 rounded border space-y-1">
-                                                                <p>{deal.shipping_address.address_line1 || deal.shipping_address.address_line_1 || 'N/A'}</p>
-                                                                {(deal.shipping_address.address_line2 || deal.shipping_address.address_line_2) && (
-                                                                    <p>{deal.shipping_address.address_line2 || deal.shipping_address.address_line_2}</p>
-                                                                )}
-                                                                <p className="font-medium">
-                                                                    {deal.shipping_address.city || 'N/A'}, {deal.shipping_address.state || 'N/A'} {deal.shipping_address.zipcode || deal.shipping_address.postal_code || 'N/A'}
-                                                                </p>
-                                                                <p className="font-semibold text-blue-900">{deal.shipping_address.country || 'N/A'}</p>
-                                                            </div>
-                                                        </div>
-                                                    </div>
+                                        {/* Comprehensive Information Section - Always Visible */}
+                                        <div className="bg-gradient-to-r from-gray-50 to-white p-4 rounded-lg border border-gray-200">
+                                          <h4 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                                            <HiInformationCircle className="w-5 h-5 text-gray-600" />
+                                            Complete Deal Information
+                                          </h4>
+                                          
+                                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            {/* Shipping Information */}
+                                            {deal.shipping_address && (
+                                              <div className="bg-blue-50 p-3 rounded-lg border border-blue-200">
+                                                <h5 className="font-medium text-blue-900 mb-2 flex items-center gap-2">
+                                                  <HiMapPin className="w-4 h-4" />
+                                                  Shipping Address
+                                                </h5>
+                                                <div className="text-sm text-blue-800 space-y-1">
+                                                  <p><strong>Address:</strong> {deal.shipping_address.address_line1 || deal.shipping_address.address_line_1 || 'N/A'}</p>
+                                                  {(deal.shipping_address.address_line2 || deal.shipping_address.address_line_2) && (
+                                                    <p><strong>Address Line 2:</strong> {deal.shipping_address.address_line2 || deal.shipping_address.address_line_2}</p>
+                                                  )}
+                                                  <p><strong>City:</strong> {deal.shipping_address.city || 'N/A'}</p>
+                                                  <p><strong>State:</strong> {deal.shipping_address.state || 'N/A'}</p>
+                                                  <p><strong>ZIP/Postal Code:</strong> {deal.shipping_address.zipcode || deal.shipping_address.postal_code || 'N/A'}</p>
+                                                  <p><strong>Country:</strong> {deal.shipping_address.country || 'N/A'}</p>
+                                                  {deal.shipping_address.phone_number && (
+                                                    <p><strong>Phone:</strong> {deal.shipping_address.country_code && `${deal.shipping_address.country_code} `}{deal.shipping_address.phone_number}</p>
+                                                  )}
                                                 </div>
-                                            </div>
-                                        )}
-
-                                        {/* Tracking Information */}
-                                        {deal.tracking_number && (
-                                            <div
-                                                className="bg-gradient-to-r from-indigo-50 to-purple-50 p-4 rounded-lg border border-indigo-200">
-                                                <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                                                    <HiTruck className="w-5 h-5 text-indigo-600"/>
-                                                    Tracking Information
-                                                </h4>
-                                                <div className="bg-white p-4 rounded-lg border border-indigo-200">
-                                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                                                        <div>
-                                                            <p className="font-medium text-gray-700 mb-1">Tracking
-                                                                Number</p>
-                                                            <p className="bg-gray-50 p-2 rounded border font-mono text-indigo-700">{deal.tracking_number}</p>
-                                                        </div>
-                                                        {deal.shipped_at && (
-                                                            <div>
-                                                                <p className="font-medium text-gray-700 mb-1">Shipped
-                                                                    Date</p>
-                                                                <p className="bg-gray-50 p-2 rounded border">{new Date(deal.shipped_at).toLocaleDateString()}</p>
-                                                            </div>
-                                                        )}
-                                                        {deal.tracking_url && (
-                                                            <div className="md:col-span-2">
-                                                                <p className="font-medium text-gray-700 mb-1">Track
-                                                                    Package</p>
-                                                                <a href={deal.tracking_url} target="_blank"
-                                                                   rel="noopener noreferrer"
-                                                                   className="text-indigo-600 hover:text-indigo-800 hover:underline font-medium block bg-gray-50 p-2 rounded border">
-                                                                    {deal.tracking_url}
-                                                                </a>
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        )}
+                                              </div>
+                                            )}
+                                            
+                                                                                         {/* Tracking Information */}
+                                             {deal.tracking_number && (
+                                               <div className="bg-indigo-50 p-3 rounded-lg border border-indigo-200">
+                                                 <h5 className="font-medium text-indigo-900 mb-2 flex items-center gap-2">
+                                                   <HiTruck className="w-4 h-4" />
+                                                   Tracking Information
+                                                 </h5>
+                                                 <div className="text-sm text-indigo-800 space-y-1">
+                                                   <p><strong>Tracking Number:</strong> {deal.tracking_number}</p>
+                                                   {deal.tracking_url && (
+                                                     <p><strong>Track Package:</strong> <a href={deal.tracking_url} target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:underline">{deal.tracking_url}</a></p>
+                                                   )}
+                                                   {deal.shipped_at && (
+                                                     <p><strong>Shipped Date:</strong> {new Date(deal.shipped_at).toLocaleDateString()}</p>
+                                                   )}
+                                                   {deal.delivered_at && (
+                                                     <p><strong>Delivered Date:</strong> {new Date(deal.delivered_at).toLocaleDateString()}</p>
+                                                   )}
+                                                 </div>
+                                               </div>
+                                             )}
+                                             
+                                             {/* Content Information */}
+                                             {deal.content_submitted_at && (
+                                               <div className="bg-pink-50 p-3 rounded-lg border border-pink-200">
+                                                 <h5 className="font-medium text-pink-900 mb-2 flex items-center gap-2">
+                                                   <HiPhoto className="w-4 h-4" />
+                                                   Content Information
+                                                 </h5>
+                                                 <div className="text-sm text-pink-800 space-y-1">
+                                                   <p><strong>Content Submitted:</strong> {new Date(deal.content_submitted_at).toLocaleDateString()}</p>
+                                                   {deal.submitted_content && deal.submitted_content.length > 0 && (
+                                                     <p><strong>Content Count:</strong> {deal.submitted_content.length} submission(s)</p>
+                                                   )}
+                                                 </div>
+                                               </div>
+                                             )}
+                                             
+                                             {/* Deal Completion Information */}
+                                             {deal.completed_at && (
+                                               <div className="bg-green-50 p-3 rounded-lg border border-green-200">
+                                                 <h5 className="font-medium text-green-900 mb-2 flex items-center gap-2">
+                                                   <HiCheckCircle className="w-4 h-4" />
+                                                   Deal Completion
+                                                 </h5>
+                                                 <div className="text-sm text-green-800 space-y-1">
+                                                   <p><strong>Completed Date:</strong> {new Date(deal.completed_at).toLocaleDateString()}</p>
+                                                   {deal.brand_rating && (
+                                                     <p><strong>Brand Rating:</strong> {deal.brand_rating}/5 ⭐</p>
+                                                   )}
+                                                   {deal.brand_review && (
+                                                     <p><strong>Brand Review:</strong> {deal.brand_review}</p>
+                                                   )}
+                                                 </div>
+                                               </div>
+                                             )}
+                                           </div>
+                                         </div>
                                     </CardContent>
                                 </Card>
 
@@ -995,25 +1004,25 @@ export default function DealDetailsPage() {
                                         </CardTitle>
                                     </CardHeader>
                                     <CardContent className="p-4">
-                                        <div className="flex items-center gap-3 mb-4">
-                                            {deal.influencer?.profile_image ? (
-                                                <img
-                                                    src={deal.influencer.profile_image}
-                                                    alt={deal.influencer.full_name || 'Influencer'}
-                                                    className="w-14 h-14 rounded-full object-cover border-3 border-purple-200 shadow-md"
-                                                    onError={(e) => {
-                                                        const target = e.target as HTMLImageElement;
-                                                        target.style.display = 'none';
-                                                        target.nextElementSibling?.classList.remove('hidden');
-                                                    }}
-                                                />
-                                            ) : null}
-                                            <div
-                                                className={`w-14 h-14 bg-gradient-to-r from-purple-500 to-pink-600 rounded-full flex items-center justify-center shadow-md ${deal.influencer?.profile_image ? 'hidden' : ''}`}>
-                    <span className="text-white font-bold text-xl">
-                      {deal.influencer?.full_name?.charAt(0)?.toUpperCase() || '?'}
-                    </span>
-                                            </div>
+                                                                                 <div className="flex items-center gap-3 mb-4">
+                                             {deal.influencer?.profile_image ? (
+                                                 <img
+                                                     src={deal.influencer.profile_image}
+                                                     alt={deal.influencer.full_name || 'Influencer'}
+                                                     className="w-14 h-14 rounded-full object-cover border-2 border-purple-200 shadow-md"
+                                                     onError={(e) => {
+                                                         const target = e.target as HTMLImageElement;
+                                                         target.style.display = 'none';
+                                                         target.nextElementSibling?.classList.remove('hidden');
+                                                     }}
+                                                 />
+                                             ) : null}
+                                             <div
+                                                 className={`w-14 h-14 bg-gradient-to-r from-purple-500 to-pink-600 rounded-full flex items-center justify-center shadow-md ${deal.influencer?.profile_image ? 'hidden' : ''}`}>
+                                                 <span className="text-white font-bold text-xl">
+                                                     {deal.influencer?.full_name?.charAt(0)?.toUpperCase() || '?'}
+                                                 </span>
+                                             </div>
                                             <div className="flex-1 min-w-0">
                                                 <h3 className="font-bold text-gray-900 text-lg truncate">{deal.influencer?.full_name || 'Unknown Influencer'}</h3>
                                                 <p className="text-sm text-gray-600">@{deal.influencer?.username || 'N/A'}</p>
@@ -1219,8 +1228,100 @@ export default function DealDetailsPage() {
                                                     Completed
                                                 </Button>
                                             </div>
-                                        </div>
-                                        {/* Deal Accepted - Shortlist */}
+                                                                                 </div>
+                                         
+                                         {/* Always Visible Information Section */}
+                                         <div className="mb-6 p-4 bg-gradient-to-r from-gray-50 to-white rounded-lg border border-gray-200">
+                                           <h4 className="font-medium text-gray-900 mb-3 flex items-center gap-2">
+                                             <HiInformationCircle className="w-4 h-4 text-gray-600" />
+                                             Deal Information & History
+                                           </h4>
+                                           
+                                           {/* Shipping Information - Always Visible */}
+                                           {deal.shipping_address && (
+                                             <div className="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                                               <h5 className="font-medium text-blue-900 mb-2 flex items-center gap-2">
+                                                 <HiMapPin className="w-4 h-4" />
+                                                 Shipping Address
+                                               </h5>
+                                               <div className="text-sm text-blue-800 space-y-1">
+                                                 <p><strong>Address:</strong> {deal.shipping_address.address_line1 || deal.shipping_address.address_line_1 || 'N/A'}</p>
+                                                 {(deal.shipping_address.address_line2 || deal.shipping_address.address_line_2) && (
+                                                   <p><strong>Address Line 2:</strong> {deal.shipping_address.address_line2 || deal.shipping_address.address_line_2}</p>
+                                                 )}
+                                                 <p><strong>City:</strong> {deal.shipping_address.city || 'N/A'}</p>
+                                                 <p><strong>State:</strong> {deal.shipping_address.state || 'N/A'}</p>
+                                                 <p><strong>ZIP/Postal Code:</strong> {deal.shipping_address.zipcode || deal.shipping_address.postal_code || 'N/A'}</p>
+                                                 <p><strong>Country:</strong> {deal.shipping_address.country || 'N/A'}</p>
+                                                 {deal.shipping_address.phone_number && (
+                                                   <p><strong>Phone:</strong> {deal.shipping_address.country_code && `${deal.shipping_address.country_code} `}{deal.shipping_address.phone_number}</p>
+                                                 )}
+                                               </div>
+                                             </div>
+                                           )}
+                                           
+                                           {/* Tracking Information - Always Visible */}
+                                           {deal.tracking_number && (
+                                             <div className="mb-4 p-3 bg-indigo-50 rounded-lg border border-indigo-200">
+                                               <h5 className="font-medium text-indigo-900 mb-2 flex items-center gap-2">
+                                                 <HiTruck className="w-4 h-4" />
+                                                 Tracking Information
+                                               </h5>
+                                               <div className="text-sm text-indigo-800 space-y-1">
+                                                 <p><strong>Tracking Number:</strong> {deal.tracking_number}</p>
+                                                 {deal.tracking_url && (
+                                                   <p><strong>Track Package:</strong> <a href={deal.tracking_url} target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:underline">{deal.tracking_url}</a></p>
+                                                 )}
+                                                 {deal.shipped_at && (
+                                                   <p><strong>Shipped Date:</strong> {new Date(deal.shipped_at).toLocaleDateString()}</p>
+                                                 )}
+                                                 {deal.delivered_at && (
+                                                   <p><strong>Delivered Date:</strong> {new Date(deal.delivered_at).toLocaleDateString()}</p>
+                                                 )}
+                                               </div>
+                                             </div>
+                                           )}
+                                           
+                                           {/* Content Information - Always Visible */}
+                                           {deal.content_submitted_at && (
+                                             <div className="mb-4 p-3 bg-pink-50 rounded-lg border border-pink-200">
+                                               <h5 className="font-medium text-pink-900 mb-2 flex items-center gap-2">
+                                                 <HiPhoto className="w-4 h-4" />
+                                                 Content Information
+                                               </h5>
+                                               <div className="text-sm text-pink-800 space-y-1">
+                                                 <p><strong>Content Submitted:</strong> {new Date(deal.content_submitted_at).toLocaleDateString()}</p>
+                                                 {deal.content_reviewed_at && (
+                                                   <p><strong>Content Reviewed:</strong> {new Date(deal.content_reviewed_at).toLocaleDateString()}</p>
+                                                 )}
+                                                 {deal.submitted_content && deal.submitted_content.length > 0 && (
+                                                   <p><strong>Content Count:</strong> {deal.submitted_content.length} submission(s)</p>
+                                                 )}
+                                               </div>
+                                             </div>
+                                           )}
+                                           
+                                           {/* Deal Completion Information - Always Visible */}
+                                           {deal.completed_at && (
+                                             <div className="p-3 bg-green-50 rounded-lg border border-green-200">
+                                               <h5 className="font-medium text-green-900 mb-2 flex items-center gap-2">
+                                                 <HiCheckCircle className="w-4 h-4" />
+                                                 Deal Completion
+                                               </h5>
+                                               <div className="text-sm text-green-800 space-y-1">
+                                                 <p><strong>Completed Date:</strong> {new Date(deal.completed_at).toLocaleDateString()}</p>
+                                                 {deal.brand_rating && (
+                                                   <p><strong>Brand Rating:</strong> {deal.brand_rating}/5 ⭐</p>
+                                                 )}
+                                                 {deal.brand_review && (
+                                                   <p><strong>Brand Review:</strong> {deal.brand_review}</p>
+                                                 )}
+                                               </div>
+                                             </div>
+                                           )}
+                                         </div>
+                                         
+                                         {/* Deal Accepted - Shortlist */}
                                         {deal.status === 'accepted' && (
                                             <div className="space-y-4">
                                                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
@@ -1353,23 +1454,22 @@ export default function DealDetailsPage() {
                                                         information.
                                                     </p>
 
-                                                    {deal.shipping_address && (
-                                                        <div className="bg-white p-3 rounded border text-sm mb-3">
-                                                            <p className="font-medium">Shipping Address:</p>
-                                                            <p>{deal.shipping_address.full_name || 'N/A'}</p>
-                                                            <p>{deal.shipping_address.address_line1 || deal.shipping_address.address_line_1 || 'N/A'}</p>
-                                                            {(deal.shipping_address.address_line2 || deal.shipping_address.address_line_2) && (
-                                                                <p>{deal.shipping_address.address_line2 || deal.shipping_address.address_line_2}</p>
-                                                            )}
-                                                            <p>
-                                                                {deal.shipping_address.city || 'N/A'}, {deal.shipping_address.state || 'N/A'} {deal.shipping_address.zipcode || deal.shipping_address.postal_code || 'N/A'}
-                                                            </p>
-                                                            <p>{deal.shipping_address.country || 'N/A'}</p>
-                                                            {deal.shipping_address.phone_number && (
-                                                                <p>Phone: {deal.shipping_address.country_code && `${deal.shipping_address.country_code} `}{deal.shipping_address.phone_number}</p>
-                                                            )}
-                                                        </div>
-                                                    )}
+                                                                                                         {deal.shipping_address && (
+                                                         <div className="bg-white p-3 rounded border text-sm mb-3">
+                                                             <p className="font-medium">Shipping Address:</p>
+                                                             <p>{deal.shipping_address.address_line1 || deal.shipping_address.address_line_1 || 'N/A'}</p>
+                                                             {(deal.shipping_address.address_line2 || deal.shipping_address.address_line_2) && (
+                                                                 <p>{deal.shipping_address.address_line2 || deal.shipping_address.address_line_2}</p>
+                                                             )}
+                                                             <p>
+                                                                 {deal.shipping_address.city || 'N/A'}, {deal.shipping_address.state || 'N/A'} {deal.shipping_address.zipcode || deal.shipping_address.postal_code || 'N/A'}
+                                                             </p>
+                                                             <p>{deal.shipping_address.country || 'N/A'}</p>
+                                                             {deal.shipping_address.phone_number && (
+                                                                 <p>Phone: {deal.shipping_address.country_code && `${deal.shipping_address.country_code} `}{deal.shipping_address.phone_number}</p>
+                                                             )}
+                                                         </div>
+                                                     )}
 
                                                     <div className="space-y-3">
                                                         <div>
