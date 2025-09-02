@@ -61,6 +61,11 @@ interface Campaign {
   completed_deals: number;
   total_value: number;
   deals: Deal[];
+  deal_type?: string;
+  deal_type_display?: string;
+  target_influencers?: number;
+  total_invited?: number;
+  total_accepted?: number;
 }
 
 interface PaginationInfo {
@@ -184,6 +189,15 @@ export default function BrandDealsPage() {
     return ts ? formatDate(ts) : undefined;
   };
 
+  const getFullImageUrl = (imagePath: string | null | undefined) => {
+    if (!imagePath) return undefined;
+    if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
+      return imagePath;
+    }
+    // If it's a relative path, construct the full URL using backend domain
+    return `http://localhost:8000${imagePath}`;
+  };
+
   const getStatusBadge = (status: string, display?: string) => {
     const statusOption = statusOptions.find(s => s.value === status);
     const color = statusOption?.color || 'gray';
@@ -204,6 +218,25 @@ export default function BrandDealsPage() {
     );
   };
 
+  const getDealTypeBadge = (dealType?: string, dealTypeDisplay?: string) => {
+    if (!dealType) return null;
+    
+    const typeColors: Record<string, string> = {
+      'cash': 'bg-gradient-to-r from-emerald-100 to-green-100 text-emerald-800 border-emerald-300',
+      'product': 'bg-gradient-to-r from-orange-100 to-amber-100 text-orange-800 border-orange-300',
+      'hybrid': 'bg-gradient-to-r from-purple-100 to-pink-100 text-purple-800 border-purple-300',
+    };
+
+    const displayText = dealTypeDisplay || dealType;
+    const colorClass = typeColors[dealType] || 'bg-gradient-to-r from-blue-100 to-indigo-100 text-blue-800 border-blue-300';
+
+    return (
+      <Badge className={`${colorClass} border text-xs font-medium shadow-sm`}>
+        {displayText === 'Product Only' ? 'Barter' : displayText}
+      </Badge>
+    );
+  };
+
   const clearFilters = () => {
     setSearchTerm("");
     setStatusFilter("all");
@@ -220,23 +253,23 @@ export default function BrandDealsPage() {
   return (
     <div className="min-h-screen">
       <div className="container mx-auto px-4 py-4 max-w-7xl">
-        {/* Header */}
-        <div className="mb-4">
-          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 p-2">
+        {/* Compact Header */}
+        <div className="bg-gradient-to-r from-red-50 via-white to-rose-50 border border-red-200 rounded-xl shadow-md p-4 mb-4">
+          <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-bold bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 bg-clip-text text-transparent mb-1">
+              <h1 className="text-xl font-bold text-gray-900 mb-1">
                 Deal Management
               </h1>
-              <p className="text-sm text-gray-600 max-w-2xl">
+              <p className="text-sm text-gray-600">
                 Track and manage all your influencer collaborations across campaigns.
               </p>
             </div>
             
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
               <div className="text-right hidden sm:block">
                 <p className="text-xs text-gray-500">Total Deals</p>
-                <p className="text-xs font-medium text-gray-700">
-                  {pagination.total_items} deals
+                <p className="text-sm font-medium text-gray-700">
+                  {pagination.total_items}
                 </p>
               </div>
               <Button 
@@ -244,9 +277,9 @@ export default function BrandDealsPage() {
                 size="sm"
                 onClick={() => viewMode === 'campaigns' ? fetchDealsByCampaigns() : fetchDeals()}
                 disabled={isLoading}
-                className="border border-gray-200 hover:bg-gray-50 rounded-lg px-4 py-2"
+                className="text-xs px-2 py-1 border-red-200 text-red-700 hover:bg-red-50"
               >
-                <HiArrowPath className="h-4 w-4 mr-1" />
+                <HiArrowPath className="h-3 w-3 mr-1" />
                 Refresh
               </Button>
             </div>
@@ -254,7 +287,7 @@ export default function BrandDealsPage() {
         </div>
 
         {/* View Mode Tabs */}
-        <div className="mb-6">
+        <div className="mb-4">
           <Tabs value={viewMode} onValueChange={(value) => setViewMode(value as 'campaigns' | 'deals')}>
             <TabsList className="grid w-full max-w-md grid-cols-2">
               <TabsTrigger value="campaigns">By Campaigns</TabsTrigger>
@@ -264,10 +297,10 @@ export default function BrandDealsPage() {
         </div>
 
         {/* Filters */}
-        <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-3 mb-4">
+        <div className="bg-gradient-to-r from-white via-red-50/30 to-rose-50/50 rounded-xl border border-red-100 shadow-md p-3 mb-4">
           <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center">
             <div className="flex items-center gap-2 flex-1 min-w-0">
-              <HiMagnifyingGlass className="h-5 w-5 text-gray-400" />
+              <HiMagnifyingGlass className="h-5 w-5 text-red-500" />
               <Input
                 placeholder="Search deals, campaigns, or influencers..."
                 value={searchTerm}
@@ -321,27 +354,27 @@ export default function BrandDealsPage() {
         {isLoading && <DealListSkeleton />}
 
         {!isLoading && (viewMode === 'campaigns' ? campaigns.length === 0 : deals.length === 0) && (
-          <Card className="p-10 text-center bg-white border border-gray-200 shadow-sm">
+          <Card className="p-8 text-center bg-gradient-to-br from-red-50 via-white to-rose-50 border-0 shadow-lg">
             <div className="flex flex-col items-center justify-center">
-              <div className="w-14 h-14 bg-gray-100 rounded-full flex items-center justify-center mb-3">
-                <HiDocument className="w-8 h-8 text-gray-400" />
+              <div className="w-16 h-16 bg-gradient-to-br from-red-500 to-rose-600 rounded-2xl flex items-center justify-center mb-4 shadow-lg">
+                <HiDocument className="w-8 h-8 text-white" />
               </div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+              <h3 className="text-base font-semibold text-gray-900 mb-2">
                 {viewMode === 'campaigns' ? 'No Campaigns Found' : 'No Deals Found'}
               </h3>
-              <p className="text-gray-500 mb-6 max-w-md">
+              <p className="text-sm text-gray-500 mb-4 max-w-md">
                 {hasActiveFilters ? "Try adjusting your search criteria or filters." : "Start by creating campaigns and sending deals to influencers."}
               </p>
-              <div className="flex items-center justify-center gap-3">
+              <div className="flex items-center justify-center gap-2">
                 {hasActiveFilters && (
-                  <Button variant="outline" onClick={clearFilters} className="hover:bg-gray-50">
-                    <HiArrowPath className="w-4 h-4 mr-2" />
+                  <Button variant="outline" size="sm" onClick={clearFilters} className="text-xs px-2 py-1">
+                    <HiArrowPath className="w-3 h-3 mr-1" />
                     Clear Filters
                   </Button>
                 )}
-                <Button onClick={() => router.push('/brand/campaigns/create')}>
-                  <HiDocument className="w-4 h-4 mr-2" />
-                  Create First Campaign
+                <Button size="sm" onClick={() => router.push('/brand/campaigns/create')} className="text-xs px-2 py-1">
+                  <HiDocument className="w-3 h-3 mr-1" />
+                  Create Campaign
                 </Button>
               </div>
             </div>
@@ -350,37 +383,46 @@ export default function BrandDealsPage() {
 
         {/* Campaigns View */}
         {!isLoading && viewMode === 'campaigns' && campaigns.length > 0 && (
-          <div className="space-y-4">
+          <div className="space-y-3">
             {campaigns.map((campaign) => (
-              <Card key={campaign.id} className="shadow-sm border border-gray-200">
-                <CardHeader className="pb-3">
+              <Card key={campaign.id} className="shadow-md border-0 bg-gradient-to-r from-white via-red-50/20 to-rose-50/30 hover:shadow-lg hover:from-red-50/30 hover:to-rose-50/40 transition-all duration-200">
+                <CardHeader className="pb-2">
                   <div className="flex items-center justify-between">
-                    <div>
-                      <CardTitle className="text-lg font-semibold text-gray-900">
-                        {campaign.title}
-                      </CardTitle>
-                      <div className="flex items-center gap-4 mt-1 text-sm text-gray-500">
-                        <span className="flex items-center gap-1">
-                          <HiUsers className="w-4 h-4" />
-                          {campaign.deals_count} deals
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-2">
+                        <CardTitle className="text-base font-semibold text-gray-900">
+                          {campaign.title}
+                        </CardTitle>
+                        {getDealTypeBadge(campaign.deal_type, campaign.deal_type_display)}
+                      </div>
+                      <div className="flex items-center gap-4 text-sm">
+                        <span className="flex items-center gap-1 text-red-600">
+                          <HiUsers className="w-3 h-3" />
+                          {campaign.total_invited || campaign.deals_count} deals
                         </span>
-                        <span className="flex items-center gap-1">
-                          <HiCheckCircle className="w-4 h-4" />
+                        <span className="flex items-center gap-1 text-emerald-600">
+                          <HiCheckCircle className="w-3 h-3" />
                           {campaign.completed_deals} completed
                         </span>
-                        <span className="flex items-center gap-1">
-                          <HiCurrencyDollar className="w-4 h-4" />
+                        <span className="flex items-center gap-1 text-rose-600">
+                          <HiCurrencyDollar className="w-3 h-3" />
                           {formatCurrency(campaign.total_value)}
                         </span>
+                        {campaign.target_influencers && (
+                          <span className="flex items-center gap-1 text-amber-600">
+                            <HiUsers className="w-3 h-3" />
+                            {campaign.total_invited || campaign.deals_count}/{campaign.target_influencers} needed
+                          </span>
+                        )}
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      <Button variant="outline" size="sm" onClick={() => router.push(`/brand/campaigns/${campaign.id}`)}>
-                        <HiEye className="w-4 h-4 mr-2" />
-                        View Campaign
+                      <Button variant="outline" size="sm" onClick={() => router.push(`/brand/campaigns/${campaign.id}`)} className="text-xs px-2 py-1 border-red-200 text-red-700 hover:bg-red-50">
+                        <HiEye className="w-3 h-3 mr-1" />
+                        View
                       </Button>
-                      <Button size="sm" onClick={() => router.push(`/brand/campaigns/${campaign.id}/deals`)}>
-                        Manage Deals
+                      <Button size="sm" onClick={() => window.open(`/brand/campaigns/${campaign.id}/deals`, '_blank')} className="text-xs px-2 py-1 bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700">
+                        Manage
                       </Button>
                     </div>
                   </div>
@@ -389,26 +431,38 @@ export default function BrandDealsPage() {
                 <CardContent>
                   <div className="space-y-2">
                     {campaign.deals.slice(0, 3).map((deal) => (
-                      <div key={deal.id} className="flex items-center justify-between p-2 bg-gray-50 rounded-md">
+                      <div key={deal.id} className="flex items-center justify-between p-2 bg-gradient-to-r from-white to-red-50/40 rounded-lg border border-red-100 hover:from-red-50/30 hover:to-rose-50/50 transition-all duration-200">
                         <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 bg-gray-300 rounded-full flex items-center justify-center">
-                            <span className="text-sm font-medium text-white">
-                              {(deal.influencer?.full_name || deal.influencer?.username || '?').charAt(0)}
-                            </span>
+                          <div className="relative">
+                            {deal.influencer?.profile_image || deal.influencer?.avatar ? (
+                              <img 
+                                src={getFullImageUrl(deal.influencer.profile_image || deal.influencer.avatar)} 
+                                alt={deal.influencer?.full_name || deal.influencer?.username || 'Influencer'}
+                                className="w-8 h-8 rounded-full object-cover"
+                                onError={(e) => {
+                                  const target = e.target as HTMLImageElement;
+                                  target.style.display = 'none';
+                                  target.nextElementSibling?.classList.remove('hidden');
+                                }}
+                              />
+                            ) : null}
+                            <div className={`w-8 h-8 bg-gradient-to-br from-red-500 to-rose-600 rounded-full flex items-center justify-center text-white font-bold text-sm ${deal.influencer?.profile_image || deal.influencer?.avatar ? 'hidden' : ''}`}>
+                              {(deal.influencer?.full_name || deal.influencer?.username || '?').charAt(0).toUpperCase()}
+                            </div>
                           </div>
                           <div>
-                            <p className="font-medium text-gray-900">{deal.influencer?.full_name || deal.influencer?.username || 'Unknown Influencer'}</p>
-                            <p className="text-sm text-gray-500">{deal.influencer?.username || 'N/A'}</p>
+                            <p className="text-sm font-medium text-gray-900">{deal.influencer?.full_name || deal.influencer?.username || 'Unknown Influencer'}</p>
+                            <p className="text-xs text-gray-500">{deal.influencer?.username || 'N/A'}</p>
                           </div>
                         </div>
                         
-                        <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-3">
                           {getStatusBadge(deal.status, deal.status_display)}
                           <span className="text-sm font-medium text-gray-700">
                             {formatCurrency(deal.value)}
                           </span>
-                          <Button variant="ghost" size="sm" onClick={() => router.push(`/brand/deals/${deal.id}`)}>
-                            <HiEye className="w-4 h-4" />
+                          <Button variant="ghost" size="sm" onClick={() => window.open(`/brand/deals/${deal.id}`, '_blank')} className="p-1 hover:bg-red-100">
+                            <HiEye className="w-3 h-3" />
                           </Button>
                         </div>
                       </div>
@@ -416,8 +470,8 @@ export default function BrandDealsPage() {
                     
                     {campaign.deals.length > 3 && (
                       <div className="text-center pt-2">
-                        <Button variant="outline" size="sm" onClick={() => router.push(`/brand/campaigns/${campaign.id}/deals`)}>
-                          View {campaign.deals.length - 3} more deals
+                        <Button variant="outline" size="sm" onClick={() => window.open(`/brand/campaigns/${campaign.id}/deals`, '_blank')} className="text-xs px-2 py-1 border-red-200 text-red-700 hover:bg-red-50">
+                          View {campaign.deals.length - 3} more
                         </Button>
                       </div>
                     )}
@@ -430,35 +484,60 @@ export default function BrandDealsPage() {
 
         {/* All Deals View */}
         {!isLoading && viewMode === 'deals' && deals.length > 0 && (
-          <div className="grid gap-3">
+          <div className="grid gap-2">
             {deals.map((deal) => (
-              <Card key={deal.id} className="shadow-sm border border-gray-200">
-                <CardContent className="p-3">
+              <Card 
+                key={deal.id} 
+                className="shadow-md border-0 bg-gradient-to-r from-white via-red-50/20 to-rose-50/20 hover:shadow-lg hover:from-red-50/30 hover:to-rose-50/30 transition-all duration-200 cursor-pointer group"
+                onClick={() => window.open(`/brand/deals/${deal.id}`, '_blank')}
+              >
+                <CardContent className="p-4">
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                      <div className="w-10 h-10 bg-gray-300 rounded-full flex items-center justify-center">
-                        <span className="text-base font-medium text-white">
-                          {(deal.influencer?.full_name || deal.influencer?.username || '?').charAt(0)}
-                        </span>
+                    <div className="flex items-center gap-4 flex-1">
+                      <div className="relative flex-shrink-0">
+                        {deal.influencer?.profile_image || deal.influencer?.avatar ? (
+                          <img 
+                            src={getFullImageUrl(deal.influencer.profile_image || deal.influencer.avatar)} 
+                            alt={deal.influencer?.full_name || deal.influencer?.username || 'Influencer'}
+                            className="w-12 h-12 rounded-full object-cover shadow-md ring-2 ring-white group-hover:ring-red-200 transition-all duration-200"
+                            onError={(e) => {
+                              const target = e.target as HTMLImageElement;
+                              target.style.display = 'none';
+                              target.nextElementSibling?.classList.remove('hidden');
+                            }}
+                          />
+                        ) : null}
+                        <div className={`w-12 h-12 bg-gradient-to-br from-red-500 to-rose-600 rounded-full flex items-center justify-center text-white font-bold text-sm shadow-md ring-2 ring-white group-hover:ring-red-200 transition-all duration-200 ${deal.influencer?.profile_image || deal.influencer?.avatar ? 'hidden' : ''}`}>
+                          {(deal.influencer?.full_name || deal.influencer?.username || '?').charAt(0).toUpperCase()}
+                        </div>
                       </div>
                       
-                      <div>
-                        <h3 className="font-semibold text-gray-900">{deal.influencer?.full_name || deal.influencer?.username || 'Unknown Influencer'}</h3>
-                        <p className="text-sm text-gray-500">{deal.influencer?.username || 'N/A'}</p>
-                        <p className="text-sm text-blue-600 font-medium">{deal.campaign?.title || 'Untitled Campaign'}</p>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <h3 className="text-base font-semibold text-gray-900 group-hover:text-red-700 transition-colors duration-200 truncate">
+                            {deal.influencer?.full_name || deal.influencer?.username || 'Unknown Influencer'}
+                          </h3>
+                          {getStatusBadge(deal.status, deal.status_display)}
+                        </div>
+                        <p className="text-sm text-gray-500 mb-1">@{deal.influencer?.username || 'N/A'}</p>
+                        <p className="text-sm text-red-600 font-medium group-hover:text-red-700 transition-colors duration-200 truncate">
+                          {deal.campaign?.title || 'Untitled Campaign'}
+                        </p>
                       </div>
                     </div>
                     
-                    <div className="flex items-center gap-4">
-                      {getStatusBadge(deal.status, deal.status_display)}
+                    <div className="flex items-center gap-4 flex-shrink-0">
                       <div className="text-right">
-                        <p className="font-semibold text-gray-900">{formatCurrency(deal.value)}</p>
-                        <p className="text-sm text-gray-500">{getLastActivityDate(deal) || ''}</p>
+                        <p className="text-base font-bold text-gray-900 group-hover:text-red-700 transition-colors duration-200">
+                          {formatCurrency(deal.value)}
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          {getLastActivityDate(deal) || 'No activity'}
+                        </p>
                       </div>
-                      <Button variant="outline" size="sm" onClick={() => router.push(`/brand/deals/${deal.id}`)}>
-                        <HiEye className="w-4 h-4 mr-2" />
-                        View Deal
-                      </Button>
+                      <div className="w-8 h-8 rounded-full bg-red-100 group-hover:bg-red-200 flex items-center justify-center transition-all duration-200">
+                        <HiEye className="w-4 h-4 text-red-600 group-hover:text-red-700" />
+                      </div>
                     </div>
                   </div>
                 </CardContent>
@@ -469,22 +548,23 @@ export default function BrandDealsPage() {
 
         {/* Pagination */}
         {!isLoading && pagination.total_pages > 1 && (
-          <div className="flex items-center justify-between mt-8 p-4 bg-white rounded-lg border border-gray-200">
-            <div className="text-sm text-gray-600">
+          <div className="flex items-center justify-between mt-6 p-3 bg-gradient-to-r from-white via-red-50/30 to-rose-50/30 rounded-xl border border-red-100 shadow-md">
+            <div className="text-xs text-gray-600">
               Showing {((pagination.current_page - 1) * pagination.items_per_page) + 1} to{' '}
               {Math.min(pagination.current_page * pagination.items_per_page, pagination.total_items)} of{' '}
               {pagination.total_items} deals
             </div>
             
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1">
               <Button 
                 variant="outline" 
                 size="sm" 
                 disabled={pagination.current_page === 1}
                 onClick={() => handlePageChange(pagination.current_page - 1)}
+                className="text-xs px-2 py-1"
               >
-                <HiChevronLeft className="w-4 h-4" />
-                Previous
+                <HiChevronLeft className="w-3 h-3" />
+                Prev
               </Button>
               
               <div className="flex items-center gap-1">
@@ -496,13 +576,13 @@ export default function BrandDealsPage() {
                   .map((page, index, array) => (
                     <div key={page}>
                       {index > 0 && array[index - 1] !== page - 1 && (
-                        <span className="px-2 text-gray-400">...</span>
+                        <span className="px-1 text-gray-400 text-xs">...</span>
                       )}
                       <Button
                         variant={page === pagination.current_page ? "default" : "outline"}
                         size="sm"
                         onClick={() => handlePageChange(page)}
-                        className="w-8 h-8 p-0"
+                        className="w-7 h-7 p-0 text-xs"
                       >
                         {page}
                       </Button>
@@ -515,9 +595,10 @@ export default function BrandDealsPage() {
                 size="sm" 
                 disabled={pagination.current_page === pagination.total_pages}
                 onClick={() => handlePageChange(pagination.current_page + 1)}
+                className="text-xs px-2 py-1"
               >
                 Next
-                <HiChevronRight className="w-4 h-4" />
+                <HiChevronRight className="w-3 h-3" />
               </Button>
             </div>
           </div>
