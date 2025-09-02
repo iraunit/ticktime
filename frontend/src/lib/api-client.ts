@@ -123,10 +123,13 @@ export const dealsApi = {
 
     getDeal: (id: number) => api.get(`/deals/${id}/`),
 
-    acceptDeal: (id: number) => api.post(`/deals/${id}/action/`, {action: 'accept'}),
+    acceptDeal: (id: number) => {
+        return api.post(`/deals/${id}/action/`, {action: 'accept'});
+    },
 
-    rejectDeal: (id: number, reason?: string) =>
-        api.post(`/deals/${id}/action/`, {action: 'reject', rejection_reason: reason}),
+    rejectDeal: (id: number, reason?: string) => {
+        return api.post(`/deals/${id}/action/`, {action: 'reject', rejection_reason: reason});
+    },
 
     submitContent: async (
         id: number,

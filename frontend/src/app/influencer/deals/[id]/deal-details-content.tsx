@@ -1,7 +1,7 @@
 "use client";
 
 import {DealTabs} from "@/components/deals/deal-tabs";
-import {useDeal} from "@/hooks/use-deals";
+import {useDeal, useDealMutations} from "@/hooks/use-deals";
 import {useRouter} from "next/navigation";
 import {toast} from "sonner";
 import {GlobalLoader} from "@/components/ui/global-loader";
@@ -15,14 +15,14 @@ export function DealDetailsContent({dealId}: DealDetailsContentProps) {
     const router = useRouter();
     const {isAuthLoading} = useAuth();
     const {deal} = useDeal(dealId);
+    const {acceptDeal, rejectDeal} = useDealMutations();
 
     const dealData = deal.data;
 
     const handleAccept = async (dealId: number) => {
         try {
-            // This would call the actual API
+            await acceptDeal.mutateAsync(dealId);
             toast.success("Deal accepted successfully!");
-            router.push("/influencer/deals");
         } catch (error) {
             toast.error("Failed to accept deal. Please try again.");
         }
@@ -30,9 +30,8 @@ export function DealDetailsContent({dealId}: DealDetailsContentProps) {
 
     const handleReject = async (dealId: number, reason?: string) => {
         try {
-            // This would call the actual API
+            await rejectDeal.mutateAsync({id: dealId, reason});
             toast.success("Deal declined successfully.");
-            router.push("/influencer/deals");
         } catch (error) {
             toast.error("Failed to decline deal. Please try again.");
         }
@@ -100,6 +99,7 @@ export function DealDetailsContent({dealId}: DealDetailsContentProps) {
                 deal={dealData}
                 onAccept={handleAccept}
                 onReject={handleReject}
+                isLoading={acceptDeal.isPending || rejectDeal.isPending}
             />
         </div>
     );

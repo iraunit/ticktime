@@ -209,7 +209,15 @@ def deal_action_view(request, deal_id):
             
         elif action == 'reject':
             deal.set_status_with_timestamp('rejected')
-            deal.rejection_reason = serializer.validated_data.get('rejection_reason', '')
+            rejection_reason = serializer.validated_data.get('rejection_reason', '')
+            deal.rejection_reason = rejection_reason
+            
+            # Add rejection reason to deal notes
+            if rejection_reason:
+                current_notes = deal.notes or ''
+                rejection_note = f"\n\nReason to Reject: {rejection_reason}"
+                deal.notes = current_notes + rejection_note
+            
             message = 'Deal rejected successfully.'
 
         deal.responded_at = timezone.now()

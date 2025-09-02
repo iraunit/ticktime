@@ -2,17 +2,18 @@
 
 import {DealList} from "@/components/deals/deal-list";
 import {DealFilters} from "@/components/deals/deal-filters";
-import {useDeals} from "@/hooks/use-deals";
+import {useDealMutations, useDeals} from "@/hooks/use-deals";
 import {useRouter} from "next/navigation";
 import {toast} from "sonner";
-import {useState, useMemo} from "react";
+import {useMemo, useState} from "react";
 import {Button} from "@/components/ui/button";
 import {HiArrowPath, HiBriefcase} from "react-icons/hi2";
 import {cn} from "@/lib/utils";
 
 export default function InfluencerDealsPage() {
     const router = useRouter();
-    const {deals, acceptDeal, rejectDeal} = useDeals();
+    const {deals} = useDeals();
+    const {acceptDeal, rejectDeal} = useDealMutations();
     const [searchQuery, setSearchQuery] = useState("");
     const [statusFilter, setStatusFilter] = useState("all");
     const [dealTypeFilter, setDealTypeFilter] = useState("all");
@@ -52,18 +53,22 @@ export default function InfluencerDealsPage() {
 
     const handleAcceptDeal = async (dealId: number) => {
         try {
+            console.log('Deals page: handleAcceptDeal called for deal:', dealId);
             await acceptDeal.mutateAsync(dealId);
             toast.success("Deal accepted successfully!");
-        } catch {
+        } catch (error) {
+            console.error('Deals page: handleAcceptDeal failed:', error);
             toast.error("Failed to accept deal. Please try again.");
         }
     };
 
     const handleRejectDeal = async (dealId: number) => {
         try {
+            console.log('Deals page: handleRejectDeal called for deal:', dealId);
             await rejectDeal.mutateAsync({id: dealId});
             toast.success("Deal rejected successfully.");
-        } catch {
+        } catch (error) {
+            console.error('Deals page: handleRejectDeal failed:', error);
             toast.error("Failed to reject deal. Please try again.");
         }
     };
@@ -78,21 +83,23 @@ export default function InfluencerDealsPage() {
             {/* Enhanced Header */}
             <div className="relative mb-6">
                 {/* Background decoration */}
-                <div className="absolute inset-0 bg-gradient-to-r from-blue-500/5 via-indigo-500/5 to-purple-500/5 rounded-xl -m-2"></div>
-                
+                <div
+                    className="absolute inset-0 bg-gradient-to-r from-blue-500/5 via-indigo-500/5 to-purple-500/5 rounded-xl -m-2"></div>
+
                 <div className="relative flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 p-4">
                     <div>
                         <h1 className="text-2xl font-bold bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 bg-clip-text text-transparent mb-1 flex items-center gap-2">
                             Your Deals
-                            <div className="w-6 h-6 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-lg flex items-center justify-center shadow-md">
-                                <HiBriefcase className="w-3 h-3 text-white" />
+                            <div
+                                className="w-6 h-6 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-lg flex items-center justify-center shadow-md">
+                                <HiBriefcase className="w-3 h-3 text-white"/>
                             </div>
                         </h1>
                         <p className="text-sm text-gray-600 max-w-2xl">
                             Manage your collaboration deals and track their progress
                         </p>
                     </div>
-                    
+
                     <div className="flex items-center gap-3">
                         <div className="text-right hidden sm:block">
                             <p className="text-xs text-gray-500">Total deals</p>
@@ -107,7 +114,7 @@ export default function InfluencerDealsPage() {
                             disabled={isLoading}
                             className="border border-gray-200 hover:border-blue-300 hover:bg-blue-50 transition-all duration-200 rounded-lg px-4 py-2"
                         >
-                            <HiArrowPath className="h-4 w-4 mr-1" />
+                            <HiArrowPath className="h-4 w-4 mr-1"/>
                             Refresh
                         </Button>
                     </div>
@@ -120,7 +127,8 @@ export default function InfluencerDealsPage() {
                 <div className="lg:w-80 lg:flex-shrink-0">
                     <div className="mb-6">
                         <div className="flex items-center mb-3">
-                            <div className="w-1 h-6 bg-gradient-to-b from-blue-500 to-indigo-500 rounded-full mr-3"></div>
+                            <div
+                                className="w-1 h-6 bg-gradient-to-b from-blue-500 to-indigo-500 rounded-full mr-3"></div>
                             <h2 className="text-lg font-bold text-gray-900">Filter & Search</h2>
                             {hasActiveFilters && (
                                 <Button
@@ -153,7 +161,8 @@ export default function InfluencerDealsPage() {
                     {/* Deal Stats - Visible only on desktop */}
                     <div className="hidden lg:block">
                         <div className="flex items-center mb-3">
-                            <div className="w-1 h-6 bg-gradient-to-b from-purple-500 to-pink-500 rounded-full mr-3"></div>
+                            <div
+                                className="w-1 h-6 bg-gradient-to-b from-purple-500 to-pink-500 rounded-full mr-3"></div>
                             <h2 className="text-sm font-bold text-gray-900">Deal Statistics</h2>
                         </div>
                         <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 space-y-3">
@@ -179,7 +188,8 @@ export default function InfluencerDealsPage() {
                 <div className="flex-1 min-w-0">
                     <div className="mb-6">
                         <div className="flex items-center mb-3">
-                            <div className="w-1 h-6 bg-gradient-to-b from-green-500 to-emerald-500 rounded-full mr-3"></div>
+                            <div
+                                className="w-1 h-6 bg-gradient-to-b from-green-500 to-emerald-500 rounded-full mr-3"></div>
                             <h2 className="text-lg font-bold text-gray-900">
                                 {hasActiveFilters ? "Filtered Results" : "All Deals"}
                             </h2>
@@ -187,7 +197,7 @@ export default function InfluencerDealsPage() {
                                 {filteredDeals.length}
                             </div>
                         </div>
-                        
+
                         <div className={cn(
                             "bg-white rounded-xl border border-gray-200 shadow-sm",
                             "transition-all duration-200 hover:shadow-md"
@@ -207,8 +217,9 @@ export default function InfluencerDealsPage() {
             {/* Empty State */}
             {!isLoading && filteredDeals.length === 0 && (
                 <div className="text-center py-12">
-                    <div className="w-16 h-16 bg-gradient-to-br from-blue-50 to-indigo-100 rounded-xl flex items-center justify-center mx-auto mb-4 shadow-md">
-                        <HiBriefcase className="w-8 h-8 text-blue-600" />
+                    <div
+                        className="w-16 h-16 bg-gradient-to-br from-blue-50 to-indigo-100 rounded-xl flex items-center justify-center mx-auto mb-4 shadow-md">
+                        <HiBriefcase className="w-8 h-8 text-blue-600"/>
                     </div>
                     <h3 className="text-lg font-semibold text-gray-900 mb-2">
                         {hasActiveFilters ? "No deals match your filters" : "No deals yet"}
@@ -220,7 +231,8 @@ export default function InfluencerDealsPage() {
                         }
                     </p>
                     {hasActiveFilters && (
-                        <Button onClick={clearFilters} size="lg" className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg shadow-md hover:shadow-lg transition-all duration-200">
+                        <Button onClick={clearFilters} size="lg"
+                                className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg shadow-md hover:shadow-lg transition-all duration-200">
                             Clear Filters
                         </Button>
                     )}
