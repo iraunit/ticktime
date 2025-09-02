@@ -3,9 +3,9 @@
 import { AnalyticsOverview } from "@/components/analytics/analytics-overview";
 import { CollaborationHistory } from "@/components/analytics/collaboration-history";
 import { EarningsDashboard } from "@/components/analytics/earnings-dashboard";
-import { PerformanceMetrics } from "@/components/analytics/performance-metrics";
+
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { HiChartBar, HiClock, HiBanknotes, HiTrophy } from "react-icons/hi2";
+import { HiChartBar, HiClock, HiBanknotes } from "react-icons/hi2";
 
 export default function InfluencerAnalyticsPage() {
 	return (
@@ -14,7 +14,7 @@ export default function InfluencerAnalyticsPage() {
 				{/* Tab Navigation */}
 				<div className="relative z-10 mb-1">
 					<div className="bg-white rounded-lg border shadow-sm p-2">
-						<TabsList className="!grid w-full grid-cols-2 sm:grid-cols-4 gap-2 bg-transparent !h-auto">
+						<TabsList className="!grid w-full grid-cols-2 sm:grid-cols-3 gap-2 bg-transparent !h-auto">
 							<TabsTrigger
 								value="overview"
 								className="flex w-full items-center justify-center gap-1.5 px-2 sm:px-3 py-2 text-xs sm:text-sm font-medium rounded-md transition-all duration-200 data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-indigo-500 data-[state=active]:text-white data-[state=active]:shadow-md hover:bg-gray-50 border-0"
@@ -39,13 +39,7 @@ export default function InfluencerAnalyticsPage() {
 								<span>Earnings</span>
 							</TabsTrigger>
 							
-							<TabsTrigger
-								value="performance"
-								className="flex w-full items-center justify-center gap-1.5 px-2 sm:px-3 py-2 text-xs sm:text-sm font-medium rounded-md transition-all duration-200 data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-indigo-500 data-[state=active]:text-white data-[state=active]:shadow-md hover:bg-gray-50 border-0"
-							>
-								<HiTrophy className="w-3 h-3 sm:w-4 sm:h-4" />
-								<span>Performance</span>
-							</TabsTrigger>
+
 						</TabsList>
 					</div>
 				</div>
@@ -63,9 +57,7 @@ export default function InfluencerAnalyticsPage() {
 					<EarningsDashboard />
 				</TabsContent>
 
-				<TabsContent value="performance" className="space-y-4">
-					<PerformanceMetrics />
-				</TabsContent>
+
 			</Tabs>
 		</div>
 	);

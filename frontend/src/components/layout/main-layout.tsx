@@ -9,7 +9,7 @@ import { ErrorProvider } from '@/contexts/error-context';
 import { LoadingProvider } from '@/contexts/loading-context';
 import { GlobalErrorHandler } from '@/components/error-handling/global-error-handler';
 
-import { PerformanceMonitor } from '@/lib/performance-monitor';
+
 import { ServiceWorkerCache } from '@/lib/cache-manager';
 import { ClientOnly } from '@/components/providers/client-only';
 import { authApi } from '@/lib/api-client';
@@ -32,8 +32,7 @@ export function MainLayout({
     // Prime CSRF cookie once so first unsafe request doesn't incur extra roundtrip
     authApi.csrf().catch(() => {});
     
-    // Initialize performance monitoring
-    PerformanceMonitor.init();
+
     
     // Initialize service worker for caching with delay to avoid hydration issues
     setTimeout(() => {
@@ -49,7 +48,7 @@ export function MainLayout({
 
     // Clean up on unmount
     return () => {
-      PerformanceMonitor.cleanup();
+
     };
   }, []);
 

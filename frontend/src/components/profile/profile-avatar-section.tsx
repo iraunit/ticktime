@@ -58,8 +58,12 @@ export function ProfileAvatarSection() {
       {/* Upload Component */}
       <div className="space-y-2">
         <ImageUpload
-          onUploadStart={() => setIsUploading(true)}
-          onUploadComplete={() => setIsUploading(false)}
+          onImageSelect={(file: File) => {
+            setIsUploading(true);
+            // Handle the file upload logic here
+            console.log('Selected file:', file);
+            setIsUploading(false);
+          }}
           className="w-full"
         />
         {isUploading && (

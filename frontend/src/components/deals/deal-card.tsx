@@ -202,9 +202,9 @@ export function DealCard({
                 </span>
                             </div>
                             <div className="text-sm font-bold text-green-800">
-                                {deal?.value ? formatCurrency(deal.value) :
+                                {deal?.total_value ? formatCurrency(deal.total_value) :
                                     deal?.campaign?.total_value ? formatCurrency(deal.campaign.total_value) :
-                                        deal?.campaign?.cash_amount ? formatCurrency(deal.campaign.cash_amount) : "TBD"}
+                                        deal?.campaign?.cash_amount ? formatCurrency(Number(deal.campaign.cash_amount)) : "TBD"}
                             </div>
                             {(deal?.campaign?.deal_type === 'product' || deal?.campaign?.deal_type === 'hybrid') &&
                                 deal?.campaign?.products && deal.campaign.products.length > 0 && (
@@ -263,7 +263,7 @@ export function DealCard({
                             <div className="text-sm font-bold text-indigo-800">
                                 {(() => {
                                     const platforms = deal?.campaign?.platforms_required ||
-                                        (typeof deal?.campaign?.content_requirements === 'object' && deal?.campaign?.content_requirements?.platforms) ||
+                                        (typeof deal?.campaign?.content_requirements === 'object' && (deal?.campaign?.content_requirements as any)?.platforms) ||
                                         [];
 
                                     if (platforms.length === 0) return "Multi";

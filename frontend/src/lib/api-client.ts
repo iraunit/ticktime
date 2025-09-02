@@ -297,10 +297,6 @@ export const analyticsApi = {
         return Promise.resolve({data: {earnings: []}});
     },
 
-    getPerformanceMetrics: () => {
-        console.warn('Analytics API not yet implemented in backend');
-        return Promise.resolve({data: {metrics: {}}});
-    },
 
     rateBrand: (dealId: number, rating: number, review?: string) => {
         console.warn('Analytics API not yet implemented in backend');

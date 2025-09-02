@@ -39,7 +39,7 @@ interface InfluencerProfile {
     created_at: string;
     social_accounts: SocialAccount[];
     recent_collaborations: Collaboration[];
-    performance_metrics: PerformanceMetrics;
+
 }
 
 interface SocialAccount {
@@ -61,13 +61,7 @@ interface Collaboration {
     rating?: number;
 }
 
-interface PerformanceMetrics {
-    total_campaigns: number;
-    completed_campaigns: number;
-    average_rating: number;
-    response_rate: number;
-    completion_rate: number;
-}
+
 
 export default function InfluencerProfilePage() {
     const params = useParams();
@@ -387,26 +381,7 @@ export default function InfluencerProfilePage() {
                                         <span className="font-semibold">{profile.social_accounts_count}</span>
                                     </div>
 
-                                    <div className="flex items-center justify-between">
-                                        <span className="text-sm text-gray-500">Total Campaigns:</span>
-                                        <span
-                                            className="font-semibold">{profile.performance_metrics.total_campaigns}</span>
-                                    </div>
 
-                                    <div className="flex items-center justify-between">
-                                        <span className="text-sm text-gray-500">Completion Rate:</span>
-                                        <span
-                                            className="font-semibold text-green-600">{profile.performance_metrics.completion_rate}%</span>
-                                    </div>
-
-                                    <div className="flex items-center justify-between">
-                                        <span className="text-sm text-gray-500">Avg. Rating:</span>
-                                        <div className="flex items-center gap-1">
-                                            <HiStar className="w-4 h-4 text-yellow-500"/>
-                                            <span
-                                                className="font-semibold">{profile.performance_metrics.average_rating}/5</span>
-                                        </div>
-                                    </div>
                                 </div>
                             </CardContent>
                         </Card>
@@ -476,11 +451,7 @@ export default function InfluencerProfilePage() {
                                         <span className="font-medium capitalize">{profile.industry}</span>
                                     </div>
 
-                                    <div className="flex justify-between">
-                                        <span className="text-gray-500">Response Rate:</span>
-                                        <span
-                                            className="font-medium text-green-600">{profile.performance_metrics.response_rate}%</span>
-                                    </div>
+
 
                                     <div className="flex justify-between">
                                         <span className="text-gray-500">Status:</span>
