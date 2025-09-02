@@ -158,12 +158,12 @@ export function DealInvitationCard({
 
                 {/* Fourth Row: Actions */}
                 <div className="flex items-center justify-between gap-2">
-                    <Link href={`/deals/${deal.id}`}>
-                        <Button variant="outline" size="sm" className="text-xs px-3 py-1">
-                            <Eye className="h-3 w-3 mr-1"/>
-                            View Details
-                        </Button>
-                    </Link>
+                                         <Link href={`/influencer/deals/${deal.id}`}>
+                         <Button variant="outline" size="sm" className="text-xs px-3 py-1">
+                             <Eye className="h-3 w-3 mr-1"/>
+                             View Details
+                         </Button>
+                     </Link>
 
                     {deal.status === "invited" && !isExpired && (
                         <div className="flex gap-2">

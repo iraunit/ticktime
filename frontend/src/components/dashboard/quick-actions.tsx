@@ -29,7 +29,7 @@ const quickActions: QuickAction[] = [
   {
     title: "Complete Profile",
     description: "Update your profile to get better deals",
-    href: "/profile",
+    href: "/influencer/profile",
     icon: HiUser,
     variant: "default",
     colorScheme: {
@@ -42,7 +42,7 @@ const quickActions: QuickAction[] = [
   {
     title: "Browse Deals",
     description: "Find new collaboration opportunities",
-    href: "/deals",
+    href: "/influencer/deals",
     icon: HiMagnifyingGlass,
     variant: "outline",
     colorScheme: {
@@ -55,7 +55,7 @@ const quickActions: QuickAction[] = [
   {
     title: "Messages",
     description: "Check your brand conversations",
-    href: "/messages",
+    href: "/influencer/messages",
     icon: HiChatBubbleLeftRight,
     variant: "outline",
     colorScheme: {
@@ -68,7 +68,7 @@ const quickActions: QuickAction[] = [
   {
     title: "Analytics",
     description: "View your performance metrics",
-    href: "/analytics",
+    href: "/influencer/analytics",
     icon: HiChartBar,
     variant: "outline",
     colorScheme: {

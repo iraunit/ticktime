@@ -59,7 +59,7 @@ export function RecentDeals({
               </span>
                         )}
                     </CardTitle>
-                    <Link href="/deals">
+                    <Link href="/influencer/deals">
                         <Button
                             variant="ghost"
                             size="sm"
@@ -84,7 +84,7 @@ export function RecentDeals({
                         <p className="text-xs text-gray-600 mb-4 max-w-sm mx-auto">
                             Complete your profile to start receiving collaboration opportunities from brands.
                         </p>
-                        <Link href="/profile">
+                        <Link href="/influencer/profile">
                             <Button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-xs">
                                 Complete Profile
                             </Button>
@@ -116,7 +116,7 @@ export function RecentDeals({
 
                         {deals.length > 5 && (
                             <div className="pt-3 border-t border-gray-100">
-                                <Link href="/deals">
+                                <Link href="/influencer/deals">
                                     <Button
                                         variant="outline"
                                         className="w-full border border-gray-200 hover:border-blue-300 hover:bg-blue-50 transition-all duration-200 rounded-lg py-2 group"
