@@ -47,11 +47,14 @@ const dealTypeColors = {
     hybrid: "bg-gradient-to-r from-purple-100 to-pink-100 text-purple-800 border-purple-300",
 };
 
-const platformIcons = {
+const platformIcons: Record<string, any> = {
     Instagram: HiCamera,
     YouTube: HiPlayCircle,
     Twitter: HiGlobeAlt,
     Facebook: HiShare,
+    TikTok: HiPlayCircle,
+    LinkedIn: HiShare,
+    Snapchat: HiCamera,
 };
 
 export function DealCard({
@@ -141,7 +144,7 @@ export function DealCard({
                                     {deal?.campaign?.deal_type && (
                                         <Badge
                                             className={cn("text-xs font-medium border", dealTypeColors[deal.campaign.deal_type as keyof typeof dealTypeColors] || dealTypeColors.hybrid)}>
-                                            {deal.campaign.deal_type.toUpperCase()}
+                                            {deal.campaign.deal_type === 'product' ? 'BARTER' : deal.campaign.deal_type.toUpperCase()}
                                         </Badge>
                                     )}
                                     {isUrgent && (
@@ -153,7 +156,23 @@ export function DealCard({
                                 </div>
 
                                 <CardTitle className="text-lg font-bold text-gray-900 mb-1 leading-tight">
-                                    {deal?.campaign?.title || "Campaign Title"}
+                                    <a
+                                        href={`/influencer/deals/${deal.id}`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="hover:text-blue-600 transition-colors duration-200 cursor-pointer"
+                                        onClick={(e) => {
+                                            // Allow middle click and ctrl+click to open in new tab
+                                            if (e.ctrlKey || e.metaKey || e.button === 1) {
+                                                return; // Let browser handle it
+                                            }
+                                            // For regular clicks, prevent default and handle navigation
+                                            e.preventDefault();
+                                            window.location.href = `/influencer/deals/${deal.id}`;
+                                        }}
+                                    >
+                                        {deal?.campaign?.title || "Campaign Title"}
+                                    </a>
                                 </CardTitle>
 
                                 <p className="text-sm font-semibold text-blue-600 mb-1">
@@ -165,16 +184,16 @@ export function DealCard({
                 </CardHeader>
 
                 <CardContent className="relative pt-0">
-                    {/* Campaign Description */}
-                    <p className="text-gray-700 mb-3 leading-relaxed line-clamp-2 text-sm">
+                    {/* Campaign Description - more concise */}
+                    <p className="text-gray-600 mb-3 leading-relaxed line-clamp-1 text-sm">
                         {deal?.campaign?.description || "No description available."}
                     </p>
 
                     {/* Compact Key Details Grid */}
-                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 mb-4">
+                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 mb-3">
                         {/* Compensation */}
                         <div
-                            className="bg-gradient-to-br from-green-50 to-emerald-100 rounded-md p-2 border border-green-200">
+                            className="bg-gradient-to-br from-green-50 to-emerald-100 rounded-md p-1.5 border border-green-200">
                             <div className="flex items-center text-green-700 mb-0.5">
                                 <HiBanknotes className="h-3 w-3 mr-1"/>
                                 <span className="text-xs font-medium">
@@ -183,8 +202,9 @@ export function DealCard({
                 </span>
                             </div>
                             <div className="text-sm font-bold text-green-800">
-                                {deal?.total_value ? formatCurrency(deal.total_value) :
-                                    deal?.campaign?.cash_amount ? formatCurrency(deal.campaign.cash_amount) : "TBD"}
+                                {deal?.value ? formatCurrency(deal.value) :
+                                    deal?.campaign?.total_value ? formatCurrency(deal.campaign.total_value) :
+                                        deal?.campaign?.cash_amount ? formatCurrency(deal.campaign.cash_amount) : "TBD"}
                             </div>
                             {(deal?.campaign?.deal_type === 'product' || deal?.campaign?.deal_type === 'hybrid') &&
                                 deal?.campaign?.products && deal.campaign.products.length > 0 && (
@@ -196,7 +216,7 @@ export function DealCard({
 
                         {/* Deadline */}
                         <div className={cn(
-                            "rounded-md p-2 border",
+                            "rounded-md p-1.5 border",
                             isUrgent
                                 ? "bg-gradient-to-br from-red-50 to-orange-100 border-red-200"
                                 : "bg-gradient-to-br from-blue-50 to-indigo-100 border-blue-200"
@@ -216,27 +236,65 @@ export function DealCard({
                             </div>
                         </div>
 
-                        {/* Deliverables */}
+                        {/* Submission Deadline */}
                         <div
-                            className="bg-gradient-to-br from-purple-50 to-pink-100 rounded-md p-2 border border-purple-200">
+                            className="bg-gradient-to-br from-purple-50 to-pink-100 rounded-md p-1.5 border border-purple-200">
                             <div className="flex items-center text-purple-700 mb-0.5">
-                                <HiCamera className="h-3 w-3 mr-1"/>
-                                <span className="text-xs font-medium">Content</span>
+                                <HiClock className="h-3 w-3 mr-1"/>
+                                <span className="text-xs font-medium">Submit By</span>
                             </div>
                             <div className="text-sm font-bold text-purple-800">
-                                {typeof deal?.campaign?.content_requirements === 'object' && deal?.campaign?.content_requirements?.post_count || 0} pieces
+                                {deal?.campaign?.submission_deadline ?
+                                    formatDate(deal.campaign.submission_deadline) :
+                                    deal?.campaign?.barter_submission_after_days ?
+                                        `${deal.campaign.barter_submission_after_days} days after delivery` :
+                                        "TBD"
+                                }
                             </div>
                         </div>
 
                         {/* Platform */}
                         <div
-                            className="bg-gradient-to-br from-indigo-50 to-blue-100 rounded-md p-2 border border-indigo-200">
+                            className="bg-gradient-to-br from-indigo-50 to-blue-100 rounded-md p-1.5 border border-indigo-200">
                             <div className="flex items-center text-indigo-700 mb-0.5">
                                 <HiGlobeAlt className="h-3 w-3 mr-1"/>
                                 <span className="text-xs font-medium">Platform</span>
                             </div>
                             <div className="text-sm font-bold text-indigo-800">
-                                {typeof deal?.campaign?.content_requirements === 'object' && deal?.campaign?.content_requirements?.platforms?.join(", ") || "Multi"}
+                                {(() => {
+                                    const platforms = deal?.campaign?.platforms_required ||
+                                        (typeof deal?.campaign?.content_requirements === 'object' && deal?.campaign?.content_requirements?.platforms) ||
+                                        [];
+
+                                    if (platforms.length === 0) return "Multi";
+
+                                    if (platforms.length === 1) {
+                                        const platform = platforms[0];
+                                        const IconComponent = platformIcons[platform];
+                                        return (
+                                            <div className="flex items-center">
+                                                {IconComponent && <IconComponent className="h-3 w-3 mr-1"/>}
+                                                <span>{platform}</span>
+                                            </div>
+                                        );
+                                    }
+
+                                    return (
+                                        <div className="flex items-center space-x-1">
+                                            {platforms.slice(0, 2).map((platform: string, index: number) => {
+                                                const IconComponent = platformIcons[platform];
+                                                return IconComponent ? (
+                                                    <IconComponent key={index} className="h-3 w-3" title={platform}/>
+                                                ) : (
+                                                    <span key={index} className="text-xs">{platform.slice(0, 2)}</span>
+                                                );
+                                            })}
+                                            {platforms.length > 2 && (
+                                                <span className="text-xs">+{platforms.length - 2}</span>
+                                            )}
+                                        </div>
+                                    );
+                                })()}
                             </div>
                         </div>
                     </div>
