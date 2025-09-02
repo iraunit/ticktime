@@ -354,6 +354,40 @@ export function DealDetails({
                         </Card>
                     )}
 
+                    {/* Address Display Section - Show when address is provided */}
+                    {deal.shipping_address && (
+                        <Card className="bg-blue-50 border-blue-200 shadow-lg">
+                            <CardHeader className="pb-2">
+                                <CardTitle className="flex items-center space-x-2 text-blue-800">
+                                    <div
+                                        className="w-6 h-6 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-lg flex items-center justify-center">
+                                        <MapPin className="h-3 w-3 text-white"/>
+                                    </div>
+                                    <span className="text-base font-bold">Shipping Address Provided</span>
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent className="pt-0">
+                                <div className="bg-white rounded-lg p-3 border border-blue-200">
+                                    <div className="space-y-1 text-sm">
+                                        <p className="font-medium text-gray-900">{deal.shipping_address.address_line1}</p>
+                                        {deal.shipping_address.address_line2 && (
+                                            <p className="text-gray-700">{deal.shipping_address.address_line2}</p>
+                                        )}
+                                        <p className="text-gray-700">
+                                            {deal.shipping_address.city}, {deal.shipping_address.state} {deal.shipping_address.zipcode}
+                                        </p>
+                                        <p className="text-gray-700">{deal.shipping_address.country}</p>
+                                        {deal.shipping_address.country_code && deal.shipping_address.phone_number && (
+                                            <p className="text-gray-700">
+                                                <strong>Phone:</strong> {deal.shipping_address.country_code} {deal.shipping_address.phone_number}
+                                            </p>
+                                        )}
+                                    </div>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    )}
+
                     {/* Content Submission Alert for Product Delivered Deals */}
                     {deal.status === 'product_delivered' && (
                         <Card
