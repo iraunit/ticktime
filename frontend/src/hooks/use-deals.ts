@@ -23,9 +23,47 @@ export function useDeals(params?: {
   // Accept deal mutation
   const acceptDealMutation = useMutation({
     mutationFn: (id: number) => dealsApi.acceptDeal(id),
-    onSuccess: () => {
+    onMutate: async (dealId) => {
+      // Cancel any outgoing refetches (so they don't overwrite our optimistic update)
+      await queryClient.cancelQueries({ queryKey: ['dashboard', 'recentDeals'] });
+      await queryClient.cancelQueries({ queryKey: ['deals'] });
+
+      // Snapshot the previous values
+      const previousRecentDeals = queryClient.getQueryData(['dashboard', 'recentDeals']);
+      const previousDeals = queryClient.getQueryData(['deals', params]);
+
+      // Optimistically update the recent deals
+      queryClient.setQueryData(['dashboard', 'recentDeals'], (old: any[]) => {
+        if (!old) return old;
+        return old.map((deal: any) => 
+          deal.id === dealId ? { ...deal, status: 'accepted' } : deal
+        );
+      });
+
+      // Optimistically update the deals list
+      queryClient.setQueryData(['deals', params], (old: any[]) => {
+        if (!old) return old;
+        return old.map((deal: any) => 
+          deal.id === dealId ? { ...deal, status: 'accepted' } : deal
+        );
+      });
+
+      return { previousRecentDeals, previousDeals };
+    },
+    onError: (err, dealId, context) => {
+      // If the mutation fails, use the context returned from onMutate to roll back
+      if (context?.previousRecentDeals) {
+        queryClient.setQueryData(['dashboard', 'recentDeals'], context.previousRecentDeals);
+      }
+      if (context?.previousDeals) {
+        queryClient.setQueryData(['deals', params], context.previousDeals);
+      }
+    },
+    onSettled: () => {
+      // Always refetch after error or success to ensure consistency
       queryClient.invalidateQueries({ queryKey: ['deals'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard', 'recentDeals'] });
     },
   });
 
@@ -33,9 +71,47 @@ export function useDeals(params?: {
   const rejectDealMutation = useMutation({
     mutationFn: ({ id, reason }: { id: number; reason?: string }) =>
       dealsApi.rejectDeal(id, reason),
-    onSuccess: () => {
+    onMutate: async ({ id: dealId }) => {
+      // Cancel any outgoing refetches (so they don't overwrite our optimistic update)
+      await queryClient.cancelQueries({ queryKey: ['dashboard', 'recentDeals'] });
+      await queryClient.cancelQueries({ queryKey: ['deals'] });
+
+      // Snapshot the previous values
+      const previousRecentDeals = queryClient.getQueryData(['dashboard', 'recentDeals']);
+      const previousDeals = queryClient.getQueryData(['deals', params]);
+
+      // Optimistically update the recent deals
+      queryClient.setQueryData(['dashboard', 'recentDeals'], (old: any[]) => {
+        if (!old) return old;
+        return old.map((deal: any) => 
+          deal.id === dealId ? { ...deal, status: 'rejected' } : deal
+        );
+      });
+
+      // Optimistically update the deals list
+      queryClient.setQueryData(['deals', params], (old: any[]) => {
+        if (!old) return old;
+        return old.map((deal: any) => 
+          deal.id === dealId ? { ...deal, status: 'rejected' } : deal
+        );
+      });
+
+      return { previousRecentDeals, previousDeals };
+    },
+    onError: (err, { id: dealId }, context) => {
+      // If the mutation fails, use the context returned from onMutate to roll back
+      if (context?.previousRecentDeals) {
+        queryClient.setQueryData(['dashboard', 'recentDeals'], context.previousRecentDeals);
+      }
+      if (context?.previousDeals) {
+        queryClient.setQueryData(['deals', params], context.previousDeals);
+      }
+    },
+    onSettled: () => {
+      // Always refetch after error or success to ensure consistency
       queryClient.invalidateQueries({ queryKey: ['deals'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard', 'recentDeals'] });
     },
   });
 

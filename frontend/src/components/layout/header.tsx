@@ -67,8 +67,8 @@ export function Header() {
                                   className={`${linkBase} ${isActive(dashboardUrl) ? linkActive : linkInactive}`}>
                                 Dashboard
                             </Link>
-                            <Link href="/deals"
-                                  className={`${linkBase} ${isActive("/deals") ? linkActive : linkInactive}`}>
+                            <Link href="/influencer/deals"
+                                  className={`${linkBase} ${isActive("/influencer/deals") ? linkActive : linkInactive}`}>
                                 Deals
                             </Link>
                             <Link href="/profile"

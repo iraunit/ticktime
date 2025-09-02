@@ -110,7 +110,7 @@ export function DealActions({
         Decline
       </Button>
       
-      <Link href={`/deals/${deal.id}`} target="_blank" rel="noopener noreferrer">
+      <Link href={`/influencer/deals/${deal.id}`} target="_blank" rel="noopener noreferrer">
         <Button
           variant="outline"
           disabled={isLoading}
@@ -148,7 +148,7 @@ export function DealActions({
         Submit Content
       </Button>
       
-      <Link href={`/deals/${deal.id}`} target="_blank" rel="noopener noreferrer">
+      <Link href={`/influencer/deals/${deal.id}`} target="_blank" rel="noopener noreferrer">
         <Button
           variant="outline"
           disabled={isLoading}
@@ -177,7 +177,7 @@ export function DealActions({
 
   const renderDefaultActions = () => (
     <div className="flex flex-wrap gap-3">
-      <Link href={`/deals/${deal.id}`} target="_blank" rel="noopener noreferrer">
+      <Link href={`/influencer/deals/${deal.id}`} target="_blank" rel="noopener noreferrer">
         <Button
           variant="outline"
           disabled={isLoading}

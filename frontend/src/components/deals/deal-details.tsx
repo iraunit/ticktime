@@ -475,7 +475,7 @@ export function DealDetails({
 
       {/* Back to Deals Button - Floating */}
       <div className="fixed bottom-6 left-6 z-50">
-        <Link href="/deals">
+        <Link href="/influencer/deals">
           <Button variant="outline" size="sm" className="bg-white/90 backdrop-blur-sm border-gray-200 hover:bg-white hover:shadow-lg transition-all duration-200 rounded-full w-12 h-12 p-0">
             <ArrowLeft className="h-4 w-4" />
           </Button>
