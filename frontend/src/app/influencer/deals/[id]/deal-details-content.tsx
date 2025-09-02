@@ -63,31 +63,7 @@ export function DealDetailsContent({dealId}: DealDetailsContentProps) {
 
     return (
         <div className="space-y-6">
-            {/* Deal Header */}
-            <div className="bg-white rounded-lg border border-gray-200 p-6">
-                <div className="flex items-start justify-between">
-                    <div>
-                        <h1 className="text-2xl font-bold text-gray-900 mb-2">
-                            {dealData.campaign?.title || "Deal Details"}
-                        </h1>
-                        <p className="text-gray-600">
-                            Campaign by {dealData.campaign?.brand?.name || "Brand"}
-                        </p>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                        <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                            dealData.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                            dealData.status === 'active' ? 'bg-green-100 text-green-800' :
-                            dealData.status === 'completed' ? 'bg-blue-100 text-blue-800' :
-                            'bg-gray-100 text-gray-800'
-                        }`}>
-                            {dealData.status}
-                        </span>
-                    </div>
-                </div>
-            </div>
-
-            {/* Deal Tabs */}
+            {/* Deal Tabs - The DealDetails component already has its own header */}
             <DealTabs
                 deal={dealData}
                 onAccept={handleAccept}

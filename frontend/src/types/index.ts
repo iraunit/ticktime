@@ -97,25 +97,33 @@ export interface Campaign {
   brand: Brand;
   title: string;
   description: string;
+  objectives?: string;
   deal_type: 'cash' | 'product' | 'hybrid';
-  cash_amount: number;
-  product_value: number;
+  deal_type_display?: string;
+  cash_amount: string | number;
+  product_value?: number;
   products?: Product[];
   total_value: number;
-  content_requirements: {
-    platforms?: string[];
-    content_types?: string[];
-    post_count?: number;
-    story_count?: number;
-    reel_count?: number;
-    special_instructions?: string;
-    description?: string;
-  } | string;
+  content_requirements: string;
   platforms_required?: string[];
+  special_instructions?: string;
   application_deadline: string;
-  campaign_start_date?: string;
-  campaign_end_date?: string;
+  product_delivery_date?: string;
+  submission_deadline?: string;
+  barter_submission_after_days?: number;
   campaign_live_date?: string;
+  application_deadline_visible_to_influencers?: boolean;
+  payment_schedule?: string;
+  shipping_details?: string;
+  custom_terms?: string;
+  allows_negotiation?: boolean;
+  target_influencers?: number;
+  industry?: string;
+  industry_key?: string;
+  industry_name?: string;
+  execution_mode?: string;
+  is_expired?: boolean;
+  days_until_deadline?: number;
   created_at: string;
 }
 

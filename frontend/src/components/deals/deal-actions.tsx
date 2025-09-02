@@ -110,17 +110,7 @@ export function DealActions({
         Decline
       </Button>
       
-      <Link href={`/influencer/deals/${deal.id}`} target="_blank" rel="noopener noreferrer">
-        <Button
-          variant="outline"
-          disabled={isLoading}
-          className="border-2 border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-gray-400 shadow-md hover:shadow-lg transition-all duration-200 w-full"
-        >
-          <HiEye className="h-4 w-4 mr-2" />
-          <span>View Details</span>
-          <HiArrowTopRightOnSquare className="h-3 w-3 ml-1" />
-        </Button>
-      </Link>
+
       
       <Link href={`/messages?deal=${deal.id}`} target="_blank" rel="noopener noreferrer">
         <Button
@@ -148,17 +138,7 @@ export function DealActions({
         Submit Content
       </Button>
       
-      <Link href={`/influencer/deals/${deal.id}`} target="_blank" rel="noopener noreferrer">
-        <Button
-          variant="outline"
-          disabled={isLoading}
-          className="border-2 border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-gray-400 shadow-md hover:shadow-lg transition-all duration-200 w-full"
-        >
-          <HiEye className="h-4 w-4 mr-2" />
-          <span>View Details</span>
-          <HiArrowTopRightOnSquare className="h-3 w-3 ml-1" />
-        </Button>
-      </Link>
+
       
       <Link href={`/messages?deal=${deal.id}`} target="_blank" rel="noopener noreferrer">
         <Button
@@ -177,17 +157,7 @@ export function DealActions({
 
   const renderDefaultActions = () => (
     <div className="flex flex-wrap gap-3">
-      <Link href={`/influencer/deals/${deal.id}`} target="_blank" rel="noopener noreferrer">
-        <Button
-          variant="outline"
-          disabled={isLoading}
-          className="border-2 border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-gray-400 shadow-md hover:shadow-lg transition-all duration-200 flex-1 min-w-[120px]"
-        >
-          <HiEye className="h-4 w-4 mr-2" />
-          <span>View Details</span>
-          <HiArrowTopRightOnSquare className="h-3 w-3 ml-1" />
-        </Button>
-      </Link>
+
       
       <Link href={`/messages?deal=${deal.id}`} target="_blank" rel="noopener noreferrer">
         <Button
