@@ -29,10 +29,10 @@ interface Conversation {
     deal?: number; // For influencers (deal ID)
     deal_title: string;
     brand_name?: string; // For influencers
-    brand_logo?: string | null; // Brand logo URL
+    brand_logo?: string | null; // Brand logo URL - now properly serialized
     influencer_name?: string; // For brands
     influencer_username?: string; // For brands
-    influencer_avatar?: string;
+    influencer_avatar?: string | null; // Influencer avatar URL - now properly serialized
     influencer_id?: number; // For brands
     last_message?: {
         content: string;
@@ -240,7 +240,8 @@ export function UnifiedMessaging({userType, targetParam}: UnifiedMessagingProps)
             // Update last message in conversations list
             setConversations(prev => prev.map(conv =>
                 conv.id === selectedConversation.id
-                    ? {...conv,
+                    ? {
+                        ...conv,
                         last_message: {
                             content: newMessage.trim(),
                             created_at: new Date().toISOString(),
@@ -486,7 +487,7 @@ export function UnifiedMessaging({userType, targetParam}: UnifiedMessagingProps)
     };
 
     return (
-        <div className="-m-4 sm:-m-6 -mt-16 lg:-mt-4 h-screen bg-gray-100 flex flex-col pt-16 lg:pt-4">
+        <div className="-m-4 sm:-m-6 -mt-16 lg:-mt-4 h-screen bg-gray-100 flex flex-col">
             {/* Header */}
             <div className="bg-white border-b border-gray-200 px-4 py-2 shadow-sm">
                 <div className="flex items-center justify-between">
@@ -755,22 +756,27 @@ export function UnifiedMessaging({userType, targetParam}: UnifiedMessagingProps)
                                                         <div className="flex items-start justify-between">
                                                             <div className="flex items-start gap-3 flex-1 min-w-0">
                                                                 <div className="relative">
-                                                                    {(userType === 'brand' && conversation.influencer_avatar) || (userType === 'influencer' && conversation.brand_logo) ? (
-                                                                        <img
-                                                                            src={(userType === 'brand' ? conversation.influencer_avatar : conversation.brand_logo) || ''}
-                                                                            alt={getDisplayName(conversation)}
-                                                                            className="w-12 h-12 rounded-full object-cover border-2 border-white shadow-sm"
-                                                                            onError={(e) => {
-                                                                                e.currentTarget.style.display = 'none';
-                                                                                e.currentTarget.nextElementSibling?.classList.remove('hidden');
-                                                                            }}
-                                                                        />
-                                                                    ) : null}
+                                                                    <img
+                                                                        src={(userType === 'brand' ? conversation.influencer_avatar : conversation.brand_logo) || ''}
+                                                                        alt={getDisplayName(conversation)}
+                                                                        className="w-12 h-12 rounded-full object-cover border-2 border-white shadow-sm"
+                                                                        onError={(e) => {
+                                                                            e.currentTarget.style.display = 'none';
+                                                                            const fallback = e.currentTarget.nextElementSibling as HTMLElement;
+                                                                            if (fallback) fallback.style.display = 'flex';
+                                                                        }}
+                                                                        onLoad={(e) => {
+                                                                            const fallback = e.currentTarget.nextElementSibling as HTMLElement;
+                                                                            if (fallback) fallback.style.display = 'none';
+                                                                        }}
+                                                                        style={{display: (userType === 'brand' && conversation.influencer_avatar) || (userType === 'influencer' && conversation.brand_logo) ? 'block' : 'none'}}
+                                                                    />
                                                                     <div
-                                                                        className={`w-12 h-12 bg-gradient-to-r ${colors.gradient} rounded-full flex items-center justify-center ${(userType === 'brand' && conversation.influencer_avatar) || (userType === 'influencer' && conversation.brand_logo) ? 'hidden' : ''}`}>
-                              <span className="text-sm font-bold text-white">
-                                {getDisplayAvatar(conversation)}
-                              </span>
+                                                                        className="w-12 h-12 bg-gradient-to-r from-purple-400 to-purple-600 rounded-full flex items-center justify-center"
+                                                                        style={{display: 'flex'}}>
+                                                                        <span className="text-sm font-bold text-white">
+                                                                            {getDisplayAvatar(conversation)}
+                                                                        </span>
                                                                     </div>
                                                                 </div>
 
@@ -852,22 +858,27 @@ export function UnifiedMessaging({userType, targetParam}: UnifiedMessagingProps)
                                             <div className="flex items-center justify-between">
                                                 <div className="flex items-center gap-3">
                                                     <div className="relative">
-                                                        {(userType === 'brand' && selectedConversation.influencer_avatar) || (userType === 'influencer' && selectedConversation.brand_logo) ? (
-                                                            <img
-                                                                src={(userType === 'brand' ? selectedConversation.influencer_avatar : selectedConversation.brand_logo) || ''}
-                                                                alt={getDisplayName(selectedConversation)}
-                                                                className="w-10 h-10 rounded-full object-cover border-2 border-white shadow-sm"
-                                                                onError={(e) => {
-                                                                    e.currentTarget.style.display = 'none';
-                                                                    e.currentTarget.nextElementSibling?.classList.remove('hidden');
-                                                                }}
-                                                            />
-                                                        ) : null}
+                                                        <img
+                                                            src={(userType === 'brand' ? selectedConversation.influencer_avatar : selectedConversation.brand_logo) || ''}
+                                                            alt={getDisplayName(selectedConversation)}
+                                                            className="w-10 h-10 rounded-full object-cover border-2 border-white shadow-sm"
+                                                            onError={(e) => {
+                                                                e.currentTarget.style.display = 'none';
+                                                                const fallback = e.currentTarget.nextElementSibling as HTMLElement;
+                                                                if (fallback) fallback.style.display = 'flex';
+                                                            }}
+                                                            onLoad={(e) => {
+                                                                const fallback = e.currentTarget.nextElementSibling as HTMLElement;
+                                                                if (fallback) fallback.style.display = 'none';
+                                                            }}
+                                                            style={{display: (userType === 'brand' && selectedConversation.influencer_avatar) || (userType === 'influencer' && selectedConversation.brand_logo) ? 'block' : 'none'}}
+                                                        />
                                                         <div
-                                                            className={`w-10 h-10 bg-gradient-to-r ${colors.gradient} rounded-full flex items-center justify-center ${(userType === 'brand' && selectedConversation.influencer_avatar) || (userType === 'influencer' && selectedConversation.brand_logo) ? 'hidden' : ''}`}>
-                          <span className="text-sm font-bold text-white">
-                            {getDisplayAvatar(selectedConversation)}
-                          </span>
+                                                            className="w-10 h-10 bg-gradient-to-r from-purple-400 to-purple-600 rounded-full flex items-center justify-center"
+                                                            style={{display: 'flex'}}>
+                                                            <span className="text-sm font-bold text-white">
+                                                                {getDisplayAvatar(selectedConversation)}
+                                                            </span>
                                                         </div>
                                                     </div>
                                                     <div>
@@ -1106,22 +1117,28 @@ export function UnifiedMessaging({userType, targetParam}: UnifiedMessagingProps)
                                                             <div className="flex items-start justify-between">
                                                                 <div className="flex items-start gap-3 flex-1 min-w-0">
                                                                     <div className="relative">
-                                                                        {(userType === 'brand' && conversation.influencer_avatar) || (userType === 'influencer' && conversation.brand_logo) ? (
-                                                                            <img
-                                                                                src={(userType === 'brand' ? conversation.influencer_avatar : conversation.brand_logo) || ''}
-                                                                                alt={getDisplayName(conversation)}
-                                                                                className="w-12 h-12 rounded-full object-cover border-2 border-white shadow-sm"
-                                                                                onError={(e) => {
-                                                                                    e.currentTarget.style.display = 'none';
-                                                                                    e.currentTarget.nextElementSibling?.classList.remove('hidden');
-                                                                                }}
-                                                                            />
-                                                                        ) : null}
+                                                                        <img
+                                                                            src={(userType === 'brand' ? conversation.influencer_avatar : conversation.brand_logo) || ''}
+                                                                            alt={getDisplayName(conversation)}
+                                                                            className="w-12 h-12 rounded-full object-cover border-2 border-white shadow-sm"
+                                                                            onError={(e) => {
+                                                                                e.currentTarget.style.display = 'none';
+                                                                                const fallback = e.currentTarget.nextElementSibling as HTMLElement;
+                                                                                if (fallback) fallback.style.display = 'flex';
+                                                                            }}
+                                                                            onLoad={(e) => {
+                                                                                const fallback = e.currentTarget.nextElementSibling as HTMLElement;
+                                                                                if (fallback) fallback.style.display = 'none';
+                                                                            }}
+                                                                            style={{display: (userType === 'brand' && conversation.influencer_avatar) || (userType === 'influencer' && conversation.brand_logo) ? 'block' : 'none'}}
+                                                                        />
                                                                         <div
-                                                                            className={`w-12 h-12 bg-gradient-to-r ${colors.gradient} rounded-full flex items-center justify-center ${(userType === 'brand' && conversation.influencer_avatar) || (userType === 'influencer' && conversation.brand_logo) ? 'hidden' : ''}`}>
-                                <span className="text-sm font-bold text-white">
-                                  {getDisplayAvatar(conversation)}
-                                </span>
+                                                                            className="w-12 h-12 bg-gradient-to-r from-purple-400 to-purple-600 rounded-full flex items-center justify-center"
+                                                                            style={{display: 'flex'}}>
+                                                                            <span
+                                                                                className="text-sm font-bold text-white">
+                                                                                {getDisplayAvatar(conversation)}
+                                                                            </span>
                                                                         </div>
                                                                     </div>
 
@@ -1211,22 +1228,27 @@ export function UnifiedMessaging({userType, targetParam}: UnifiedMessagingProps)
                                                         <HiArrowLeft className="w-5 h-5"/>
                                                     </button>
                                                     <div className="relative">
-                                                        {(userType === 'brand' && selectedConversation.influencer_avatar) || (userType === 'influencer' && selectedConversation.brand_logo) ? (
-                                                            <img
-                                                                src={(userType === 'brand' ? selectedConversation.influencer_avatar : selectedConversation.brand_logo) || ''}
-                                                                alt={getDisplayName(selectedConversation)}
-                                                                className="w-10 h-10 rounded-full object-cover border-2 border-white shadow-sm"
-                                                                onError={(e) => {
-                                                                    e.currentTarget.style.display = 'none';
-                                                                    e.currentTarget.nextElementSibling?.classList.remove('hidden');
-                                                                }}
-                                                            />
-                                                        ) : null}
+                                                        <img
+                                                            src={(userType === 'brand' ? selectedConversation.influencer_avatar : selectedConversation.brand_logo) || ''}
+                                                            alt={getDisplayName(selectedConversation)}
+                                                            className="w-10 h-10 rounded-full object-cover border-2 border-white shadow-sm"
+                                                            onError={(e) => {
+                                                                e.currentTarget.style.display = 'none';
+                                                                const fallback = e.currentTarget.nextElementSibling as HTMLElement;
+                                                                if (fallback) fallback.style.display = 'flex';
+                                                            }}
+                                                            onLoad={(e) => {
+                                                                const fallback = e.currentTarget.nextElementSibling as HTMLElement;
+                                                                if (fallback) fallback.style.display = 'none';
+                                                            }}
+                                                            style={{display: (userType === 'brand' && selectedConversation.influencer_avatar) || (userType === 'influencer' && selectedConversation.brand_logo) ? 'block' : 'none'}}
+                                                        />
                                                         <div
-                                                            className={`w-10 h-10 bg-gradient-to-r ${colors.gradient} rounded-full flex items-center justify-center ${(userType === 'brand' && selectedConversation.influencer_avatar) || (userType === 'influencer' && selectedConversation.brand_logo) ? 'hidden' : ''}`}>
-                          <span className="text-sm font-bold text-white">
-                            {getDisplayAvatar(selectedConversation)}
-                          </span>
+                                                            className="w-10 h-10 bg-gradient-to-r from-purple-400 to-purple-600 rounded-full flex items-center justify-center"
+                                                            style={{display: 'flex'}}>
+                                                            <span className="text-sm font-bold text-white">
+                                                                {getDisplayAvatar(selectedConversation)}
+                                                            </span>
                                                         </div>
                                                     </div>
                                                     <div>

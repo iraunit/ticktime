@@ -55,9 +55,10 @@ class ConversationSerializer(serializers.ModelSerializer):
     """
     deal_title = serializers.CharField(source='deal.campaign.title', read_only=True)
     brand_name = serializers.CharField(source='deal.campaign.brand.name', read_only=True)
+    brand_logo = serializers.SerializerMethodField()
     influencer_name = serializers.CharField(source='deal.influencer.name', read_only=True)
     influencer_username = serializers.CharField(source='deal.influencer.username', read_only=True)
-    influencer_avatar = serializers.CharField(source='deal.influencer.profile_image', read_only=True)
+    influencer_avatar = serializers.SerializerMethodField()
     last_message = MessageSerializer(read_only=True)
     influencer_id = serializers.IntegerField(source='deal.influencer.id', read_only=True)
     unread_count = serializers.SerializerMethodField()
@@ -66,7 +67,7 @@ class ConversationSerializer(serializers.ModelSerializer):
     class Meta:
         model = Conversation
         fields = (
-            'id', 'deal', 'deal_title', 'brand_name', 'influencer_name', 
+            'id', 'deal', 'deal_title', 'brand_name', 'brand_logo', 'influencer_name', 
             'influencer_username', 'influencer_avatar', 'influencer_id', 'last_message',
             'unread_count', 'messages_count', 'created_at', 'updated_at'
         )
@@ -84,3 +85,22 @@ class ConversationSerializer(serializers.ModelSerializer):
     def get_messages_count(self, obj):
         """Get total messages count in conversation."""
         return obj.messages.count()
+
+    def get_brand_logo(self, obj):
+        """Get brand logo URL."""
+        if obj.deal and obj.deal.campaign and obj.deal.campaign.brand and obj.deal.campaign.brand.logo:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.deal.campaign.brand.logo.url)
+            return obj.deal.campaign.brand.logo.url
+        return None
+
+    def get_influencer_avatar(self, obj):
+        """Get influencer avatar URL."""
+        if (obj.deal and obj.deal.influencer and obj.deal.influencer.user_profile 
+            and obj.deal.influencer.user_profile.profile_image):
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.deal.influencer.user_profile.profile_image.url)
+            return obj.deal.influencer.user_profile.profile_image.url
+        return None
