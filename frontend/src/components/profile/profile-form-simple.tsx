@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '@/components/ui/form';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useProfile } from '@/hooks/use-profile';
-import { INDUSTRY_OPTIONS } from '@/lib/constants';
+import { useIndustries } from '@/hooks/use-industries';
 import { InfluencerProfile } from '@/types';
 import { ImageUpload } from './image-upload';
 import { ErrorDisplay } from '@/components/ui/error-display';
@@ -37,6 +37,7 @@ interface ProfileFormProps {
 
 export function ProfileForm({ profile }: ProfileFormProps) {
   const [profileImage, setProfileImage] = useState<File | null>(null);
+  const { industries, loading: industriesLoading } = useIndustries();
   const [success, setSuccess] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -215,13 +216,17 @@ export function ProfileForm({ profile }: ProfileFormProps) {
                         <SelectValue placeholder="Select your industry" />
                       </SelectTrigger>
                     </FormControl>
-                    <SelectContent>
-                      {INDUSTRY_OPTIONS.map((industry) => (
-                        <SelectItem key={industry.value} value={industry.value}>
-                          {industry.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
+                                          <SelectContent>
+                        {industriesLoading ? (
+                          <SelectItem value="" disabled>Loading industries...</SelectItem>
+                        ) : (
+                          industries.map((industry) => (
+                            <SelectItem key={industry.key} value={industry.key}>
+                              {industry.name}
+                            </SelectItem>
+                          ))
+                        )}
+                      </SelectContent>
                   </Select>
                   <FormMessage />
                 </FormItem>

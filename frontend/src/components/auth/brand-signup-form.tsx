@@ -11,8 +11,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { INDUSTRY_OPTIONS, COUNTRY_CODES } from "@/lib/constants";
+import { COUNTRY_CODES } from "@/lib/constants";
 import { useAuth } from "@/hooks/use-auth";
+import { useIndustries } from "@/hooks/use-industries";
 import { Eye, EyeOff, CheckCircle, Building2, HiHandRaised } from "@/lib/icons";
 
 // List of common public email domains to block
@@ -62,6 +63,7 @@ export function BrandSignupForm() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const { brandSignup } = useAuth();
+  const { industries, loading: industriesLoading } = useIndustries();
   
   const form = useForm<BrandSignupFormData>({
     resolver: zodResolver(brandSignupSchema),
@@ -161,11 +163,15 @@ export function BrandSignupForm() {
                                   </SelectTrigger>
                                 </FormControl>
                                 <SelectContent>
-                                  {INDUSTRY_OPTIONS.map((option) => (
-                                    <SelectItem key={option.value} value={option.value}>
-                                      {option.label}
-                                    </SelectItem>
-                                  ))}
+                                  {industriesLoading ? (
+                                    <SelectItem value="" disabled>Loading industries...</SelectItem>
+                                  ) : (
+                                    industries.map((industry) => (
+                                      <SelectItem key={industry.key} value={industry.key}>
+                                        {industry.name}
+                                      </SelectItem>
+                                    ))
+                                  )}
                                 </SelectContent>
                               </Select>
                               <FormMessage />

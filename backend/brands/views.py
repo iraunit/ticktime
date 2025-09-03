@@ -1162,10 +1162,10 @@ def bookmarked_influencers_view(request):
             Q(notes__icontains=search)
         )
 
-    # Add category filter
-    category = request.GET.get('category', '').strip()
-    if category:
-        bookmarks = bookmarks.filter(influencer__categories__icontains=category)
+    # Add industry filter
+    industry = request.GET.get('industry', '').strip()
+    if industry:
+        bookmarks = bookmarks.filter(influencer__categories__key__icontains=industry)
 
     # Pagination
     page = int(request.GET.get('page', 1))

@@ -92,19 +92,23 @@ CONTENT_TYPE_CHOICES = [
 ]
 
 
-class Category(models.Model):
+class Industry(models.Model):
     """
-    Canonical content category used across the platform for influencers and campaigns.
+    Industry categories that brands and influencers can belong to.
+    This model represents industries that brands and influencers can belong to.
     Keep this centralized to ensure consistency.
     """
     key = models.SlugField(max_length=50, unique=True)
     name = models.CharField(max_length=100, unique=True)
+    description = models.TextField(blank=True, help_text="Optional description of the industry")
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        db_table = 'categories'
+        db_table = 'industries'
+        verbose_name = 'Industry'
+        verbose_name_plural = 'Industries'
         indexes = [
             models.Index(fields=['key']),
             models.Index(fields=['is_active']),

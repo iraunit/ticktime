@@ -37,7 +37,7 @@ class Campaign(models.Model):
     content_count = models.IntegerField(default=0, help_text='Number of content pieces expected')
     # Keep legacy text field to avoid destructive/complex migration; new FK holds the canonical industry
     industry = models.CharField(max_length=50, default='other')
-    industry_category = models.ForeignKey('common.Category', on_delete=models.PROTECT, related_name='campaign_industries', null=True, blank=True)
+    industry_category = models.ForeignKey('common.Industry', on_delete=models.PROTECT, related_name='campaign_industries', null=True, blank=True)
     execution_mode = models.CharField(
         max_length=20,
         choices=[

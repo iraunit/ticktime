@@ -12,7 +12,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAuth } from "@/hooks/use-auth";
-import { INDUSTRY_OPTIONS, COUNTRY_CODES } from "@/lib/constants";
+import { useIndustries } from "@/hooks/use-industries";
+import { COUNTRY_CODES } from "@/lib/constants";
 
 const signupSchema = z.object({
   email: z.string().email("Please enter a valid email address"),
@@ -60,6 +61,7 @@ export function SignupForm() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const { signup } = useAuth();
+  const { industries, loading: industriesLoading } = useIndustries();
 
   const form = useForm<SignupFormData>({
     resolver: zodResolver(signupSchema),
@@ -380,13 +382,17 @@ export function SignupForm() {
                         <SelectValue placeholder="Select your main content category" />
                       </SelectTrigger>
                     </FormControl>
-                    <SelectContent>
-                      {INDUSTRY_OPTIONS.map((option) => (
-                        <SelectItem key={option.value} value={option.value}>
-                          {option.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
+                                          <SelectContent>
+                        {industriesLoading ? (
+                          <SelectItem value="" disabled>Loading industries...</SelectItem>
+                        ) : (
+                          industries.map((industry) => (
+                            <SelectItem key={industry.key} value={industry.key}>
+                              {industry.name}
+                            </SelectItem>
+                          ))
+                        )}
+                      </SelectContent>
                   </Select>
                   <FormDescription className="text-xs text-gray-500">
                     This helps brands find you for relevant collaborations

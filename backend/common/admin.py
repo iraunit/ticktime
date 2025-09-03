@@ -1,19 +1,19 @@
 from django.contrib import admin
-from .models import Category
+from .models import Industry
 
 # Register your models here.
 
-@admin.register(Category)
-class CategoryAdmin(admin.ModelAdmin):
-    list_display = ['name', 'key', 'is_active', 'created_at']
+@admin.register(Industry)
+class IndustryAdmin(admin.ModelAdmin):
+    list_display = ['name', 'key', 'description', 'is_active', 'created_at']
     list_filter = ['is_active', 'created_at']
-    search_fields = ['name', 'key']
+    search_fields = ['name', 'key', 'description']
     readonly_fields = ['created_at', 'updated_at']
     ordering = ['name']
     
     fieldsets = (
-        ('Category Information', {
-            'fields': ('key', 'name', 'is_active')
+        ('Industry Information', {
+            'fields': ('key', 'name', 'description', 'is_active')
         }),
         ('Timestamps', {
             'fields': ('created_at', 'updated_at'),

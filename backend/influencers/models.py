@@ -18,10 +18,9 @@ class InfluencerProfile(models.Model):
     
     # Categories the influencer specializes in
     categories = models.ManyToManyField(
-        'common.Category',
+        'common.Industry',
         blank=True,
-        related_name='influencers',
-        help_text='Content categories the influencer specializes in'
+        related_name='influencers'
     )
     
     bio = models.TextField(blank=True, default='')

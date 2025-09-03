@@ -15,6 +15,7 @@ import {toast} from "@/lib/toast";
 import {LogoUpload} from "@/components/ui/logo-upload";
 import {ProfileImageUpload} from "@/components/ui/profile-image-upload";
 import {useLocationData} from "@/hooks/use-location-data";
+import {useIndustries} from "@/hooks/use-industries";
 import {getMediaUrl} from "@/lib/utils";
 import {OptimizedAvatar} from "@/components/ui";
 
@@ -77,6 +78,7 @@ interface UserPermissions {
 
 export default function BrandSettingsPage() {
     const {cities, states, loading: locationLoading, error: locationError, lookupPincode} = useLocationData();
+    const { industries, loading: industriesLoading } = useIndustries();
     const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
     const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
     const [brand, setBrand] = useState<Brand | null>(null);
@@ -499,21 +501,8 @@ export default function BrandSettingsPage() {
     };
 
     const getIndustryDisplayName = (industry: string) => {
-        const industryMap: { [key: string]: string } = {
-            'fashion_beauty': 'Fashion & Beauty',
-            'tech_gaming': 'Tech & Gaming',
-            'fitness_health': 'Fitness & Health',
-            'food_lifestyle': 'Food & Lifestyle',
-            'travel': 'Travel',
-            'education': 'Education',
-            'finance': 'Finance',
-            'automotive': 'Automotive',
-            'home_garden': 'Home & Garden',
-            'sports': 'Sports',
-            'entertainment': 'Entertainment',
-            'other': 'Other'
-        };
-        return industryMap[industry] || industry;
+        const industryObj = industries.find(i => i.key === industry);
+        return industryObj ? industryObj.name : industry;
     };
 
     if (isLoading) {
@@ -905,23 +894,20 @@ export default function BrandSettingsPage() {
                                         Industry
                                     </label>
                                     {isEditingBrand ? (
-                                        <Select value={brandIndustry} onValueChange={setBrandIndustry}>
+                                        <Select value={brandIndustry} onValueChange={setBrandIndustry} disabled={industriesLoading}>
                                             <SelectTrigger>
-                                                <SelectValue placeholder="Select Industry"/>
+                                                <SelectValue placeholder={industriesLoading ? "Loading industries..." : "Select Industry"}/>
                                             </SelectTrigger>
                                             <SelectContent>
-                                                <SelectItem value="fashion_beauty">Fashion & Beauty</SelectItem>
-                                                <SelectItem value="tech_gaming">Tech & Gaming</SelectItem>
-                                                <SelectItem value="fitness_health">Fitness & Health</SelectItem>
-                                                <SelectItem value="food_lifestyle">Food & Lifestyle</SelectItem>
-                                                <SelectItem value="travel">Travel</SelectItem>
-                                                <SelectItem value="education">Education</SelectItem>
-                                                <SelectItem value="finance">Finance</SelectItem>
-                                                <SelectItem value="automotive">Automotive</SelectItem>
-                                                <SelectItem value="home_garden">Home & Garden</SelectItem>
-                                                <SelectItem value="sports">Sports</SelectItem>
-                                                <SelectItem value="entertainment">Entertainment</SelectItem>
-                                                <SelectItem value="other">Other</SelectItem>
+                                                {industriesLoading ? (
+                                                    <SelectItem value="" disabled>Loading industries...</SelectItem>
+                                                ) : (
+                                                    industries.map((industry) => (
+                                                        <SelectItem key={industry.key} value={industry.key}>
+                                                            {industry.name}
+                                                        </SelectItem>
+                                                    ))
+                                                )}
                                             </SelectContent>
                                         </Select>
                                     ) : (

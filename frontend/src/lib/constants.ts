@@ -1,38 +1,6 @@
-// Industry options for signup
-export const INDUSTRY_OPTIONS = [
-    {value: 'fashion_beauty', label: 'Fashion & Beauty'},
-    {value: 'food_lifestyle', label: 'Food & Lifestyle'},
-    {value: 'tech_gaming', label: 'Tech & Gaming'},
-    {value: 'fitness_health', label: 'Fitness & Health'},
-    {value: 'travel', label: 'Travel'},
-    {value: 'entertainment', label: 'Entertainment'},
-    {value: 'education', label: 'Education'},
-    {value: 'business_finance', label: 'Business & Finance'},
-    {value: 'other', label: 'Other'},
-];
-
 // Country code options for phone numbers
 export const COUNTRY_CODES = [
-    {value: '+1', label: '+1 (US/Canada)'},
-    {value: '+44', label: '+44 (UK)'},
-    {value: '+91', label: '+91 (India)'},
-    {value: '+61', label: '+61 (Australia)'},
-    {value: '+49', label: '+49 (Germany)'},
-    {value: '+33', label: '+33 (France)'},
-    {value: '+39', label: '+39 (Italy)'},
-    {value: '+34', label: '+34 (Spain)'},
-    {value: '+81', label: '+81 (Japan)'},
-    {value: '+86', label: '+86 (China)'},
-    {value: '+82', label: '+82 (South Korea)'},
-    {value: '+55', label: '+55 (Brazil)'},
-    {value: '+52', label: '+52 (Mexico)'},
-    {value: '+27', label: '+27 (South Africa)'},
-    {value: '+971', label: '+971 (UAE)'},
-    {value: '+966', label: '+966 (Saudi Arabia)'},
-    {value: '+65', label: '+65 (Singapore)'},
-    {value: '+60', label: '+60 (Malaysia)'},
-    {value: '+66', label: '+66 (Thailand)'},
-    {value: '+84', label: '+84 (Vietnam)'},
+    {value: '+1', label: '+1 (US/Canada)'}
 ];
 
 // Social media platform options

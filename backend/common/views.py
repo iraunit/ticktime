@@ -3,23 +3,23 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 
-from .models import Category
+from .models import Industry
 
 
 @api_view(['GET'])
 @permission_classes([AllowAny])
 def categories_list_view(request):
     """
-    Public endpoint to list active categories used across the app.
+    Public endpoint to list active industries used across the app.
     """
-    categories = Category.objects.filter(is_active=True).order_by('name')
+    industries = Industry.objects.filter(is_active=True).order_by('name')
     data = [
         {
-            'id': c.id,
-            'key': c.key,
-            'name': c.name,
+            'id': i.id,
+            'key': i.key,
+            'name': i.name,
         }
-        for c in categories
+        for i in industries
     ]
     return Response({
         'status': 'success',
@@ -31,16 +31,17 @@ def categories_list_view(request):
 @permission_classes([AllowAny])
 def industries_list_view(request):
     """
-    Public endpoint to list industries. Uses Category model so values are dynamic.
+    Public endpoint to list industries. Uses Industry model for industry data.
     """
-    categories = Category.objects.filter(is_active=True).order_by('name')
+    industries = Industry.objects.filter(is_active=True).order_by('name')
     data = [
         {
-            'id': c.id,
-            'key': c.key,
-            'name': c.name,
+            'id': i.id,
+            'key': i.key,
+            'name': i.name,
+            'description': i.description,
         }
-        for c in categories
+        for i in industries
     ]
     return Response({
         'status': 'success',
