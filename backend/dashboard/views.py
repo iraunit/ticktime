@@ -174,7 +174,7 @@ def notifications_view(request):
             'deal_id': deal.id,
             'brand_name': deal.campaign.brand.name,
             'campaign_title': deal.campaign.title,
-            'created_at': deal.updated_at,
+            'created_at': deal.invited_at,
             'is_urgent': True,
             'action_required': True
         })
