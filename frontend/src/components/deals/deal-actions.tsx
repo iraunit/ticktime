@@ -123,7 +123,7 @@ export function DealActions({
             </Link>
 
 
-            <Link href={`/messages?deal=${deal.id}`} target="_blank" rel="noopener noreferrer">
+            <Link href={`/influencer/messages?deal=${deal.id}`} target="_blank" rel="noopener noreferrer">
                 <Button
                     variant="ghost"
                     disabled={isLoading}
@@ -163,7 +163,7 @@ export function DealActions({
             </Link>
 
 
-            <Link href={`/messages?deal=${deal.id}`} target="_blank" rel="noopener noreferrer">
+            <Link href={`/influencer/messages?deal=${deal.id}`} target="_blank" rel="noopener noreferrer">
                 <Button
                     variant="ghost"
                     disabled={isLoading}
@@ -194,7 +194,7 @@ export function DealActions({
             </Link>
 
 
-            <Link href={`/messages?deal=${deal.id}`} target="_blank" rel="noopener noreferrer">
+            <Link href={`/influencer/messages?deal=${deal.id}`} target="_blank" rel="noopener noreferrer">
                 <Button
                     variant="ghost"
                     disabled={isLoading}
