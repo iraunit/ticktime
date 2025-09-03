@@ -248,10 +248,21 @@ export default function BrandDashboard() {
                                             <div key={index}
                                                  className="flex items-center justify-between py-3 border-b border-gray-100 last:border-b-0">
                                                 <div className="flex items-center space-x-3">
-                                                    <div
-                                                        className="w-10 h-10 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-lg flex items-center justify-center">
-                                                        <HiBriefcase className="w-5 h-5 text-blue-600"/>
-                                                    </div>
+                                                    {deal.influencer?.profile_image ? (
+                                                        <div className="w-10 h-10 rounded-lg overflow-hidden">
+                                                            <img
+                                                                src={deal.influencer.profile_image}
+                                                                alt={deal.influencer.username || 'Influencer'}
+                                                                className="w-full h-full object-cover"
+                                                            />
+                                                        </div>
+                                                    ) : (
+                                                        <div className="w-10 h-10 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-lg flex items-center justify-center">
+                                                            <span className="text-sm font-bold text-blue-600">
+                                                                {deal.influencer?.username?.charAt(0) || '?'}
+                                                            </span>
+                                                        </div>
+                                                    )}
                                                     <div>
                                                         <p className="text-sm font-medium text-gray-900">{deal.campaign?.title || 'New Deal'}</p>
                                                         <p className="text-xs text-gray-500">

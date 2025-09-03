@@ -103,7 +103,7 @@ def brand_dashboard_view(request):
         },
         'recent_deals': recent_deals,
         'recent_campaigns': recent_campaigns
-    })
+    }, context={'request': request})
 
     return Response({
         'status': 'success',

@@ -39,6 +39,9 @@ class SimpleInfluencerSerializer(serializers.ModelSerializer):
     def get_profile_image(self, obj):
         try:
             if obj.user_profile and obj.user_profile.profile_image:
+                request = self.context.get('request')
+                if request:
+                    return request.build_absolute_uri(obj.user_profile.profile_image.url)
                 return obj.user_profile.profile_image.url
         except Exception:
             pass
