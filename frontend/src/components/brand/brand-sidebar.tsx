@@ -4,7 +4,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSidebar } from "@/contexts/sidebar-context";
 import { useState, useEffect } from "react";
-
+import { useAuth } from "@/hooks/use-auth";
+import { useUserContext } from "@/components/providers/app-providers";
 
 import { 
   HiHome, 
@@ -14,9 +15,12 @@ import {
   HiBookmark, 
   HiChartBar,
   HiCog6Tooth,
-  HiDocumentText
+  HiDocumentText,
+  HiArrowRightOnRectangle,
+  HiChevronDown
 } from "react-icons/hi2";
 import { api } from "@/lib/api";
+import { Button } from "@/components/ui/button";
 
 const navigation = [
   { name: 'Dashboard', href: '/brand', icon: HiHome },
@@ -32,8 +36,11 @@ const navigation = [
 export function BrandSidebar() {
   const pathname = usePathname();
   const { isCollapsed, isHoverExpanded, setIsHoverExpanded } = useSidebar();
+  const { logout } = useAuth();
+  const { user } = useUserContext();
   const [brandLogo, setBrandLogo] = useState<string | null>(null);
   const [brandName, setBrandName] = useState<string>("TickTime");
+  const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
 
   // Fetch brand data for logo and name
   useEffect(() => {
@@ -174,21 +181,54 @@ export function BrandSidebar() {
           })}
         </nav>
 
-        {/* Enhanced User Info Section */}
+        {/* Enhanced User Info Section with Logout */}
         <div className="border-t border-gray-200 p-4 bg-gradient-to-br from-gray-50 via-white to-gray-50">
-          <div className="flex items-center">
-            <div className="relative group flex-shrink-0">
-              <div className="h-10 w-10 bg-gradient-to-br from-red-500 via-orange-500 to-red-600 rounded-full flex items-center justify-center shadow-md group-hover:shadow-lg transition-all duration-300 transform group-hover:scale-105">
-                <span className="text-sm font-bold text-white">B</span>
+          <div className="relative">
+            {/* Profile Button */}
+            <button
+              onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
+              className="w-full flex items-center p-1 rounded-xl hover:bg-gray-100 transition-all duration-200 group"
+            >
+              <div className="relative group flex-shrink-0">
+                <div className="h-10 w-10 bg-gradient-to-br from-red-500 via-orange-500 to-red-600 rounded-full flex items-center justify-center shadow-md group-hover:shadow-lg transition-all duration-300 transform group-hover:scale-105">
+                  <span className="text-sm font-bold text-white">B</span>
+                </div>
+                {/* Online Status Indicator */}
+                <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 border-2 border-white rounded-full shadow-sm"></div>
               </div>
-              {/* Online Status Indicator */}
-              <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 border-2 border-white rounded-full shadow-sm"></div>
-            </div>
-            {/* User Info - Only show when expanded */}
-            {isExpanded && (
-              <div className="ml-3 animate-in slide-in-from-left-2 duration-300">
-                <p className="text-sm font-semibold text-gray-900">Brand Account</p>
-                <p className="text-xs text-gray-500">Brand Dashboard</p>
+              {/* User Info - Only show when expanded */}
+              {isExpanded && (
+                <div className="ml-3 animate-in slide-in-from-left-2 duration-300 flex-1 text-left">
+                  <p className="text-sm font-semibold text-gray-900">Brand Account</p>
+                  <p className="text-xs text-gray-500">Brand Dashboard</p>
+                </div>
+              )}
+              
+              {isExpanded && (
+                <HiChevronDown
+                  className={`h-4 w-4 text-gray-400 transition-transform duration-200 ${isProfileMenuOpen ? 'rotate-180' : ''}`}/>
+              )}
+            </button>
+
+            {/* Profile Dropdown Menu */}
+            {isProfileMenuOpen && isExpanded && (
+              <div
+                className="absolute bottom-full left-0 right-0 mb-2 bg-white border border-gray-200 rounded-lg shadow-lg py-1 animate-in slide-in-from-bottom-2 duration-200 z-50">
+                <Link
+                  href="/brand/settings"
+                  className="flex items-center px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                  onClick={() => setIsProfileMenuOpen(false)}
+                >
+                  <HiCog6Tooth className="h-4 w-4 mr-2"/>
+                  Settings
+                </Link>
+                <button
+                  onClick={() => logout.mutate()}
+                  className="w-full flex items-center px-3 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                >
+                  <HiArrowRightOnRectangle className="h-4 w-4 mr-2"/>
+                  Sign Out
+                </button>
               </div>
             )}
           </div>

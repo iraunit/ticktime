@@ -68,6 +68,20 @@ export function UnifiedSidebar({userType}: UnifiedSidebarProps) {
     });
     const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
 
+    // Close profile menu when clicking outside
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (isProfileMenuOpen) {
+                setIsProfileMenuOpen(false);
+            }
+        };
+
+        document.addEventListener('click', handleClickOutside);
+        return () => {
+            document.removeEventListener('click', handleClickOutside);
+        };
+    }, [isProfileMenuOpen]);
+
     // Fetch user-specific data for logo and name
     useEffect(() => {
         const fetchUserData = async () => {
@@ -313,12 +327,17 @@ export function UnifiedSidebar({userType}: UnifiedSidebarProps) {
 
                     {/* Enhanced User Profile Section with Logout */}
                     <div
-                        className="border-t border-red-200 pl-1 p-3 bg-gradient-to-br from-gray-50 via-white to-gray-50">
-                        <div>
+                        className="border-t border-red-200 pl-1 p-3 bg-gradient-to-br from-gray-50 via-white to-gray-50 relative">
+                        <div className="space-y-2">
                             {/* Profile Button */}
                             <button
-                                onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
-                                className="w-full flex items-center p-1 rounded-xl hover:bg-gray-100 transition-all duration-200 group"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    setIsProfileMenuOpen(!isProfileMenuOpen);
+                                }}
+                                className={`w-full flex items-center p-1 rounded-xl transition-all duration-200 group cursor-pointer ${
+                                    isProfileMenuOpen ? 'bg-gray-100' : 'hover:bg-gray-100'
+                                }`}
                             >
                                 <div className="relative group flex-shrink-0">
                                     <OptimizedAvatar
@@ -344,11 +363,13 @@ export function UnifiedSidebar({userType}: UnifiedSidebarProps) {
                                         className={`h-4 w-4 text-gray-400 transition-transform duration-200 ${isProfileMenuOpen ? 'rotate-180' : ''}`}/>
                                 )}
                             </button>
+                            
+
 
                             {/* Profile Dropdown Menu */}
                             {isProfileMenuOpen && isExpanded && (
                                 <div
-                                    className="absolute bottom-full left-0 right-0 mb-2 bg-white border border-gray-200 rounded-lg shadow-lg py-1 animate-in slide-in-from-bottom-2 duration-200">
+                                    className="absolute bottom-full left-0 right-0 mb-2 bg-white border border-gray-200 rounded-lg shadow-lg py-1 animate-in slide-in-from-bottom-2 duration-200 z-50 min-w-[200px]">
                                     <Link
                                         href={userType === 'brand' ? '/brand/settings' : '/profile'}
                                         className="flex items-center px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
