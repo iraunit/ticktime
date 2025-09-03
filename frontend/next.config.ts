@@ -2,7 +2,7 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   images: {
-    domains: ['localhost'],
+    domains: ['localhost', '127.0.0.1', 'api.ticktime.media', 'ticktime.media'],
     unoptimized: process.env.NODE_ENV === 'development',
   },
 

@@ -66,6 +66,23 @@ export function DealCard({
                          }: DealCardProps) {
     const [showContentSubmission, setShowContentSubmission] = useState(false);
 
+    // Debug logging
+    console.log('DealCard render:', {
+        dealId: deal?.id,
+        campaignTitle: deal?.campaign?.title,
+        brandName: deal?.campaign?.brand?.name,
+        brandLogo: deal?.campaign?.brand?.logo,
+        brandLogoType: typeof deal?.campaign?.brand?.logo,
+        brandLogoLength: deal?.campaign?.brand?.logo?.length,
+        applicationDeadline: deal?.campaign?.application_deadline,
+        submissionDeadline: deal?.campaign?.submission_deadline,
+        barterSubmissionDays: deal?.campaign?.barter_submission_after_days,
+        platforms: deal?.campaign?.platforms_required,
+        dealType: deal?.campaign?.deal_type,
+        fullCampaign: deal?.campaign,
+        fullBrand: deal?.campaign?.brand
+    });
+
     const formatDate = (dateString: string) => {
         return new Date(dateString).toLocaleDateString("en-US", {
             month: "short",
@@ -123,18 +140,38 @@ export function DealCard({
                     <div className="flex items-start justify-between gap-3">
                         <div className="flex items-start space-x-3 flex-1">
                             {/* Brand Logo */}
-                            {deal?.campaign?.brand?.logo && (
-                                <div
-                                    className="w-12 h-12 rounded-lg overflow-hidden shadow-md border border-white bg-white flex-shrink-0">
+                            <div className="w-12 h-12 rounded-lg overflow-hidden shadow-md border border-white bg-white flex-shrink-0">
+                                {deal?.campaign?.brand?.logo ? (
                                     <Image
                                         src={deal.campaign.brand.logo}
                                         alt={deal?.campaign?.brand?.name || "Brand"}
                                         width={48}
                                         height={48}
                                         className="w-full h-full object-cover"
+                                        onError={(e) => {
+                                            // Fallback to initials if image fails to load
+                                            const target = e.target as HTMLImageElement;
+                                            target.style.display = 'none';
+                                            const parent = target.parentElement;
+                                            if (parent) {
+                                                parent.innerHTML = `
+                                                    <div class="w-full h-full bg-gradient-to-br from-blue-100 to-indigo-200 flex items-center justify-center">
+                                                        <span class="text-lg font-bold text-blue-600">
+                                                            ${deal?.campaign?.brand?.name?.charAt(0)?.toUpperCase() || "B"}
+                                                        </span>
+                                                    </div>
+                                                `;
+                                            }
+                                        }}
                                     />
-                                </div>
-                            )}
+                                ) : (
+                                    <div className="w-full h-full bg-gradient-to-br from-blue-100 to-indigo-200 flex items-center justify-center">
+                                        <span className="text-lg font-bold text-blue-600">
+                                            {deal?.campaign?.brand?.name?.charAt(0)?.toUpperCase() || "B"}
+                                        </span>
+                                    </div>
+                                )}
+                            </div>
 
                             <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-1.5 mb-1.5">
@@ -244,12 +281,24 @@ export function DealCard({
                                 <span className="text-xs font-medium">Submit By</span>
                             </div>
                             <div className="text-sm font-bold text-purple-800">
-                                {deal?.campaign?.submission_deadline ?
-                                    formatDate(deal.campaign.submission_deadline) :
-                                    deal?.campaign?.barter_submission_after_days ?
-                                        `${deal.campaign.barter_submission_after_days} days after delivery` :
-                                        "TBD"
-                                }
+                                {(() => {
+                                    if (deal?.campaign?.submission_deadline) {
+                                        return formatDate(deal.campaign.submission_deadline);
+                                    } else if (deal?.campaign?.barter_submission_after_days) {
+                                        return `${deal.campaign.barter_submission_after_days} days after delivery`;
+                                    } else if (deal?.campaign?.application_deadline) {
+                                        // Fallback to application deadline if no submission deadline
+                                        const appDeadline = new Date(deal.campaign.application_deadline);
+                                        const now = new Date();
+                                        const daysDiff = Math.ceil((appDeadline.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+                                        if (daysDiff > 0) {
+                                            return `${daysDiff} days`;
+                                        } else {
+                                            return "ASAP";
+                                        }
+                                    }
+                                    return "TBD";
+                                })()}
                             </div>
                         </div>
 
@@ -262,9 +311,7 @@ export function DealCard({
                             </div>
                             <div className="text-sm font-bold text-indigo-800">
                                 {(() => {
-                                    const platforms = deal?.campaign?.platforms_required ||
-                                        (typeof deal?.campaign?.content_requirements === 'object' && (deal?.campaign?.content_requirements as any)?.platforms) ||
-                                        [];
+                                    const platforms = deal?.campaign?.platforms_required || [];
 
                                     if (platforms.length === 0) return "Multi";
 

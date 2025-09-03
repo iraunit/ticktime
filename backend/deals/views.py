@@ -111,7 +111,7 @@ def deals_list_view(request):
     page = paginator.paginate_queryset(queryset, request)
     
     if page is not None:
-        serializer = DealListSerializer(page, many=True)
+        serializer = DealListSerializer(page, many=True, context={'request': request})
         response = paginator.get_paginated_response(serializer.data)
         response.data = {
             'status': 'success',
@@ -123,7 +123,7 @@ def deals_list_view(request):
         return response
 
     # Fallback without pagination
-    serializer = DealListSerializer(queryset, many=True)
+    serializer = DealListSerializer(queryset, many=True, context={'request': request})
     return Response({
         'status': 'success',
         'deals': serializer.data,
@@ -151,7 +151,7 @@ def deal_detail_view(request, deal_id):
         influencer=profile
     )
 
-    serializer = DealDetailSerializer(deal)
+    serializer = DealDetailSerializer(deal, context={'request': request})
     return Response({
         'status': 'success',
         'deal': serializer.data
@@ -224,7 +224,7 @@ def deal_action_view(request, deal_id):
         deal.save()
 
         # Return updated deal information
-        updated_deal = DealDetailSerializer(deal)
+        updated_deal = DealDetailSerializer(deal, context={'request': request})
         return Response({
             'status': 'success',
             'message': message,
@@ -341,7 +341,7 @@ def recent_deals_view(request):
         influencer=profile
     ).select_related('campaign__brand').order_by('-invited_at')[:10]
 
-    serializer = DealListSerializer(recent_deals, many=True)
+    serializer = DealListSerializer(recent_deals, many=True, context={'request': request})
     
     return Response({
         'status': 'success',
@@ -643,7 +643,7 @@ def submit_address_view(request, deal_id):
         deal.save()
 
         # Return updated deal information
-        updated_deal = DealDetailSerializer(deal)
+        updated_deal = DealDetailSerializer(deal, context={'request': request})
         return Response({
             'status': 'success',
             'message': 'Address submitted successfully.',
@@ -741,7 +741,7 @@ def update_deal_status_view(request, deal_id):
     deal.save()
 
     # Return updated deal information
-    updated_deal = DealDetailSerializer(deal)
+    updated_deal = DealDetailSerializer(deal, context={'request': request})
     return Response({
         'status': 'success',
         'message': f'Deal status updated to {new_status}',
@@ -775,7 +775,7 @@ def last_deal_view(request):
             'last_deal': None
         }, status=status.HTTP_200_OK)
 
-    serializer = DealDetailSerializer(last_deal)
+    serializer = DealDetailSerializer(last_deal, context={'request': request})
     return Response({
         'status': 'success',
         'last_deal': serializer.data

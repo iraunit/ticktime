@@ -171,15 +171,25 @@ class DealListSerializer(serializers.ModelSerializer):
     def get_campaign(self, obj):
         """Get campaign information without circular import."""
         if obj.campaign:
+            request = self.context.get('request')
             return {
                 'id': obj.campaign.id,
                 'title': obj.campaign.title,
+                'description': obj.campaign.description,
                 'deal_type': obj.campaign.deal_type,
                 'cash_amount': str(obj.campaign.cash_amount),
                 'total_value': str(obj.campaign.total_value),
+                'application_deadline': obj.campaign.application_deadline,
+                'submission_deadline': obj.campaign.submission_deadline,
+                'barter_submission_after_days': obj.campaign.barter_submission_after_days,
+                'platforms_required': obj.campaign.platforms_required,
+                'content_requirements': obj.campaign.content_requirements,
                 'brand': {
                     'id': obj.campaign.brand.id,
                     'name': obj.campaign.brand.name,
+                    'logo': request.build_absolute_uri(obj.campaign.brand.logo.url) if obj.campaign.brand.logo and request else (obj.campaign.brand.logo.url if obj.campaign.brand.logo else None),
+                    'industry': obj.campaign.brand.industry,
+                    'description': obj.campaign.brand.description,
                 } if obj.campaign.brand else None,
             }
         return None
@@ -321,15 +331,13 @@ class DealDetailSerializer(serializers.ModelSerializer):
                 'title': obj.campaign.title,
                 'description': obj.campaign.description,
                 'deal_type': obj.campaign.deal_type,
-                'deal_type_display': obj.campaign.get_deal_type_display(),
                 'cash_amount': str(obj.campaign.cash_amount),
                 'total_value': str(obj.campaign.total_value),
                 'application_deadline': obj.campaign.application_deadline,
-                'campaign_live_date': obj.campaign.campaign_live_date,
-                'is_active': obj.campaign.is_active,
-                'is_expired': obj.campaign.is_expired,
-                'days_until_deadline': obj.campaign.days_until_deadline,
-                'created_at': obj.campaign.created_at,
+                'submission_deadline': obj.campaign.submission_deadline,
+                'barter_submission_after_days': obj.campaign.barter_submission_after_days,
+                'platforms_required': obj.campaign.platforms_required,
+                'content_requirements': obj.campaign.content_requirements,
                 'brand': {
                     'id': obj.campaign.brand.id,
                     'name': obj.campaign.brand.name,
@@ -337,10 +345,6 @@ class DealDetailSerializer(serializers.ModelSerializer):
                     'industry': obj.campaign.brand.industry,
                     'description': obj.campaign.brand.description,
                 } if obj.campaign.brand else None,
-                'platforms_required': obj.campaign.platforms_required,
-                'content_requirements': obj.campaign.content_requirements,
-                'target_influencers': obj.campaign.target_influencers,
-                'execution_mode': obj.campaign.execution_mode,
             }
         return None
 

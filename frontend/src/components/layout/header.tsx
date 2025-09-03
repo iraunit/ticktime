@@ -139,10 +139,10 @@ export function Header() {
                         ) : (
                             <div className="flex items-center space-x-2">
                                 <Button variant="ghost" size="sm" asChild className="h-8 px-3 text-sm">
-                                    <Link href="/login">Sign in</Link>
+                                    <Link href="/accounts/login">Sign in</Link>
                                 </Button>
                                 <Button size="sm" asChild className="h-8 px-3 text-sm">
-                                    <Link href="/signup">Get started</Link>
+                                    <Link href="/accounts/signup">Get started</Link>
                                 </Button>
                             </div>
                         )}
@@ -216,12 +216,12 @@ export function Header() {
                         ) : (
                             <div className="flex flex-col space-y-2">
                                 <Button variant="ghost" size="sm" asChild className="h-8 justify-start">
-                                    <Link href="/login" onClick={() => setIsMobileMenuOpen(false)}>
+                                    <Link href="/accounts/login" onClick={() => setIsMobileMenuOpen(false)}>
                                         Sign in
                                     </Link>
                                 </Button>
                                 <Button size="sm" asChild className="h-8 justify-start">
-                                    <Link href="/signup" onClick={() => setIsMobileMenuOpen(false)}>
+                                    <Link href="/accounts/signup" onClick={() => setIsMobileMenuOpen(false)}>
                                         Get started
                                     </Link>
                                 </Button>
