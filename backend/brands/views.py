@@ -1,24 +1,24 @@
+from campaigns.models import Campaign
+from campaigns.serializers import CampaignCreateSerializer
+from deals.models import Deal
+from django.contrib.auth.models import User
+from django.core.paginator import Paginator
+from django.db.models import Avg, Q, F, ExpressionWrapper, DecimalField
+from django.db.models.functions import Coalesce, Greatest
+from django.shortcuts import get_object_or_404
+from django.utils import timezone
+from influencers.models import InfluencerProfile
+from messaging.models import Conversation
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from django.shortcuts import get_object_or_404
-from django.db.models import Avg, Count, Q, F, ExpressionWrapper, DecimalField
-from django.db.models.functions import Coalesce, Greatest
-from django.core.paginator import Paginator
-from django.utils import timezone
-from django.contrib.auth.models import User
 
-from .models import Brand, BrandUser, BrandAuditLog, BookmarkedInfluencer
+from .models import BrandUser, BrandAuditLog, BookmarkedInfluencer
 from .serializers import (
     BrandSerializer, BrandDashboardSerializer, BrandTeamSerializer, BrandUserInviteSerializer,
     BrandAuditLogSerializer, BookmarkedInfluencerSerializer, UserProfileSerializer
 )
-from campaigns.models import Campaign
-from campaigns.serializers import CampaignCreateSerializer
-from deals.models import Deal
-from influencers.models import InfluencerProfile
-from messaging.models import Conversation
 
 
 def log_brand_action(brand, user, action, description, metadata=None):
@@ -126,7 +126,7 @@ def brand_profile_view(request):
 
     brand = brand_user.brand
     serializer = BrandSerializer(brand)
-    
+
     return Response({
         'status': 'success',
         'brand': serializer.data
@@ -157,7 +157,7 @@ def brand_team_view(request):
         UserProfile.objects.get_or_create(user=team_member.user)
 
     serializer = BrandTeamSerializer(team_members, many=True)
-    
+
     return Response({
         'status': 'success',
         'team_members': serializer.data
@@ -183,7 +183,7 @@ def invite_brand_user_view(request):
         role = serializer.validated_data['role']
         first_name = serializer.validated_data.get('first_name', '')
         last_name = serializer.validated_data.get('last_name', '')
-        
+
         # Check if user already exists
         try:
             user = User.objects.get(email=email)
@@ -201,7 +201,7 @@ def invite_brand_user_view(request):
                 last_name=last_name,
                 is_active=False  # Will be activated when they accept invitation
             )
-            
+
             # Create UserProfile for the new user
             from users.models import UserProfile
             UserProfile.objects.create(user=user)
@@ -216,8 +216,8 @@ def invite_brand_user_view(request):
 
         # Log action
         log_brand_action(
-            brand_user.brand, 
-            request.user, 
+            brand_user.brand,
+            request.user,
             'user_invited',
             f"Invited {user.email} as {role}",
             {'invited_email': email, 'role': role}
@@ -265,7 +265,7 @@ def brand_campaigns_view(request):
                     brand=brand_user.brand,
                     created_by=request.user
                 )
-                
+
                 # Log the action
                 log_brand_action(
                     brand_user.brand,
@@ -274,7 +274,7 @@ def brand_campaigns_view(request):
                     f"Created campaign: {campaign.title}",
                     {'campaign_id': campaign.id, 'campaign_title': campaign.title}
                 )
-                
+
                 return Response({
                     'status': 'success',
                     'message': 'Campaign created successfully.',
@@ -284,14 +284,14 @@ def brand_campaigns_view(request):
                         'created_at': campaign.created_at
                     }
                 }, status=status.HTTP_201_CREATED)
-                
+
             except Exception as e:
                 return Response({
                     'status': 'error',
                     'message': 'Failed to create campaign.',
                     'error': str(e)
                 }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-        
+
         return Response({
             'status': 'error',
             'message': 'Invalid campaign data.',
@@ -329,8 +329,6 @@ def brand_campaigns_view(request):
             campaigns = campaigns.filter(platforms_required__contains=[platform])
         except Exception:
             pass
-
-
 
     # Apply ordering
     # Campaign live date filters for upcoming/past
@@ -404,7 +402,7 @@ def campaign_detail_view(request, campaign_id):
 
     if request.method == 'GET':
         from campaigns.serializers import CampaignSerializer
-        serializer = CampaignSerializer(campaign)
+        serializer = CampaignSerializer(campaign, context={'request': request})
         return Response({
             'status': 'success',
             'campaign': serializer.data
@@ -422,7 +420,7 @@ def campaign_detail_view(request, campaign_id):
         if serializer.is_valid():
             try:
                 updated_campaign = serializer.save()
-                
+
                 # Log the action
                 log_brand_action(
                     brand_user.brand,
@@ -431,22 +429,22 @@ def campaign_detail_view(request, campaign_id):
                     f"Updated campaign: {updated_campaign.title}",
                     {'campaign_id': updated_campaign.id, 'campaign_title': updated_campaign.title}
                 )
-                
+
                 from campaigns.serializers import CampaignSerializer
-                campaign_serializer = CampaignSerializer(updated_campaign)
+                campaign_serializer = CampaignSerializer(updated_campaign, context={'request': request})
                 return Response({
                     'status': 'success',
                     'message': 'Campaign updated successfully.',
                     'campaign': campaign_serializer.data
                 })
-                
+
             except Exception as e:
                 return Response({
                     'status': 'error',
                     'message': 'Failed to update campaign.',
                     'error': str(e)
                 }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-        
+
         return Response({
             'status': 'error',
             'message': 'Invalid campaign data.',
@@ -464,7 +462,7 @@ def campaign_detail_view(request, campaign_id):
         try:
             campaign_title = campaign.title
             campaign.delete()
-            
+
             # Log the action
             log_brand_action(
                 brand_user.brand,
@@ -473,21 +471,18 @@ def campaign_detail_view(request, campaign_id):
                 f"Deleted campaign: {campaign_title}",
                 {'campaign_title': campaign_title}
             )
-            
+
             return Response({
                 'status': 'success',
                 'message': 'Campaign deleted successfully.'
             })
-            
+
         except Exception as e:
             return Response({
                 'status': 'error',
                 'message': 'Failed to delete campaign.',
                 'error': str(e)
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-
-
 
 
 @api_view(['GET'])
@@ -560,11 +555,11 @@ def brand_deals_by_campaigns_view(request):
             )
             .order_by('-last_activity_at')
         )
-        
+
         # Apply status filter to deals if specified
         if status_filter and status_filter != 'all':
             campaign_deals = campaign_deals.filter(status=status_filter)
-        
+
         # Apply search filter to deals if specified
         if search:
             campaign_deals = campaign_deals.filter(
@@ -913,11 +908,11 @@ def bulk_update_csv_view(request):
     try:
         import csv
         import io
-        
+
         # Read CSV content
         csv_content = csv_file.read().decode('utf-8')
         csv_reader = csv.DictReader(io.StringIO(csv_content))
-        
+
         # Validate headers
         expected_headers = {'email', 'status'}
         if not expected_headers.issubset(set(csv_reader.fieldnames or [])):
@@ -928,23 +923,23 @@ def bulk_update_csv_view(request):
 
         updates = []
         errors = []
-        
+
         valid_statuses = [choice[0] for choice in Deal._meta.get_field('status').choices]
-        
+
         for row_num, row in enumerate(csv_reader, start=2):  # Start at 2 for header row
             email = row.get('email', '').strip()
             new_status = row.get('status', '').strip()
             tracking_number = row.get('tracking_number', '').strip()
             tracking_url = row.get('tracking_url', '').strip()
-            
+
             if not email or not new_status:
                 errors.append(f'Row {row_num}: Email and status are required')
                 continue
-                
+
             if new_status not in valid_statuses:
                 errors.append(f'Row {row_num}: Invalid status "{new_status}"')
                 continue
-            
+
             try:
                 # Find influencer by email and get their deals with this brand
                 from influencers.models import InfluencerProfile
@@ -953,30 +948,30 @@ def bulk_update_csv_view(request):
                     campaign__brand=brand_user.brand,
                     influencer=influencer
                 )
-                
+
                 if not deals.exists():
                     errors.append(f'Row {row_num}: No deals found for {email}')
                     continue
-                
+
                 # Update all deals for this influencer
                 update_fields = ['status']
                 update_data = {'status': new_status}
-                
+
                 if tracking_number:
                     update_data['tracking_number'] = tracking_number
                     update_fields.append('tracking_number')
-                    
+
                 if tracking_url:
                     update_data['tracking_url'] = tracking_url
                     update_fields.append('tracking_url')
-                    
+
                 if new_status == 'product_shipped' and not deals.first().shipped_at:
                     update_data['shipped_at'] = timezone.now()
                     update_fields.append('shipped_at')
-                    
+
                 deals.update(**update_data)
                 updates.append(f'Updated {deals.count()} deal(s) for {email}')
-                
+
             except InfluencerProfile.DoesNotExist:
                 errors.append(f'Row {row_num}: Influencer with email {email} not found')
                 continue
@@ -1007,15 +1002,16 @@ def download_csv_template_view(request):
     """
     from django.http import HttpResponse
     import csv
-    
+
     response = HttpResponse(content_type='text/csv')
     response['Content-Disposition'] = 'attachment; filename="bulk_update_template.csv"'
-    
+
     writer = csv.writer(response)
     writer.writerow(['email', 'status', 'tracking_number', 'tracking_url'])
-    writer.writerow(['influencer@example.com', 'product_shipped', 'TRK123456789', 'https://tracking.example.com/TRK123456789'])
+    writer.writerow(
+        ['influencer@example.com', 'product_shipped', 'TRK123456789', 'https://tracking.example.com/TRK123456789'])
     writer.writerow(['another@example.com', 'shortlisted', '', ''])
-    
+
     return response
 
 
@@ -1123,8 +1119,8 @@ def bookmark_influencer_view(request, influencer_id):
 
     # Log action
     log_brand_action(
-        brand_user.brand, 
-        request.user, 
+        brand_user.brand,
+        request.user,
         'influencer_bookmarked',
         f"Bookmarked influencer {influencer.username}",
         {'influencer_id': influencer_id, 'influencer_username': influencer.username}
@@ -1437,7 +1433,7 @@ def brand_conversations_view(request):
     from deals.views import DealPagination
     paginator = DealPagination()
     page = paginator.paginate_queryset(conversations, request)
-    
+
     if page is not None:
         from messaging.serializers import ConversationSerializer
         serializer = ConversationSerializer(page, many=True, context={'request': request})
@@ -1489,12 +1485,12 @@ def brand_conversation_messages_view(request, conversation_id):
     if request.method == 'GET':
         from messaging.models import Message
         messages = conversation.messages.all().order_by('-created_at')
-        
+
         # Apply search filter
         search_query = request.GET.get('search')
         if search_query:
             messages = messages.filter(content__icontains=search_query)
-        
+
         # Mark messages as read by brand
         unread_messages = messages.filter(
             sender_type='influencer',
@@ -1507,7 +1503,7 @@ def brand_conversation_messages_view(request, conversation_id):
         from deals.views import DealPagination
         paginator = DealPagination()
         page = paginator.paginate_queryset(messages, request)
-        
+
         if page is not None:
             from messaging.serializers import MessageSerializer
             serializer = MessageSerializer(page, many=True, context={'request': request})
@@ -1533,7 +1529,7 @@ def brand_conversation_messages_view(request, conversation_id):
         # Create new message
         from messaging.serializers import MessageSerializer
         serializer = MessageSerializer(data=request.data)
-        
+
         if serializer.is_valid():
             from messaging.models import Message
             # Save with additional fields
@@ -1542,11 +1538,11 @@ def brand_conversation_messages_view(request, conversation_id):
                 sender_type='brand',
                 sender_user=request.user
             )
-        
+
             # Update conversation timestamp
             conversation.updated_at = timezone.now()
             conversation.save()
-            
+
             return Response({
                 'status': 'success',
                 'message': 'Message sent successfully.',
@@ -1581,11 +1577,11 @@ def brand_analytics_overview_view(request):
 
     brand = brand_user.brand
     time_range = request.GET.get('time_range', 'last_30_days')
-    
+
     # Calculate date range based on time_range parameter
-    from datetime import datetime, timedelta
+    from datetime import timedelta
     now = timezone.now()
-    
+
     if time_range == 'last_7_days':
         start_date = now - timedelta(days=7)
     elif time_range == 'last_30_days':
@@ -1609,7 +1605,7 @@ def brand_analytics_overview_view(request):
     # Calculate overall metrics
     total_campaigns = campaigns.count()
     total_investment = sum(campaign.cash_amount for campaign in campaigns)
-    
+
     # Initialize analytics data - will be populated when real analytics are implemented
     total_reach = 0
     total_engagement = 0
@@ -1621,7 +1617,7 @@ def brand_analytics_overview_view(request):
     for campaign in campaigns[:5]:  # Top 5 campaigns
         campaign_deals = deals.filter(campaign=campaign)
         completed_deals = campaign_deals.filter(status='completed').count()
-        
+
         top_campaigns.append({
             'id': campaign.id,
             'title': campaign.title,
@@ -1683,11 +1679,11 @@ def brand_analytics_campaigns_view(request):
 
     brand = brand_user.brand
     time_range = request.GET.get('time_range', 'last_30_days')
-    
+
     # Calculate date range based on time_range parameter
-    from datetime import datetime, timedelta
+    from datetime import timedelta
     now = timezone.now()
-    
+
     if time_range == 'last_7_days':
         start_date = now - timedelta(days=7)
     elif time_range == 'last_30_days':
@@ -1713,7 +1709,7 @@ def brand_analytics_campaigns_view(request):
         campaign_deals = deals.filter(campaign=campaign)
         completed_deals = campaign_deals.filter(status='completed').count()
         pending_deals = campaign_deals.filter(status='invited').count()
-        
+
         # Analytics data for each campaign (will be populated when real analytics are implemented)
         total_reach = 0
         total_impressions = 0
@@ -1722,7 +1718,7 @@ def brand_analytics_campaigns_view(request):
         total_comments = 0
         total_shares = 0
         total_saves = 0
-        
+
         # Calculate rates (will be populated when real analytics are implemented)
         conversion_rate = 0
         roi = 0
@@ -1789,11 +1785,11 @@ def update_brand_profile_view(request):
         }, status=status.HTTP_403_FORBIDDEN)
 
     brand = brand_user.brand
-    
+
     # Only allow updating non-sensitive fields
     allowed_fields = ['name', 'description', 'website', 'industry', 'contact_email']
     update_data = {k: v for k, v in request.data.items() if k in allowed_fields}
-    
+
     # Handle logo upload
     if 'logo' in request.FILES:
         logo_file = request.FILES['logo']
@@ -1804,18 +1800,18 @@ def update_brand_profile_view(request):
                 'status': 'error',
                 'message': 'Invalid file type. Please upload a JPEG, PNG, WebP, or GIF image.'
             }, status=status.HTTP_400_BAD_REQUEST)
-        
+
         # Validate file size (5MB max)
         if logo_file.size > 5 * 1024 * 1024:
             return Response({
                 'status': 'error',
                 'message': 'File size too large. Please upload an image smaller than 5MB.'
             }, status=status.HTTP_400_BAD_REQUEST)
-        
+
         # Update brand logo field using Django's ImageField
         brand.logo = logo_file
         # Don't add to update_data since we're directly setting the field
-    
+
     if not update_data:
         return Response({
             'status': 'error',
@@ -1836,13 +1832,13 @@ def update_brand_profile_view(request):
     # Update brand
     for field, value in update_data.items():
         setattr(brand, field, value)
-    
+
     brand.save()
 
     # Log action
     log_brand_action(
-        brand, 
-        request.user, 
+        brand,
+        request.user,
         'brand_updated',
         f"Updated brand profile: {', '.join(update_data.keys())}",
         {'updated_fields': list(update_data.keys())}
@@ -2003,7 +1999,7 @@ def get_users_by_domain_view(request):
 
     # Get the brand's domain
     brand_domain = brand_user.brand.domain
-    
+
     # Find all users with the same email domain
     users = User.objects.filter(
         email__endswith=f"@{brand_domain}",
@@ -2089,7 +2085,7 @@ def add_influencers_to_campaign_view(request, campaign_id):
     # Add influencers to campaign (create deals)
     created_deals = []
     existing_deals = []
-    
+
     for influencer in influencers:
         # Check if deal already exists
         existing_deal = Deal.objects.filter(campaign=campaign, influencer=influencer).first()
@@ -2176,13 +2172,13 @@ def send_message_to_influencer_view(request, influencer_id):
     # Create message
     from messaging.models import Message
     from messaging.serializers import MessageSerializer
-    
+
     message_data = {
         'content': request.data.get('content', ''),
         'sender_type': 'brand',
         'sender_user': request.user.id
     }
-    
+
     serializer = MessageSerializer(data=message_data)
     if serializer.is_valid():
         message = serializer.save(
@@ -2190,11 +2186,11 @@ def send_message_to_influencer_view(request, influencer_id):
             sender_type='brand',
             sender_user=request.user
         )
-        
+
         # Update conversation timestamp
         conversation.updated_at = timezone.now()
         conversation.save()
-        
+
         # Log action
         log_brand_action(
             brand_user.brand,
@@ -2209,7 +2205,7 @@ def send_message_to_influencer_view(request, influencer_id):
                 'deal_id': existing_deal.id
             }
         )
-        
+
         return Response({
             'status': 'success',
             'message': 'Message sent successfully.',
@@ -2217,7 +2213,7 @@ def send_message_to_influencer_view(request, influencer_id):
             'deal_id': existing_deal.id,
             'message': MessageSerializer(message, context={'request': request}).data
         })
-    
+
     return Response({
         'status': 'error',
         'message': 'Invalid message data.',
@@ -2274,7 +2270,7 @@ def remove_bookmark_view(request, influencer_id):
             influencer_id=influencer_id
         )
         bookmark.delete()
-        
+
         # Log action
         log_brand_action(
             brand_user.brand,
@@ -2283,7 +2279,7 @@ def remove_bookmark_view(request, influencer_id):
             f"Removed {bookmark.influencer.username} from bookmarks",
             {'influencer_id': influencer_id, 'influencer_username': bookmark.influencer.username}
         )
-        
+
         return Response({
             'status': 'success',
             'message': 'Influencer removed from bookmarks.'
@@ -2335,8 +2331,6 @@ def get_brand_settings_view(request):
     team_serializer = BrandTeamSerializer(team_members, many=True)
     audit_serializer = BrandAuditLogSerializer(audit_logs, many=True)
 
-
-    
     return Response({
         'status': 'success',
         'brand': brand_serializer.data,
