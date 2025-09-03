@@ -1173,7 +1173,7 @@ def bookmarked_influencers_view(request):
     paginator = Paginator(bookmarks, page_size)
     bookmarks_page = paginator.get_page(page)
 
-    serializer = BookmarkedInfluencerSerializer(bookmarks_page, many=True)
+    serializer = BookmarkedInfluencerSerializer(bookmarks_page, many=True, context={'request': request})
 
     return Response({
         'status': 'success',
@@ -1225,7 +1225,7 @@ def bookmark_detail_view(request, bookmark_id):
             {'bookmark_id': bookmark_id, 'influencer_username': bookmark.influencer.username}
         )
 
-        serializer = BookmarkedInfluencerSerializer(bookmark)
+        serializer = BookmarkedInfluencerSerializer(bookmark, context={'request': request})
         return Response({
             'status': 'success',
             'message': 'Bookmark updated successfully.',

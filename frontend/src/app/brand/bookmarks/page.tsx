@@ -304,11 +304,32 @@ export default function BrandBookmarksPage() {
                   <div className="flex flex-col lg:flex-row gap-6">
                     {/* Influencer Info */}
                     <div className="flex items-start gap-4 flex-1">
-                      <div className="w-16 h-16 bg-gradient-to-r from-pink-500 to-purple-600 rounded-full flex items-center justify-center shadow-md">
-                        <span className="text-xl font-bold text-white">
-                          {bookmark.influencer?.name?.charAt(0) || '?'}
-                        </span>
-                      </div>
+                      {bookmark.influencer?.profile_image ? (
+                        <div className="w-16 h-16 rounded-full overflow-hidden shadow-md">
+                          <img
+                            src={bookmark.influencer.profile_image}
+                            alt={bookmark.influencer.name || 'Influencer'}
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              // Fallback to placeholder if image fails to load
+                              const target = e.target as HTMLImageElement;
+                              target.style.display = 'none';
+                              target.nextElementSibling?.classList.remove('hidden');
+                            }}
+                          />
+                          <div className="w-16 h-16 bg-gradient-to-r from-pink-500 to-purple-600 rounded-full flex items-center justify-center shadow-md hidden">
+                            <span className="text-xl font-bold text-white">
+                              {bookmark.influencer?.name?.charAt(0) || '?'}
+                            </span>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="w-16 h-16 bg-gradient-to-r from-pink-500 to-purple-600 rounded-full flex items-center justify-center shadow-md">
+                          <span className="text-xl font-bold text-white">
+                            {bookmark.influencer?.name?.charAt(0) || '?'}
+                          </span>
+                        </div>
+                      )}
                       
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-2">
@@ -326,11 +347,11 @@ export default function BrandBookmarksPage() {
                         <div className="flex items-center gap-4 mb-3">
                           <span className="text-sm text-gray-600">
                             <HiUsers className="w-4 h-4 inline mr-1" />
-                            {formatFollowers(bookmark.influencer.followers)} followers
+                            {formatFollowers(bookmark.influencer.total_followers || bookmark.influencer.followers || 0)} followers
                           </span>
                           <span className="text-sm text-gray-600">
                             <HiHeart className="w-4 h-4 inline mr-1" />
-                            {bookmark.influencer.engagement_rate ?? 0}% engagement
+                            {bookmark.influencer.average_engagement_rate || bookmark.influencer.engagement_rate || 0}% engagement
                           </span>
                           <span className="text-sm text-gray-600">
                             {formatCurrency(bookmark.influencer.rate_per_post)}/post

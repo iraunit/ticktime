@@ -664,12 +664,20 @@ class InfluencerPublicSerializer(serializers.ModelSerializer):
     total_followers = serializers.ReadOnlyField()
     average_engagement_rate = serializers.ReadOnlyField()
     platforms = serializers.SerializerMethodField()
+    bio = serializers.CharField(read_only=True)
+    categories = serializers.SerializerMethodField()
+    followers = serializers.SerializerMethodField()
+    engagement_rate = serializers.SerializerMethodField()
+    rate_per_post = serializers.SerializerMethodField()
+    avg_rating = serializers.SerializerMethodField()
+    location = serializers.SerializerMethodField()
 
     class Meta:
         model = InfluencerProfile
         fields = (
             'id', 'username', 'name', 'profile_image', 'industry', 'is_verified',
-            'total_followers', 'average_engagement_rate', 'platforms'
+            'total_followers', 'average_engagement_rate', 'platforms', 'bio',
+            'categories', 'followers', 'engagement_rate', 'rate_per_post', 'avg_rating', 'location'
         )
 
     def get_name(self, obj):
@@ -677,11 +685,52 @@ class InfluencerPublicSerializer(serializers.ModelSerializer):
 
     def get_profile_image(self, obj):
         if obj.user_profile and obj.user_profile.profile_image:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.user_profile.profile_image.url)
             return obj.user_profile.profile_image.url
         return None
 
     def get_platforms(self, obj):
         return list(obj.social_accounts.filter(is_active=True).values_list('platform', flat=True))
+
+    def get_categories(self, obj):
+        """Get influencer categories."""
+        return list(obj.categories.values_list('name', flat=True))
+
+    def get_followers(self, obj):
+        """Get total followers count."""
+        return obj.total_followers
+
+    def get_engagement_rate(self, obj):
+        """Get average engagement rate."""
+        return float(obj.average_engagement_rate) if obj.average_engagement_rate else 0.0
+
+    def get_rate_per_post(self, obj):
+        """Get rate per post (placeholder - can be enhanced later)."""
+        # This could be calculated from historical deals or set by influencer
+        return 0  # Placeholder value
+
+    def get_avg_rating(self, obj):
+        """Get average rating from completed deals."""
+        from deals.models import Deal
+        avg_rating = Deal.objects.filter(
+            influencer=obj,
+            status='completed',
+            influencer_rating__isnull=False
+        ).aggregate(avg=models.Avg('influencer_rating'))['avg']
+        return round(avg_rating, 1) if avg_rating else 0.0
+
+    def get_location(self, obj):
+        """Get influencer location."""
+        location_parts = []
+        if obj.city:
+            location_parts.append(obj.city)
+        if obj.state:
+            location_parts.append(obj.state)
+        if obj.country:
+            location_parts.append(obj.country)
+        return ', '.join(location_parts) if location_parts else 'Location not specified'
 
 
 class SocialAccountPublicSerializer(serializers.ModelSerializer):
