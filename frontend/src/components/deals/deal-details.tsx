@@ -12,7 +12,7 @@ import {ContentStatus} from "./content-status";
 import {ContentSubmissionsList} from "./content-submissions-list";
 import {AddressSubmission} from "./address-submission";
 import {useDeal} from "@/hooks/use-deals";
-import {cn} from "@/lib/utils";
+import {cn, getMediaUrl} from "@/lib/utils";
 import {
     ArrowLeft,
     Calendar,
@@ -119,7 +119,7 @@ export function DealDetails({
                             <div
                                 className="w-12 h-12 rounded-lg overflow-hidden shadow-md border-2 border-white bg-white flex-shrink-0">
                                 <Image
-                                    src={deal.campaign.brand.logo}
+                                    src={getMediaUrl(deal.campaign.brand.logo) || ''}
                                     alt={deal?.campaign?.brand?.name || "Brand"}
                                     width={48}
                                     height={48}
@@ -183,7 +183,9 @@ export function DealDetails({
                             {/* Description */}
                             <div>
                                 <p className="text-sm text-gray-700 leading-relaxed mb-3">
-                                    {deal?.campaign?.description || 'Campaign details will be provided after acceptance'}
+                                    {(typeof deal?.campaign?.description === 'object'
+                                        ? (deal?.campaign?.description as any)?.description
+                                        : deal?.campaign?.description) || 'Campaign details will be provided after acceptance'}
                                 </p>
 
                                 {/* Content Requirements */}
@@ -194,7 +196,7 @@ export function DealDetails({
                                             📝 Content Requirements
                                         </h4>
                                         <p className="text-xs text-blue-800">
-                                            {deal.campaign.content_requirements}
+                                            {deal.campaign.content_requirements.description}
                                         </p>
                                     </div>
                                 )}
@@ -506,7 +508,11 @@ export function DealDetails({
                                                 </div>
                                             </div>
                                             {product.description && product.description !== 'description' && (
-                                                <p className="text-xs text-orange-700 mb-1">{product.description}</p>
+                                                <p className="text-xs text-orange-700 mb-1">
+                                                    {(typeof product.description === 'object'
+                                                        ? (product.description as any)?.description
+                                                        : product.description)}
+                                                </p>
                                             )}
                                             <div className="text-xs text-orange-600">
                                                 Qty: {product.quantity} × {formatCurrency(product.value)}

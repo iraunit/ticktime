@@ -172,10 +172,20 @@ class DealListSerializer(serializers.ModelSerializer):
         """Get campaign information without circular import."""
         if obj.campaign:
             request = self.context.get('request')
+            campaign_description = obj.campaign.description
+            if isinstance(campaign_description, dict):
+                campaign_description = campaign_description.get('description', '')
+
+            brand_description = ''
+            if obj.campaign.brand:
+                brand_description = obj.campaign.brand.description
+                if isinstance(brand_description, dict):
+                    brand_description = brand_description.get('description', '')
+
             return {
                 'id': obj.campaign.id,
                 'title': obj.campaign.title,
-                'description': obj.campaign.description,
+                'description': campaign_description,
                 'deal_type': obj.campaign.deal_type,
                 'cash_amount': str(obj.campaign.cash_amount),
                 'total_value': str(obj.campaign.total_value),
@@ -189,7 +199,7 @@ class DealListSerializer(serializers.ModelSerializer):
                     'name': obj.campaign.brand.name,
                     'logo': request.build_absolute_uri(obj.campaign.brand.logo.url) if obj.campaign.brand.logo and request else (obj.campaign.brand.logo.url if obj.campaign.brand.logo else None),
                     'industry': obj.campaign.brand.industry,
-                    'description': obj.campaign.brand.description,
+                    'description': brand_description,
                 } if obj.campaign.brand else None,
             }
         return None
@@ -326,10 +336,20 @@ class DealDetailSerializer(serializers.ModelSerializer):
     def get_campaign(self, obj):
         """Get campaign information without circular import."""
         if obj.campaign:
+            campaign_description = obj.campaign.description
+            if isinstance(campaign_description, dict):
+                campaign_description = campaign_description.get('description', '')
+
+            brand_description = ''
+            if obj.campaign.brand:
+                brand_description = obj.campaign.brand.description
+                if isinstance(brand_description, dict):
+                    brand_description = brand_description.get('description', '')
+
             return {
                 'id': obj.campaign.id,
                 'title': obj.campaign.title,
-                'description': obj.campaign.description,
+                'description': campaign_description,
                 'deal_type': obj.campaign.deal_type,
                 'cash_amount': str(obj.campaign.cash_amount),
                 'total_value': str(obj.campaign.total_value),
@@ -343,7 +363,7 @@ class DealDetailSerializer(serializers.ModelSerializer):
                     'name': obj.campaign.brand.name,
                     'logo': obj.campaign.brand.logo.url if obj.campaign.brand.logo else None,
                     'industry': obj.campaign.brand.industry,
-                    'description': obj.campaign.brand.description,
+                    'description': brand_description,
                 } if obj.campaign.brand else None,
             }
         return None
