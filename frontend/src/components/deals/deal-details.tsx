@@ -196,7 +196,7 @@ export function DealDetails({
                                             📝 Content Requirements
                                         </h4>
                                         <p className="text-xs text-blue-800">
-                                            {deal.campaign.content_requirements.description}
+                                            {deal.campaign.content_requirements}
                                         </p>
                                     </div>
                                 )}

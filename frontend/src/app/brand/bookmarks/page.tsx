@@ -347,11 +347,11 @@ export default function BrandBookmarksPage() {
                         <div className="flex items-center gap-4 mb-3">
                           <span className="text-sm text-gray-600">
                             <HiUsers className="w-4 h-4 inline mr-1" />
-                            {formatFollowers(bookmark.influencer.total_followers || bookmark.influencer.followers || 0)} followers
+                            {formatFollowers(bookmark.influencer.followers || 0)} followers
                           </span>
                           <span className="text-sm text-gray-600">
                             <HiHeart className="w-4 h-4 inline mr-1" />
-                            {bookmark.influencer.average_engagement_rate || bookmark.influencer.engagement_rate || 0}% engagement
+                            {bookmark.influencer.engagement_rate || 0}% engagement
                           </span>
                           <span className="text-sm text-gray-600">
                             {formatCurrency(bookmark.influencer.rate_per_post)}/post
