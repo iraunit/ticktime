@@ -111,21 +111,42 @@ export function ProfileForm({profile}: ProfileFormProps) {
             toast.success('Profile updated successfully!');
             setIsEditing(false); // Exit edit mode after successful save
         } catch (err: any) {
-            // Show validation errors as toast
-            if (err?.response?.data) {
+            // The API interceptor already processes the error and creates an ApiError object
+            // Check if it's already an ApiError (processed by interceptor)
+            if (err?.status === 'error' && err?.message) {
+                // Split multiple errors separated by semicolons
+                const errorMessages = err.message.split(';').map((msg: string) => msg.trim()).filter(Boolean);
+                errorMessages.forEach((errorMessage: string) => {
+                    toast.error(errorMessage);
+                });
+            }
+            // Fallback for unprocessed errors
+            else if (err?.response?.data) {
                 const errorData = err.response.data;
 
-                // Handle field-specific errors
-                if (typeof errorData === 'object') {
+                // Handle structured error response with status and message
+                if (errorData?.status === 'error' && errorData?.message) {
+                    // Split multiple errors separated by semicolons
+                    const errorMessages = errorData.message.split(';').map((msg: string) => msg.trim()).filter(Boolean);
+                    errorMessages.forEach((errorMessage: string) => {
+                        toast.error(errorMessage);
+                    });
+                }
+                // Handle field-specific errors (legacy format)
+                else if (typeof errorData === 'object' && !errorData.status) {
                     Object.keys(errorData).forEach(field => {
                         const fieldErrors = Array.isArray(errorData[field]) ? errorData[field] : [errorData[field]];
                         fieldErrors.forEach((error: string) => {
                             toast.error(`${field.charAt(0).toUpperCase() + field.slice(1)}: ${error}`);
                         });
                     });
-                } else if (typeof errorData === 'string') {
+                }
+                // Handle simple string error
+                else if (typeof errorData === 'string') {
                     toast.error(errorData);
-                } else {
+                }
+                // Handle other error formats
+                else {
                     toast.error('Failed to update profile. Please try again.');
                 }
             } else {
