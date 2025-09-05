@@ -1,254 +1,302 @@
 "use client";
 
-import {useCallback, useState} from 'react';
-import {useForm} from 'react-hook-form';
-import {zodResolver} from '@hookform/resolvers/zod';
-import {z} from 'zod';
-import {Button} from '@/components/ui/button';
-import {Input} from '@/components/ui/input';
-import {Textarea} from '@/components/ui/textarea';
-import {Badge} from '@/components/ui/badge';
-import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from '@/components/ui/select';
-import {Form, FormControl, FormField, FormItem, FormLabel, FormMessage} from '@/components/ui/form';
-import {toast} from '@/lib/toast';
-import {ErrorDisplay} from '@/components/ui/error-display';
-import {useProfile} from '@/hooks/use-profile';
-import {useErrorHandling} from '@/hooks/use-error-handling';
-import {useIndustries} from '@/hooks/use-industries';
-import {InfluencerProfile} from '@/types';
-import {getMediaUrl} from '@/lib/utils';
+import { useState, useCallback, useMemo } from 'react';
+import { useForm } from 'react-hook-form';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Badge } from '@/components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { toast } from '@/lib/toast';
+import { useProfile } from '@/hooks/use-profile';
+import { useIndustries } from '@/hooks/use-industries';
+import { InfluencerProfile } from '@/types';
+import { getMediaUrl } from '@/lib/utils';
+import { Save, Settings, AlertCircle, CheckCircle, Camera, User, Phone, Briefcase, MapPin } from '@/lib/icons';
+import { InfluencerCategories } from '@/components/profile/influencer-categories';
+import { CountrySelect } from '@/components/ui/country-select';
 
-// Import icons from our icon system
-import {Save, Settings} from '@/lib/icons';
-
-// Import custom components
-import {InfluencerCategories} from '@/components/profile/influencer-categories';
-import {CountrySelect} from '@/components/ui/country-select';
-
-const profileSchema = z.object({
-    // User fields
-    first_name: z.string().min(1, 'First name is required'),
-    last_name: z.string().min(1, 'Last name is required'),
-
-    // Common profile fields
-    gender: z.string().optional(),
-    country_code: z.string().min(1, 'Country code is required'),
-    phone_number: z.string().min(1, 'Phone number is required'),
-    country: z.string().optional(),
-    state: z.string().optional(),
-    city: z.string().optional(),
-    zipcode: z.string().optional(),
-    address_line1: z.string().optional(),
-    address_line2: z.string().optional(),
-
-    // Influencer specific fields
-    bio: z.string().optional(),
-    industry: z.string().min(1, 'Industry is required'),
-    categories: z.array(z.string()).optional(),
-    collaboration_types: z.array(z.string()).optional(),
-    minimum_collaboration_amount: z.number().optional(),
-});
-
-type ProfileFormData = z.infer<typeof profileSchema>;
+// Simple form data type without Zod
+type ProfileFormData = {
+  first_name: string;
+  last_name: string;
+  country_code: string;
+  phone_number: string;
+  industry: string;
+  bio?: string;
+  categories?: string[];
+  // Address fields
+  country?: string;
+  state?: string;
+  city?: string;
+  zipcode?: string;
+  address_line1?: string;
+  address_line2?: string;
+  // Additional fields
+  gender?: string;
+  collaboration_types?: string[];
+  minimum_collaboration_amount?: number;
+};
 
 interface ProfileFormProps {
     profile?: InfluencerProfile;
 }
 
-export function ProfileForm({profile}: ProfileFormProps) {
+export function ProfileForm({ profile }: ProfileFormProps) {
+  // State
+  const [isEditing, setIsEditing] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
     const [profileImage, setProfileImage] = useState<File | null>(null);
-    const [isSubmitting, setIsSubmitting] = useState(false);
-    const [isEditing, setIsEditing] = useState(false);
-    const [isLoading, setIsLoading] = useState(false);
+  const [showValidation, setShowValidation] = useState(false);
 
-    const {updateProfile, uploadProfileImage} = useProfile();
-    const {error, fieldErrors, isError, setError, clearError} = useErrorHandling();
-    const {industries, loading: industriesLoading} = useIndustries();
+  // Hooks
+  const { updateProfile, uploadProfileImage } = useProfile();
+  const { industries, loading: industriesLoading } = useIndustries();
 
+  // Form setup - NO ZOD RESOLVER!
     const form = useForm<ProfileFormData>({
-        resolver: zodResolver(profileSchema),
         defaultValues: {
-            // User fields
             first_name: profile?.user?.first_name || '',
             last_name: profile?.user?.last_name || '',
-
-            // Common profile fields from user_profile
-            gender: profile?.user_profile?.gender || '',
             country_code: profile?.user_profile?.country_code || '+91',
             phone_number: profile?.user_profile?.phone_number || '',
+      industry: profile?.industry || '',
+      bio: profile?.bio || '',
+      categories: profile?.categories || [],
+      // Address fields
             country: profile?.user_profile?.country || '',
             state: profile?.user_profile?.state || '',
             city: profile?.user_profile?.city || '',
             zipcode: profile?.user_profile?.zipcode || '',
             address_line1: profile?.user_profile?.address_line1 || '',
             address_line2: profile?.user_profile?.address_line2 || '',
-
-            // Influencer specific fields
-            bio: profile?.bio || '',
-            industry: profile?.industry || '',
-            categories: profile?.categories || [],
+      // Additional fields
+      gender: profile?.user_profile?.gender || '',
             collaboration_types: profile?.collaboration_types || ['hybrid'],
             minimum_collaboration_amount: profile?.minimum_collaboration_amount || undefined,
         },
         mode: 'onChange',
     });
 
-    const onSubmit = async (data: ProfileFormData) => {
-        setIsSubmitting(true);
-        setIsLoading(true);
-        clearError();
+  // Computed values
+  const formState = form.formState;
+  const watchedValues = form.watch();
+  const requiredFields = ['first_name', 'last_name', 'country_code', 'phone_number', 'industry', 'country', 'state', 'city', 'zipcode', 'address_line1', 'address_line2', 'gender'];
+  
+  const missingFields = useMemo(() => {
+    return requiredFields.filter(field => {
+      const value = watchedValues[field as keyof ProfileFormData];
+      return !value || (typeof value === 'string' && value.trim() === '');
+    });
+  }, [watchedValues]);
 
-        try {
-            // Update text fields via JSON
-            await updateProfile.mutateAsync(data);
+  // Simple validation function - NO ZOD!
+  const isFormValid = useMemo(() => {
+    return missingFields.length === 0;
+  }, [missingFields]);
 
-            // Upload image separately if provided
-            if (profileImage) {
-                await uploadProfileImage.mutateAsync(profileImage);
-                setProfileImage(null); // Clear after successful upload
-            }
+  // Handlers
+  const handleEditToggle = useCallback(() => {
+    if (isEditing) {
+      form.reset();
+      setProfileImage(null);
+    }
+    setIsEditing(!isEditing);
+    setShowValidation(false);
+  }, [isEditing, form]);
 
-            toast.success('Profile updated successfully!');
-            setIsEditing(false); // Exit edit mode after successful save
-        } catch (err: any) {
-            // The API interceptor already processes the error and creates an ApiError object
-            // Check if it's already an ApiError (processed by interceptor)
-            if (err?.status === 'error' && err?.message) {
-                // Split multiple errors separated by semicolons
-                const errorMessages = err.message.split(';').map((msg: string) => msg.trim()).filter(Boolean);
-                errorMessages.forEach((errorMessage: string) => {
-                    toast.error(errorMessage);
-                });
-            }
-            // Fallback for unprocessed errors
-            else if (err?.response?.data) {
-                const errorData = err.response.data;
-
-                // Handle structured error response with status and message
-                if (errorData?.status === 'error' && errorData?.message) {
-                    // Split multiple errors separated by semicolons
-                    const errorMessages = errorData.message.split(';').map((msg: string) => msg.trim()).filter(Boolean);
-                    errorMessages.forEach((errorMessage: string) => {
-                        toast.error(errorMessage);
-                    });
-                }
-                // Handle field-specific errors (legacy format)
-                else if (typeof errorData === 'object' && !errorData.status) {
-                    Object.keys(errorData).forEach(field => {
-                        const fieldErrors = Array.isArray(errorData[field]) ? errorData[field] : [errorData[field]];
-                        fieldErrors.forEach((error: string) => {
-                            toast.error(`${field.charAt(0).toUpperCase() + field.slice(1)}: ${error}`);
-                        });
-                    });
-                }
-                // Handle simple string error
-                else if (typeof errorData === 'string') {
-                    toast.error(errorData);
-                }
-                // Handle other error formats
-                else {
-                    toast.error('Failed to update profile. Please try again.');
-                }
-            } else {
-                toast.error('Failed to update profile. Please try again.');
-            }
-            setError(err);
-        } finally {
-            setIsSubmitting(false);
-            setIsLoading(false);
-        }
-    };
-
-
-    const handleImageSelect = (file: File) => {
+  const handleImageSelect = useCallback((file: File) => {
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('File size must be less than 5MB');
+      return;
+    }
+    if (!['image/jpeg', 'image/png', 'image/webp', 'image/gif'].includes(file.type)) {
+      toast.error('Please select a valid image file (JPEG, PNG, WebP, or GIF)');
+      return;
+    }
         setProfileImage(file);
-    };
+  }, []);
 
-    const handleImageUpload = async () => {
+  const handleImageUpload = useCallback(async () => {
         if (!profileImage) return;
-
-        setIsLoading(true);
-        clearError();
 
         try {
             await uploadProfileImage.mutateAsync(profileImage);
             setProfileImage(null);
             toast.success('Profile image updated successfully!');
-        } catch (err: any) {
-            if (err?.response?.data?.message) {
-                toast.error(err.response.data.message);
-            } else {
-                toast.error('Failed to upload image. Please try again.');
-            }
-            setError(err);
-        } finally {
-            setIsLoading(false);
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || 'Failed to upload image');
+    }
+  }, [profileImage, uploadProfileImage]);
+
+  const handleSubmit = useCallback(async (data: ProfileFormData) => {
+    setIsSubmitting(true);
+    
+    try {
+      await updateProfile.mutateAsync(data);
+      
+      if (profileImage) {
+        await uploadProfileImage.mutateAsync(profileImage);
+        setProfileImage(null);
+      }
+      
+      toast.success('Profile updated successfully!');
+      setIsEditing(false);
+    } catch (error: any) {
+      console.error('Profile update error:', error);
+      
+      // Handle structured error response
+      if (error?.response?.data) {
+        const errorData = error.response.data;
+        
+        if (errorData?.status === 'error' && errorData?.message) {
+          // Split multiple errors separated by semicolons
+          const errorMessages = errorData.message.split(';').map((msg: string) => msg.trim()).filter(Boolean);
+          errorMessages.forEach((errorMessage: string) => {
+            toast.error(errorMessage);
+          });
+        } else if (typeof errorData === 'string') {
+          toast.error(errorData);
+        } else {
+          toast.error('Failed to update profile. Please try again.');
         }
-    };
+      } else {
+        toast.error('Failed to update profile. Please try again.');
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
+  }, [updateProfile, uploadProfileImage, profileImage]);
 
-    const handleEditToggle = useCallback(() => {
-        if (isEditing) {
-            // Reset form to original values when canceling
-            form.reset({
-                // User fields
-                first_name: profile?.user?.first_name || '',
-                last_name: profile?.user?.last_name || '',
+  const triggerValidation = useCallback(async () => {
+    console.log('=== FORM VALIDATION DEBUG ===');
+    console.log('Form values:', form.getValues());
+    console.log('Missing fields:', missingFields);
+    console.log('Custom validation result:', isFormValid);
+    console.log('Form state:', {
+      isDirty: form.formState.isDirty,
+      isSubmitted: form.formState.isSubmitted,
+      errorCount: Object.keys(form.formState.errors).length
+    });
+    console.log('=============================');
+  }, [form, missingFields, isFormValid]);
 
-                // Common profile fields from user_profile
-                gender: profile?.user_profile?.gender || '',
-                country_code: profile?.user_profile?.country_code || '+91',
-                phone_number: profile?.user_profile?.phone_number || '',
-                country: profile?.user_profile?.country || '',
-                state: profile?.user_profile?.state || '',
-                city: profile?.user_profile?.city || '',
-                zipcode: profile?.user_profile?.zipcode || '',
-                address_line1: profile?.user_profile?.address_line1 || '',
-                address_line2: profile?.user_profile?.address_line2 || '',
-
-                // Influencer specific fields
-                bio: profile?.bio || '',
-                industry: profile?.industry || '',
-                categories: profile?.categories || [],
-                collaboration_types: profile?.collaboration_types || ['hybrid'],
-                minimum_collaboration_amount: profile?.minimum_collaboration_amount || undefined,
-            });
-            setProfileImage(null);
-        }
-        setIsEditing(!isEditing);
-        clearError();
-    }, [isEditing, form, profile, clearError]);
+  // Render validation status
+  const renderValidationStatus = () => {
+    if (!isEditing) return null;
 
     return (
-        <div className="space-y-4">
-            {/* Error Messages */}
-
-            {isError && (
-                <ErrorDisplay
-                    error={error}
-                    onRetry={() => clearError()}
-                />
+      <Alert className="mb-6">
+        <AlertCircle className="h-4 w-4" />
+        <AlertDescription className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            {isFormValid ? (
+              <CheckCircle className="h-4 w-4 text-green-600" />
+            ) : (
+              <AlertCircle className="h-4 w-4 text-red-600" />
             )}
-
-            {/* Edit Toggle Button */}
-            <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                    <Settings className="h-4 w-4 text-gray-500"/>
-                    <span className="text-sm text-gray-600">
-            {isEditing ? 'Editing mode' : 'View mode'}
+            <span className={isFormValid ? 'text-green-800' : 'text-red-800'}>
+              Form is {isFormValid ? 'valid' : 'invalid'}
+              {missingFields.length > 0 && ` (${missingFields.length} required fields missing)`}
           </span>
                 </div>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => setShowValidation(!showValidation)}
+            className="text-xs"
+          >
+            {showValidation ? 'Hide' : 'Show'} Details
+          </Button>
+        </AlertDescription>
+        
+        {showValidation && (
+          <div className="mt-3 p-3 bg-gray-50 rounded text-sm">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <h4 className="font-medium mb-2">Required Fields Status:</h4>
+                <ul className="space-y-1">
+                  {requiredFields.map(field => {
+                    const value = watchedValues[field as keyof ProfileFormData];
+                    const hasValue = value && (typeof value !== 'string' || value.trim() !== '');
+                    return (
+                      <li key={field} className={`flex items-center gap-2 ${hasValue ? 'text-green-600' : 'text-red-600'}`}>
+                        {hasValue ? <CheckCircle className="h-3 w-3" /> : <AlertCircle className="h-3 w-3" />}
+                        <span className="flex-1">{field.replace('_', ' ')}</span>
+                        <span className="text-xs text-gray-500">
+                          {hasValue ? `"${value}"` : 'Empty'}
+                        </span>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+              <div>
+                <h4 className="font-medium mb-2">Form State:</h4>
+                <ul className="space-y-1 text-gray-600">
+                  <li>• Valid: {isFormValid ? 'Yes' : 'No'}</li>
+                  <li>• Dirty: {formState.isDirty ? 'Yes' : 'No'}</li>
+                  <li>• Touched: {formState.isSubmitted ? 'Yes' : 'No'}</li>
+                  <li>• Total Errors: {Object.keys(formState.errors).length}</li>
+                  <li>• Missing Required: {missingFields.length}</li>
+                </ul>
+              </div>
+            </div>
+            
+            <div className="mt-4 p-2 bg-blue-50 rounded border border-blue-200">
+              <div className="flex items-center justify-between mb-2">
+                <h4 className="font-medium text-blue-800">Debug Info:</h4>
                 <Button
                     type="button"
                     variant="outline"
                     size="sm"
-                    onClick={handleEditToggle}
-                    className="text-sm"
+                  onClick={triggerValidation}
+                  className="text-xs h-6 px-2"
                 >
-                    {isEditing ? 'Cancel' : 'Edit Profile'}
+                  Trigger Validation
                 </Button>
+              </div>
+              <div className="text-xs text-blue-700 space-y-1">
+                <div>Form Values: {JSON.stringify(watchedValues, null, 2)}</div>
+                <div>Form Errors: {JSON.stringify(formState.errors, null, 2)}</div>
+                <div>Missing Fields: {JSON.stringify(missingFields, null, 2)}</div>
+                <div>Custom Validation: {isFormValid ? 'VALID' : 'INVALID'}</div>
+              </div>
             </div>
+          </div>
+        )}
+      </Alert>
+    );
+  };
 
-            {/* Hidden file input for image upload */}
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Settings className="h-5 w-5 text-gray-500" />
+          <h2 className="text-lg font-semibold text-gray-900">
+            {isEditing ? 'Edit Profile' : 'Profile Information'}
+          </h2>
+        </div>
+        <Button
+          type="button"
+          variant={isEditing ? "outline" : "default"}
+          onClick={handleEditToggle}
+          disabled={isSubmitting}
+        >
+          {isEditing ? 'Cancel' : 'Edit Profile'}
+        </Button>
+      </div>
+
+      {/* Validation Status */}
+      {renderValidationStatus()}
+
+      {/* Hidden file input */}
             {isEditing && (
                 <input
                     id="profile-image-input"
@@ -257,175 +305,192 @@ export function ProfileForm({profile}: ProfileFormProps) {
                     className="hidden"
                     onChange={(e) => {
                         const file = e.target.files?.[0];
-                        if (file) {
-                            if (file.size > 5 * 1024 * 1024) {
-                                alert('File size must be less than 5MB');
-                                return;
-                            }
-                            if (!['image/jpeg', 'image/png', 'image/webp', 'image/gif'].includes(file.type)) {
-                                alert('Please select a valid image file (JPEG, PNG, WebP, or GIF)');
-                                return;
-                            }
-                            handleImageSelect(file);
-                        }
+            if (file) handleImageSelect(file);
                     }}
                 />
             )}
 
+      {/* Form */}
             <Form {...form}>
-                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                    {/* Profile Image Upload */}
-                    <div className="space-y-2">
-                        <label className="text-sm font-medium">Profile Image</label>
-                        <div className="flex items-center gap-3">
-                            {/* Clickable Profile Image */}
+        <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
+          {/* Profile Image */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Camera className="h-5 w-5" />
+                Profile Image
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center gap-4">
                             <div className="relative group">
                                 <div
-                                    className={`relative w-20 h-20 rounded-full overflow-hidden border-2 border-gray-200 transition-all duration-200 ${
+                    className={`relative w-24 h-24 rounded-full overflow-hidden border-2 border-gray-200 transition-all duration-200 ${
                                         isEditing ? 'cursor-pointer hover:border-blue-400' : 'cursor-default'
                                     }`}
                                     onClick={isEditing ? () => document.getElementById('profile-image-input')?.click() : undefined}
                                 >
-                                    {(profile?.profile_image || profileImage) ? (
+                    {(profile?.user_profile?.profile_image || profileImage) ? (
                                         <>
-                                            {/* eslint-disable-next-line @next/next/no-img-element */}
                                             <img
-                                                src={profileImage ? URL.createObjectURL(profileImage) : getMediaUrl(profile?.profile_image)}
+                          src={profileImage ? URL.createObjectURL(profileImage) : getMediaUrl(profile?.user_profile?.profile_image)}
                                                 alt="Profile"
                                                 className="w-full h-full object-cover"
                                                 onError={(e) => {
-                                                    // Hide image if it fails to load
                                                     e.currentTarget.style.display = 'none';
                                                 }}
                                             />
-                                            {/* Hover Overlay - only show when editing */}
                                             {isEditing && (
-                                                <div
-                                                    className="absolute inset-0 bg-black bg-opacity-40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                                                    <svg className="w-5 h-5 text-white" fill="none"
-                                                         stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path strokeLinecap="round" strokeLinejoin="round"
-                                                              strokeWidth={2}
-                                                              d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/>
-                                                        <path strokeLinecap="round" strokeLinejoin="round"
-                                                              strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/>
-                                                    </svg>
+                          <div className="absolute inset-0 bg-black bg-opacity-40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                            <Camera className="w-6 h-6 text-white" />
                                                 </div>
                                             )}
                                         </>
                                     ) : (
-                                        // Empty state with upload icon
-                                        <div
-                                            className={`w-full h-full bg-gray-100 flex items-center justify-center transition-colors duration-200 ${
+                      <div className={`w-full h-full bg-gray-100 flex items-center justify-center transition-colors duration-200 ${
                                                 isEditing ? 'group-hover:bg-gray-200' : ''
                                             }`}>
-                                            <svg
-                                                className={`w-6 h-6 text-gray-400 ${isEditing ? 'group-hover:text-gray-600' : ''}`}
-                                                fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                                                      d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
-                                            </svg>
+                        <Camera className={`w-8 h-8 text-gray-400 ${isEditing ? 'group-hover:text-gray-600' : ''}`} />
                                         </div>
                                     )}
                                 </div>
 
-                                {/* Remove button - only show if image exists and editing */}
-                                {(profile?.profile_image || profileImage) && isEditing && (
+                  {(profile?.user_profile?.profile_image || profileImage) && isEditing && (
                                     <button
                                         type="button"
                                         onClick={(e) => {
                                             e.stopPropagation();
                                             setProfileImage(null);
-                                            // TODO: Also remove from backend if needed
                                         }}
-                                        className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-sm hover:bg-red-600 transition-colors shadow-sm"
+                      className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm hover:bg-red-600 transition-colors shadow-sm"
                                     >
                                         ×
                                     </button>
                                 )}
                             </div>
 
-                            {/* Upload Instructions */}
                             <div className="flex-1">
                                 <p className="text-sm text-gray-600 mb-1">
                                     {isEditing
-                                        ? `Click on the image to ${profile?.profile_image ? 'change' : 'upload'} your profile photo`
+                      ? `Click to ${profile?.user_profile?.profile_image ? 'change' : 'upload'} your profile photo`
                                         : 'Your profile photo'
                                     }
                                 </p>
                                 {isEditing && (
                                     <p className="text-xs text-gray-500">
-                                        PNG, JPG, WebP or GIF up to 5MB<br/>
-                                        Recommended: Square image, at least 400×400 pixels
+                      PNG, JPG, WebP or GIF up to 5MB
                                     </p>
                                 )}
                             </div>
                         </div>
 
-                        {/* Upload Button - only show when image is selected */}
                         {profileImage && isEditing && (
-                            <div className="flex items-center gap-3 pt-1">
+                <div className="flex items-center gap-3 mt-4">
                                 <Button type="button" size="sm" onClick={handleImageUpload} disabled={isSubmitting}>
-                                    {isSubmitting ? <>
-                                        <div className="flex space-x-1 mr-2">
-                                            {[0, 1, 2].map((i) => (
-                                                <div
-                                                    key={i}
-                                                    className="w-1.5 h-1.5 rounded-full bg-white animate-pulse"
-                                                    style={{
-                                                        animationDelay: `${i * 0.2}s`,
-                                                        animationDuration: '1.4s'
-                                                    }}
-                                                />
-                                            ))}
-                                        </div>
-                                        Uploading...</> : 'Save Image'}
+                    {isSubmitting ? 'Uploading...' : 'Save Image'}
                                 </Button>
                                 <span className="text-xs text-gray-500">Click to save your new profile image</span>
                             </div>
                         )}
-                    </div>
+            </CardContent>
+          </Card>
 
-                    {/* Name Fields */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          {/* Personal Information */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <User className="h-5 w-5" />
+                Personal Information
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <FormField
                             control={form.control}
                             name="first_name"
-                            render={({field}) => (
+                  render={({ field }) => (
                                 <FormItem>
                                     <FormLabel>First Name *</FormLabel>
                                     <FormControl>
-                                        <Input
-                                            {...field}
-                                            disabled={!isEditing}
-                                            className={!isEditing ? 'bg-gray-50' : ''}
-                                        />
+                        <Input {...field} disabled={!isEditing} />
                                     </FormControl>
-                                    <FormMessage/>
+                      <FormMessage />
                                 </FormItem>
                             )}
                         />
-
                         <FormField
                             control={form.control}
                             name="last_name"
-                            render={({field}) => (
+                  render={({ field }) => (
                                 <FormItem>
                                     <FormLabel>Last Name *</FormLabel>
                                     <FormControl>
-                                        <Input
-                                            {...field}
-                                            disabled={!isEditing}
-                                            className={!isEditing ? 'bg-gray-50' : ''}
-                                        />
+                        <Input {...field} disabled={!isEditing} />
                                     </FormControl>
-                                    <FormMessage/>
+                      <FormMessage />
                                 </FormItem>
                             )}
                         />
                     </div>
 
-                    {/* Email Field */}
+              <FormField
+                control={form.control}
+                name="gender"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Gender *</FormLabel>
+                    <Select
+                      onValueChange={field.onChange}
+                      value={field.value}
+                      disabled={!isEditing}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select your gender" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="male">Male</SelectItem>
+                        <SelectItem value="female">Female</SelectItem>
+                        <SelectItem value="other">Other</SelectItem>
+                        <SelectItem value="prefer_not_to_say">Prefer not to say</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="bio"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>About</FormLabel>
+                    <FormControl>
+                      <Textarea
+                        {...field}
+                        placeholder="Tell us about yourself, your content style, and what makes you unique..."
+                        rows={3}
+                        disabled={!isEditing}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </CardContent>
+          </Card>
+
+          {/* Contact Information */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Phone className="h-5 w-5" />
+                Contact Details
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
                     <div className="space-y-2">
                         <label className="text-sm font-medium text-gray-700">Email Address</label>
                         <div className="flex items-center gap-2 p-3 bg-gray-50 rounded-lg border">
@@ -439,18 +504,16 @@ export function ProfileForm({profile}: ProfileFormProps) {
                         <p className="text-xs text-gray-500">Email verification status is managed by the system</p>
                     </div>
 
-                    {/* Contact Fields */}
                     <div className="space-y-2">
                         <FormLabel className="flex items-center gap-2">
                             WhatsApp Number *
                             <Badge className="bg-green-100 text-green-800 text-xs">WhatsApp</Badge>
                         </FormLabel>
-
                         <div className="flex gap-3">
                             <FormField
                                 control={form.control}
                                 name="country_code"
-                                render={({field}) => (
+                    render={({ field }) => (
                                     <FormItem className="w-fit">
                                         <FormControl>
                                             <CountrySelect
@@ -460,64 +523,67 @@ export function ProfileForm({profile}: ProfileFormProps) {
                                                 placeholder="Code"
                                             />
                                         </FormControl>
-                                        <FormMessage/>
+                        <FormMessage />
                                     </FormItem>
                                 )}
                             />
-
                             <FormField
                                 control={form.control}
                                 name="phone_number"
-                                render={({field}) => (
+                    render={({ field }) => (
                                     <FormItem className="flex-1">
                                         <FormControl>
                                             <Input
                                                 {...field}
                                                 disabled={!isEditing}
-                                                className={!isEditing ? 'bg-gray-50' : ''}
                                                 placeholder="Enter your WhatsApp number"
                                             />
                                         </FormControl>
-                                        <FormMessage/>
+                        <FormMessage />
                                     </FormItem>
                                 )}
                             />
                         </div>
-
                         <div className="flex items-center gap-2">
                             {profile?.phone_verified ? (
                                 <Badge className="bg-green-100 text-green-800 text-xs">Verified</Badge>
                             ) : (
                                 <Badge className="bg-yellow-100 text-yellow-800 text-xs">Unverified</Badge>
                             )}
-                            <p className="text-xs text-gray-500">Please provide your WhatsApp number for
-                                communication</p>
+                  <p className="text-xs text-gray-500">Please provide your WhatsApp number for communication</p>
                         </div>
                     </div>
+            </CardContent>
+          </Card>
 
-                    {/* Industry Field */}
-                    <div className="space-y-4 border-t border-gray-200 pt-4 mt-4">
-                        <h3 className="font-medium text-gray-900">Content Information</h3>
-
+          {/* Content & Industry */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Briefcase className="h-5 w-5" />
+                Content & Industry
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
                         <FormField
                             control={form.control}
                             name="industry"
-                            render={({field}) => (
+                render={({ field }) => (
                                 <FormItem>
                                     <FormLabel>Industry *</FormLabel>
-                                    <FormControl>
                                         <Select
                                             onValueChange={field.onChange}
                                             value={field.value}
                                             disabled={!isEditing || industriesLoading}
                                         >
-                                            <SelectTrigger className={!isEditing ? 'bg-gray-50' : ''}>
-                                                <SelectValue placeholder="Select your industry"/>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select your industry" />
                                             </SelectTrigger>
+                      </FormControl>
                                             <SelectContent>
                                                 {industriesLoading ? (
-                                                    <SelectItem value="loading" disabled>Loading
-                                                        industries...</SelectItem>
+                          <SelectItem value="loading" disabled>Loading industries...</SelectItem>
                                                 ) : (
                                                     industries.map((industry) => (
                                                         <SelectItem key={industry.key} value={industry.key}>
@@ -527,17 +593,15 @@ export function ProfileForm({profile}: ProfileFormProps) {
                                                 )}
                                             </SelectContent>
                                         </Select>
-                                    </FormControl>
-                                    <FormMessage/>
+                    <FormMessage />
                                 </FormItem>
                             )}
                         />
 
-                        {/* Categories Field */}
                         <FormField
                             control={form.control}
                             name="categories"
-                            render={({field}) => (
+                render={({ field }) => (
                                 <FormItem>
                                     <FormLabel>Content Categories</FormLabel>
                                     <FormControl>
@@ -547,289 +611,119 @@ export function ProfileForm({profile}: ProfileFormProps) {
                                             disabled={!isEditing}
                                         />
                                     </FormControl>
-                                    <FormMessage/>
+                    <FormMessage />
                                 </FormItem>
                             )}
                         />
-                    </div>
+            </CardContent>
+          </Card>
 
-                    {/* Bio Field */}
-                    <FormField
-                        control={form.control}
-                        name="bio"
-                        render={({field}) => (
-                            <FormItem>
-                                <FormLabel>About</FormLabel>
-                                <FormControl>
-                                    <Textarea
-                                        {...field}
-                                        placeholder="Tell us about yourself, your content style, and what makes you unique..."
-                                        rows={3}
-                                        disabled={!isEditing}
-                                        className={!isEditing ? 'bg-gray-50' : ''}
-                                    />
-                                </FormControl>
-                                <FormMessage/>
-                            </FormItem>
-                        )}
-                    />
-
-                    {/* Collaboration Preferences */}
-                    <div className="space-y-4 border-t border-gray-200 pt-4 mt-4">
-                        <h3 className="font-medium text-gray-900">Collaboration Preferences</h3>
-
-                        <FormField
-                            control={form.control}
-                            name="collaboration_types"
-                            render={({field}) => (
-                                <FormItem>
-                                    <FormLabel>Collaboration Types *</FormLabel>
-                                    <FormControl>
-                                        <div className="space-y-3">
-                                            <div className="flex flex-wrap gap-2">
-                                                {['cash', 'barter', 'hybrid'].map((type) => {
-                                                    const isSelected = field.value?.includes(type) || false;
-                                                    return (
-                                                        <button
-                                                            key={type}
-                                                            type="button"
-                                                            disabled={!isEditing}
-                                                            onClick={() => {
-                                                                if (!isEditing) return;
-                                                                const currentTypes = field.value || [];
-                                                                if (isSelected) {
-                                                                    // Remove from selection
-                                                                    field.onChange(currentTypes.filter((t: string) => t !== type));
-                                                                } else {
-                                                                    // Add to selection
-                                                                    field.onChange([...currentTypes, type]);
-                                                                }
-                                                            }}
-                                                            className={`px-4 py-2 rounded-lg border-2 transition-all duration-200 ${
-                                                                isSelected
-                                                                    ? 'border-blue-500 bg-blue-50 text-blue-700'
-                                                                    : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
-                                                            } ${!isEditing ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
-                                                        >
-                                                            {type === 'cash' && '💰 Cash Only'}
-                                                            {type === 'barter' && '🎁 Barter Only'}
-                                                            {type === 'hybrid' && '💎 Cash + Barter'}
-                                                        </button>
-                                                    );
-                                                })}
-                                            </div>
-                                            <p className="text-sm text-gray-500">
-                                                Select all collaboration types you're open to. You can choose multiple
-                                                options.
-                                            </p>
-                                        </div>
-                                    </FormControl>
-                                    <FormMessage/>
-                                </FormItem>
-                            )}
-                        />
-
-                        <FormField
-                            control={form.control}
-                            name="minimum_collaboration_amount"
-                            render={({field}) => (
-                                <FormItem>
-                                    <FormLabel>Minimum Collaboration Amount (₹)</FormLabel>
-                                    <FormControl>
-                                        <Input
-                                            {...field}
-                                            type="number"
-                                            placeholder="Enter minimum amount for cash collaborations"
-                                            disabled={!isEditing}
-                                            className={!isEditing ? 'bg-gray-50' : ''}
-                                            onChange={(e) => field.onChange(e.target.value ? parseFloat(e.target.value) : undefined)}
-                                        />
-                                    </FormControl>
-                                    <FormMessage/>
-                                    <p className="text-xs text-gray-500">This is the minimum amount you require for cash
-                                        collaborations</p>
-                                </FormItem>
-                            )}
-                        />
-                    </div>
-
-                    {/* Display selected collaboration types in view mode */}
-                    {!isEditing && (
-                        <div className="space-y-2">
-                            <FormLabel>Selected Collaboration Types</FormLabel>
-                            <div className="flex flex-wrap gap-2">
-                                {(() => {
-                                    const selectedTypes = form.getValues().collaboration_types || [];
-                                    return selectedTypes.length > 0 ? (
-                                        selectedTypes.map((type) => (
-                                            <Badge key={type} className="bg-blue-100 text-blue-800">
-                                                {type === 'cash' && '💰 Cash Only'}
-                                                {type === 'barter' && '🎁 Barter Only'}
-                                                {type === 'hybrid' && '💎 Cash + Barter'}
-                                            </Badge>
-                                        ))
-                                    ) : (
-                                        <p className="text-sm text-gray-500">No collaboration types selected</p>
-                                    );
-                                })()}
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Gender Selection */}
-                    <FormField
-                        control={form.control}
-                        name="gender"
-                        render={({field}) => (
-                            <FormItem>
-                                <FormLabel>Gender</FormLabel>
-                                <FormControl>
-                                    <Select
-                                        onValueChange={field.onChange}
-                                        value={field.value}
-                                        disabled={!isEditing}
-                                    >
-                                        <SelectTrigger className={!isEditing ? 'bg-gray-50' : ''}>
-                                            <SelectValue placeholder="Select your gender"/>
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="male">Male</SelectItem>
-                                            <SelectItem value="female">Female</SelectItem>
-                                            <SelectItem value="other">Other</SelectItem>
-                                            <SelectItem value="prefer_not_to_say">Prefer not to say</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                </FormControl>
-                                <FormMessage/>
-                            </FormItem>
-                        )}
-                    />
-
-                    {/* Location Fields */}
-                    <div className="space-y-4 border-t border-gray-200 pt-4 mt-4">
-                        <h3 className="font-medium text-gray-900">Location Information</h3>
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                            <FormField
-                                control={form.control}
-                                name="country"
-                                render={({field}) => (
-                                    <FormItem>
-                                        <FormLabel>Country</FormLabel>
-                                        <FormControl>
-                                            <Input
-                                                {...field}
-                                                disabled={!isEditing}
-                                                className={!isEditing ? 'bg-gray-50' : ''}
-                                            />
-                                        </FormControl>
-                                        <FormMessage/>
-                                    </FormItem>
-                                )}
-                            />
-
-                            <FormField
-                                control={form.control}
-                                name="state"
-                                render={({field}) => (
-                                    <FormItem>
-                                        <FormLabel>State/Province</FormLabel>
-                                        <FormControl>
-                                            <Input
-                                                {...field}
-                                                disabled={!isEditing}
-                                                className={!isEditing ? 'bg-gray-50' : ''}
-                                            />
-                                        </FormControl>
-                                        <FormMessage/>
-                                    </FormItem>
-                                )}
-                            />
+          {/* Location Information */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <MapPin className="h-5 w-5" />
+                Location Information
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            <FormField
+                  control={form.control}
+                  name="country"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Country *</FormLabel>
+                      <FormControl>
+                        <Input {...field} disabled={!isEditing} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="state"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>State/Province *</FormLabel>
+                      <FormControl>
+                        <Input {...field} disabled={!isEditing} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
                         </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                            <FormField
-                                control={form.control}
-                                name="city"
-                                render={({field}) => (
-                                    <FormItem>
-                                        <FormLabel>City</FormLabel>
-                                        <FormControl>
-                                            <Input
-                                                {...field}
-                                                disabled={!isEditing}
-                                                className={!isEditing ? 'bg-gray-50' : ''}
-                                            />
-                                        </FormControl>
-                                        <FormMessage/>
-                                    </FormItem>
-                                )}
-                            />
-
-                            <FormField
-                                control={form.control}
-                                name="zipcode"
-                                render={({field}) => (
-                                    <FormItem>
-                                        <FormLabel>Zip/Postal Code</FormLabel>
-                                        <FormControl>
-                                            <Input
-                                                {...field}
-                                                disabled={!isEditing}
-                                                className={!isEditing ? 'bg-gray-50' : ''}
-                                            />
-                                        </FormControl>
-                                        <FormMessage/>
-                                    </FormItem>
-                                )}
-                            />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            <FormField
+                  control={form.control}
+                  name="city"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>City *</FormLabel>
+                      <FormControl>
+                        <Input {...field} disabled={!isEditing} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="zipcode"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Zip/Postal Code *</FormLabel>
+                      <FormControl>
+                        <Input {...field} disabled={!isEditing} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
                         </div>
 
-                        <div className="grid grid-cols-1 gap-3">
-                            <FormField
-                                control={form.control}
-                                name="address_line1"
-                                render={({field}) => (
-                                    <FormItem>
-                                        <FormLabel>Address Line 1</FormLabel>
-                                        <FormControl>
-                                            <Input
-                                                {...field}
-                                                disabled={!isEditing}
-                                                className={!isEditing ? 'bg-gray-50' : ''}
-                                                placeholder="Street address, apartment, etc."
-                                            />
-                                        </FormControl>
-                                        <FormMessage/>
-                                    </FormItem>
-                                )}
-                            />
-
-                            <FormField
-                                control={form.control}
-                                name="address_line2"
-                                render={({field}) => (
-                                    <FormItem>
-                                        <FormLabel>Address Line 2 (Optional)</FormLabel>
-                                        <FormControl>
-                                            <Input
-                                                {...field}
-                                                disabled={!isEditing}
-                                                className={!isEditing ? 'bg-gray-50' : ''}
-                                                placeholder="Suite, floor, building, etc. (optional)"
-                                            />
-                                        </FormControl>
-                                        <FormMessage/>
-                                    </FormItem>
-                                )}
-                            />
+              <div className="grid grid-cols-1 gap-4">
+                                            <FormField
+                  control={form.control}
+                  name="address_line1"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Address Line 1 *</FormLabel>
+                      <FormControl>
+                        <Input {...field} disabled={!isEditing} placeholder="Street address, apartment, etc." />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="address_line2"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Address Line 2 *</FormLabel>
+                      <FormControl>
+                        <Input {...field} disabled={!isEditing} placeholder="Suite, floor, building, etc." />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
                         </div>
-                    </div>
+            </CardContent>
+          </Card>
 
-                    {/* Save Button - only show when editing */}
+          {/* Submit Button */}
                     {isEditing && (
-                        <div className="flex items-center gap-3 pt-3 border-t border-gray-100">
-                            <Button type="submit" disabled={isSubmitting || !form.formState.isValid}>
+            <div className="flex items-center gap-4 pt-6 border-t">
+              <Button
+                type="submit"
+                disabled={isSubmitting || !isFormValid}
+                className="min-w-[140px]"
+              >
                                 {isSubmitting ? (
                                     <>
                                         <div className="flex space-x-1 mr-2">
@@ -848,14 +742,18 @@ export function ProfileForm({profile}: ProfileFormProps) {
                                     </>
                                 ) : (
                                     <>
-                                        <Save className="w-4 h-4 mr-2"/>
+                    <Save className="w-4 h-4 mr-2" />
                                         Save Changes
                                     </>
                                 )}
                             </Button>
-                            <Button type="button" variant="outline" onClick={handleEditToggle}>
-                                Cancel
-                            </Button>
+              
+              {!isFormValid && (
+                <div className="flex items-center gap-2 text-sm text-red-600">
+                  <AlertCircle className="h-4 w-4" />
+                  <span>Please fill all required fields to save</span>
+                </div>
+              )}
                         </div>
                     )}
                 </form>

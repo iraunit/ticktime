@@ -1,15 +1,13 @@
-from rest_framework import serializers
-from django.contrib.auth.models import User
-from django.core.exceptions import ValidationError
-from django.utils import timezone
-from .models import InfluencerProfile, SocialMediaAccount, InfluencerCategoryScore
+import re
+
 from common.models import (
     INDUSTRY_CHOICES, PLATFORM_CHOICES, DEAL_STATUS_CHOICES,
     DEAL_TYPE_CHOICES, CONTENT_TYPE_CHOICES
 )
-import re
-import json
 from django.db import models
+from rest_framework import serializers
+
+from .models import InfluencerProfile, SocialMediaAccount, InfluencerCategoryScore
 
 
 class InfluencerProfileSerializer(serializers.ModelSerializer):
@@ -88,6 +86,8 @@ class InfluencerProfileSerializer(serializers.ModelSerializer):
         # Convert ManyToMany categories to list of category keys
         if 'categories' in data:
             data['categories'] = [cat.key for cat in instance.categories.all()]
+        if 'collaboration_types' in data:
+            data['collaboration_types'] = instance.collaboration_types
         return data
 
     def validate_username(self, value):
@@ -241,6 +241,7 @@ class InfluencerProfileUpdateSerializer(serializers.ModelSerializer):
 
         # Extract many-to-many fields that need special handling
         categories = validated_data.pop('categories', None)
+        collaboration_types = validated_data.pop('collaboration_types', None)
 
         # Update user fields
         user = instance.user
@@ -319,6 +320,9 @@ class InfluencerProfileUpdateSerializer(serializers.ModelSerializer):
         # Handle many-to-many fields separately
         if categories is not None:
             instance.categories.set(categories)
+
+        if collaboration_types is not None:
+            instance.collaboration_types = collaboration_types
 
         return instance
 
@@ -939,7 +943,7 @@ class InfluencerPublicProfileSerializer(serializers.ModelSerializer):
     def get_performance_metrics(self, obj):
         """Get performance metrics for this influencer."""
         from deals.models import Deal
-        from django.db.models import Avg, Count
+        from django.db.models import Avg
 
         deals = Deal.objects.filter(influencer=obj)
         completed_deals = deals.filter(status='completed')
