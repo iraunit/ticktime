@@ -37,6 +37,10 @@ export interface InfluencerProfile {
     aadhar_number?: string;
     aadhar_document?: string;
     is_verified: boolean;
+    collaboration_types?: ('cash' | 'barter' | 'hybrid')[];
+    minimum_collaboration_amount?: number;
+    email_verified?: boolean;
+    phone_verified?: boolean;
     created_at: string;
     updated_at: string;
 }
@@ -313,6 +317,8 @@ export interface ProfileUpdateForm {
     bio?: string;
     industry: string;
     categories?: string[];
+    collaboration_types?: ('cash' | 'barter' | 'hybrid')[];
+    minimum_collaboration_amount?: number;
     profile_image?: File;
 }
 

@@ -97,6 +97,21 @@ class InfluencerProfile(models.Model):
     campaign_ready = models.BooleanField(default=False, help_text='Ready for general campaigns')
     barter_ready = models.BooleanField(default=False, help_text='Ready for barter campaigns')
     
+    # Collaboration preferences
+    collaboration_types = models.JSONField(
+        blank=True,
+        null=True,
+        default=list,
+        help_text='Preferred collaboration types (list of choices: cash, barter, hybrid)'
+    )
+    minimum_collaboration_amount = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text='Minimum amount required for cash collaborations'
+    )
+    
     # Financial information
     bank_account_number = models.CharField(max_length=20, blank=True, default='')
     bank_ifsc_code = models.CharField(max_length=11, blank=True, default='')

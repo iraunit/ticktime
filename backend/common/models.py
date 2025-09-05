@@ -2,6 +2,7 @@ from django.db import models
 
 # Industry choices for influencer profiles
 INDUSTRY_CHOICES = [
+    ('fashion', 'Fashion'),
     ('fashion_beauty', 'Fashion & Beauty'),
     ('food_lifestyle', 'Food & Lifestyle'),
     ('tech_gaming', 'Tech & Gaming'),
@@ -113,6 +114,36 @@ class Industry(models.Model):
             models.Index(fields=['key']),
             models.Index(fields=['is_active']),
         ]
+
+    def __str__(self):
+        return self.name
+
+
+class ContentCategory(models.Model):
+    """
+    Content categories that influencers can specialize in.
+    This model represents specific content categories that influencers can choose from.
+    """
+    key = models.SlugField(max_length=50, unique=True)
+    name = models.CharField(max_length=100, unique=True)
+    description = models.TextField(blank=True, help_text="Optional description of the content category")
+    icon = models.CharField(max_length=50, blank=True, help_text="Icon name for UI display")
+    color = models.CharField(max_length=20, default='blue', help_text="Color theme for UI display")
+    is_active = models.BooleanField(default=True)
+    sort_order = models.PositiveIntegerField(default=0, help_text="Order for display in UI")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'content_categories'
+        verbose_name = 'Content Category'
+        verbose_name_plural = 'Content Categories'
+        indexes = [
+            models.Index(fields=['key']),
+            models.Index(fields=['is_active']),
+            models.Index(fields=['sort_order']),
+        ]
+        ordering = ['sort_order', 'name']
 
     def __str__(self):
         return self.name

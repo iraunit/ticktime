@@ -25,6 +25,8 @@ class InfluencerProfileSerializer(serializers.ModelSerializer):
     total_followers = serializers.ReadOnlyField()
     average_engagement_rate = serializers.ReadOnlyField()
     social_accounts_count = serializers.SerializerMethodField()
+    email_verified = serializers.SerializerMethodField()
+    phone_verified = serializers.SerializerMethodField()
 
     class Meta:
         model = InfluencerProfile
@@ -34,9 +36,11 @@ class InfluencerProfileSerializer(serializers.ModelSerializer):
             'address', 'aadhar_number', 'aadhar_document', 'is_verified',
             'bank_account_number', 'bank_ifsc_code', 'bank_account_holder_name',
             'total_followers', 'average_engagement_rate', 'social_accounts_count',
+            'collaboration_types', 'minimum_collaboration_amount',
+            'email_verified', 'phone_verified',
             'created_at', 'updated_at'
         )
-        read_only_fields = ('id', 'is_verified', 'created_at', 'updated_at')
+        read_only_fields = ('id', 'is_verified', 'email_verified', 'phone_verified', 'created_at', 'updated_at')
 
     def get_social_accounts_count(self, obj):
         """Get count of active social media accounts."""
@@ -69,6 +73,14 @@ class InfluencerProfileSerializer(serializers.ModelSerializer):
                 address_parts.append(obj.user_profile.zipcode)
             return ', '.join(address_parts)
         return ''
+
+    def get_email_verified(self, obj):
+        """Get email verification status from user profile."""
+        return obj.user_profile.email_verified if obj.user_profile else False
+
+    def get_phone_verified(self, obj):
+        """Get phone verification status from user profile."""
+        return obj.user_profile.phone_verified if obj.user_profile else False
 
     def to_representation(self, instance):
         """Handle categories for API response."""
@@ -119,6 +131,25 @@ class InfluencerProfileSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError("Please enter a valid IFSC code.")
         return value.upper() if value else value
 
+    def validate_collaboration_types(self, value):
+        """Validate collaboration types."""
+        if value:
+            valid_types = ['cash', 'barter', 'hybrid']
+            if not isinstance(value, list):
+                raise serializers.ValidationError("Collaboration types must be a list.")
+            
+            for collab_type in value:
+                if collab_type not in valid_types:
+                    raise serializers.ValidationError(
+                        f"Invalid collaboration type: {collab_type}. Must be one of: {', '.join(valid_types)}"
+                    )
+            
+            if len(value) == 0:
+                raise serializers.ValidationError("At least one collaboration type must be selected.")
+        
+        return value
+
+
 
 class InfluencerProfileUpdateSerializer(serializers.ModelSerializer):
     """
@@ -133,7 +164,8 @@ class InfluencerProfileUpdateSerializer(serializers.ModelSerializer):
         model = InfluencerProfile
         fields = (
             'first_name', 'last_name', 'phone_number', 'username', 
-            'industry', 'categories', 'bio', 'address'
+            'industry', 'categories', 'bio', 'address',
+            'collaboration_types', 'minimum_collaboration_amount'
         )
 
     def validate_username(self, value):
@@ -170,6 +202,9 @@ class InfluencerProfileUpdateSerializer(serializers.ModelSerializer):
         phone_number = validated_data.pop('phone_number', None)
         address = validated_data.pop('address', None)
         
+        # Extract many-to-many fields that need special handling
+        categories = validated_data.pop('categories', None)
+        
         # Update user fields
         if user_data:
             user = instance.user
@@ -191,10 +226,14 @@ class InfluencerProfileUpdateSerializer(serializers.ModelSerializer):
                 instance.user_profile.zipcode = address_parts[4].strip() if len(address_parts) > 4 else ''
             instance.user_profile.save()
         
-        # Update profile fields
+        # Update profile fields (excluding many-to-many fields)
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
         instance.save()
+        
+        # Handle many-to-many fields separately
+        if categories is not None:
+            instance.categories.set(categories)
         
         return instance
 

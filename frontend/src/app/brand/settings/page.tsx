@@ -900,7 +900,7 @@ export default function BrandSettingsPage() {
                                             </SelectTrigger>
                                             <SelectContent>
                                                 {industriesLoading ? (
-                                                    <SelectItem value="" disabled>Loading industries...</SelectItem>
+                                                    <SelectItem value="loading" disabled>Loading industries...</SelectItem>
                                                 ) : (
                                                     industries.map((industry) => (
                                                         <SelectItem key={industry.key} value={industry.key}>

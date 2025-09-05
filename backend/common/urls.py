@@ -4,8 +4,8 @@ from . import views
 app_name = 'common'
 
 urlpatterns = [
-    path('categories/', views.categories_list_view, name='categories-list'),
-    path('industries/', views.industries_list_view, name='industries-list'),
+    path('industries/', views.get_industries_view, name='get_industries'),
+    path('content-categories/', views.get_content_categories_view, name='get_content_categories'),
 ]
 
 

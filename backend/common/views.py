@@ -1,53 +1,39 @@
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated, AllowAny
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-
-from .models import Industry
+from .models import Industry, ContentCategory, INDUSTRY_CHOICES
+from .serializers import IndustrySerializer, ContentCategorySerializer
 
 
 @api_view(['GET'])
-@permission_classes([AllowAny])
-def categories_list_view(request):
+@permission_classes([IsAuthenticated])
+def get_industries_view(request):
     """
-    Public endpoint to list active industries used across the app.
+    Get all active industries.
     """
-    industries = Industry.objects.filter(is_active=True).order_by('name')
-    data = [
-        {
-            'id': i.id,
-            'key': i.key,
-            'name': i.name,
-        }
-        for i in industries
+    # Convert INDUSTRY_CHOICES to the format expected by frontend
+    industries = [
+        {'id': i, 'key': choice[0], 'name': choice[1]}
+        for i, choice in enumerate(INDUSTRY_CHOICES, 1)
     ]
+    
     return Response({
         'status': 'success',
-        'categories': data
+        'industries': industries
     }, status=status.HTTP_200_OK)
 
 
 @api_view(['GET'])
-@permission_classes([AllowAny])
-def industries_list_view(request):
+@permission_classes([IsAuthenticated])
+def get_content_categories_view(request):
     """
-    Public endpoint to list industries. Uses Industry model for industry data.
+    Get all active content categories.
     """
-    industries = Industry.objects.filter(is_active=True).order_by('name')
-    data = [
-        {
-            'id': i.id,
-            'key': i.key,
-            'name': i.name,
-            'description': i.description,
-        }
-        for i in industries
-    ]
+    categories = ContentCategory.objects.filter(is_active=True).order_by('sort_order', 'name')
+    serializer = ContentCategorySerializer(categories, many=True)
+    
     return Response({
         'status': 'success',
-        'industries': data
+        'categories': serializer.data
     }, status=status.HTTP_200_OK)
-
-from django.shortcuts import render
-
-# Create your views here.
