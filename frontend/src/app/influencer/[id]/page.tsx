@@ -12,14 +12,16 @@ import {
     HiArrowLeft,
     HiArrowTrendingDown,
     HiArrowTrendingUp,
+    HiChatBubbleLeft,
     HiChatBubbleLeftRight,
     HiCheckCircle,
     HiExclamationTriangle,
-    HiGlobeAlt,
+    HiEye,
     HiHeart,
     HiMinus,
+    HiPlay,
+    HiShare,
     HiStar,
-    HiUser,
     HiUsers
 } from "react-icons/hi2";
 
@@ -39,17 +41,84 @@ interface InfluencerProfile {
     created_at: string;
     social_accounts: SocialAccount[];
     recent_collaborations: Collaboration[];
+    brand_collaborations: BrandCollaboration[];
+    content_keywords: string[];
+    hashtags_used: HashtagUsage[];
+    performance_metrics: PerformanceMetrics;
+}
 
+interface BrandCollaboration {
+    id: number;
+    name: string;
+    logo?: string;
+    collaboration_count: number;
+}
+
+interface HashtagUsage {
+    tag: string;
+    count: number;
+}
+
+interface PerformanceMetrics {
+    total_campaigns: number;
+    completed_campaigns: number;
+    average_rating: number;
+    total_earnings: number;
 }
 
 interface SocialAccount {
     id: number;
     platform: string;
-    username: string;
+    handle: string;
+    username: string; // This is now mapped from 'handle' in the serializer
+    profile_url?: string;
+    platform_handle?: string;
+    platform_profile_link?: string;
     followers_count: number;
+    following_count: number;
+    posts_count: number;
     engagement_rate: number;
+    average_likes: number;
+    average_comments: number;
+    average_shares: number;
     is_active: boolean;
     verified: boolean;
+
+    // Platform-specific metrics
+    // Instagram
+    average_image_likes?: number;
+    average_image_comments?: number;
+    average_reel_plays?: number;
+    average_reel_likes?: number;
+    average_reel_comments?: number;
+
+    // YouTube
+    average_video_views?: number;
+    average_shorts_plays?: number;
+    average_shorts_likes?: number;
+    average_shorts_comments?: number;
+    subscribers_count?: number;
+
+    // TikTok
+    tiktok_followers?: number;
+    tiktok_following?: number;
+    tiktok_likes?: number;
+    tiktok_videos?: number;
+
+    // Twitter
+    twitter_followers?: number;
+    twitter_following?: number;
+    tweets_count?: number;
+
+    // Facebook
+    page_likes?: number;
+    page_followers?: number;
+
+    // Growth metrics
+    follower_growth_rate?: number;
+    subscriber_growth_rate?: number;
+    last_posted_at?: string;
+    post_performance_score?: number;
 }
 
 interface Collaboration {
@@ -60,7 +129,6 @@ interface Collaboration {
     created_at: string;
     rating?: number;
 }
-
 
 
 export default function InfluencerProfilePage() {
@@ -141,6 +209,98 @@ export default function InfluencerProfilePage() {
         return {icon: HiArrowTrendingDown, color: 'text-red-500', text: 'Low'};
     };
 
+    const getPlatformIcon = (platform: string) => {
+        const icons: { [key: string]: { icon: any, color: string, bgColor: string } } = {
+            instagram: {icon: '📷', color: 'text-pink-600', bgColor: 'bg-gradient-to-r from-purple-500 to-pink-500'},
+            youtube: {icon: '📺', color: 'text-red-600', bgColor: 'bg-red-500'},
+            tiktok: {icon: '🎵', color: 'text-black', bgColor: 'bg-black'},
+            twitter: {icon: '🐦', color: 'text-blue-500', bgColor: 'bg-blue-500'},
+            facebook: {icon: '📘', color: 'text-blue-600', bgColor: 'bg-blue-600'},
+            linkedin: {icon: '💼', color: 'text-blue-700', bgColor: 'bg-blue-700'},
+            snapchat: {icon: '👻', color: 'text-yellow-500', bgColor: 'bg-yellow-500'},
+            pinterest: {icon: '📌', color: 'text-red-500', bgColor: 'bg-red-500'}
+        };
+        return icons[platform] || {icon: '🌐', color: 'text-gray-600', bgColor: 'bg-gray-500'};
+    };
+
+    const getPlatformUrl = (platform: string, handle: string, platformProfileLink?: string) => {
+        if (platformProfileLink) return platformProfileLink;
+
+        const urls: { [key: string]: string } = {
+            instagram: `https://instagram.com/${handle.replace('@', '')}`,
+            youtube: `https://youtube.com/@${handle.replace('@', '')}`,
+            tiktok: `https://tiktok.com/@${handle.replace('@', '')}`,
+            twitter: `https://twitter.com/${handle.replace('@', '')}`,
+            facebook: `https://facebook.com/${handle.replace('@', '')}`,
+            linkedin: `https://linkedin.com/in/${handle.replace('@', '')}`,
+            snapchat: `https://snapchat.com/add/${handle.replace('@', '')}`,
+            pinterest: `https://pinterest.com/${handle.replace('@', '')}`
+        };
+        return urls[platform] || '#';
+    };
+
+    const getPlatformSpecificMetrics = (account: SocialAccount) => {
+        const metrics = [];
+
+        switch (account.platform) {
+            case 'instagram':
+                if (account.average_reel_plays) {
+                    metrics.push({
+                        label: 'Avg Reel Plays',
+                        value: formatFollowers(account.average_reel_plays),
+                        icon: HiPlay
+                    });
+                }
+                if (account.average_image_likes) {
+                    metrics.push({
+                        label: 'Avg Image Likes',
+                        value: formatFollowers(account.average_image_likes),
+                        icon: HiHeart
+                    });
+                }
+                break;
+            case 'youtube':
+                if (account.average_video_views) {
+                    metrics.push({
+                        label: 'Avg Video Views',
+                        value: formatFollowers(account.average_video_views),
+                        icon: HiEye
+                    });
+                }
+                if (account.subscribers_count) {
+                    metrics.push({
+                        label: 'Subscribers',
+                        value: formatFollowers(account.subscribers_count),
+                        icon: HiUsers
+                    });
+                }
+                if (account.average_shorts_plays) {
+                    metrics.push({
+                        label: 'Avg Shorts Plays',
+                        value: formatFollowers(account.average_shorts_plays),
+                        icon: HiPlay
+                    });
+                }
+                break;
+            case 'tiktok':
+                if (account.tiktok_likes) {
+                    metrics.push({label: 'Total Likes', value: formatFollowers(account.tiktok_likes), icon: HiHeart});
+                }
+                if (account.tiktok_videos) {
+                    metrics.push({label: 'Videos', value: account.tiktok_videos.toString(), icon: HiPlay});
+                }
+                break;
+            case 'twitter':
+                if (account.tweets_count) {
+                    metrics.push({label: 'Tweets', value: account.tweets_count.toString(), icon: HiChatBubbleLeft});
+                }
+                break;
+        }
+
+        return metrics;
+    };
+
+
     if (isLoading) {
         return (
             <div className="min-h-screen flex items-center justify-center">
@@ -166,28 +326,22 @@ export default function InfluencerProfilePage() {
     }
 
     return (
-        <div className="min-h-screen bg-gray-50">
-            <div className="container mx-auto px-4 py-6 max-w-6xl">
+        <div className="min-h-screen bg-white">
+            <div className="container mx-auto px-6 py-8 max-w-7xl">
                 {/* Header */}
-                <div className="relative mb-6">
-                    <div
-                        className="absolute inset-0 bg-gradient-to-r from-purple-500/5 via-pink-500/5 to-blue-500/5 rounded-xl -m-2"></div>
-
-                    <div className="relative flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 p-4">
-                        <div className="flex items-center gap-4">
-                            <div>
-                                <h1 className="text-2xl font-bold bg-gradient-to-r from-gray-900 via-purple-800 to-gray-900 bg-clip-text text-transparent mb-1">
-                                    Influencer Profile
-                                </h1>
-                                <p className="text-sm text-gray-600">
-                                    View detailed profile and collaboration history.
-                                </p>
-                            </div>
+                <div className="mb-8">
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <h1 className="text-2xl font-semibold text-gray-900 mb-1">
+                                Influencer Profile
+                            </h1>
+                            <p className="text-sm text-gray-500">
+                                Professional profile and collaboration history
+                            </p>
                         </div>
-
                         <div className="flex items-center gap-3">
                             {profile.is_verified && (
-                                <Badge className="bg-blue-100 text-blue-800 border-0">
+                                <Badge variant="outline" className="border-green-200 text-green-700 bg-green-50">
                                     <HiCheckCircle className="w-3 h-3 mr-1"/>
                                     Verified
                                 </Badge>
@@ -200,21 +354,21 @@ export default function InfluencerProfilePage() {
                     {/* Main Content */}
                     <div className="lg:col-span-2 space-y-6">
                         {/* Profile Overview */}
-                        <Card className="shadow-sm">
+                        <Card className="border border-gray-200">
                             <CardContent className="p-6">
-                                <div className="flex flex-col md:flex-row gap-6">
+                                <div className="flex items-start gap-6">
                                     {/* Profile Image */}
                                     <div className="flex-shrink-0">
                                         {profile.profile_image ? (
                                             <img
                                                 src={profile.profile_image}
                                                 alt={`${profile.user_first_name} ${profile.user_last_name}`}
-                                                className="w-32 h-32 rounded-full object-cover border-4 border-white shadow-lg"
+                                                className="w-20 h-20 rounded-full object-cover border border-gray-200"
                                             />
                                         ) : (
                                             <div
-                                                className="w-32 h-32 bg-gradient-to-r from-purple-500 to-pink-600 rounded-full flex items-center justify-center border-4 border-white shadow-lg">
-                        <span className="text-white text-2xl font-bold">
+                                                className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center border border-gray-200">
+                                                <span className="text-gray-600 text-lg font-medium">
                           {profile.user_first_name?.charAt(0)}{profile.user_last_name?.charAt(0)}
                         </span>
                                             </div>
@@ -224,82 +378,148 @@ export default function InfluencerProfilePage() {
                                     {/* Profile Info */}
                                     <div className="flex-1">
                                         <div className="flex items-center gap-3 mb-2">
-                                            <h2 className="text-2xl font-bold text-gray-900">
+                                            <h2 className="text-xl font-semibold text-gray-900">
                                                 {profile.user_first_name} {profile.user_last_name}
                                             </h2>
                                             {profile.is_verified && (
-                                                <HiCheckCircle className="w-6 h-6 text-blue-500"/>
+                                                <HiCheckCircle className="w-5 h-5 text-green-600"/>
                                             )}
                                         </div>
 
-                                        <p className="text-lg text-gray-600 mb-2">@{profile.username}</p>
+                                        <p className="text-sm text-gray-600 mb-3">@{profile.username}</p>
 
                                         <div className="flex flex-wrap gap-2 mb-4">
-                                            <Badge variant="outline" className="capitalize">
+                                            <Badge variant="outline" className="text-xs">
                                                 {profile.industry}
                                             </Badge>
-                                            {profile.categories.map((category) => (
-                                                <Badge key={category} variant="secondary" className="capitalize">
+                                            {profile.categories.slice(0, 3).map((category) => (
+                                                <Badge key={category} variant="secondary" className="text-xs">
                                                     {category}
                                                 </Badge>
                                             ))}
                                         </div>
 
-                                        <p className="text-gray-700 leading-relaxed">
+                                        <p className="text-sm text-gray-700 leading-relaxed mb-4">
                                             {profile.bio}
                                         </p>
+
+                                        {/* Key Metrics */}
+                                        <div className="grid grid-cols-4 gap-4">
+                                            <div className="text-center">
+                                                <div className="text-lg font-semibold text-gray-900">
+                                                    {formatFollowers(profile.total_followers)}
+                                                </div>
+                                                <div className="text-xs text-gray-500">Followers</div>
+                                            </div>
+                                            <div className="text-center">
+                                                <div className="text-lg font-semibold text-gray-900">
+                                                    {profile.average_engagement_rate}%
+                                                </div>
+                                                <div className="text-xs text-gray-500">Engagement</div>
+                                            </div>
+                                            <div className="text-center">
+                                                <div className="text-lg font-semibold text-gray-900">
+                                                    {profile.social_accounts_count}
+                                                </div>
+                                                <div className="text-xs text-gray-500">Platforms</div>
+                                            </div>
+                                            <div className="text-center">
+                                                <div className="text-lg font-semibold text-gray-900">
+                                                    {profile.performance_metrics?.completed_campaigns || 0}
+                                                </div>
+                                                <div className="text-xs text-gray-500">Campaigns</div>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             </CardContent>
                         </Card>
 
                         {/* Social Media Accounts */}
-                        <Card className="shadow-sm">
-                            <CardHeader>
-                                <CardTitle className="flex items-center gap-2">
-                                    <HiGlobeAlt className="w-5 h-5 text-blue-600"/>
+                        <Card className="border border-gray-200">
+                            <CardHeader className="pb-4">
+                                <CardTitle className="text-lg font-semibold text-gray-900">
                                     Social Media Accounts
                                 </CardTitle>
                             </CardHeader>
                             <CardContent>
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                <div className="space-y-4">
                                     {profile.social_accounts.map((account) => {
                                         const engagement = getEngagementTrend(account.engagement_rate);
-                                        return (
-                                            <div key={account.id}
-                                                 className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
-                                                <div className="flex items-center justify-between mb-3">
-                                                    <div className="flex items-center gap-2">
-                                                        <Badge variant="outline" className="capitalize">
-                                                            {account.platform}
-                                                        </Badge>
-                                                        {account.verified && (
-                                                            <HiCheckCircle className="w-4 h-4 text-blue-500"/>
-                                                        )}
-                                                    </div>
-                                                    <Badge
-                                                        variant={account.is_active ? "default" : "secondary"}
-                                                        className={account.is_active ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800"}
-                                                    >
-                                                        {account.is_active ? "Active" : "Inactive"}
-                                                    </Badge>
-                                                </div>
+                                        const platformIcon = getPlatformIcon(account.platform);
+                                        const platformUrl = getPlatformUrl(account.platform, account.handle, account.platform_profile_link);
 
-                                                <div className="space-y-2">
-                                                    <p className="font-medium text-gray-900">{account.username}</p>
-                                                    <div className="flex items-center justify-between text-sm">
-                                                        <span className="text-gray-500">Followers:</span>
-                                                        <span
-                                                            className="font-medium">{formatFollowers(account.followers_count)}</span>
-                                                    </div>
-                                                    <div className="flex items-center justify-between text-sm">
-                                                        <span className="text-gray-500">Engagement:</span>
-                                                        <div className="flex items-center gap-1">
-                                                            <engagement.icon className={`w-4 h-4 ${engagement.color}`}/>
-                                                            <span
-                                                                className="font-medium">{account.engagement_rate}%</span>
+                                        return (
+                                            <div key={account.id} className="border border-gray-200 rounded-lg p-4">
+                                                <div className="flex items-center justify-between mb-3">
+                                                    <div className="flex items-center gap-3">
+                                                        <div
+                                                            className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center">
+                                                            <span className="text-sm">{platformIcon.icon}</span>
+                                                        </div>
+                                                        <div>
+                                                            <h3 className="font-medium text-gray-900 capitalize">
+                                                                {account.platform}
+                                                            </h3>
+                                                            <p className="text-sm text-gray-600">
+                                                                @{account.handle}
+                                                            </p>
                                                         </div>
                                                     </div>
+                                                    <div className="flex items-center gap-2">
+                                                        {account.verified && (
+                                                            <HiCheckCircle className="w-4 h-4 text-green-600"/>
+                                                        )}
+                                                        <Badge
+                                                            variant={account.is_active ? "default" : "secondary"}
+                                                            className="text-xs"
+                                                        >
+                                                            {account.is_active ? "Active" : "Inactive"}
+                                                        </Badge>
+                                                    </div>
+                                                </div>
+
+                                                <div className="grid grid-cols-3 gap-4 mb-3">
+                                                    <div className="text-center">
+                                                        <div className="text-sm font-semibold text-gray-900">
+                                                            {formatFollowers(account.followers_count)}
+                                                        </div>
+                                                        <div className="text-xs text-gray-500">Followers</div>
+                                                    </div>
+                                                    <div className="text-center">
+                                                        <div className="text-sm font-semibold text-gray-900">
+                                                            {account.engagement_rate}%
+                                                        </div>
+                                                        <div className="text-xs text-gray-500">Engagement</div>
+                                                    </div>
+                                                    <div className="text-center">
+                                                        <div className="text-sm font-semibold text-gray-900">
+                                                            {account.posts_count}
+                                                        </div>
+                                                        <div className="text-xs text-gray-500">Posts</div>
+                                                    </div>
+                                                </div>
+
+                                                <div className="flex gap-2">
+                                                    <Button
+                                                        size="sm"
+                                                        variant="outline"
+                                                        className="flex-1 text-xs"
+                                                        onClick={() => window.open(platformUrl, '_blank')}
+                                                    >
+                                                        View Profile
+                                                    </Button>
+                                                    <Button
+                                                        size="sm"
+                                                        variant="ghost"
+                                                        className="text-xs"
+                                                        onClick={() => {
+                                                            navigator.clipboard.writeText(platformUrl);
+                                                            toast.success('Link copied');
+                                                        }}
+                                                    >
+                                                        <HiShare className="w-3 h-3"/>
+                                                    </Button>
                                                 </div>
                                             </div>
                                         );
@@ -308,93 +528,216 @@ export default function InfluencerProfilePage() {
                             </CardContent>
                         </Card>
 
-                        {/* Recent Collaborations */}
-                        <Card className="shadow-sm">
-                            <CardHeader>
-                                <CardTitle className="flex items-center gap-2">
-                                    <HiStar className="w-5 h-5 text-yellow-600"/>
-                                    Recent Collaborations
+                        {/* Brand Collaborations */}
+                        <Card className="border border-gray-200">
+                            <CardHeader className="pb-4">
+                                <CardTitle className="text-lg font-semibold text-gray-900">
+                                    Brand Collaborations
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                {profile.brand_collaborations && profile.brand_collaborations.length > 0 ? (
+                                    <div className="space-y-3">
+                                        {profile.brand_collaborations.map((brand) => (
+                                            <div key={brand.id}
+                                                 className="flex items-center justify-between p-3 border border-gray-200 rounded-lg">
+                                                <div className="flex items-center gap-3">
+                                                    {brand.logo ? (
+                                                        <img
+                                                            src={brand.logo}
+                                                            alt={brand.name}
+                                                            className="w-8 h-8 rounded-full object-cover border border-gray-200"
+                                                        />
+                                                    ) : (
+                                                        <div
+                                                            className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center">
+                                                            <span className="text-gray-600 font-medium text-sm">
+                                                                {brand.name.charAt(0)}
+                                                            </span>
+                                                        </div>
+                                                    )}
+                                                    <div>
+                                                        <h4 className="font-medium text-gray-900 text-sm">{brand.name}</h4>
+                                                        <p className="text-xs text-gray-500">
+                                                            {brand.collaboration_count} collaboration{brand.collaboration_count !== 1 ? 's' : ''}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                                <Badge variant="outline" className="text-xs">
+                                                    Partner
+                                                </Badge>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div className="text-center py-6">
+                                        <HiStar className="w-8 h-8 text-gray-300 mx-auto mb-2"/>
+                                        <p className="text-sm text-gray-500">No brand collaborations yet</p>
+                                    </div>
+                                )}
+                            </CardContent>
+                        </Card>
+
+                        {/* Content Keywords & Hashtags */}
+                        <Card className="border border-gray-200">
+                            <CardHeader className="pb-4">
+                                <CardTitle className="text-lg font-semibold text-gray-900">
+                                    Content Analysis
                                 </CardTitle>
                             </CardHeader>
                             <CardContent>
                                 <div className="space-y-4">
-                                    {profile.recent_collaborations.map((collab) => (
-                                        <div key={collab.id}
-                                             className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
-                                            <div className="flex items-center justify-between mb-2">
-                                                <div>
-                                                    <h4 className="font-medium text-gray-900">{collab.campaign_title}</h4>
-                                                    <p className="text-sm text-gray-600">{collab.brand_name}</p>
-                                                </div>
-                                                <div className="flex items-center gap-2">
-                                                    {getStatusBadge(collab.status)}
-                                                    {collab.rating && (
-                                                        <div className="flex items-center gap-1">
-                                                            <HiStar className="w-4 h-4 text-yellow-500"/>
-                                                            <span
-                                                                className="text-sm font-medium">{collab.rating}/5</span>
-                                                        </div>
-                                                    )}
-                                                </div>
+                                    {/* Hashtags */}
+                                    <div>
+                                        <h4 className="font-medium text-gray-900 mb-2 text-sm">Popular Hashtags</h4>
+                                        {profile.hashtags_used && profile.hashtags_used.length > 0 ? (
+                                            <div className="flex flex-wrap gap-1">
+                                                {profile.hashtags_used.slice(0, 10).map((hashtag, index) => (
+                                                    <Badge
+                                                        key={index}
+                                                        variant="outline"
+                                                        className="text-xs"
+                                                    >
+                                                        {hashtag.tag} ({hashtag.count})
+                                                    </Badge>
+                                                ))}
                                             </div>
-                                            <p className="text-xs text-gray-500">
-                                                {formatDate(collab.created_at)}
-                                            </p>
-                                        </div>
-                                    ))}
+                                        ) : (
+                                            <p className="text-xs text-gray-500">No hashtags available</p>
+                                        )}
+                                    </div>
+
+                                    {/* Content Keywords */}
+                                    <div>
+                                        <h4 className="font-medium text-gray-900 mb-2 text-sm">Content Keywords</h4>
+                                        {profile.content_keywords && profile.content_keywords.length > 0 ? (
+                                            <div className="flex flex-wrap gap-1">
+                                                {profile.content_keywords.slice(0, 10).map((keyword, index) => (
+                                                    <Badge
+                                                        key={index}
+                                                        variant="secondary"
+                                                        className="text-xs"
+                                                    >
+                                                        {keyword}
+                                                    </Badge>
+                                                ))}
+                                            </div>
+                                        ) : (
+                                            <p className="text-xs text-gray-500">No keywords available</p>
+                                        )}
+                                    </div>
                                 </div>
+                            </CardContent>
+                        </Card>
+
+                        {/* Recent Collaborations */}
+                        <Card className="border border-gray-200">
+                            <CardHeader className="pb-4">
+                                <CardTitle className="text-lg font-semibold text-gray-900">
+                                    Recent Collaborations
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                {profile.recent_collaborations && profile.recent_collaborations.length > 0 ? (
+                                    <div className="space-y-3">
+                                        {profile.recent_collaborations.map((collab) => (
+                                            <div key={collab.id} className="border border-gray-200 rounded-lg p-3">
+                                                <div className="flex items-center justify-between mb-2">
+                                                    <div>
+                                                        <h4 className="font-medium text-gray-900 text-sm">{collab.campaign_title}</h4>
+                                                        <p className="text-xs text-gray-600">{collab.brand_name}</p>
+                                                    </div>
+                                                    <div className="flex items-center gap-2">
+                                                        {getStatusBadge(collab.status)}
+                                                        {collab.rating && (
+                                                            <div className="flex items-center gap-1">
+                                                                <HiStar className="w-3 h-3 text-yellow-500"/>
+                                                                <span
+                                                                    className="text-xs font-medium">{collab.rating}/5</span>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                                <p className="text-xs text-gray-500">
+                                                    {formatDate(collab.created_at)}
+                                                </p>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div className="text-center py-6">
+                                        <HiStar className="w-8 h-8 text-gray-300 mx-auto mb-2"/>
+                                        <p className="text-sm text-gray-500">No recent collaborations</p>
+                                    </div>
+                                )}
                             </CardContent>
                         </Card>
                     </div>
 
                     {/* Sidebar */}
                     <div className="space-y-6">
-                        {/* Stats Overview */}
-                        <Card className="shadow-sm">
-                            <CardHeader>
-                                <CardTitle className="flex items-center gap-2">
-                                    <HiArrowTrendingUp className="w-5 h-5 text-green-600"/>
+                        {/* Performance Overview */}
+                        <Card className="border border-gray-200">
+                            <CardHeader className="pb-4">
+                                <CardTitle className="text-lg font-semibold text-gray-900">
                                     Performance Overview
                                 </CardTitle>
                             </CardHeader>
                             <CardContent>
-                                <div className="space-y-4">
+                                <div className="space-y-3">
                                     <div className="flex items-center justify-between">
-                                        <span className="text-sm text-gray-500">Total Followers:</span>
-                                        <span
-                                            className="font-semibold text-lg">{formatFollowers(profile.total_followers)}</span>
+                                        <span className="text-sm text-gray-600">Total Followers</span>
+                                        <span className="font-semibold text-gray-900">
+                                            {formatFollowers(profile.total_followers)}
+                                        </span>
                                     </div>
 
                                     <div className="flex items-center justify-between">
-                                        <span className="text-sm text-gray-500">Avg. Engagement:</span>
-                                        <div className="flex items-center gap-1">
-                                            <span className="font-semibold">{profile.average_engagement_rate}%</span>
-                                            {(() => {
-                                                const engagement = getEngagementTrend(profile.average_engagement_rate);
-                                                return <engagement.icon className={`w-4 h-4 ${engagement.color}`}/>;
-                                            })()}
-                                        </div>
+                                        <span className="text-sm text-gray-600">Avg. Engagement</span>
+                                        <span className="font-semibold text-gray-900">
+                                            {profile.average_engagement_rate}%
+                                        </span>
                                     </div>
 
                                     <div className="flex items-center justify-between">
-                                        <span className="text-sm text-gray-500">Social Accounts:</span>
-                                        <span className="font-semibold">{profile.social_accounts_count}</span>
+                                        <span className="text-sm text-gray-600">Social Accounts</span>
+                                        <span className="font-semibold text-gray-900">
+                                            {profile.social_accounts_count}
+                                        </span>
                                     </div>
 
+                                    {profile.performance_metrics && (
+                                        <>
+                                            <div className="flex items-center justify-between">
+                                                <span className="text-sm text-gray-600">Campaigns</span>
+                                                <span className="font-semibold text-gray-900">
+                                                    {profile.performance_metrics.completed_campaigns}/{profile.performance_metrics.total_campaigns}
+                                                </span>
+                                            </div>
 
+                                            <div className="flex items-center justify-between">
+                                                <span className="text-sm text-gray-600">Avg. Rating</span>
+                                                <span className="font-semibold text-gray-900">
+                                                    {profile.performance_metrics.average_rating.toFixed(1)}/5
+                                                </span>
+                                            </div>
+                                        </>
+                                    )}
                                 </div>
                             </CardContent>
                         </Card>
 
                         {/* Quick Actions */}
-                        <Card className="shadow-sm">
-                            <CardHeader>
-                                <CardTitle>Quick Actions</CardTitle>
+                        <Card className="border border-gray-200">
+                            <CardHeader className="pb-4">
+                                <CardTitle className="text-lg font-semibold text-gray-900">
+                                    Quick Actions
+                                </CardTitle>
                             </CardHeader>
                             <CardContent>
-                                <div className="space-y-3">
+                                <div className="space-y-2">
                                     <Button
-                                        className="w-full bg-gradient-to-r from-purple-500 to-pink-600 hover:from-purple-600 hover:to-pink-700"
+                                        className="w-full"
                                         onClick={() => {
                                             const url = `/brand/messages?influencer=${profile.id}`;
                                             window.open(url, '_blank');
@@ -406,9 +749,8 @@ export default function InfluencerProfilePage() {
 
                                     <Button
                                         variant="outline"
-                                        className="w-full border-purple-200 hover:bg-purple-50"
+                                        className="w-full"
                                         onClick={() => {
-                                            // This would bookmark the influencer
                                             toast.success('Influencer bookmarked!');
                                         }}
                                     >
@@ -418,9 +760,8 @@ export default function InfluencerProfilePage() {
 
                                     <Button
                                         variant="outline"
-                                        className="w-full border-blue-200 hover:bg-blue-50"
+                                        className="w-full"
                                         onClick={() => {
-                                            // This would invite to campaign
                                             toast.info('Campaign invitation feature coming soon!');
                                         }}
                                     >
@@ -432,10 +773,9 @@ export default function InfluencerProfilePage() {
                         </Card>
 
                         {/* Profile Info */}
-                        <Card className="shadow-sm">
-                            <CardHeader>
-                                <CardTitle className="flex items-center gap-2">
-                                    <HiUser className="w-5 h-5 text-gray-600"/>
+                        <Card className="border border-gray-200">
+                            <CardHeader className="pb-4">
+                                <CardTitle className="text-lg font-semibold text-gray-900">
                                     Profile Information
                                 </CardTitle>
                             </CardHeader>
@@ -451,11 +791,10 @@ export default function InfluencerProfilePage() {
                                         <span className="font-medium capitalize">{profile.industry}</span>
                                     </div>
 
-
-
                                     <div className="flex justify-between">
                                         <span className="text-gray-500">Status:</span>
-                                        <Badge className="bg-green-100 text-green-800 border-0">
+                                        <Badge variant="outline"
+                                               className="border-green-200 text-green-700 bg-green-50">
                                             Active
                                         </Badge>
                                     </div>

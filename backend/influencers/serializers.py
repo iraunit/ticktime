@@ -551,7 +551,7 @@ class BankDetailsSerializer(serializers.ModelSerializer):
         return value
 
 
-class SocialMediaAccountSerializer(serializers.ModelSerializer):
+class SocialMediaAccountDetailSerializer(serializers.ModelSerializer):
     """Serializer for social media accounts with platform-specific data"""
 
     class Meta:
@@ -873,12 +873,22 @@ class SocialAccountPublicSerializer(serializers.ModelSerializer):
     """
     Public serializer for social media accounts.
     """
+    username = serializers.CharField(source='handle', read_only=True)
 
     class Meta:
         model = SocialMediaAccount
         fields = (
-            'id', 'platform', 'username', 'followers_count',
-            'engagement_rate', 'is_active', 'verified'
+            'id', 'platform', 'handle', 'username', 'followers_count', 'following_count', 'posts_count',
+            'engagement_rate', 'average_likes', 'average_comments', 'average_shares',
+            'platform_handle', 'platform_profile_link', 'is_active', 'verified',
+            # Platform-specific metrics
+            'average_image_likes', 'average_image_comments', 'average_reel_plays', 'average_reel_likes',
+            'average_reel_comments',
+            'average_video_views', 'average_shorts_plays', 'average_shorts_likes', 'average_shorts_comments',
+            'subscribers_count',
+            'page_likes', 'page_followers', 'twitter_followers', 'twitter_following', 'tweets_count',
+            'tiktok_followers', 'tiktok_following', 'tiktok_likes', 'tiktok_videos',
+            'follower_growth_rate', 'subscriber_growth_rate', 'last_posted_at', 'post_performance_score'
         )
 
 
@@ -895,6 +905,9 @@ class InfluencerPublicProfileSerializer(serializers.ModelSerializer):
     social_accounts_count = serializers.SerializerMethodField()
     social_accounts = SocialAccountPublicSerializer(many=True, read_only=True)
     recent_collaborations = serializers.SerializerMethodField()
+    brand_collaborations = serializers.SerializerMethodField()
+    content_keywords = serializers.ReadOnlyField()
+    hashtags_used = serializers.SerializerMethodField()
     performance_metrics = serializers.SerializerMethodField()
 
     class Meta:
@@ -903,7 +916,8 @@ class InfluencerPublicProfileSerializer(serializers.ModelSerializer):
             'id', 'user_first_name', 'user_last_name', 'username', 'bio',
             'industry', 'categories', 'profile_image', 'is_verified',
             'total_followers', 'average_engagement_rate', 'social_accounts_count',
-            'created_at', 'social_accounts', 'recent_collaborations', 'performance_metrics'
+            'created_at', 'social_accounts', 'recent_collaborations', 'brand_collaborations',
+            'content_keywords', 'hashtags_used', 'performance_metrics'
         )
 
     def get_social_accounts_count(self, obj):
@@ -939,6 +953,60 @@ class InfluencerPublicProfileSerializer(serializers.ModelSerializer):
             })
 
         return collaborations
+
+    def get_brand_collaborations(self, obj):
+        """Get unique brands this influencer has collaborated with."""
+        from deals.models import Deal
+        from django.db.models import Count
+
+        # Get unique brands from completed deals
+        brand_deals = Deal.objects.filter(
+            influencer=obj,
+            status='completed'
+        ).select_related('campaign__brand').values(
+            'campaign__brand__id',
+            'campaign__brand__name',
+            'campaign__brand__logo'
+        ).annotate(
+            collaboration_count=Count('id')
+        ).order_by('-collaboration_count')[:10]
+
+        brands = []
+        for deal in brand_deals:
+            brands.append({
+                'id': deal['campaign__brand__id'],
+                'name': deal['campaign__brand__name'],
+                'logo': deal['campaign__brand__logo'],
+                'collaboration_count': deal['collaboration_count']
+            })
+
+        return brands
+
+    def get_hashtags_used(self, obj):
+        """Get hashtags used across all content submissions."""
+        from content.models import ContentSubmission
+        from django.db.models import Count
+
+        # Get hashtags from content submissions
+        hashtag_data = ContentSubmission.objects.filter(
+            deal__influencer=obj,
+            hashtags__isnull=False
+        ).exclude(hashtags='').values_list('hashtags', flat=True)
+
+        # Parse and count hashtags
+        hashtag_counts = {}
+        for hashtags_text in hashtag_data:
+            if hashtags_text:
+                # Split by common separators and clean up
+                hashtags = [tag.strip().lower() for tag in hashtags_text.replace(',', ' ').split() if
+                            tag.strip().startswith('#')]
+                for tag in hashtags:
+                    hashtag_counts[tag] = hashtag_counts.get(tag, 0) + 1
+
+        # Sort by frequency and return top hashtags
+        sorted_hashtags = sorted(hashtag_counts.items(), key=lambda x: x[1], reverse=True)[:20]
+
+        return [{'tag': tag, 'count': count} for tag, count in sorted_hashtags]
 
     def get_performance_metrics(self, obj):
         """Get performance metrics for this influencer."""
