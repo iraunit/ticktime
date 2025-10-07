@@ -1,17 +1,18 @@
-from rest_framework import serializers
 from django.contrib.auth.models import User
-from .models import Brand, BrandUser, BrandAuditLog, BookmarkedInfluencer
 from influencers.serializers import InfluencerPublicSerializer
+from rest_framework import serializers
+
+from .models import Brand, BrandUser, BrandAuditLog, BookmarkedInfluencer
 
 
 class BrandSerializer(serializers.ModelSerializer):
     logo = serializers.SerializerMethodField()
-    
+
     class Meta:
         model = Brand
         fields = '__all__'
         read_only_fields = ('id', 'rating', 'total_campaigns', 'is_verified')
-    
+
     def get_logo(self, obj):
         if obj.logo:
             request = self.context.get('request')
@@ -36,11 +37,11 @@ class BrandSerializer(serializers.ModelSerializer):
 class UserProfileSerializer(serializers.ModelSerializer):
     full_name = serializers.CharField(source='get_full_name', read_only=True)
     profile_image = serializers.SerializerMethodField()
-    
+
     class Meta:
         model = User
         fields = ('id', 'first_name', 'last_name', 'full_name', 'email', 'profile_image')
-    
+
     def get_profile_image(self, obj):
         """Get profile image URL."""
         if hasattr(obj, 'user_profile') and obj.user_profile.profile_image:
@@ -57,7 +58,7 @@ class BrandTeamSerializer(serializers.ModelSerializer):
     can_manage_users = serializers.BooleanField(read_only=True)
     can_approve_content = serializers.BooleanField(read_only=True)
     can_view_analytics = serializers.BooleanField(read_only=True)
-    
+
     class Meta:
         model = BrandUser
         fields = (
@@ -99,7 +100,7 @@ class BrandDashboardSerializer(serializers.Serializer):
 class BrandAuditLogSerializer(serializers.ModelSerializer):
     user = UserProfileSerializer(read_only=True)
     action_display = serializers.CharField(source='get_action_display', read_only=True)
-    
+
     class Meta:
         model = BrandAuditLog
         fields = ('id', 'user', 'action', 'action_display', 'description', 'metadata', 'created_at')
@@ -110,7 +111,7 @@ class BookmarkedInfluencerSerializer(serializers.ModelSerializer):
     bookmarked_by = UserProfileSerializer(read_only=True)
     bookmarked_at = serializers.DateTimeField(source='created_at', read_only=True)
     created_by = UserProfileSerializer(source='bookmarked_by', read_only=True)
-    
+
     class Meta:
         model = BookmarkedInfluencer
         fields = ('id', 'influencer', 'bookmarked_by', 'created_by', 'notes', 'created_at', 'bookmarked_at')

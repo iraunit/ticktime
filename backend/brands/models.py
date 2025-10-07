@@ -1,7 +1,7 @@
-from django.db import models
-from django.core.validators import MinValueValidator, MaxValueValidator
-from django.contrib.auth.models import User
 from common.models import INDUSTRY_CHOICES
+from django.contrib.auth.models import User
+from django.core.validators import MinValueValidator, MaxValueValidator
+from django.db import models
 
 
 class Brand(models.Model):
@@ -10,7 +10,8 @@ class Brand(models.Model):
     and collaborate with influencers.
     """
     name = models.CharField(max_length=200)
-    domain = models.CharField(max_length=255, unique=True, default='example.com', help_text="Company domain (e.g., google.com)")
+    domain = models.CharField(max_length=255, unique=True, default='example.com',
+                              help_text="Company domain (e.g., google.com)")
     logo = models.ImageField(upload_to='brands/', blank=True, null=True)
     description = models.TextField(blank=True, default='')
     website = models.URLField(blank=True, default='')
@@ -19,8 +20,8 @@ class Brand(models.Model):
     # Removed country_code and contact_phone as they're now in UserProfile
     is_verified = models.BooleanField(default=False)
     rating = models.DecimalField(
-        max_digits=3, 
-        decimal_places=2, 
+        max_digits=3,
+        decimal_places=2,
         default=0.00,
         validators=[MinValueValidator(0), MaxValueValidator(5)]
     )
@@ -52,8 +53,9 @@ class BrandUser(models.Model):
     Association between users and brands with role-based permissions
     """
     # Link to user profile for common fields
-    user_profile = models.OneToOneField('users.UserProfile', on_delete=models.CASCADE, related_name='brand_user_profile', null=True, blank=True)
-    
+    user_profile = models.OneToOneField('users.UserProfile', on_delete=models.CASCADE,
+                                        related_name='brand_user_profile', null=True, blank=True)
+
     ROLE_CHOICES = [
         ('owner', 'Brand Owner'),
         ('admin', 'Administrator'),
@@ -67,10 +69,10 @@ class BrandUser(models.Model):
     role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='viewer')
     is_active = models.BooleanField(default=True)
     invited_by = models.ForeignKey(
-        User, 
-        on_delete=models.SET_NULL, 
-        null=True, 
-        blank=True, 
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
         related_name='brand_invitations_sent'
     )
     invited_at = models.DateTimeField(auto_now_add=True)
@@ -164,7 +166,8 @@ class BookmarkedInfluencer(models.Model):
     Bookmarked influencers by brands
     """
     brand = models.ForeignKey(Brand, on_delete=models.CASCADE, related_name='bookmarked_influencers')
-    influencer = models.ForeignKey('influencers.InfluencerProfile', on_delete=models.CASCADE, related_name='bookmarked_by')
+    influencer = models.ForeignKey('influencers.InfluencerProfile', on_delete=models.CASCADE,
+                                   related_name='bookmarked_by')
     bookmarked_by = models.ForeignKey(User, on_delete=models.CASCADE)
     notes = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)

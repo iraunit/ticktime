@@ -1,11 +1,12 @@
 from django.contrib import admin
+
 from .models import Campaign
 
 
 @admin.register(Campaign)
 class CampaignAdmin(admin.ModelAdmin):
     list_display = [
-        'title', 'brand', 'created_by', 'deal_type', 'industry', 'total_value', 'application_deadline', 
+        'title', 'brand', 'created_by', 'deal_type', 'industry', 'total_value', 'application_deadline',
         'is_active', 'created_at'
     ]
     list_filter = ['deal_type', 'industry', 'is_active', 'brand', 'created_by', 'created_at']
@@ -13,7 +14,7 @@ class CampaignAdmin(admin.ModelAdmin):
     readonly_fields = ['total_value', 'is_expired', 'days_until_deadline', 'created_at', 'updated_at']
     date_hierarchy = 'application_deadline'
     filter_horizontal = []
-    
+
     fieldsets = (
         ('Campaign Details', {
             'fields': ('brand', 'created_by', 'title', 'description', 'objectives', 'deal_type', 'industry')
@@ -29,13 +30,13 @@ class CampaignAdmin(admin.ModelAdmin):
         }),
         ('Content Requirements', {
             'fields': (
-                'content_requirements', 'platforms_required', 
+                'content_requirements', 'platforms_required',
                 'special_instructions'
             )
         }),
         ('Timeline', {
             'fields': (
-                'application_deadline', 'product_delivery_date', 
+                'application_deadline', 'product_delivery_date',
                 'submission_deadline', 'campaign_live_date'
             )
         }),
@@ -53,6 +54,5 @@ class CampaignAdmin(admin.ModelAdmin):
 
     def total_value(self, obj):
         return f"${obj.total_value:,.2f}"
+
     total_value.short_description = 'Total Value'
-    
-    # No categories anymore; show industry

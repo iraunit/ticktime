@@ -1,14 +1,13 @@
-from rest_framework import status, generics, filters
+from common.decorators import user_rate_limit, cache_response
+from django.db.models import Q, Min, Max
+from django.shortcuts import get_object_or_404
+from django.utils import timezone
+from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
+from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from rest_framework.pagination import PageNumberPagination
-from django.shortcuts import get_object_or_404
-from django.db.models import Q, Min, Max
-from django.utils import timezone
-from datetime import datetime
 
-from common.decorators import user_rate_limit, cache_response
 from .models import Campaign
 from .serializers import CampaignSerializer, CampaignCreateSerializer
 
@@ -58,7 +57,7 @@ def create_campaign_view(request):
                 brand=brand_user.brand,
                 created_by=request.user
             )
-            
+
             return Response({
                 'status': 'success',
                 'message': 'Campaign created successfully.',
@@ -68,14 +67,14 @@ def create_campaign_view(request):
                     'created_at': campaign.created_at
                 }
             }, status=status.HTTP_201_CREATED)
-            
+
         except Exception as e:
             return Response({
                 'status': 'error',
                 'message': 'Failed to create campaign.',
                 'error': str(e)
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-    
+
     return Response({
         'status': 'error',
         'message': 'Invalid campaign data.',
@@ -89,11 +88,28 @@ def create_campaign_view(request):
 def campaigns_list_view(request):
     """
     List active campaigns with filtering and pagination.
+    Only accessible to influencers.
     """
-    # Get base queryset - only active campaigns
+    # Check if user is an influencer
+    if not hasattr(request.user, 'influencer_profile') or not request.user.influencer_profile:
+        return Response({
+            'status': 'error',
+            'message': 'Access denied. Only influencers can view campaigns.'
+        }, status=status.HTTP_403_FORBIDDEN)
+
+    # Get base queryset - only campaigns the influencer has deals for
+    # This ensures influencers can only see campaigns they are invited to
+    from deals.models import Deal
+    influencer_profile = request.user.influencer_profile
+
+    # Get campaign IDs where this influencer has deals
+    campaign_ids = Deal.objects.filter(
+        influencer=influencer_profile
+    ).values_list('campaign_id', flat=True)
+
     queryset = Campaign.objects.filter(
-        is_active=True,
-        application_deadline__gt=timezone.now()
+        id__in=campaign_ids,
+        is_active=True
     ).select_related('brand').order_by('-created_at')
 
     # Apply filters
@@ -151,7 +167,7 @@ def campaigns_list_view(request):
     # Pagination
     paginator = CampaignPagination()
     page = paginator.paginate_queryset(queryset, request)
-    
+
     if page is not None:
         serializer = CampaignSerializer(page, many=True)
         response = paginator.get_paginated_response(serializer.data)
@@ -179,12 +195,44 @@ def campaigns_list_view(request):
 def campaign_detail_view(request, campaign_id):
     """
     Get detailed information about a specific campaign.
+    Accessible to:
+    - Influencers: Can view any active campaign
+    - Brand users: Can only view their own brand's campaigns
     """
     campaign = get_object_or_404(
         Campaign.objects.select_related('brand'),
         id=campaign_id,
         is_active=True
     )
+
+    # Check access permissions based on user type
+    if hasattr(request.user, 'influencer_profile') and request.user.influencer_profile:
+        # Influencers can only view campaigns they have deals for
+        from deals.models import Deal
+        influencer_profile = request.user.influencer_profile
+
+        # Check if influencer has a deal for this campaign
+        if not Deal.objects.filter(
+                influencer=influencer_profile,
+                campaign=campaign
+        ).exists():
+            return Response({
+                'status': 'error',
+                'message': 'Access denied. You can only view campaigns you are invited to.'
+            }, status=status.HTTP_403_FORBIDDEN)
+    elif hasattr(request.user, 'brand_user') and request.user.brand_user:
+        # Brand users can only view their own campaigns
+        if campaign.brand != request.user.brand_user.brand:
+            return Response({
+                'status': 'error',
+                'message': 'Access denied. You can only view your own brand\'s campaigns.'
+            }, status=status.HTTP_403_FORBIDDEN)
+    else:
+        # User has no valid profile type
+        return Response({
+            'status': 'error',
+            'message': 'Access denied. Invalid user type.'
+        }, status=status.HTTP_403_FORBIDDEN)
 
     serializer = CampaignSerializer(campaign)
     return Response({
@@ -198,7 +246,22 @@ def campaign_detail_view(request, campaign_id):
 def brand_campaigns_view(request, brand_id):
     """
     List all campaigns for a specific brand.
+    Only accessible to users from the same brand.
     """
+    # Check if user is a brand user
+    if not hasattr(request.user, 'brand_user') or not request.user.brand_user:
+        return Response({
+            'status': 'error',
+            'message': 'Access denied. Only brand users can view brand campaigns.'
+        }, status=status.HTTP_403_FORBIDDEN)
+
+    # Check if user belongs to the requested brand
+    if request.user.brand_user.brand.id != int(brand_id):
+        return Response({
+            'status': 'error',
+            'message': 'Access denied. You can only view campaigns for your own brand.'
+        }, status=status.HTTP_403_FORBIDDEN)
+
     # Get campaigns for the specified brand
     queryset = Campaign.objects.filter(
         brand_id=brand_id,
@@ -227,7 +290,7 @@ def brand_campaigns_view(request, brand_id):
     # Pagination
     paginator = CampaignPagination()
     page = paginator.paginate_queryset(queryset, request)
-    
+
     if page is not None:
         serializer = CampaignSerializer(page, many=True)
         response = paginator.get_paginated_response(serializer.data)
@@ -253,19 +316,35 @@ def brand_campaigns_view(request, brand_id):
 def campaign_filters_view(request):
     """
     Get available filter options for campaigns.
+    Only accessible to influencers.
     """
+    # Check if user is an influencer
+    if not hasattr(request.user, 'influencer_profile') or not request.user.influencer_profile:
+        return Response({
+            'status': 'error',
+            'message': 'Access denied. Only influencers can access campaign filters.'
+        }, status=status.HTTP_403_FORBIDDEN)
+
     from common.models import DEAL_TYPE_CHOICES, PLATFORM_CHOICES
-    
-    # Get unique brands that have active campaigns
+    from deals.models import Deal
+
+    influencer_profile = request.user.influencer_profile
+
+    # Get campaign IDs where this influencer has deals
+    campaign_ids = Deal.objects.filter(
+        influencer=influencer_profile
+    ).values_list('campaign_id', flat=True)
+
+    # Get unique brands that have campaigns this influencer has access to
     active_brands = Campaign.objects.filter(
-        is_active=True,
-        application_deadline__gt=timezone.now()
+        id__in=campaign_ids,
+        is_active=True
     ).select_related('brand').values_list('brand__name', flat=True).distinct()
 
-    # Get value ranges
+    # Get value ranges for campaigns this influencer has access to
     value_stats = Campaign.objects.filter(
-        is_active=True,
-        application_deadline__gt=timezone.now()
+        id__in=campaign_ids,
+        is_active=True
     ).aggregate(
         min_value=Min('cash_amount'),
         max_value=Max('cash_amount')

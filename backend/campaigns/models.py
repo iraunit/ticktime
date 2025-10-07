@@ -1,7 +1,7 @@
-from django.db import models
-from django.core.validators import MinValueValidator, MaxValueValidator
-from django.utils import timezone
 from common.models import DEAL_TYPE_CHOICES
+from django.core.validators import MinValueValidator
+from django.db import models
+from django.utils import timezone
 
 
 class Campaign(models.Model):
@@ -10,20 +10,21 @@ class Campaign(models.Model):
     that influencers can participate in.
     """
     brand = models.ForeignKey('brands.Brand', on_delete=models.CASCADE, related_name='campaigns')
-    created_by = models.ForeignKey('auth.User', on_delete=models.SET_NULL, null=True, blank=True, related_name='created_campaigns')
+    created_by = models.ForeignKey('auth.User', on_delete=models.SET_NULL, null=True, blank=True,
+                                   related_name='created_campaigns')
     title = models.CharField(max_length=200)
     description = models.TextField()
     objectives = models.TextField(blank=True)
     deal_type = models.CharField(max_length=20, choices=DEAL_TYPE_CHOICES)
     cash_amount = models.DecimalField(
-        max_digits=10, 
-        decimal_places=2, 
+        max_digits=10,
+        decimal_places=2,
         default=0.00,
         validators=[MinValueValidator(0)]
     )
     product_value = models.DecimalField(
-        max_digits=10, 
-        decimal_places=2, 
+        max_digits=10,
+        decimal_places=2,
         default=0.00,
         validators=[MinValueValidator(0)]
     )
@@ -37,7 +38,8 @@ class Campaign(models.Model):
     content_count = models.IntegerField(default=0, help_text='Number of content pieces expected')
     # Keep legacy text field to avoid destructive/complex migration; new FK holds the canonical industry
     industry = models.CharField(max_length=50, default='other')
-    industry_category = models.ForeignKey('common.Industry', on_delete=models.PROTECT, related_name='campaign_industries', null=True, blank=True)
+    industry_category = models.ForeignKey('common.Industry', on_delete=models.PROTECT,
+                                          related_name='campaign_industries', null=True, blank=True)
     execution_mode = models.CharField(
         max_length=20,
         choices=[
@@ -51,7 +53,8 @@ class Campaign(models.Model):
     product_delivery_date = models.DateTimeField(null=True, blank=True)
     # Timelines
     submission_deadline = models.DateTimeField(null=True, blank=True)
-    barter_submission_after_days = models.IntegerField(null=True, blank=True, help_text='For barter deals, days after product received to submit content')
+    barter_submission_after_days = models.IntegerField(null=True, blank=True,
+                                                       help_text='For barter deals, days after product received to submit content')
     campaign_live_date = models.DateTimeField(null=True, blank=True)
     application_deadline_visible_to_influencers = models.BooleanField(default=True)
     payment_schedule = models.TextField(blank=True)

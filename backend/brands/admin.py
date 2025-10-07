@@ -1,4 +1,5 @@
 from django.contrib import admin
+
 from .models import Brand, BrandUser, BrandAuditLog, BookmarkedInfluencer
 
 
@@ -87,7 +88,8 @@ class BrandAuditLogAdmin(admin.ModelAdmin):
 class BookmarkedInfluencerAdmin(admin.ModelAdmin):
     list_display = ('brand', 'influencer', 'bookmarked_by', 'created_at')
     list_filter = ('created_at', 'brand')
-    search_fields = ('brand__name', 'influencer__username', 'influencer__user__first_name', 'influencer__user__last_name')
+    search_fields = ('brand__name', 'influencer__username', 'influencer__user__first_name',
+                     'influencer__user__last_name')
     readonly_fields = ('created_at',)
     fieldsets = (
         ('Bookmark Details', {
