@@ -1,22 +1,18 @@
-from rest_framework import status, generics
+import logging
+
+from django.db import models
+from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-import logging
-from django.contrib.auth.models import User
-from django.conf import settings
-from django.db import models
 
 logger = logging.getLogger(__name__)
 from django.shortcuts import get_object_or_404
-from django.core.cache import cache
-from django.views.decorators.cache import cache_page
-from django.utils.decorators import method_decorator
 import logging
 
 from common.decorators import (
-    upload_rate_limit, 
-    user_rate_limit, 
+    upload_rate_limit,
+    user_rate_limit,
     cache_response,
     log_performance
 )
@@ -49,7 +45,7 @@ def format_serializer_errors(serializer_errors):
         else:
             friendly_field = field.replace('_', ' ').title()
             error_messages.append(f"{friendly_field}: {errors}")
-    
+
     return '; '.join(error_messages) if error_messages else 'Invalid data provided.'
 
 
@@ -81,14 +77,14 @@ def influencer_profile_view(request):
     elif request.method in ['PUT', 'PATCH']:
         partial = request.method == 'PATCH'
         serializer = InfluencerProfileUpdateSerializer(
-            profile, 
-            data=request.data, 
+            profile,
+            data=request.data,
             partial=partial
         )
-        
+
         if serializer.is_valid():
             serializer.save()
-            
+
             # Return updated profile data
             updated_profile = InfluencerProfileSerializer(profile, context={'request': request})
             return Response({
@@ -96,7 +92,7 @@ def influencer_profile_view(request):
                 'message': 'Profile updated successfully.',
                 'profile': updated_profile.data
             }, status=status.HTTP_200_OK)
-        
+
         error_message = format_serializer_errors(serializer.errors)
         return Response({
             'status': 'error',
@@ -121,21 +117,21 @@ def upload_profile_image_view(request):
         }, status=status.HTTP_404_NOT_FOUND)
 
     serializer = ProfileImageUploadSerializer(profile, data=request.data, partial=True)
-    
+
     if serializer.is_valid():
         serializer.save()
-        
+
         # Get the profile image URL from user_profile
         profile_image_url = None
         if profile.user_profile and profile.user_profile.profile_image:
             profile_image_url = request.build_absolute_uri(profile.user_profile.profile_image.url)
-        
+
         return Response({
             'status': 'success',
             'message': 'Profile image uploaded successfully.',
             'profile_image': profile_image_url
         }, status=status.HTTP_200_OK)
-    
+
     error_message = format_serializer_errors(serializer.errors)
     return Response({
         'status': 'error',
@@ -160,17 +156,17 @@ def upload_verification_document_view(request):
         }, status=status.HTTP_404_NOT_FOUND)
 
     serializer = DocumentUploadSerializer(profile, data=request.data, partial=True)
-    
+
     if serializer.is_valid():
         serializer.save()
-        
+
         return Response({
             'status': 'success',
             'message': 'Verification document uploaded successfully.',
             'aadhar_document': serializer.data.get('aadhar_document'),
             'aadhar_number': serializer.data.get('aadhar_number')
         }, status=status.HTTP_200_OK)
-    
+
     error_message = format_serializer_errors(serializer.errors)
     return Response({
         'status': 'error',
@@ -201,16 +197,16 @@ def bank_details_view(request):
 
     elif request.method == 'PUT':
         serializer = BankDetailsSerializer(profile, data=request.data, partial=True)
-        
+
         if serializer.is_valid():
             serializer.save()
-            
+
             return Response({
                 'status': 'success',
                 'message': 'Bank details updated successfully.',
                 'bank_details': serializer.data
             }, status=status.HTTP_200_OK)
-        
+
         error_message = format_serializer_errors(serializer.errors)
         return Response({
             'status': 'error',
@@ -239,7 +235,7 @@ def social_media_accounts_view(request):
     if request.method == 'GET':
         accounts = profile.social_accounts.all().order_by('-created_at')
         serializer = SocialMediaAccountSerializer(accounts, many=True)
-        
+
         return Response({
             'status': 'success',
             'accounts': serializer.data,
@@ -252,16 +248,16 @@ def social_media_accounts_view(request):
             data=request.data,
             context={'influencer': profile}
         )
-        
+
         if serializer.is_valid():
             account = serializer.save()
-            
+
             return Response({
                 'status': 'success',
                 'message': 'Social media account added successfully.',
                 'account': SocialMediaAccountSerializer(account).data
             }, status=status.HTTP_201_CREATED)
-        
+
         error_message = format_serializer_errors(serializer.errors)
         return Response({
             'status': 'error',
@@ -302,16 +298,16 @@ def social_media_account_detail_view(request, account_id):
             data=request.data,
             context={'influencer': profile}
         )
-        
+
         if serializer.is_valid():
             serializer.save()
-            
+
             return Response({
                 'status': 'success',
                 'message': 'Social media account updated successfully.',
                 'account': serializer.data
             }, status=status.HTTP_200_OK)
-        
+
         error_message = format_serializer_errors(serializer.errors)
         return Response({
             'status': 'error',
@@ -320,7 +316,7 @@ def social_media_account_detail_view(request, account_id):
 
     elif request.method == 'DELETE':
         account.delete()
-        
+
         return Response({
             'status': 'success',
             'message': 'Social media account deleted successfully.'
@@ -364,12 +360,19 @@ def toggle_social_account_status_view(request, account_id):
 def influencer_search_view(request):
     """
     Advanced influencer search with comprehensive filtering and platform-specific features.
+    Only accessible to users with brand profiles.
     """
-    from django.db.models import Q, Avg, Count, F, Case, When, Value, IntegerField
+    # Check if user has a brand profile
+    if not hasattr(request.user, 'brand_user') or not request.user.brand_user:
+        return Response({
+            'status': 'error',
+            'message': 'Access denied. Only brand users can search for influencers.'
+        }, status=status.HTTP_403_FORBIDDEN)
+    from django.db.models import Q
     from django.core.paginator import Paginator
     from brands.models import BookmarkedInfluencer
     from datetime import datetime, timedelta
-    
+
     # Get query parameters
     search = request.GET.get('search', '').strip()
     platform = request.GET.get('platform', 'all')
@@ -382,7 +385,7 @@ def influencer_search_view(request):
     sort_order = request.GET.get('sort_order', 'desc')
     page = int(request.GET.get('page', 1))
     page_size = int(request.GET.get('page_size', 50))
-    
+
     # Platform-specific filters
     influence_score_min = request.GET.get('influence_score_min')
     faster_responses = request.GET.get('faster_responses', '').lower() == 'true'
@@ -392,11 +395,11 @@ def influencer_search_view(request):
     instagram_verified = request.GET.get('instagram_verified', '').lower() == 'true'
     has_instagram = request.GET.get('has_instagram', '').lower() == 'true'
     has_youtube = request.GET.get('has_youtube', '').lower() == 'true'
-    
+
     # Content and bio keywords
     caption_keywords = request.GET.get('caption_keywords', '').strip()
     bio_keywords = request.GET.get('bio_keywords', '').strip()
-    
+
     # Advanced filters
     min_followers = request.GET.get('min_followers')
     max_followers = request.GET.get('max_followers')
@@ -404,33 +407,35 @@ def influencer_search_view(request):
     max_engagement = request.GET.get('max_engagement')
     min_rating = request.GET.get('min_rating')
     max_rating = request.GET.get('max_rating')
-    
+
     # Location filters
     country = request.GET.get('country', '')
     state = request.GET.get('state', '')
     city = request.GET.get('city', '')
-    
+
     # Audience filters
     audience_gender = request.GET.get('audience_gender', '')
     audience_age_range = request.GET.get('audience_age_range', '')
     audience_location = request.GET.get('audience_location', '')
     audience_interest = request.GET.get('audience_interest', '')
     audience_language = request.GET.get('audience_language', '')
-    
+
     # Performance filters
     min_avg_likes = request.GET.get('min_avg_likes')
     min_avg_views = request.GET.get('min_avg_views')
     min_avg_comments = request.GET.get('min_avg_comments')
     last_posted_within = request.GET.get('last_posted_within', '')  # days
-    
+
     # Start with all influencer profiles and annotate computed fields
     queryset = InfluencerProfile.objects.select_related('user').prefetch_related(
         'social_accounts'
     ).filter(user__is_active=True).annotate(
-        total_followers_annotated=models.Sum('social_accounts__followers_count', filter=models.Q(social_accounts__is_active=True)),
-        average_engagement_rate_annotated=models.Avg('social_accounts__engagement_rate', filter=models.Q(social_accounts__is_active=True))
+        total_followers_annotated=models.Sum('social_accounts__followers_count',
+                                             filter=models.Q(social_accounts__is_active=True)),
+        average_engagement_rate_annotated=models.Avg('social_accounts__engagement_rate',
+                                                     filter=models.Q(social_accounts__is_active=True))
     )
-    
+
     # Apply search filter
     if search:
         queryset = queryset.filter(
@@ -443,11 +448,11 @@ def influencer_search_view(request):
             Q(content_keywords__contains=[search]) |
             Q(bio_keywords__contains=[search])
         ).distinct()
-    
+
     # Apply platform filter
     if platform and platform != 'all':
         queryset = queryset.filter(social_accounts__platform=platform, social_accounts__is_active=True)
-    
+
     # Apply location filters
     if country:
         queryset = queryset.filter(country__icontains=country)
@@ -461,11 +466,11 @@ def influencer_search_view(request):
             Q(state__icontains=location) |
             Q(country__icontains=location)
         )
-    
+
     # Apply gender filter
     if gender:
         queryset = queryset.filter(gender=gender)
-    
+
     # Apply follower range filter
     if follower_range:
         if follower_range == '1K - 10K':
@@ -497,15 +502,15 @@ def influencer_search_view(request):
             queryset = queryset.filter(total_followers_annotated__lte=max_followers)
         except ValueError:
             pass
-    
+
     # Apply industry filter
     if industry:
         queryset = queryset.filter(industry=industry)
-    
+
     # Apply categories filter
     if categories and categories[0]:
         queryset = queryset.filter(categories__overlap=categories)
-    
+
     # Apply platform-specific filters
     if influence_score_min:
         try:
@@ -513,35 +518,35 @@ def influencer_search_view(request):
             queryset = queryset.filter(influence_score__gte=influence_score_min)
         except ValueError:
             pass
-    
+
     if faster_responses:
         queryset = queryset.filter(faster_responses=True)
-    
+
     if commerce_ready:
         queryset = queryset.filter(commerce_ready=True)
-    
+
     if campaign_ready:
         queryset = queryset.filter(campaign_ready=True)
-    
+
     if barter_ready:
         queryset = queryset.filter(barter_ready=True)
-    
+
     if instagram_verified:
         queryset = queryset.filter(instagram_verified=True)
-    
+
     if has_instagram:
         queryset = queryset.filter(has_instagram=True)
-    
+
     if has_youtube:
         queryset = queryset.filter(has_youtube=True)
-    
+
     # Apply content and bio keyword filters
     if caption_keywords:
         queryset = queryset.filter(content_keywords__contains=[caption_keywords])
-    
+
     if bio_keywords:
         queryset = queryset.filter(bio_keywords__contains=[bio_keywords])
-    
+
     # Apply engagement filters
     if min_engagement:
         try:
@@ -556,7 +561,7 @@ def influencer_search_view(request):
             queryset = queryset.filter(average_engagement_rate_annotated__lte=max_engagement)
         except ValueError:
             pass
-    
+
     # Apply rating filters
     if min_rating:
         try:
@@ -564,14 +569,14 @@ def influencer_search_view(request):
             queryset = queryset.filter(avg_rating__gte=min_rating)
         except ValueError:
             pass
-    
+
     if max_rating:
         try:
             max_rating = float(max_rating)
             queryset = queryset.filter(avg_rating__lte=max_rating)
         except ValueError:
             pass
-    
+
     # Apply performance filters
     if min_avg_likes:
         try:
@@ -579,21 +584,21 @@ def influencer_search_view(request):
             queryset = queryset.filter(social_accounts__average_likes__gte=min_avg_likes)
         except ValueError:
             pass
-    
+
     if min_avg_views:
         try:
             min_avg_views = int(min_avg_views)
             queryset = queryset.filter(social_accounts__average_video_views__gte=min_avg_views)
         except ValueError:
             pass
-    
+
     if min_avg_comments:
         try:
             min_avg_comments = int(min_avg_comments)
             queryset = queryset.filter(social_accounts__average_comments__gte=min_avg_comments)
         except ValueError:
             pass
-    
+
     # Apply last posted filter
     if last_posted_within:
         try:
@@ -602,26 +607,26 @@ def influencer_search_view(request):
             queryset = queryset.filter(social_accounts__last_posted_at__gte=cutoff_date)
         except ValueError:
             pass
-    
+
     # Apply audience filters
     if audience_gender:
         queryset = queryset.filter(audience_gender_distribution__contains={audience_gender: {'$gt': 0}})
-    
+
     if audience_age_range:
         queryset = queryset.filter(audience_age_distribution__contains={audience_age_range: {'$gt': 0}})
-    
+
     if audience_location:
         queryset = queryset.filter(audience_locations__contains=[audience_location])
-    
+
     if audience_interest:
         queryset = queryset.filter(audience_interests__contains=[audience_interest])
-    
+
     if audience_language:
         queryset = queryset.filter(audience_languages__contains=[audience_language])
-    
+
     # Apply sorting
     order_prefix = '' if sort_order == 'asc' else '-'
-    
+
     if sort_by == 'followers':
         queryset = queryset.order_by(f'{order_prefix}total_followers_annotated')
     elif sort_by == 'subscribers':
@@ -646,21 +651,21 @@ def influencer_search_view(request):
         queryset = queryset.order_by(f'{order_prefix}social_accounts__follower_growth_rate')
     else:
         queryset = queryset.order_by(f'{order_prefix}total_followers_annotated')
-    
+
     # Debug logging
     logger.info(f"Influencer search query: {queryset.query}")
     logger.info(f"Total influencers found: {queryset.count()}")
-    
+
     # Pagination
     paginator = Paginator(queryset, page_size)
     page_obj = paginator.get_page(page)
-    
+
     # Serialize results using enhanced serializer
     try:
         from .serializers import InfluencerSearchSerializer
         serializer = InfluencerSearchSerializer(page_obj, many=True, context={'request': request})
         results = serializer.data
-        
+
         return Response({
             'status': 'success',
             'results': results,
@@ -690,7 +695,7 @@ def bookmark_influencer_view(request, influencer_id):
     Bookmark or unbookmark an influencer.
     """
     from brands.models import BookmarkedInfluencer
-    
+
     try:
         brand_user = request.user.brand_user
         if not brand_user:
@@ -698,15 +703,15 @@ def bookmark_influencer_view(request, influencer_id):
                 'status': 'error',
                 'message': 'Brand profile not found.'
             }, status=status.HTTP_404_NOT_FOUND)
-        
+
         influencer = get_object_or_404(InfluencerProfile, id=influencer_id)
-        
+
         # Check if already bookmarked
         existing_bookmark = BookmarkedInfluencer.objects.filter(
             brand=brand_user.brand,
             influencer=influencer
         ).first()
-        
+
         if existing_bookmark:
             # Unbookmark
             existing_bookmark.delete()
@@ -727,7 +732,7 @@ def bookmark_influencer_view(request, influencer_id):
                 'message': 'Influencer bookmarked successfully.',
                 'is_bookmarked': True
             }, status=status.HTTP_201_CREATED)
-            
+
     except Exception as e:
         logger.error(f"Error bookmarking influencer: {e}")
         return Response({
@@ -742,26 +747,34 @@ def bookmark_influencer_view(request, influencer_id):
 def influencer_filters_view(request):
     """
     Get available filter options for influencer search.
+    Only accessible to users with brand profiles.
     """
-    from django.db.models import Count, Min, Max
-    
+    # Check if user has a brand profile
+    if not hasattr(request.user, 'brand_user') or not request.user.brand_user:
+        return Response({
+            'status': 'error',
+            'message': 'Access denied. Only brand users can access influencer filters.'
+        }, status=status.HTTP_403_FORBIDDEN)
+    from django.db.models import Min, Max
+
     # Get unique locations
     locations = InfluencerProfile.objects.filter(
         user__is_active=True
     ).exclude(
         models.Q(city='') & models.Q(state='') & models.Q(country='')
     ).values_list('city', flat=True).distinct()
-    
+
     # Get follower ranges
     follower_stats = InfluencerProfile.objects.filter(
         user__is_active=True
     ).annotate(
-        total_followers_annotated=models.Sum('social_accounts__followers_count', filter=models.Q(social_accounts__is_active=True))
+        total_followers_annotated=models.Sum('social_accounts__followers_count',
+                                             filter=models.Q(social_accounts__is_active=True))
     ).filter(total_followers_annotated__gt=0).aggregate(
         min_followers=Min('total_followers_annotated'),
         max_followers=Max('total_followers_annotated')
     )
-    
+
     # Get rating ranges
     rating_stats = InfluencerProfile.objects.filter(
         user__is_active=True, avg_rating__gt=0
@@ -769,7 +782,7 @@ def influencer_filters_view(request):
         min_rating=Min('avg_rating'),
         max_rating=Max('avg_rating')
     )
-    
+
     # Get influence score ranges
     score_stats = InfluencerProfile.objects.filter(
         user__is_active=True, influence_score__gt=0
@@ -777,14 +790,14 @@ def influencer_filters_view(request):
         min_score=Min('influence_score'),
         max_score=Max('influence_score')
     )
-    
+
     # Get unique categories
     all_categories = []
     for profile in InfluencerProfile.objects.filter(user__is_active=True, categories__isnull=False):
         if profile.categories:
             all_categories.extend(profile.categories)
     unique_categories = list(set(all_categories))
-    
+
     return Response({
         'status': 'success',
         'filters': {
@@ -920,7 +933,7 @@ def public_influencer_profile_view(request, influencer_id):
     try:
         # Get the requested influencer profile
         influencer_profile = get_object_or_404(InfluencerProfile, id=influencer_id, user__is_active=True)
-        
+
         # Check permissions based on user type
         if hasattr(request.user, 'brand_user') and request.user.brand_user:
             # Brand users can view any influencer profile
@@ -938,16 +951,16 @@ def public_influencer_profile_view(request, influencer_id):
                 'status': 'error',
                 'message': 'Access denied. Invalid user type.'
             }, status=status.HTTP_403_FORBIDDEN)
-        
+
         # Serialize the profile data
         from .serializers import InfluencerPublicProfileSerializer
         serializer = InfluencerPublicProfileSerializer(influencer_profile, context={'request': request})
-        
+
         return Response({
             'status': 'success',
             'influencer': serializer.data
         }, status=status.HTTP_200_OK)
-        
+
     except InfluencerProfile.DoesNotExist:
         return Response({
             'status': 'error',
