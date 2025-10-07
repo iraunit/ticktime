@@ -1,38 +1,33 @@
-from rest_framework import status, generics, filters
-from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated
-from rest_framework.response import Response
-from rest_framework.pagination import PageNumberPagination
-from django.contrib.auth.models import User
-from django.conf import settings
-from django.shortcuts import get_object_or_404
-from django.core.cache import cache
-from django.views.decorators.cache import cache_page
-from django.utils.decorators import method_decorator
-from django.db.models import Q, Count, Sum, Avg, F
-from django.db.models.functions import Coalesce
-from django.utils import timezone
-from datetime import datetime, timedelta
-from messaging.models import Message, Conversation
 import logging
+from datetime import datetime, timedelta
 
+from common.cache_utils import CacheManager
 from common.decorators import (
-    upload_rate_limit, 
-    user_rate_limit, 
+    upload_rate_limit,
+    user_rate_limit,
     cache_response,
     log_performance
 )
-from common.cache_utils import CacheManager
+from content.models import ContentSubmission
+from django.db.models import Q, Sum
+from django.db.models.functions import Coalesce
+from django.shortcuts import get_object_or_404
+from django.utils import timezone
+from influencers.models import InfluencerProfile, SocialMediaAccount
+from messaging.models import Conversation, Message
+from messaging.models import Message, Conversation
+from rest_framework import status
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.pagination import PageNumberPagination
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
 
+from .models import Deal
 from .serializers import (
     DealListSerializer, DealDetailSerializer, DealActionSerializer,
     DealTimelineSerializer, EarningsPaymentSerializer, CollaborationHistorySerializer,
     AddressSubmissionSerializer, DealStatusUpdateSerializer
 )
-from .models import Deal
-from influencers.models import InfluencerProfile, SocialMediaAccount
-from content.models import ContentSubmission
-from messaging.models import Conversation, Message
 
 logger = logging.getLogger(__name__)
 
@@ -109,7 +104,7 @@ def deals_list_view(request):
     # Pagination
     paginator = DealPagination()
     page = paginator.paginate_queryset(queryset, request)
-    
+
     if page is not None:
         serializer = DealListSerializer(page, many=True, context={'request': request})
         response = paginator.get_paginated_response(serializer.data)
@@ -193,31 +188,31 @@ def deal_action_view(request, deal_id):
         }, status=status.HTTP_400_BAD_REQUEST)
 
     serializer = DealActionSerializer(data=request.data)
-    
+
     if serializer.is_valid():
         action = serializer.validated_data['action']
-        
+
         if action == 'accept':
             deal.set_status_with_timestamp('accepted')
             deal.custom_terms_agreed = serializer.validated_data.get('custom_terms', '')
             deal.negotiation_notes = serializer.validated_data.get('negotiation_notes', '')
-            
+
             # Create conversation for this deal
             conversation, created = Conversation.objects.get_or_create(deal=deal)
-            
+
             message = 'Deal accepted successfully.'
-            
+
         elif action == 'reject':
             deal.set_status_with_timestamp('rejected')
             rejection_reason = serializer.validated_data.get('rejection_reason', '')
             deal.rejection_reason = rejection_reason
-            
+
             # Add rejection reason to deal notes
             if rejection_reason:
                 current_notes = deal.notes or ''
                 rejection_note = f"\n\nReason to Reject: {rejection_reason}"
                 deal.notes = current_notes + rejection_note
-            
+
             message = 'Deal rejected successfully.'
 
         deal.responded_at = timezone.now()
@@ -260,7 +255,7 @@ def deal_timeline_view(request, deal_id):
 
     # Build timeline based on deal status and timestamps
     timeline_events = []
-    
+
     # Define status progression
     status_progression = [
         ('invited', 'Invited', 'Deal invitation sent'),
@@ -274,12 +269,12 @@ def deal_timeline_view(request, deal_id):
     ]
 
     current_status = deal.status
-    
+
     for status_code, status_display, description in status_progression:
         is_current = status_code == current_status
         is_completed = False
         timestamp = None
-        
+
         # Determine if this status has been completed and get timestamp
         if status_code == 'invited':
             is_completed = True
@@ -293,7 +288,7 @@ def deal_timeline_view(request, deal_id):
         elif status_code == current_status:
             is_completed = True
             timestamp = deal.responded_at or deal.invited_at
-        
+
         # For statuses that come before current status
         status_order = [s[0] for s in status_progression]
         if status_order.index(status_code) < status_order.index(current_status):
@@ -311,7 +306,7 @@ def deal_timeline_view(request, deal_id):
         })
 
     serializer = DealTimelineSerializer(timeline_events, many=True)
-    
+
     return Response({
         'status': 'success',
         'timeline': serializer.data,
@@ -342,7 +337,7 @@ def recent_deals_view(request):
     ).select_related('campaign__brand').order_by('-invited_at')[:10]
 
     serializer = DealListSerializer(recent_deals, many=True, context={'request': request})
-    
+
     return Response({
         'status': 'success',
         'recent_deals': serializer.data
@@ -398,7 +393,7 @@ def collaboration_history_view(request):
     # Pagination
     paginator = DealPagination()
     page = paginator.paginate_queryset(queryset, request)
-    
+
     if page is not None:
         serializer = CollaborationHistorySerializer(page, many=True)
         paginated_response = paginator.get_paginated_response(serializer.data)
@@ -431,7 +426,7 @@ def earnings_tracking_view(request):
 
     # Get deals with earnings
     deals = Deal.objects.filter(influencer=profile, status='completed')
-    
+
     # Calculate earnings by status
     from decimal import Decimal
     paid_earnings = deals.filter(payment_status='paid').aggregate(
@@ -453,9 +448,9 @@ def earnings_tracking_view(request):
     # Monthly earnings breakdown (last 12 months)
     monthly_earnings = []
     for i in range(12):
-        month_start = (timezone.now().replace(day=1) - timedelta(days=32*i)).replace(day=1)
+        month_start = (timezone.now().replace(day=1) - timedelta(days=32 * i)).replace(day=1)
         month_end = (month_start + timedelta(days=32)).replace(day=1) - timedelta(days=1)
-        
+
         month_total = deals.filter(
             payment_status='paid',
             payment_date__gte=month_start,
@@ -491,9 +486,6 @@ def earnings_tracking_view(request):
     }, status=status.HTTP_200_OK)
 
 
-
-
-
 @api_view(['GET', 'POST'])
 @permission_classes([IsAuthenticated])
 def deal_messages_view(request, deal_id):
@@ -501,41 +493,42 @@ def deal_messages_view(request, deal_id):
     Get or send messages for a specific deal. Creates conversation if it doesn't exist.
     """
     from messaging.serializers import MessageSerializer, ConversationSerializer
-    
+
     deal = get_object_or_404(Deal.objects.select_related('campaign__brand'), id=deal_id)
-    
+
     # Check if user is authorized to access this deal
     is_brand_user = hasattr(request.user, 'brand_user') and request.user.brand_user.brand == deal.campaign.brand
     is_influencer = hasattr(request.user, 'influencer_profile') and request.user.influencer_profile == deal.influencer
-    
+
     if not (is_brand_user or is_influencer):
         return Response({
             'status': 'error',
             'message': 'You do not have permission to access this deal\'s messages.'
         }, status=status.HTTP_403_FORBIDDEN)
-    
+
     # Get or create conversation for this deal
     conversation, created = Conversation.objects.get_or_create(deal=deal)
-    
+
     if request.method == 'GET':
         # Get all messages in this conversation
         messages = Message.objects.filter(conversation=conversation).order_by('created_at')
-        
+
         # Mark messages as read based on user type
         if is_brand_user:
             messages.filter(sender_type='influencer', read_by_brand=False).update(read_by_brand=True)
         elif is_influencer:
             messages.filter(sender_type='brand', read_by_influencer=False).update(read_by_influencer=True)
-        
+
         serialized_messages = MessageSerializer(messages, many=True).data
-        
+
         return Response({
             'status': 'success',
             'messages': serialized_messages,
             'conversation_id': conversation.id,
             'deal_title': deal.campaign.title,
             'brand_name': deal.campaign.brand.name,
-            'brand_logo': request.build_absolute_uri(deal.campaign.brand.logo.url) if deal.campaign.brand.logo else None,
+            'brand_logo': request.build_absolute_uri(
+                deal.campaign.brand.logo.url) if deal.campaign.brand.logo else None,
             'campaign_id': deal.campaign.id,
             'deal_id': deal.id,
             'unread_count': messages.filter(
@@ -543,7 +536,7 @@ def deal_messages_view(request, deal_id):
                 **({'read_by_influencer': False} if is_influencer else {'read_by_brand': False})
             ).count()
         }, status=status.HTTP_200_OK)
-    
+
     elif request.method == 'POST':
         # Send a new message
         content = request.data.get('content', '').strip()
@@ -552,10 +545,10 @@ def deal_messages_view(request, deal_id):
                 'status': 'error',
                 'message': 'Message content is required.'
             }, status=status.HTTP_400_BAD_REQUEST)
-        
+
         # Determine sender type
         sender_type = 'brand' if is_brand_user else 'influencer'
-        
+
         # Create message
         message = Message.objects.create(
             conversation=conversation,
@@ -565,10 +558,10 @@ def deal_messages_view(request, deal_id):
             read_by_brand=is_brand_user,  # Mark as read by sender
             read_by_influencer=is_influencer  # Mark as read by sender
         )
-        
+
         # Serialize the message
         serialized_message = MessageSerializer(message).data
-        
+
         return Response({
             'status': 'success',
             'message_data': serialized_message,
@@ -590,7 +583,7 @@ def submit_address_view(request, deal_id):
             'method': 'GET',
             'user': str(request.user) if request.user.is_authenticated else 'Anonymous'
         }, status=status.HTTP_200_OK)
-    
+
     try:
         profile = request.user.influencer_profile
     except InfluencerProfile.DoesNotExist:
@@ -623,7 +616,7 @@ def submit_address_view(request, deal_id):
 
     # Validate address data
     serializer = AddressSubmissionSerializer(data=request.data)
-    
+
     if serializer.is_valid():
         # Save address to deal
         deal.shipping_address = {
@@ -637,7 +630,7 @@ def submit_address_view(request, deal_id):
             'phone_number': serializer.validated_data['phone_number'],
             'full_phone_number': f"{serializer.validated_data['country_code']}{serializer.validated_data['phone_number']}",
         }
-        
+
         # Update deal status and timestamp
         deal.set_status_with_timestamp('address_provided')
         deal.save()
@@ -655,9 +648,9 @@ def submit_address_view(request, deal_id):
     for field, errors in serializer.errors.items():
         pretty_field = field.replace('_', ' ').replace('-', ' ').title()
         error_messages.append(f"{pretty_field}: {errors[0]}")
-    
+
     error_string = " ".join(error_messages)
-    
+
     return Response({
         'status': 'error',
         'message': error_string if error_string else 'Invalid data submitted.',
@@ -674,7 +667,7 @@ def update_deal_status_view(request, deal_id):
     """
     # This would typically check if user has brand permissions
     # For now, we'll implement basic functionality
-    
+
     try:
         from brands.models import BrandUser
         brand_user = BrandUser.objects.get(user=request.user)
@@ -728,10 +721,10 @@ def update_deal_status_view(request, deal_id):
 
     # Update deal with new status and additional information
     deal.set_status_with_timestamp(new_status)
-    
+
     if notes:
         deal.notes = notes
-    
+
     if new_status == 'product_shipped':
         if tracking_number:
             deal.tracking_number = tracking_number
@@ -816,19 +809,19 @@ def submit_content_placeholder(request, deal_id):
     # Import and use the serializer directly
     from content.serializers import ContentSubmissionSerializer
     serializer = ContentSubmissionSerializer(data=data)
-    
+
     if serializer.is_valid():
         submission = serializer.save()
-        
+
         # Update deal status to content_submitted if needed
         if deal.status in ['product_delivered', 'active', 'accepted', 'revision_requested']:
             deal.status = 'content_submitted'
             deal.save()
-        
+
         # Create notification for brand about content submission
         from content.views import _create_content_notification
         _create_content_notification(deal, submission, 'submitted')
-        
+
         return Response({
             'status': 'success',
             'message': 'Content submitted successfully.',
@@ -864,11 +857,11 @@ def content_submissions_placeholder(request, deal_id):
 
     # Get content submissions for this deal
     submissions = deal.content_submissions.all().order_by('-submitted_at')
-    
+
     # Import the serializer
     from content.serializers import ContentSubmissionSerializer
     serializer = ContentSubmissionSerializer(submissions, many=True)
-    
+
     return Response({
         'status': 'success',
         'submissions': serializer.data,

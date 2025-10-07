@@ -1,4 +1,5 @@
 from django.contrib import admin
+
 from .models import Deal
 
 
@@ -12,7 +13,7 @@ class DealAdmin(admin.ModelAdmin):
     search_fields = ['campaign__title', 'influencer__username', 'campaign__brand__name']
     readonly_fields = ['is_active', 'response_deadline_passed', 'invited_at']
     date_hierarchy = 'invited_at'
-    
+
     fieldsets = (
         ('Deal Information', {
             'fields': ('campaign', 'influencer', 'status', 'payment_status')
@@ -45,8 +46,10 @@ class DealAdmin(admin.ModelAdmin):
 
     def campaign_title(self, obj):
         return obj.campaign.title
+
     campaign_title.short_description = 'Campaign'
 
     def influencer_username(self, obj):
         return obj.influencer.username
+
     influencer_username.short_description = 'Influencer'

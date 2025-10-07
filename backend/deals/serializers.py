@@ -197,7 +197,9 @@ class DealListSerializer(serializers.ModelSerializer):
                 'brand': {
                     'id': obj.campaign.brand.id,
                     'name': obj.campaign.brand.name,
-                    'logo': request.build_absolute_uri(obj.campaign.brand.logo.url) if obj.campaign.brand.logo and request else (obj.campaign.brand.logo.url if obj.campaign.brand.logo else None),
+                    'logo': request.build_absolute_uri(
+                        obj.campaign.brand.logo.url) if obj.campaign.brand.logo and request else (
+                        obj.campaign.brand.logo.url if obj.campaign.brand.logo else None),
                     'industry': obj.campaign.brand.industry,
                     'description': brand_description,
                 } if obj.campaign.brand else None,

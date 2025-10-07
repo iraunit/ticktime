@@ -1,19 +1,18 @@
+from brands.models import BrandUser
+from deals.models import Deal
+from django.shortcuts import get_object_or_404
+from django.utils import timezone
+from influencers.models import InfluencerProfile
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from django.shortcuts import get_object_or_404
-from django.utils import timezone
 
-from .serializers import (
-    ContentSubmissionSerializer, 
-    ContentReviewSerializer, 
-    ContentSubmissionListSerializer
-)
 from .models import ContentSubmission
-from deals.models import Deal
-from influencers.models import InfluencerProfile
-from brands.models import BrandUser
+from .serializers import (
+    ContentSubmissionSerializer,
+    ContentReviewSerializer
+)
 
 
 @api_view(['GET', 'POST'])
@@ -39,7 +38,7 @@ def content_submissions_view(request, deal_id):
     if request.method == 'GET':
         submissions = deal.content_submissions.all().order_by('-submitted_at')
         serializer = ContentSubmissionSerializer(submissions, many=True)
-        
+
         return Response({
             'status': 'success',
             'submissions': serializer.data,
@@ -60,18 +59,18 @@ def content_submissions_view(request, deal_id):
         data['deal'] = deal.id
 
         serializer = ContentSubmissionSerializer(data=data)
-        
+
         if serializer.is_valid():
             submission = serializer.save()
-            
+
             # Update deal status to under_review if this is the first submission
             if deal.status == 'content_submitted':
                 deal.status = 'under_review'
                 deal.save()
-            
+
             # Create notification for brand about content submission
             _create_content_notification(deal, submission, 'submitted')
-            
+
             return Response({
                 'status': 'success',
                 'message': 'Content submitted successfully.',
@@ -130,10 +129,10 @@ def content_submission_detail_view(request, deal_id, submission_id):
         was_revision_requested = submission.revision_requested
 
         serializer = ContentSubmissionSerializer(submission, data=request.data, partial=True)
-        
+
         if serializer.is_valid():
             updated_submission = serializer.save()
-            
+
             # If this was an update after revision request, reset status for new review
             if was_revision_requested:
                 from django.utils import timezone
@@ -143,20 +142,20 @@ def content_submission_detail_view(request, deal_id, submission_id):
                 updated_submission.revision_notes = ''
                 updated_submission.last_revision_update = timezone.now()
                 updated_submission.save()
-                
+
                 # Update deal status back to under_review
                 deal = updated_submission.deal
                 deal.status = 'under_review'
                 deal.save()
-                
+
                 # Create notification for brand about resubmission
                 _create_content_notification(
-                    deal, 
-                    updated_submission, 
+                    deal,
+                    updated_submission,
                     'resubmitted',
                     f"Content has been updated and resubmitted for review"
                 )
-            
+
             return Response({
                 'status': 'success',
                 'message': 'Content submission updated successfully.',
@@ -178,7 +177,7 @@ def content_submission_detail_view(request, deal_id, submission_id):
             }, status=status.HTTP_400_BAD_REQUEST)
 
         submission.delete()
-        
+
         return Response({
             'status': 'success',
             'message': 'Content submission deleted successfully.'
@@ -222,12 +221,12 @@ def content_review_view(request, deal_id, submission_id):
         }, status=status.HTTP_400_BAD_REQUEST)
 
     serializer = ContentReviewSerializer(data=request.data)
-    
+
     if serializer.is_valid():
         action = serializer.validated_data['action']
         feedback = serializer.validated_data.get('feedback', '')
         revision_notes = serializer.validated_data.get('revision_notes', '')
-        
+
         # Update submission based on action
         if action == 'approve':
             submission.approved = True
@@ -235,13 +234,13 @@ def content_review_view(request, deal_id, submission_id):
             submission.revision_requested = False
             submission.feedback = feedback
             message = 'Content submission approved successfully.'
-            
+
         elif action == 'reject':
             submission.approved = False
             submission.revision_requested = False
             submission.feedback = feedback
             message = 'Content submission rejected.'
-            
+
         elif action == 'request_revision':
             submission.approved = None
             submission.revision_requested = True
@@ -266,7 +265,7 @@ def content_review_view(request, deal_id, submission_id):
 
         # Update deal status based on submission reviews
         _update_deal_status_after_review(deal)
-        
+
         # Create notification for influencer about content review
         _create_content_notification(deal, submission, action)
 
@@ -307,7 +306,7 @@ def brand_content_review_list(request, deal_id):
 
     # Get content submissions
     submissions = deal.content_submissions.all().order_by('-submitted_at')
-    
+
     # Filter by status if provided
     status_filter = request.GET.get('status')
     if status_filter:
@@ -321,7 +320,7 @@ def brand_content_review_list(request, deal_id):
             submissions = submissions.filter(revision_requested=True)
 
     serializer = ContentSubmissionSerializer(submissions, many=True)
-    
+
     return Response({
         'status': 'success',
         'deal': {
@@ -340,30 +339,30 @@ def _update_deal_status_after_review(deal):
     Update deal status based on content submission reviews.
     """
     submissions = deal.content_submissions.all()
-    
+
     if not submissions.exists():
         return
-    
+
     # Check if all submissions are approved
     all_approved = all(submission.approved is True for submission in submissions)
-    
+
     # Check if any are pending review
     has_pending = any(submission.approved is None and not submission.revision_requested for submission in submissions)
-    
+
     # Check if any need revision
     has_revision_requested = any(submission.revision_requested for submission in submissions)
-    
+
     # Update deal status accordingly
     if all_approved and deal.status in ['under_review', 'revision_requested', 'approved']:
         # All content approved - complete the deal
         deal.status = 'completed'
         deal.completed_at = timezone.now()
         deal.save()
-        
+
     elif has_revision_requested and deal.status != 'revision_requested':
         deal.status = 'revision_requested'
         deal.save()
-        
+
     elif has_pending and deal.status != 'under_review':
         deal.status = 'under_review'
         deal.save()
@@ -374,11 +373,11 @@ def _create_content_notification(deal, submission, action, custom_message=None):
     Create a notification message in the deal conversation about content events.
     """
     from messaging.models import Conversation, Message
-    
+
     try:
         # Get or create conversation for this deal
         conversation, created = Conversation.objects.get_or_create(deal=deal)
-        
+
         # Create notification message based on action
         if action == 'submitted':
             content = f"🎬 Content submitted: {submission.title or f'{submission.get_content_type_display()} for {submission.get_platform_display()}'}"
@@ -418,7 +417,7 @@ def _create_content_notification(deal, submission, action, custom_message=None):
             read_by_brand = False
         else:
             return  # Unknown action
-        
+
         # Create the notification message
         Message.objects.create(
             conversation=conversation,
@@ -428,11 +427,9 @@ def _create_content_notification(deal, submission, action, custom_message=None):
             read_by_influencer=read_by_influencer,
             read_by_brand=read_by_brand
         )
-        
+
     except Exception as e:
         # Log error but don't fail the main operation
         import logging
         logger = logging.getLogger(__name__)
         logger.error(f"Failed to create content notification: {e}")
-
-

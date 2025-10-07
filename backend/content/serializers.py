@@ -1,4 +1,5 @@
 from rest_framework import serializers
+
 from .models import ContentSubmission, ContentReviewHistory
 
 
@@ -52,13 +53,13 @@ class ContentSubmissionSerializer(serializers.ModelSerializer):
             max_size = 100 * 1024 * 1024  # 100MB
             if value.size > max_size:
                 raise serializers.ValidationError("File must be smaller than 100MB.")
-            
+
             # Check file type based on content type
             allowed_image_types = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp']
             allowed_video_types = ['video/mp4', 'video/avi', 'video/mov', 'video/wmv']
-            
+
             content_type = self.initial_data.get('content_type', '')
-            
+
             if content_type in ['image', 'post']:
                 if value.content_type not in allowed_image_types:
                     raise serializers.ValidationError(
@@ -69,7 +70,7 @@ class ContentSubmissionSerializer(serializers.ModelSerializer):
                     raise serializers.ValidationError(
                         "Only image and video files are allowed for video content."
                     )
-        
+
         return value
 
     def validate_additional_links(self, value):
@@ -77,15 +78,16 @@ class ContentSubmissionSerializer(serializers.ModelSerializer):
         if value is not None:
             if not isinstance(value, list):
                 raise serializers.ValidationError("Additional links must be a list.")
-            
+
             for link in value:
                 if not isinstance(link, dict):
-                    raise serializers.ValidationError("Each link must be an object with 'url' and 'description' fields.")
+                    raise serializers.ValidationError(
+                        "Each link must be an object with 'url' and 'description' fields.")
                 if 'url' not in link or 'description' not in link:
                     raise serializers.ValidationError("Each link must have 'url' and 'description' fields.")
                 if not isinstance(link['url'], str) or not isinstance(link['description'], str):
                     raise serializers.ValidationError("URL and description must be strings.")
-        
+
         return value
 
     def validate(self, attrs):
@@ -96,19 +98,19 @@ class ContentSubmissionSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError(
                     "Either file upload, file URL, or post URL must be provided."
                 )
-        
+
         return attrs
 
     def create(self, validated_data):
         """Create content submission and update deal status."""
         content_submission = super().create(validated_data)
-        
+
         # Update deal status to 'content_submitted' if deal is in appropriate state
         deal = content_submission.deal
         if deal.status in ['product_delivered', 'active', 'accepted', 'revision_requested']:
             deal.status = 'content_submitted'
             deal.save()
-        
+
         return content_submission
 
 
@@ -122,19 +124,19 @@ class ContentReviewSerializer(serializers.Serializer):
 
     def validate(self, attrs):
         action = attrs.get('action')
-        
+
         # Require feedback for reject and revision requests
         if action in ['reject', 'request_revision'] and not attrs.get('feedback'):
             raise serializers.ValidationError({
                 'feedback': 'Feedback is required when rejecting or requesting revision.'
             })
-        
+
         # Require revision notes for revision requests
         if action == 'request_revision' and not attrs.get('revision_notes'):
             raise serializers.ValidationError({
                 'revision_notes': 'Revision notes are required when requesting revision.'
             })
-        
+
         return attrs
 
 

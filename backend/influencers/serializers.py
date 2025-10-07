@@ -985,7 +985,6 @@ class InfluencerPublicProfileSerializer(serializers.ModelSerializer):
     def get_hashtags_used(self, obj):
         """Get hashtags used across all content submissions."""
         from content.models import ContentSubmission
-        from django.db.models import Count
 
         # Get hashtags from content submissions
         hashtag_data = ContentSubmission.objects.filter(

@@ -1,6 +1,4 @@
 from django.db import models
-from django.contrib.auth.models import User
-from django.core.validators import MinValueValidator, MaxValueValidator
 from django.utils import timezone
 
 
@@ -52,8 +50,8 @@ class Message(models.Model):
     ]
 
     conversation = models.ForeignKey(
-        'messaging.Conversation', 
-        on_delete=models.CASCADE, 
+        'messaging.Conversation',
+        on_delete=models.CASCADE,
         related_name='messages'
     )
     sender_type = models.CharField(max_length=20, choices=SENDER_TYPE_CHOICES)
@@ -86,8 +84,8 @@ class Message(models.Model):
             self.read_by_influencer = True
         elif reader_type == 'brand':
             self.read_by_brand = True
-        
+
         if not self.read_at:
             self.read_at = timezone.now()
-        
+
         self.save(update_fields=['read_by_influencer', 'read_by_brand', 'read_at'])

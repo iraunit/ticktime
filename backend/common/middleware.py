@@ -1,17 +1,14 @@
 """
 Common middleware for the application.
 """
-import time
 import logging
-from collections import defaultdict
-from django.core.cache import cache
-from django.http import JsonResponse
+import time
+
 from django.conf import settings
-from django.utils.deprecation import MiddlewareMixin
+from django.core.cache import cache
 from django.db import connection
-import re
-from django.http import HttpResponse
-from django.middleware.csrf import get_token
+from django.http import JsonResponse
+from django.utils.deprecation import MiddlewareMixin
 
 logger = logging.getLogger(__name__)
 security_logger = logging.getLogger('security')
@@ -22,10 +19,10 @@ class DynamicCSRFDomainMiddleware(MiddlewareMixin):
     Middleware to dynamically set CSRF and session cookie domains based on the request host.
     This allows the same backend to work with multiple frontend domains.
     """
-    
+
     def process_request(self, request):
         host = request.get_host()
-        
+
         # Set CSRF and session cookie domains dynamically based on the request host
         if 'ticktime.media' in host:
             settings.CSRF_COOKIE_DOMAIN = '.ticktime.media'
@@ -37,7 +34,7 @@ class DynamicCSRFDomainMiddleware(MiddlewareMixin):
             # For localhost or other domains, don't set a specific domain
             settings.CSRF_COOKIE_DOMAIN = None
             settings.SESSION_COOKIE_DOMAIN = None
-            
+
         return None
 
 
@@ -45,19 +42,20 @@ class SecurityHeadersMiddleware:
     """
     Middleware to add security headers to all responses.
     """
+
     def __init__(self, get_response):
         self.get_response = get_response
 
     def __call__(self, request):
         response = self.get_response(request)
-        
+
         # Add security headers
         response['X-Content-Type-Options'] = 'nosniff'
         response['X-Frame-Options'] = 'DENY'
         response['X-XSS-Protection'] = '1; mode=block'
         response['Referrer-Policy'] = 'strict-origin-when-cross-origin'
         response['Permissions-Policy'] = 'geolocation=(), microphone=(), camera=()'
-        
+
         # Add Content Security Policy
         if not settings.DEBUG:
             csp = (
@@ -70,7 +68,7 @@ class SecurityHeadersMiddleware:
                 "frame-src https://accounts.google.com;"
             )
             response['Content-Security-Policy'] = csp
-        
+
         return response
 
 
@@ -78,6 +76,7 @@ class RateLimitMiddleware:
     """
     Middleware to implement rate limiting based on IP address and endpoint.
     """
+
     def __init__(self, get_response):
         self.get_response = get_response
         self.rate_limits = getattr(settings, 'RATE_LIMIT_SETTINGS', {})
@@ -89,11 +88,11 @@ class RateLimitMiddleware:
 
         # Get client IP
         client_ip = self.get_client_ip(request)
-        
+
         # Determine rate limit based on endpoint
         rate_limit_key = self.get_rate_limit_key(request.path)
         rate_limit = self.rate_limits.get(rate_limit_key, self.rate_limits.get('DEFAULT'))
-        
+
         if rate_limit and not self.is_rate_limited(client_ip, rate_limit_key, rate_limit):
             return JsonResponse({
                 'error': 'Rate limit exceeded',
@@ -125,14 +124,14 @@ class RateLimitMiddleware:
         """Check if the client has exceeded the rate limit."""
         cache_key = f"rate_limit:{rate_limit_key}:{client_ip}"
         current_requests = cache.get(cache_key, 0)
-        
+
         if current_requests >= rate_limit['requests']:
             security_logger.warning(
                 f"Rate limit exceeded for IP {client_ip} on {rate_limit_key} endpoint. "
                 f"Requests: {current_requests}/{rate_limit['requests']}"
             )
             return False
-        
+
         # Increment the counter
         cache.set(cache_key, current_requests + 1, rate_limit['window'])
         return True
@@ -142,6 +141,7 @@ class PerformanceMonitoringMiddleware:
     """
     Middleware to monitor performance and log slow requests.
     """
+
     def __init__(self, get_response):
         self.get_response = get_response
         self.monitoring_config = getattr(settings, 'PERFORMANCE_MONITORING', {})
@@ -149,13 +149,13 @@ class PerformanceMonitoringMiddleware:
     def __call__(self, request):
         start_time = time.time()
         initial_queries = len(connection.queries)
-        
+
         response = self.get_response(request)
-        
+
         # Calculate request duration
         duration = time.time() - start_time
         query_count = len(connection.queries) - initial_queries
-        
+
         # Log slow requests
         slow_threshold = self.monitoring_config.get('SLOW_QUERY_THRESHOLD', 1.0)
         if duration > slow_threshold:
@@ -163,7 +163,7 @@ class PerformanceMonitoringMiddleware:
                 f"Slow request: {request.method} {request.path} "
                 f"took {duration:.2f}s with {query_count} queries"
             )
-        
+
         # Log excessive query counts
         max_queries = self.monitoring_config.get('MAX_QUERY_COUNT', 50)
         if query_count > max_queries:
@@ -171,12 +171,12 @@ class PerformanceMonitoringMiddleware:
                 f"High query count: {request.method} {request.path} "
                 f"executed {query_count} queries"
             )
-        
+
         # Add performance headers in debug mode
         if settings.DEBUG:
             response['X-Response-Time'] = f"{duration:.3f}s"
             response['X-Query-Count'] = str(query_count)
-        
+
         return response
 
 
@@ -184,6 +184,7 @@ class CSRFExemptMiddleware(MiddlewareMixin):
     """
     Middleware to handle CSRF exemption for API endpoints while maintaining security.
     """
+
     def process_view(self, request, view_func, view_args, view_kwargs):
         # Exempt API endpoints from CSRF if they use JWT authentication
         if request.path.startswith('/api/') and request.META.get('HTTP_AUTHORIZATION'):
@@ -196,6 +197,7 @@ class JWTAuthCookieMiddleware:
     Inject Authorization header from HttpOnly JWT cookies so DRF SimpleJWT can authenticate.
     Looks for 'access_token' cookie and sets 'HTTP_AUTHORIZATION' if not already present.
     """
+
     def __init__(self, get_response):
         self.get_response = get_response
 

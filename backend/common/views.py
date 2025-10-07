@@ -2,8 +2,9 @@ from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from .models import Industry, ContentCategory, INDUSTRY_CHOICES
-from .serializers import IndustrySerializer, ContentCategorySerializer
+
+from .models import ContentCategory, INDUSTRY_CHOICES
+from .serializers import ContentCategorySerializer
 
 
 @api_view(['GET'])
@@ -17,7 +18,7 @@ def get_industries_view(request):
         {'id': i, 'key': choice[0], 'name': choice[1]}
         for i, choice in enumerate(INDUSTRY_CHOICES, 1)
     ]
-    
+
     return Response({
         'status': 'success',
         'industries': industries
@@ -32,7 +33,7 @@ def get_content_categories_view(request):
     """
     categories = ContentCategory.objects.filter(is_active=True).order_by('sort_order', 'name')
     serializer = ContentCategorySerializer(categories, many=True)
-    
+
     return Response({
         'status': 'success',
         'categories': serializer.data

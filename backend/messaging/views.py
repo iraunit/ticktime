@@ -1,18 +1,18 @@
-from django.shortcuts import render, get_object_or_404
+from datetime import datetime, timedelta
+
+from common.decorators import user_rate_limit, cache_response, log_performance
+from deals.models import Deal
+from deals.views import DealPagination
+from django.shortcuts import get_object_or_404
+from django.utils import timezone
+from influencers.models import InfluencerProfile
+from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from rest_framework import status
-from django.utils import timezone
-from datetime import datetime, timedelta
-from django.db.models import Q
 
 from .models import Conversation, Message
 from .serializers import MessageSerializer, ConversationSerializer
-from influencers.models import InfluencerProfile
-from deals.models import Deal
-from common.decorators import user_rate_limit, cache_response, log_performance
-from deals.views import DealPagination
 
 
 @api_view(['GET'])
@@ -53,7 +53,7 @@ def conversations_list_view(request):
     # Pagination
     paginator = DealPagination()
     page = paginator.paginate_queryset(conversations, request)
-    
+
     if page is not None:
         serializer = ConversationSerializer(page, many=True, context={'request': request})
         response = paginator.get_paginated_response(serializer.data)
@@ -99,12 +99,12 @@ def deal_messages_view(request, deal_id):
 
     if request.method == 'GET':
         messages = conversation.messages.all().order_by('-created_at')
-        
+
         # Apply search filter
         search_query = request.GET.get('search')
         if search_query:
             messages = messages.filter(content__icontains=search_query)
-        
+
         # Apply date filters
         date_from = request.GET.get('date_from')
         date_to = request.GET.get('date_to')
@@ -114,24 +114,24 @@ def deal_messages_view(request, deal_id):
                 messages = messages.filter(created_at__date__gte=date_from)
             except ValueError:
                 pass
-        
+
         if date_to:
             try:
                 date_to = datetime.strptime(date_to, '%Y-%m-%d').date()
                 messages = messages.filter(created_at__date__lte=date_to)
             except ValueError:
                 pass
-        
+
         # Filter by sender type
         sender_filter = request.GET.get('sender_type')
         if sender_filter in ['influencer', 'brand']:
             messages = messages.filter(sender_type=sender_filter)
-        
+
         # Filter messages with attachments only
         attachments_only = request.GET.get('attachments_only')
         if attachments_only and attachments_only.lower() == 'true':
             messages = messages.exclude(file_attachment='')
-        
+
         # Mark messages as read by influencer
         unread_messages = messages.filter(
             sender_type='brand',
@@ -143,7 +143,7 @@ def deal_messages_view(request, deal_id):
         # Pagination
         paginator = DealPagination()
         page = paginator.paginate_queryset(messages, request)
-        
+
         if page is not None:
             serializer = MessageSerializer(page, many=True, context={'request': request})
             response = paginator.get_paginated_response(serializer.data)
@@ -182,7 +182,7 @@ def deal_messages_view(request, deal_id):
     elif request.method == 'POST':
         # Create new message
         serializer = MessageSerializer(data=request.data)
-        
+
         if serializer.is_valid():
             # Save with additional fields
             message = serializer.save(
@@ -190,11 +190,11 @@ def deal_messages_view(request, deal_id):
                 sender_type='influencer',
                 sender_user=request.user
             )
-        
+
             # Update conversation timestamp
             conversation.updated_at = timezone.now()
             conversation.save()
-            
+
             return Response({
                 'status': 'success',
                 'message': 'Message sent successfully.',
@@ -239,7 +239,7 @@ def message_detail_view(request, deal_id, message_id):
         # Mark message as read if it's from brand
         if message.sender_type == 'brand' and not message.read_by_influencer:
             message.mark_as_read('influencer')
-        
+
         serializer = MessageSerializer(message, context={'request': request})
         return Response({
             'status': 'success',
@@ -253,7 +253,7 @@ def message_detail_view(request, deal_id, message_id):
                 'status': 'error',
                 'message': 'You can only edit your own messages.'
             }, status=status.HTTP_403_FORBIDDEN)
-        
+
         # Only allow editing content within 5 minutes of sending
         time_limit = timezone.now() - timedelta(minutes=5)
         if message.created_at < time_limit:
@@ -261,26 +261,26 @@ def message_detail_view(request, deal_id, message_id):
                 'status': 'error',
                 'message': 'Message can only be edited within 5 minutes of sending.'
             }, status=status.HTTP_400_BAD_REQUEST)
-        
+
         serializer = MessageSerializer(
             message,
             data=request.data,
             partial=True,
             context={'request': request}
         )
-        
+
         if serializer.is_valid():
             # Only allow updating content field
             if 'content' in serializer.validated_data:
                 message.content = serializer.validated_data['content']
                 message.save(update_fields=['content'])
-            
+
             return Response({
                 'status': 'success',
                 'message': 'Message updated successfully.',
                 'message_data': MessageSerializer(message, context={'request': request}).data
             }, status=status.HTTP_200_OK)
-        
+
         return Response({
             'status': 'error',
             'message': 'Invalid message data.',
@@ -296,7 +296,8 @@ def conversation_messages_view(request, conversation_id):
     Ensures the authenticated user (brand user or influencer) has access to the
     underlying deal.
     """
-    conversation = get_object_or_404(Conversation.objects.select_related('deal__campaign__brand', 'deal__influencer'), id=conversation_id)
+    conversation = get_object_or_404(Conversation.objects.select_related('deal__campaign__brand', 'deal__influencer'),
+                                     id=conversation_id)
 
     # Authorization: ensure user owns this conversation via influencer profile or brand
     is_influencer = hasattr(request.user, 'influencer_profile')
@@ -305,13 +306,16 @@ def conversation_messages_view(request, conversation_id):
     if is_influencer:
         try:
             if conversation.deal.influencer != request.user.influencer_profile:
-                return Response({'status': 'error', 'message': 'Not authorized to access this conversation.'}, status=status.HTTP_403_FORBIDDEN)
+                return Response({'status': 'error', 'message': 'Not authorized to access this conversation.'},
+                                status=status.HTTP_403_FORBIDDEN)
         except InfluencerProfile.DoesNotExist:
-            return Response({'status': 'error', 'message': 'Influencer profile not found.'}, status=status.HTTP_404_NOT_FOUND)
+            return Response({'status': 'error', 'message': 'Influencer profile not found.'},
+                            status=status.HTTP_404_NOT_FOUND)
     elif is_brand:
         brand_user = getattr(request.user, 'brand_user', None)
         if not brand_user or conversation.deal.campaign.brand != brand_user.brand:
-            return Response({'status': 'error', 'message': 'Not authorized to access this conversation.'}, status=status.HTTP_403_FORBIDDEN)
+            return Response({'status': 'error', 'message': 'Not authorized to access this conversation.'},
+                            status=status.HTTP_403_FORBIDDEN)
     else:
         return Response({'status': 'error', 'message': 'Unauthorized.'}, status=status.HTTP_401_UNAUTHORIZED)
 
@@ -348,7 +352,8 @@ def conversation_messages_view(request, conversation_id):
             return response
 
         serializer = MessageSerializer(messages, many=True, context={'request': request})
-        return Response({'status': 'success', 'messages': serializer.data, 'total_count': messages.count()}, status=status.HTTP_200_OK)
+        return Response({'status': 'success', 'messages': serializer.data, 'total_count': messages.count()},
+                        status=status.HTTP_200_OK)
 
     # POST
     serializer = MessageSerializer(data=request.data)
@@ -357,6 +362,9 @@ def conversation_messages_view(request, conversation_id):
         message = serializer.save(conversation=conversation, sender_type=sender_type, sender_user=request.user)
         conversation.updated_at = timezone.now()
         conversation.save()
-        return Response({'status': 'success', 'message': 'Message sent successfully.', 'message_data': MessageSerializer(message, context={'request': request}).data}, status=status.HTTP_201_CREATED)
+        return Response({'status': 'success', 'message': 'Message sent successfully.',
+                         'message_data': MessageSerializer(message, context={'request': request}).data},
+                        status=status.HTTP_201_CREATED)
 
-    return Response({'status': 'error', 'message': 'Invalid message data.', 'errors': serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+    return Response({'status': 'error', 'message': 'Invalid message data.', 'errors': serializer.errors},
+                    status=status.HTTP_400_BAD_REQUEST)

@@ -1,7 +1,7 @@
-from django.db import models
-from django.core.validators import MinValueValidator, MaxValueValidator
-from django.utils import timezone
 from common.models import DEAL_STATUS_CHOICES
+from django.core.validators import MinValueValidator, MaxValueValidator
+from django.db import models
+from django.utils import timezone
 
 
 class Deal(models.Model):
@@ -11,8 +11,8 @@ class Deal(models.Model):
     """
     campaign = models.ForeignKey('campaigns.Campaign', on_delete=models.CASCADE, related_name='deals')
     influencer = models.ForeignKey(
-        'influencers.InfluencerProfile', 
-        on_delete=models.CASCADE, 
+        'influencers.InfluencerProfile',
+        on_delete=models.CASCADE,
         related_name='deals'
     )
     status = models.CharField(max_length=20, choices=DEAL_STATUS_CHOICES, default='invited')
@@ -24,7 +24,7 @@ class Deal(models.Model):
     accepted_at = models.DateTimeField(null=True, blank=True)
     completed_at = models.DateTimeField(null=True, blank=True)
     payment_status = models.CharField(
-        max_length=20, 
+        max_length=20,
         choices=[
             ('pending', 'Pending'),
             ('processing', 'Processing'),
@@ -35,19 +35,19 @@ class Deal(models.Model):
     )
     payment_date = models.DateTimeField(null=True, blank=True)
     brand_rating = models.IntegerField(
-        null=True, 
+        null=True,
         blank=True,
         validators=[MinValueValidator(1), MaxValueValidator(5)]
     )
     brand_review = models.TextField(blank=True)
     influencer_rating = models.IntegerField(
-        null=True, 
+        null=True,
         blank=True,
         validators=[MinValueValidator(1), MaxValueValidator(5)]
     )
     influencer_review = models.TextField(blank=True)
     notes = models.TextField(blank=True, help_text='Brand notes about this deal')
-    
+
     # Barter deal specific fields
     shipping_address = models.JSONField(blank=True, null=True, help_text='Shipping address for barter deals')
     tracking_number = models.CharField(max_length=100, blank=True, help_text='Tracking number for shipped products')
@@ -76,13 +76,13 @@ class Deal(models.Model):
         # Ensure payment_status is set
         if not self.payment_status:
             self.payment_status = 'pending'
-        
+
         # For barter/hybrid deals, ensure shipping fields are initialized
         if self.campaign and self.campaign.deal_type in ['product', 'hybrid']:
             # Initialize shipping_address as empty dict if not set
             if self.shipping_address is None:
                 self.shipping_address = {}
-        
+
         super().save(*args, **kwargs)
 
     @property
@@ -93,8 +93,8 @@ class Deal(models.Model):
     @property
     def is_active(self):
         """Check if the deal is in an active state"""
-        return self.status in ['accepted', 'shortlisted', 'address_requested', 'address_provided', 
-                              'product_shipped', 'product_delivered', 'active', 'content_submitted', 'under_review']
+        return self.status in ['accepted', 'shortlisted', 'address_requested', 'address_provided',
+                               'product_shipped', 'product_delivered', 'active', 'content_submitted', 'under_review']
 
     @property
     def requires_product_shipping(self):
@@ -113,13 +113,13 @@ class Deal(models.Model):
     @property
     def can_be_acted_upon(self):
         """Check if deal can be accepted/rejected"""
-        return (self.status in ['invited', 'pending'] and 
+        return (self.status in ['invited', 'pending'] and
                 not self.response_deadline_passed)
 
     def set_status_with_timestamp(self, new_status):
         """Set status and corresponding timestamp"""
         self.status = new_status
-        
+
         # Set appropriate timestamp based on status
         timestamp = timezone.now()
         if new_status == 'accepted':

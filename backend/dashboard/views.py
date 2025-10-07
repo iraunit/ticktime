@@ -1,18 +1,19 @@
+from datetime import timedelta
+from decimal import Decimal
+
+from common.decorators import user_rate_limit, cache_response, log_performance
+from common.models import PLATFORM_CHOICES
+from deals.models import Deal
+from django.db.models import Count, Sum, Avg, F
+from django.db.models.functions import Coalesce
+from django.utils import timezone
+from influencers.models import InfluencerProfile
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from django.db.models import Q, Count, Sum, Avg, F
-from django.db.models.functions import Coalesce
-from django.utils import timezone
-from datetime import datetime, timedelta
-from decimal import Decimal
 
 from .serializers import DashboardStatsSerializer
-from common.decorators import user_rate_limit, cache_response, log_performance
-from common.models import PLATFORM_CHOICES
-from influencers.models import InfluencerProfile
-from deals.models import Deal
 
 
 @api_view(['GET'])
@@ -34,7 +35,7 @@ def dashboard_stats_view(request):
 
     # Get deal statistics
     deals = Deal.objects.filter(influencer=profile)
-    
+
     total_invitations = deals.count()
     pending_responses = deals.filter(
         status__in=['invited', 'pending'],
@@ -72,10 +73,11 @@ def dashboard_stats_view(request):
 
     # Performance metrics
     total_brands_worked_with = deals.filter(status='completed').values('campaign__brand').distinct().count()
-    
+
     # Calculate acceptance rate
     responded_deals = deals.filter(responded_at__isnull=False).count()
-    acceptance_rate = (deals.filter(status__in=['accepted', 'active', 'content_submitted', 'under_review', 'approved', 'completed']).count() / responded_deals * 100) if responded_deals > 0 else 0
+    acceptance_rate = (deals.filter(status__in=['accepted', 'active', 'content_submitted', 'under_review', 'approved',
+                                                'completed']).count() / responded_deals * 100) if responded_deals > 0 else 0
 
     # Top performing platform
     top_platform = None
@@ -114,7 +116,7 @@ def dashboard_stats_view(request):
     }
 
     serializer = DashboardStatsSerializer(stats_data)
-    
+
     return Response({
         'status': 'success',
         'stats': serializer.data
@@ -136,7 +138,7 @@ def notifications_view(request):
         }, status=status.HTTP_404_NOT_FOUND)
 
     notifications = []
-    
+
     # Deal-related notifications
     # New invitations (last 7 days)
     recent_invitations = Deal.objects.filter(
@@ -242,7 +244,8 @@ def notifications_view(request):
                     'brand_name': deal.campaign.brand.name,
                     'campaign_title': deal.campaign.title,
                     'unread_count': unread_count,
-                    'last_message_preview': last_message.content[:50] + '...' if last_message and len(last_message.content) > 50 else last_message.content if last_message else '',
+                    'last_message_preview': last_message.content[:50] + '...' if last_message and len(
+                        last_message.content) > 50 else last_message.content if last_message else '',
                     'created_at': last_message.created_at if last_message else timezone.now(),
                     'is_urgent': False,
                     'action_required': True
@@ -256,7 +259,7 @@ def notifications_view(request):
     page = int(request.GET.get('page', 1))
     start_index = (page - 1) * page_size
     end_index = start_index + page_size
-    
+
     paginated_notifications = notifications[start_index:end_index]
 
     return Response({
@@ -285,12 +288,12 @@ def performance_metrics_view(request):
         }, status=status.HTTP_404_NOT_FOUND)
 
     deals = Deal.objects.filter(influencer=profile)
-    
+
     # Overall metrics
     total_collaborations = deals.filter(status='completed').count()
     total_brands = deals.filter(status='completed').values('campaign__brand').distinct().count()
     total_earnings = deals.filter(
-        status='completed', 
+        status='completed',
         payment_status='paid'
     ).aggregate(
         total=Coalesce(Sum('campaign__cash_amount'), Decimal('0.00'))
@@ -301,20 +304,20 @@ def performance_metrics_view(request):
     for platform_choice in PLATFORM_CHOICES:
         platform_code = platform_choice[0]
         platform_name = platform_choice[1]
-        
+
         # Get social account for this platform
         social_account = profile.social_accounts.filter(
             platform=platform_code,
             is_active=True
         ).first()
-        
+
         if social_account:
             # Count deals that required this platform
             platform_deals = deals.filter(
                 status='completed',
                 campaign__platforms_required__contains=[platform_code]
             ).count()
-            
+
             platform_earnings = deals.filter(
                 status='completed',
                 payment_status='paid',
@@ -358,15 +361,15 @@ def performance_metrics_view(request):
     # Monthly performance (last 12 months)
     monthly_performance = []
     for i in range(12):
-        month_start = (timezone.now().replace(day=1) - timedelta(days=32*i)).replace(day=1)
+        month_start = (timezone.now().replace(day=1) - timedelta(days=32 * i)).replace(day=1)
         month_end = (month_start + timedelta(days=32)).replace(day=1) - timedelta(days=1)
-        
+
         month_deals = deals.filter(
             completed_at__gte=month_start,
             completed_at__lte=month_end,
             status='completed'
         )
-        
+
         month_earnings = month_deals.filter(payment_status='paid').aggregate(
             total=Coalesce(Sum('campaign__cash_amount'), Decimal('0.00'))
         )['total'] or Decimal('0.00')
@@ -382,7 +385,7 @@ def performance_metrics_view(request):
     # Calculate growth metrics
     current_month = timezone.now().replace(day=1)
     last_month = (current_month - timedelta(days=1)).replace(day=1)
-    
+
     current_month_earnings = deals.filter(
         completed_at__gte=current_month,
         status='completed',
@@ -409,7 +412,8 @@ def performance_metrics_view(request):
             'total_collaborations': total_collaborations,
             'total_brands': total_brands,
             'total_earnings': total_earnings,
-            'average_earnings_per_collaboration': float(total_earnings / total_collaborations) if total_collaborations > 0 else 0,
+            'average_earnings_per_collaboration': float(
+                total_earnings / total_collaborations) if total_collaborations > 0 else 0,
             'earnings_growth_percentage': round(earnings_growth, 2)
         },
         'platform_performance': platform_performance,

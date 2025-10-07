@@ -1,7 +1,5 @@
 from rest_framework import serializers
-from django.contrib.auth.models import User
-from django.core.exceptions import ValidationError
-from django.utils import timezone
+
 from .models import Conversation, Message
 
 
@@ -25,12 +23,12 @@ class MessageSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         """Create message with file attachment handling."""
         file_attachment = validated_data.get('file_attachment')
-        
+
         if file_attachment:
             # Set file name and size
             validated_data['file_name'] = file_attachment.name
             validated_data['file_size'] = file_attachment.size
-        
+
         return super().create(validated_data)
 
     def get_sender_name(self, obj):
@@ -67,7 +65,7 @@ class ConversationSerializer(serializers.ModelSerializer):
     class Meta:
         model = Conversation
         fields = (
-            'id', 'deal', 'deal_title', 'brand_name', 'brand_logo', 'influencer_name', 
+            'id', 'deal', 'deal_title', 'brand_name', 'brand_logo', 'influencer_name',
             'influencer_username', 'influencer_avatar', 'influencer_id', 'last_message',
             'unread_count', 'messages_count', 'created_at', 'updated_at'
         )
@@ -97,8 +95,8 @@ class ConversationSerializer(serializers.ModelSerializer):
 
     def get_influencer_avatar(self, obj):
         """Get influencer avatar URL."""
-        if (obj.deal and obj.deal.influencer and obj.deal.influencer.user_profile 
-            and obj.deal.influencer.user_profile.profile_image):
+        if (obj.deal and obj.deal.influencer and obj.deal.influencer.user_profile
+                and obj.deal.influencer.user_profile.profile_image):
             request = self.context.get('request')
             if request:
                 return request.build_absolute_uri(obj.deal.influencer.user_profile.profile_image.url)
