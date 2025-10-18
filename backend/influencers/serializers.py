@@ -1,7 +1,7 @@
 import re
 
 from common.models import (
-    INDUSTRY_CHOICES, PLATFORM_CHOICES, DEAL_STATUS_CHOICES,
+    Industry, ContentCategory, PLATFORM_CHOICES, DEAL_STATUS_CHOICES,
     DEAL_TYPE_CHOICES, CONTENT_TYPE_CHOICES
 )
 from django.db import models

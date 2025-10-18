@@ -1,6 +1,6 @@
 from urllib.parse import urlparse
 
-from common.models import INDUSTRY_CHOICES
+from common.models import Industry
 from django.contrib.auth import authenticate
 from django.contrib.auth.models import User
 from django.contrib.auth.password_validation import validate_password
@@ -19,7 +19,10 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
     phone_number = serializers.CharField(max_length=15)
     country_code = serializers.CharField(max_length=5, default='+91')
     username = serializers.CharField(max_length=50)
-    industry = serializers.ChoiceField(choices=INDUSTRY_CHOICES)
+    industry = serializers.SlugRelatedField(
+        queryset=Industry.objects.filter(is_active=True),
+        slug_field='key'
+    )
 
     class Meta:
         model = User
@@ -95,7 +98,7 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
                 user=user,
                 user_profile=user_profile,
                 username=username,
-                industry=industry,
+                industry=industry,  # Store the Industry object directly
                 categories=[],  # Store as JSON list
                 is_verified=True,
             )
@@ -114,7 +117,10 @@ class BrandRegistrationSerializer(serializers.Serializer):
 
     # Brand fields
     name = serializers.CharField(max_length=200)
-    industry = serializers.ChoiceField(choices=INDUSTRY_CHOICES)
+    industry = serializers.SlugRelatedField(
+        queryset=Industry.objects.filter(is_active=True),
+        slug_field='key'
+    )
     website = serializers.URLField()
     country_code = serializers.CharField(max_length=5)
     contact_phone = serializers.CharField(max_length=15)
@@ -230,7 +236,7 @@ class BrandRegistrationSerializer(serializers.Serializer):
             brand = Brand.objects.create(
                 name=name,
                 domain=domain,
-                industry=industry,
+                industry=industry,  # Store the Industry object directly
                 website=website,
                 contact_email=user.email,
                 description=description,

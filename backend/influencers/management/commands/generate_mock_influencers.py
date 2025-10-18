@@ -1,17 +1,18 @@
 import random
 import string
-from decimal import Decimal
-from django.core.management.base import BaseCommand
-from django.contrib.auth.models import User
-from django.utils import timezone
 from datetime import timedelta
-from users.models import UserProfile
+from decimal import Decimal
+
+from common.models import Industry, ContentCategory, PLATFORM_CHOICES
+from django.contrib.auth.models import User
+from django.core.management.base import BaseCommand
+from django.utils import timezone
 from influencers.models import (
-    InfluencerProfile, 
-    SocialMediaAccount, 
+    InfluencerProfile,
+    SocialMediaAccount,
     InfluencerAudienceInsight
 )
-from common.models import INDUSTRY_CHOICES, PLATFORM_CHOICES, CONTENT_CATEGORIES
+from users.models import UserProfile
 
 
 class Command(BaseCommand):
@@ -34,9 +35,9 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         count = options['count']
         password = options['password']
-        
+
         self.stdout.write(f'Generating {count} mock influencers...')
-        
+
         # Sample data for generating realistic mock data
         first_names = [
             'Aarav', 'Aisha', 'Arjun', 'Diya', 'Ishaan', 'Kavya', 'Krishna', 'Maya',
@@ -44,25 +45,25 @@ class Command(BaseCommand):
             'Aditya', 'Ananya', 'Dev', 'Ira', 'Kabir', 'Kiara', 'Laksh', 'Mira',
             'Nisha', 'Om', 'Pari', 'Rohan', 'Sana', 'Tara', 'Ved', 'Yash'
         ]
-        
+
         last_names = [
             'Sharma', 'Verma', 'Patel', 'Kumar', 'Singh', 'Gupta', 'Joshi', 'Yadav',
             'Kaur', 'Malhotra', 'Kapoor', 'Chopra', 'Reddy', 'Nair', 'Iyer', 'Menon',
             'Bhatt', 'Mehta', 'Shah', 'Tiwari', 'Chauhan', 'Mishra', 'Pandey', 'Rao'
         ]
-        
+
         cities = [
             'Mumbai', 'Delhi', 'Bangalore', 'Hyderabad', 'Chennai', 'Kolkata', 'Pune',
             'Ahmedabad', 'Jaipur', 'Surat', 'Lucknow', 'Kanpur', 'Nagpur', 'Indore',
             'Thane', 'Bhopal', 'Visakhapatnam', 'Pimpri-Chinchwad', 'Patna', 'Vadodara'
         ]
-        
+
         states = [
             'Maharashtra', 'Delhi', 'Karnataka', 'Telangana', 'Tamil Nadu', 'West Bengal',
             'Gujarat', 'Rajasthan', 'Uttar Pradesh', 'Madhya Pradesh', 'Andhra Pradesh',
             'Bihar', 'Odisha', 'Kerala', 'Punjab', 'Haryana', 'Jharkhand', 'Assam'
         ]
-        
+
         bio_templates = [
             "Passionate {category} creator sharing authentic content and lifestyle tips! ✨",
             "Your go-to {category} influencer for real reviews and honest recommendations 💫",
@@ -73,23 +74,23 @@ class Command(BaseCommand):
             "Your daily dose of {category} inspiration | Real content, real stories 💖",
             "Making {category} accessible and fun for everyone | Let's learn together! 📚"
         ]
-        
+
         content_keywords = [
             'lifestyle', 'fashion', 'beauty', 'fitness', 'food', 'travel', 'tech', 'gaming',
             'music', 'dance', 'comedy', 'education', 'business', 'finance', 'parenting',
             'pets', 'sports', 'art', 'photography', 'entertainment', 'news', 'politics'
         ]
-        
+
         audience_interests = [
             'Fashion', 'Beauty', 'Fitness', 'Food', 'Travel', 'Technology', 'Gaming',
             'Music', 'Dance', 'Comedy', 'Education', 'Business', 'Finance', 'Parenting',
             'Pets', 'Sports', 'Art', 'Photography', 'Entertainment', 'News', 'Politics'
         ]
-        
+
         languages = ['English', 'Hindi', 'Tamil', 'Telugu', 'Bengali', 'Marathi', 'Gujarati']
-        
+
         created_count = 0
-        
+
         for i in range(count):
             try:
                 # Generate random user data
@@ -97,7 +98,7 @@ class Command(BaseCommand):
                 last_name = random.choice(last_names)
                 username = f"{first_name.lower()}{last_name.lower()}{random.randint(100, 999)}"
                 email = f"{username}@example.com"
-                
+
                 # Create User
                 user = User.objects.create_user(
                     username=username,
@@ -106,7 +107,7 @@ class Command(BaseCommand):
                     first_name=first_name,
                     last_name=last_name
                 )
-                
+
                 # Create UserProfile
                 user_profile = UserProfile.objects.create(
                     user=user,
@@ -120,22 +121,21 @@ class Command(BaseCommand):
                     city=random.choice(cities),
                     zipcode=str(random.randint(100000, 999999))
                 )
-                
+
                 # Select random industry and categories
-                industry = random.choice(INDUSTRY_CHOICES)[0]
-                categories = random.sample([cat[0] for cat in CONTENT_CATEGORIES], random.randint(1, 4))
-                
+                industry = random.choice(Industry.objects.filter(is_active=True))
+                categories = random.sample(list(ContentCategory.objects.filter(is_active=True)), random.randint(1, 4))
+
                 # Generate bio
-                category_name = dict(CONTENT_CATEGORIES)[random.choice(categories)]
+                category_name = random.choice(categories).name
                 bio = random.choice(bio_templates).format(category=category_name)
-                
+
                 # Create InfluencerProfile
                 influencer = InfluencerProfile.objects.create(
                     user=user,
                     user_profile=user_profile,
                     username=username,
                     industry=industry,
-                    categories=categories,
                     bio=bio,
                     aadhar_number=f"{random.randint(100000000000, 999999999999)}",
                     is_verified=random.choice([True, False]),
@@ -179,10 +179,13 @@ class Command(BaseCommand):
                     audience_interests=random.sample(audience_interests, random.randint(3, 8)),
                     audience_languages=random.sample(languages, random.randint(1, 3))
                 )
-                
+
+                # Add categories to the influencer
+                influencer.categories.set(categories)
+
                 # Create social media accounts
                 platforms_to_create = random.sample([p[0] for p in PLATFORM_CHOICES], random.randint(2, 5))
-                
+
                 for platform in platforms_to_create:
                     # Generate platform-specific data
                     if platform == 'instagram':
@@ -192,7 +195,7 @@ class Command(BaseCommand):
                         avg_comments = int(avg_likes * random.uniform(0.05, 0.15))
                         avg_shares = int(avg_likes * random.uniform(0.02, 0.08))
                         posts_count = random.randint(50, 500)
-                        
+
                         social_account = SocialMediaAccount.objects.create(
                             influencer=influencer,
                             platform=platform,
@@ -217,7 +220,7 @@ class Command(BaseCommand):
                             verified=influencer.instagram_verified,
                             is_active=True
                         )
-                        
+
                     elif platform == 'youtube':
                         subscribers = random.randint(1000, 200000)
                         engagement_rate = random.uniform(2.0, 12.0)
@@ -225,7 +228,7 @@ class Command(BaseCommand):
                         avg_likes = int(avg_views * random.uniform(0.02, 0.08))
                         avg_comments = int(avg_views * random.uniform(0.005, 0.02))
                         posts_count = random.randint(20, 200)
-                        
+
                         social_account = SocialMediaAccount.objects.create(
                             influencer=influencer,
                             platform=platform,
@@ -250,7 +253,7 @@ class Command(BaseCommand):
                             verified=random.choice([True, False]),
                             is_active=True
                         )
-                        
+
                     elif platform == 'tiktok':
                         followers = random.randint(5000, 1000000)
                         engagement_rate = random.uniform(3.0, 15.0)
@@ -258,7 +261,7 @@ class Command(BaseCommand):
                         avg_comments = int(avg_likes * random.uniform(0.05, 0.2))
                         avg_shares = int(avg_likes * random.uniform(0.1, 0.3))
                         posts_count = random.randint(100, 1000)
-                        
+
                         social_account = SocialMediaAccount.objects.create(
                             influencer=influencer,
                             platform=platform,
@@ -278,7 +281,7 @@ class Command(BaseCommand):
                             verified=random.choice([True, False]),
                             is_active=True
                         )
-                        
+
                     else:  # twitter, facebook, linkedin, etc.
                         followers = random.randint(500, 100000)
                         engagement_rate = random.uniform(1.0, 6.0)
@@ -286,7 +289,7 @@ class Command(BaseCommand):
                         avg_comments = int(avg_likes * random.uniform(0.03, 0.12))
                         avg_shares = int(avg_likes * random.uniform(0.02, 0.08))
                         posts_count = random.randint(30, 300)
-                        
+
                         social_account = SocialMediaAccount.objects.create(
                             influencer=influencer,
                             platform=platform,
@@ -306,7 +309,7 @@ class Command(BaseCommand):
                             verified=random.choice([True, False]),
                             is_active=True
                         )
-                    
+
                     # Create audience insights for each platform
                     InfluencerAudienceInsight.objects.create(
                         influencer=influencer,
@@ -325,16 +328,16 @@ class Command(BaseCommand):
                         active_followers_percentage=Decimal(str(random.uniform(60, 95))),
                         fake_followers_percentage=Decimal(str(random.uniform(0, 15)))
                     )
-                
+
                 created_count += 1
                 self.stdout.write(f'Created influencer {created_count}: {first_name} {last_name} (@{username})')
-                
+
             except Exception as e:
                 self.stdout.write(
-                    self.style.ERROR(f'Error creating influencer {i+1}: {str(e)}')
+                    self.style.ERROR(f'Error creating influencer {i + 1}: {str(e)}')
                 )
                 continue
-        
+
         self.stdout.write(
             self.style.SUCCESS(
                 f'Successfully created {created_count} influencers with social media platforms!'

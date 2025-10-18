@@ -1,4 +1,4 @@
-from common.models import INDUSTRY_CHOICES, PLATFORM_CHOICES, CONTENT_CATEGORIES
+from common.models import Industry, ContentCategory, PLATFORM_CHOICES
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.db import models
 
@@ -14,11 +14,11 @@ class InfluencerProfile(models.Model):
                                         related_name='influencer_profile', null=True, blank=True)
 
     username = models.CharField(max_length=50, unique=True)
-    industry = models.CharField(max_length=50, choices=INDUSTRY_CHOICES)
+    industry = models.ForeignKey(Industry, on_delete=models.PROTECT, related_name='influencers')
 
     # Categories the influencer specializes in
     categories = models.ManyToManyField(
-        'common.Industry',
+        ContentCategory,
         blank=True,
         related_name='influencers'
     )

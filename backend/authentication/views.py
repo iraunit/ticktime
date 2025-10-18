@@ -1,23 +1,24 @@
-from rest_framework import status
-from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import AllowAny, IsAuthenticated
-from rest_framework.response import Response
+import logging
+
+from common.decorators import (
+    auth_rate_limit,
+    log_performance
+)
+from common.utils import generate_email_verification_token, verify_email_verification_token
+from django.conf import settings
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.models import User
 from django.contrib.auth.tokens import default_token_generator
 from django.contrib.sites.shortcuts import get_current_site
 from django.core.mail import send_mail
-from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
-from django.utils.encoding import force_bytes, force_str
-from django.conf import settings
 from django.middleware.csrf import get_token
-import logging
-
-from common.decorators import (
-    auth_rate_limit, 
-    log_performance
-)
-from common.utils import generate_email_verification_token, verify_email_verification_token
+from django.utils.encoding import force_bytes, force_str
+from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
+from rest_framework import status
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.response import Response
+from users.serializers import UserProfileSerializer
 
 from .serializers import (
     UserRegistrationSerializer,
@@ -26,7 +27,6 @@ from .serializers import (
     ResetPasswordSerializer,
     BrandRegistrationSerializer,
 )
-from users.serializers import UserProfileSerializer
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +43,7 @@ def format_serializer_errors(serializer_errors):
         else:
             friendly_field = field.replace('_', ' ').title()
             error_messages.append(f"{friendly_field}: {errors}")
-    
+
     return '; '.join(error_messages) if error_messages else 'Invalid data provided.'
 
 
@@ -127,15 +127,15 @@ def logout_view(request):
         # Get the current session key before logout
         session_key = request.session.session_key
         host = request.get_host()
-        
+
         logger.info(f"Logout request from host: {host}, session_key: {session_key}")
-        
+
         # Perform Django logout
         logout(request)
-        
+
         # Create response
         response = Response({'status': 'success', 'message': 'Logout successful'}, status=status.HTTP_200_OK)
-        
+
         # Explicitly delete the session cookie to ensure it's cleared
         if session_key:
             # Delete the session from the database
@@ -145,7 +145,7 @@ def logout_view(request):
                 logger.info(f"Session {session_key} deleted from database")
             except Exception as e:
                 logger.warning(f"Failed to delete session from database: {str(e)}")
-        
+
         # Clear the session cookie with proper domain settings
         if 'ticktime.media' in host:
             cookie_domain = '.ticktime.media'
@@ -153,16 +153,16 @@ def logout_view(request):
             cookie_domain = '.ticktimemedia.com'
         else:
             cookie_domain = None
-            
+
         logger.info(f"Setting cookie domain to: {cookie_domain}")
-        
+
         response.delete_cookie(
             'sessionid',
             domain=cookie_domain,
             path='/',
             samesite='Lax'
         )
-        
+
         # Also clear CSRF cookie
         response.delete_cookie(
             'csrftoken',
@@ -170,10 +170,10 @@ def logout_view(request):
             path='/',
             samesite='Lax'
         )
-        
+
         logger.info("Logout completed successfully")
         return response
-        
+
     except Exception as e:
         logger.error(f"Logout failed: {str(e)}")
         return Response({'status': 'error', 'message': 'Logout failed'}, status=status.HTTP_400_BAD_REQUEST)
@@ -187,18 +187,18 @@ def signup_view(request):
     Creates verified and active accounts and automatically logs them in.
     """
     serializer = UserRegistrationSerializer(data=request.data)
-    
+
     if serializer.is_valid():
         try:
             user = serializer.save()
-            
+
             # Automatically log in the user
             login(request, user)
-            
+
             # Ensure UserProfile exists for the user
             from users.models import UserProfile
             UserProfile.objects.get_or_create(user=user)
-            
+
             profile_serializer = UserProfileSerializer(user, context={'request': request})
 
             return Response({
@@ -209,7 +209,7 @@ def signup_view(request):
                 'requires_email_verification': False,
                 'auto_logged_in': True,
             }, status=status.HTTP_201_CREATED)
-            
+
         except Exception as e:
             logger.error(f"User registration failed: {str(e)}")
             # Check if it's a database constraint error
@@ -228,7 +228,7 @@ def signup_view(request):
                 'status': 'error',
                 'message': 'Registration failed. Please try again.'
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-    
+
     error_message = format_serializer_errors(serializer.errors)
     return Response({
         'status': 'error',
@@ -246,14 +246,14 @@ def brand_signup_view(request):
     if serializer.is_valid():
         try:
             user = serializer.save()
-            
+
             # Automatically log in the user
             login(request, user)
-            
+
             # Ensure UserProfile exists for the user
             from users.models import UserProfile
             UserProfile.objects.get_or_create(user=user)
-            
+
             profile_serializer = UserProfileSerializer(user, context={'request': request})
             return Response({
                 'status': 'success',
@@ -294,16 +294,16 @@ def verify_email_view(request, token):
     Email verification endpoint.
     """
     user = verify_email_verification_token(token)
-    
+
     if user:
         user.is_active = True
         user.save()
-        
+
         return Response({
             'status': 'success',
             'message': 'Email verified successfully. You can now login to your account.'
         }, status=status.HTTP_200_OK)
-    
+
     return Response({
         'status': 'error',
         'message': 'Invalid or expired verification token.'
@@ -317,19 +317,19 @@ def forgot_password_view(request):
     Password reset request endpoint.
     """
     serializer = ForgotPasswordSerializer(data=request.data)
-    
+
     if serializer.is_valid():
         email = serializer.validated_data['email']
         user = User.objects.get(email=email)
-        
+
         # Generate password reset token
         token = default_token_generator.make_token(user)
         uid = urlsafe_base64_encode(force_bytes(user.pk))
-        
+
         # Send password reset email
         current_site = get_current_site(request)
         reset_url = f"http://{current_site.domain}/reset-password/{uid}/{token}/"
-        
+
         subject = 'Reset your InfluencerConnect password'
         message = f"""
         Hi {user.first_name},
@@ -344,7 +344,7 @@ def forgot_password_view(request):
         Best regards,
         The InfluencerConnect Team
         """
-        
+
         try:
             send_mail(
                 subject,
@@ -353,19 +353,19 @@ def forgot_password_view(request):
                 [user.email],
                 fail_silently=False,
             )
-            
+
             return Response({
                 'status': 'success',
                 'message': 'Password reset email sent. Please check your email.'
             }, status=status.HTTP_200_OK)
-            
+
         except Exception as e:
             logger.error(f"Failed to send password reset email: {str(e)}")
             return Response({
                 'status': 'error',
                 'message': 'Failed to send password reset email. Please try again.'
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-    
+
     error_message = format_serializer_errors(serializer.errors)
     return Response({
         'status': 'error',
@@ -387,29 +387,29 @@ def reset_password_view(request, uid, token):
             'status': 'error',
             'message': 'Invalid reset link.'
         }, status=status.HTTP_400_BAD_REQUEST)
-    
+
     if not default_token_generator.check_token(user, token):
         return Response({
             'status': 'error',
             'message': 'Invalid or expired reset token.'
         }, status=status.HTTP_400_BAD_REQUEST)
-    
+
     # Add token to request data for validation
     data = request.data.copy()
     data['token'] = token
-    
+
     serializer = ResetPasswordSerializer(data=data)
-    
+
     if serializer.is_valid():
         password = serializer.validated_data['password']
         user.set_password(password)
         user.save()
-        
+
         return Response({
             'status': 'success',
             'message': 'Password reset successful. You can now login with your new password.'
         }, status=status.HTTP_200_OK)
-    
+
     error_message = format_serializer_errors(serializer.errors)
     return Response({
         'status': 'error',
@@ -424,11 +424,11 @@ def user_profile_view(request):
     Get current user profile information.
     """
     user = request.user
-    
+
     # Ensure UserProfile exists for the user
     from users.models import UserProfile
     UserProfile.objects.get_or_create(user=user)
-    
+
     serializer = UserProfileSerializer(user, context={'request': request})
     return Response({
         'status': 'success',

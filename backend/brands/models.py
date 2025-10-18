@@ -1,4 +1,4 @@
-from common.models import INDUSTRY_CHOICES
+from common.models import Industry
 from django.contrib.auth.models import User
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.db import models
@@ -15,7 +15,7 @@ class Brand(models.Model):
     logo = models.ImageField(upload_to='brands/', blank=True, null=True)
     description = models.TextField(blank=True, default='')
     website = models.URLField(blank=True, default='')
-    industry = models.CharField(max_length=50, choices=INDUSTRY_CHOICES)
+    industry = models.ForeignKey(Industry, on_delete=models.PROTECT, related_name='brands')
     contact_email = models.EmailField()
     # Removed country_code and contact_phone as they're now in UserProfile
     is_verified = models.BooleanField(default=False)
