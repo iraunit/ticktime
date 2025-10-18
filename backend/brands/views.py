@@ -1,5 +1,8 @@
 from campaigns.models import Campaign
 from campaigns.serializers import CampaignCreateSerializer
+from common.api_response import api_response, format_serializer_errors
+
+
 from deals.models import Deal
 from django.contrib.auth.models import User
 from django.core.paginator import Paginator
@@ -49,16 +52,10 @@ def brand_dashboard_view(request):
     """
     brand_user = get_brand_user_or_403(request)
     if not brand_user:
-        return Response({
-            'status': 'error',
-            'message': 'Brand profile not found.'
-        }, status=status.HTTP_404_NOT_FOUND)
+        return api_response(False, error='Brand profile not found.', status_code=404)
 
     if not brand_user.can_view_analytics:
-        return Response({
-            'status': 'error',
-            'message': 'You do not have permission to view analytics.'
-        }, status=status.HTTP_403_FORBIDDEN)
+        return api_response(False, error='You do not have permission to view analytics.', status_code=403)
 
     brand = brand_user.brand
 
@@ -106,10 +103,7 @@ def brand_dashboard_view(request):
         'recent_campaigns': recent_campaigns
     }, context={'request': request})
 
-    return Response({
-        'status': 'success',
-        'dashboard': serializer.data
-    })
+    return api_response(True, result={'dashboard': serializer.data})
 
 
 @api_view(['GET'])
@@ -120,18 +114,12 @@ def brand_profile_view(request):
     """
     brand_user = get_brand_user_or_403(request)
     if not brand_user:
-        return Response({
-            'status': 'error',
-            'message': 'Brand profile not found.'
-        }, status=status.HTTP_404_NOT_FOUND)
+        return api_response(False, error='Brand profile not found.', status_code=404)
 
     brand = brand_user.brand
     serializer = BrandSerializer(brand)
 
-    return Response({
-        'status': 'success',
-        'brand': serializer.data
-    })
+    return api_response(True, result={'brand': serializer.data})
 
 
 @api_view(['GET'])
@@ -142,10 +130,7 @@ def brand_team_view(request):
     """
     brand_user = get_brand_user_or_403(request)
     if not brand_user:
-        return Response({
-            'status': 'error',
-            'message': 'Brand profile not found.'
-        }, status=status.HTTP_404_NOT_FOUND)
+        return api_response(False, error='Brand profile not found.', status_code=404)
 
     team_members = BrandUser.objects.filter(
         brand=brand_user.brand,
@@ -159,10 +144,7 @@ def brand_team_view(request):
 
     serializer = BrandTeamSerializer(team_members, many=True)
 
-    return Response({
-        'status': 'success',
-        'team_members': serializer.data
-    })
+    return api_response(True, result={'team_members': serializer.data})
 
 
 @api_view(['POST'])
@@ -173,10 +155,7 @@ def invite_brand_user_view(request):
     """
     brand_user = get_brand_user_or_403(request)
     if not brand_user or not brand_user.can_manage_users:
-        return Response({
-            'status': 'error',
-            'message': 'You do not have permission to invite users.'
-        }, status=status.HTTP_403_FORBIDDEN)
+        return api_response(False, error='You do not have permission to invite users.', status_code=403)
 
     serializer = BrandUserInviteSerializer(data=request.data)
     if serializer.is_valid():
@@ -189,10 +168,7 @@ def invite_brand_user_view(request):
         try:
             user = User.objects.get(email=email)
             if BrandUser.objects.filter(user=user, brand=brand_user.brand).exists():
-                return Response({
-                    'status': 'error',
-                    'message': 'User is already associated with this brand.'
-                }, status=status.HTTP_400_BAD_REQUEST)
+                return api_response(False, error='User is already associated with this brand.', status_code=400)
         except User.DoesNotExist:
             # Create new user account
             user = User.objects.create_user(
@@ -224,16 +200,10 @@ def invite_brand_user_view(request):
             {'invited_email': email, 'role': role}
         )
 
-        return Response({
-            'status': 'success',
-            'message': 'User invited successfully.'
-        }, status=status.HTTP_201_CREATED)
+        return api_response(True, result={'message': 'User invited successfully.'}, status_code=201)
 
-    return Response({
-        'status': 'error',
-        'message': 'Invalid invitation data.',
-        'errors': serializer.errors
-    }, status=status.HTTP_400_BAD_REQUEST)
+    return api_response(False, error=f"Invalid invitation data. {format_serializer_errors(serializer.errors)}",
+                        status_code=400)
 
 
 @api_view(['GET', 'POST'])
@@ -244,19 +214,13 @@ def brand_campaigns_view(request):
     """
     brand_user = get_brand_user_or_403(request)
     if not brand_user:
-        return Response({
-            'status': 'error',
-            'message': 'Brand profile not found.'
-        }, status=status.HTTP_404_NOT_FOUND)
+        return api_response(False, error='Brand profile not found.', status_code=404)
 
     if request.method == 'POST':
         # Create new campaign
         # Check if user has permission to create campaigns
         if not brand_user.can_create_campaigns:
-            return Response({
-                'status': 'error',
-                'message': 'You do not have permission to create campaigns.'
-            }, status=status.HTTP_403_FORBIDDEN)
+            return api_response(False, error='You do not have permission to create campaigns.', status_code=403)
 
         serializer = CampaignCreateSerializer(data=request.data)
         if serializer.is_valid():
@@ -276,28 +240,20 @@ def brand_campaigns_view(request):
                     {'campaign_id': campaign.id, 'campaign_title': campaign.title}
                 )
 
-                return Response({
-                    'status': 'success',
+                return api_response(True, result={
                     'message': 'Campaign created successfully.',
                     'campaign': {
                         'id': campaign.id,
                         'title': campaign.title,
                         'created_at': campaign.created_at
                     }
-                }, status=status.HTTP_201_CREATED)
+                }, status_code=201)
 
             except Exception as e:
-                return Response({
-                    'status': 'error',
-                    'message': 'Failed to create campaign.',
-                    'error': str(e)
-                }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+                return api_response(False, error=f'Failed to create campaign. {str(e)}', status_code=500)
 
-        return Response({
-            'status': 'error',
-            'message': 'Invalid campaign data.',
-            'errors': serializer.errors
-        }, status=status.HTTP_400_BAD_REQUEST)
+        return api_response(False, error=f"Invalid campaign data. {format_serializer_errors(serializer.errors)}",
+                            status_code=400)
 
     # GET request - list campaigns
     campaigns = brand_user.brand.campaigns.all()
@@ -388,34 +344,22 @@ def campaign_detail_view(request, campaign_id):
     """
     brand_user = get_brand_user_or_403(request)
     if not brand_user:
-        return Response({
-            'status': 'error',
-            'message': 'Brand profile not found.'
-        }, status=status.HTTP_404_NOT_FOUND)
+        return api_response(False, error='Brand profile not found.', status_code=404)
 
     try:
         campaign = Campaign.objects.get(id=campaign_id, brand=brand_user.brand)
     except Campaign.DoesNotExist:
-        return Response({
-            'status': 'error',
-            'message': 'Campaign not found.'
-        }, status=status.HTTP_404_NOT_FOUND)
+        return api_response(False, error='Campaign not found.', status_code=404)
 
     if request.method == 'GET':
         from campaigns.serializers import CampaignSerializer
         serializer = CampaignSerializer(campaign, context={'request': request})
-        return Response({
-            'status': 'success',
-            'campaign': serializer.data
-        })
+        return api_response(True, result={'campaign': serializer.data})
 
     elif request.method == 'PATCH':
         # Check if user has permission to edit campaigns
         if not brand_user.can_edit_campaigns:
-            return Response({
-                'status': 'error',
-                'message': 'You do not have permission to edit campaigns.'
-            }, status=status.HTTP_403_FORBIDDEN)
+            return api_response(False, error='You do not have permission to edit campaigns.', status_code=403)
 
         serializer = CampaignCreateSerializer(campaign, data=request.data, partial=True)
         if serializer.is_valid():
@@ -433,32 +377,21 @@ def campaign_detail_view(request, campaign_id):
 
                 from campaigns.serializers import CampaignSerializer
                 campaign_serializer = CampaignSerializer(updated_campaign, context={'request': request})
-                return Response({
-                    'status': 'success',
+                return api_response(True, result={
                     'message': 'Campaign updated successfully.',
                     'campaign': campaign_serializer.data
                 })
 
             except Exception as e:
-                return Response({
-                    'status': 'error',
-                    'message': 'Failed to update campaign.',
-                    'error': str(e)
-                }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+                return api_response(False, error=f'Failed to update campaign. {str(e)}', status_code=500)
 
-        return Response({
-            'status': 'error',
-            'message': 'Invalid campaign data.',
-            'errors': serializer.errors
-        }, status=status.HTTP_400_BAD_REQUEST)
+        return api_response(False, error=f"Invalid campaign data. {format_serializer_errors(serializer.errors)}",
+                            status_code=400)
 
     elif request.method == 'DELETE':
         # Check if user has permission to delete campaigns
         if not brand_user.can_delete_campaigns:
-            return Response({
-                'status': 'error',
-                'message': 'You do not have permission to delete campaigns.'
-            }, status=status.HTTP_403_FORBIDDEN)
+            return api_response(False, error='You do not have permission to delete campaigns.', status_code=403)
 
         try:
             campaign_title = campaign.title
@@ -473,17 +406,10 @@ def campaign_detail_view(request, campaign_id):
                 {'campaign_title': campaign_title}
             )
 
-            return Response({
-                'status': 'success',
-                'message': 'Campaign deleted successfully.'
-            })
+            return api_response(True, result={'message': 'Campaign deleted successfully.'})
 
         except Exception as e:
-            return Response({
-                'status': 'error',
-                'message': 'Failed to delete campaign.',
-                'error': str(e)
-            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return api_response(False, error=f'Failed to delete campaign. {str(e)}', status_code=500)
 
 
 @api_view(['GET'])
@@ -494,10 +420,7 @@ def brand_deals_by_campaigns_view(request):
     """
     brand_user = get_brand_user_or_403(request)
     if not brand_user:
-        return Response({
-            'status': 'error',
-            'message': 'Brand profile not found.'
-        }, status=status.HTTP_404_NOT_FOUND)
+        return api_response(False, error='Brand profile not found.', status_code=404)
 
     # Get all campaigns for the brand that have deals
     campaigns = Campaign.objects.filter(
@@ -614,10 +537,7 @@ def brand_deals_view(request):
     """
     brand_user = get_brand_user_or_403(request)
     if not brand_user:
-        return Response({
-            'status': 'error',
-            'message': 'Brand profile not found.'
-        }, status=status.HTTP_404_NOT_FOUND)
+        return api_response(False, error='Brand profile not found.', status_code=404)
 
     deals = (
         Deal.objects.filter(campaign__brand=brand_user.brand)
@@ -705,10 +625,7 @@ def update_deal_status_view(request, deal_id):
     """
     brand_user = get_brand_user_or_403(request)
     if not brand_user:
-        return Response({
-            'status': 'error',
-            'message': 'Brand profile not found.'
-        }, status=status.HTTP_404_NOT_FOUND)
+        return api_response(False, error='Brand profile not found.', status_code=404)
 
     new_status = request.data.get('status')
     if not new_status:
@@ -752,10 +669,7 @@ def bulk_update_deals_status_view(request):
     """
     brand_user = get_brand_user_or_403(request)
     if not brand_user:
-        return Response({
-            'status': 'error',
-            'message': 'Brand profile not found.'
-        }, status=status.HTTP_404_NOT_FOUND)
+        return api_response(False, error='Brand profile not found.', status_code=404)
 
     ids = request.data.get('ids') or []
     new_status = request.data.get('status')
@@ -799,10 +713,7 @@ def request_address_view(request, deal_id):
     """
     brand_user = get_brand_user_or_403(request)
     if not brand_user:
-        return Response({
-            'status': 'error',
-            'message': 'Brand profile not found.'
-        }, status=status.HTTP_404_NOT_FOUND)
+        return api_response(False, error='Brand profile not found.', status_code=404)
 
     try:
         deal = Deal.objects.get(id=deal_id, campaign__brand=brand_user.brand)
@@ -843,10 +754,7 @@ def update_tracking_view(request, deal_id):
     """
     brand_user = get_brand_user_or_403(request)
     if not brand_user:
-        return Response({
-            'status': 'error',
-            'message': 'Brand profile not found.'
-        }, status=status.HTTP_404_NOT_FOUND)
+        return api_response(False, error='Brand profile not found.', status_code=404)
 
     try:
         deal = Deal.objects.get(id=deal_id, campaign__brand=brand_user.brand)
@@ -888,10 +796,7 @@ def bulk_update_csv_view(request):
     """
     brand_user = get_brand_user_or_403(request)
     if not brand_user:
-        return Response({
-            'status': 'error',
-            'message': 'Brand profile not found.'
-        }, status=status.HTTP_404_NOT_FOUND)
+        return api_response(False, error='Brand profile not found.', status_code=404)
 
     csv_file = request.FILES.get('csv_file')
     if not csv_file:
@@ -1024,10 +929,7 @@ def brand_deal_detail_view(request, deal_id):
     """
     brand_user = get_brand_user_or_403(request)
     if not brand_user:
-        return Response({
-            'status': 'error',
-            'message': 'Brand profile not found.'
-        }, status=status.HTTP_404_NOT_FOUND)
+        return api_response(False, error='Brand profile not found.', status_code=404)
 
     try:
         deal = Deal.objects.select_related(
@@ -1058,10 +960,7 @@ def update_deal_notes_view(request, deal_id):
     """
     brand_user = get_brand_user_or_403(request)
     if not brand_user:
-        return Response({
-            'status': 'error',
-            'message': 'Brand profile not found.'
-        }, status=status.HTTP_404_NOT_FOUND)
+        return api_response(False, error='Brand profile not found.', status_code=404)
 
     try:
         deal = Deal.objects.get(id=deal_id, campaign__brand=brand_user.brand)
@@ -1090,10 +989,7 @@ def bookmark_influencer_view(request, influencer_id):
     """
     brand_user = get_brand_user_or_403(request)
     if not brand_user:
-        return Response({
-            'status': 'error',
-            'message': 'Brand profile not found.'
-        }, status=status.HTTP_404_NOT_FOUND)
+        return api_response(False, error='Brand profile not found.', status_code=404)
 
     try:
         influencer = InfluencerProfile.objects.get(id=influencer_id)
@@ -1141,10 +1037,7 @@ def bookmarked_influencers_view(request):
     """
     brand_user = get_brand_user_or_403(request)
     if not brand_user:
-        return Response({
-            'status': 'error',
-            'message': 'Brand profile not found.'
-        }, status=status.HTTP_404_NOT_FOUND)
+        return api_response(False, error='Brand profile not found.', status_code=404)
 
     bookmarks = BookmarkedInfluencer.objects.filter(
         brand=brand_user.brand
@@ -1191,10 +1084,7 @@ def bookmark_detail_view(request, bookmark_id):
     """
     brand_user = get_brand_user_or_403(request)
     if not brand_user:
-        return Response({
-            'status': 'error',
-            'message': 'Brand profile not found.'
-        }, status=status.HTTP_404_NOT_FOUND)
+        return api_response(False, error='Brand profile not found.', status_code=404)
 
     try:
         bookmark = BookmarkedInfluencer.objects.get(
@@ -1373,10 +1263,7 @@ def brand_conversations_view(request):
                 'message': 'Brand profile not found.'
             }, status=status.HTTP_404_NOT_FOUND)
     except Exception:
-        return Response({
-            'status': 'error',
-            'message': 'Brand profile not found.'
-        }, status=status.HTTP_404_NOT_FOUND)
+        return api_response(False, error='Brand profile not found.', status_code=404)
 
     # Get conversations for deals involving this brand
     from messaging.models import Conversation
@@ -1471,10 +1358,7 @@ def brand_conversation_messages_view(request, conversation_id):
                 'message': 'Brand profile not found.'
             }, status=status.HTTP_404_NOT_FOUND)
     except Exception:
-        return Response({
-            'status': 'error',
-            'message': 'Brand profile not found.'
-        }, status=status.HTTP_404_NOT_FOUND)
+        return api_response(False, error='Brand profile not found.', status_code=404)
 
     from messaging.models import Conversation
     conversation = get_object_or_404(
@@ -1565,16 +1449,10 @@ def brand_analytics_overview_view(request):
     """
     brand_user = get_brand_user_or_403(request)
     if not brand_user:
-        return Response({
-            'status': 'error',
-            'message': 'Brand profile not found.'
-        }, status=status.HTTP_404_NOT_FOUND)
+        return api_response(False, error='Brand profile not found.', status_code=404)
 
     if not brand_user.can_view_analytics:
-        return Response({
-            'status': 'error',
-            'message': 'You do not have permission to view analytics.'
-        }, status=status.HTTP_403_FORBIDDEN)
+        return api_response(False, error='You do not have permission to view analytics.', status_code=403)
 
     brand = brand_user.brand
     time_range = request.GET.get('time_range', 'last_30_days')
@@ -1667,16 +1545,10 @@ def brand_analytics_campaigns_view(request):
     """
     brand_user = get_brand_user_or_403(request)
     if not brand_user:
-        return Response({
-            'status': 'error',
-            'message': 'Brand profile not found.'
-        }, status=status.HTTP_404_NOT_FOUND)
+        return api_response(False, error='Brand profile not found.', status_code=404)
 
     if not brand_user.can_view_analytics:
-        return Response({
-            'status': 'error',
-            'message': 'You do not have permission to view analytics.'
-        }, status=status.HTTP_403_FORBIDDEN)
+        return api_response(False, error='You do not have permission to view analytics.', status_code=403)
 
     brand = brand_user.brand
     time_range = request.GET.get('time_range', 'last_30_days')
@@ -1780,10 +1652,7 @@ def update_brand_profile_view(request):
     """
     brand_user = get_brand_user_or_403(request)
     if not brand_user or not brand_user.can_manage_users:
-        return Response({
-            'status': 'error',
-            'message': 'You do not have permission to update brand settings.'
-        }, status=status.HTTP_403_FORBIDDEN)
+        return api_response(False, error='You do not have permission to update brand settings.', status_code=403)
 
     brand = brand_user.brand
 
@@ -1797,27 +1666,18 @@ def update_brand_profile_view(request):
         # Validate file type
         allowed_types = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
         if logo_file.content_type not in allowed_types:
-            return Response({
-                'status': 'error',
-                'message': 'Invalid file type. Please upload a JPEG, PNG, WebP, or GIF image.'
-            }, status=status.HTTP_400_BAD_REQUEST)
+            return api_response(False, error='Invalid file type. Please upload a JPEG, PNG, WebP, or GIF image.')
 
         # Validate file size (1MB max)
         if logo_file.size > 1 * 1024 * 1024:
-            return Response({
-                'status': 'error',
-                'message': 'File size too large. Please upload an image smaller than 1MB.'
-            }, status=status.HTTP_400_BAD_REQUEST)
+            return api_response(False, error='File size too large. Please upload an image smaller than 1MB.')
 
         # Update brand logo field using Django's ImageField
         brand.logo = logo_file
         # Don't add to update_data since we're directly setting the field
 
     if not update_data:
-        return Response({
-            'status': 'error',
-            'message': 'No valid fields to update.'
-        }, status=status.HTTP_400_BAD_REQUEST)
+        return api_response(False, error='No valid fields to update.')
 
     # Validate email if being updated
     if 'contact_email' in update_data:
@@ -1825,10 +1685,7 @@ def update_brand_profile_view(request):
         try:
             validate_email(update_data['contact_email'])
         except:
-            return Response({
-                'status': 'error',
-                'message': 'Invalid email format.'
-            }, status=status.HTTP_400_BAD_REQUEST)
+            return api_response(False, error='Invalid email format.')
 
     # Handle industry field separately
     if 'industry' in update_data:
@@ -1837,10 +1694,7 @@ def update_brand_profile_view(request):
             industry_obj = Industry.objects.get(key=industry_key, is_active=True)
             brand.industry = industry_obj
         except Industry.DoesNotExist:
-            return Response({
-                'status': 'error',
-                'message': 'Invalid industry key.'
-            }, status=status.HTTP_400_BAD_REQUEST)
+            return api_response(False, error='Invalid industry key.')
 
     # Update other fields
     for field, value in update_data.items():
@@ -1858,8 +1712,7 @@ def update_brand_profile_view(request):
     )
 
     serializer = BrandSerializer(brand, context={'request': request})
-    return Response({
-        'status': 'success',
+    return api_response(True, result={
         'message': 'Brand profile updated successfully.',
         'brand': serializer.data
     })
@@ -2054,18 +1907,12 @@ def add_influencers_to_campaign_view(request, campaign_id):
     """
     brand_user = get_brand_user_or_403(request)
     if not brand_user:
-        return Response({
-            'status': 'error',
-            'message': 'Brand profile not found.'
-        }, status=status.HTTP_404_NOT_FOUND)
+        return api_response(False, error='Brand profile not found.', status_code=404)
 
     try:
         campaign = Campaign.objects.get(id=campaign_id, brand=brand_user.brand)
     except Campaign.DoesNotExist:
-        return Response({
-            'status': 'error',
-            'message': 'Campaign not found.'
-        }, status=status.HTTP_404_NOT_FOUND)
+        return api_response(False, error='Campaign not found.', status_code=404)
 
     # Check if user has permission to manage campaigns
     if not brand_user.can_create_campaigns:
@@ -2151,10 +1998,7 @@ def send_message_to_influencer_view(request, influencer_id):
     """
     brand_user = get_brand_user_or_403(request)
     if not brand_user:
-        return Response({
-            'status': 'error',
-            'message': 'Brand profile not found.'
-        }, status=status.HTTP_404_NOT_FOUND)
+        return api_response(False, error='Brand profile not found.', status_code=404)
 
     try:
         influencer = InfluencerProfile.objects.get(id=influencer_id)
@@ -2242,10 +2086,7 @@ def get_campaigns_for_influencer_view(request):
     """
     brand_user = get_brand_user_or_403(request)
     if not brand_user:
-        return Response({
-            'status': 'error',
-            'message': 'Brand profile not found.'
-        }, status=status.HTTP_404_NOT_FOUND)
+        return api_response(False, error='Brand profile not found.', status_code=404)
 
     # Get active campaigns
     campaigns = Campaign.objects.filter(
@@ -2272,10 +2113,7 @@ def remove_bookmark_view(request, influencer_id):
     """
     brand_user = get_brand_user_or_403(request)
     if not brand_user:
-        return Response({
-            'status': 'error',
-            'message': 'Brand profile not found.'
-        }, status=status.HTTP_404_NOT_FOUND)
+        return api_response(False, error='Brand profile not found.', status_code=404)
 
     try:
         bookmark = BookmarkedInfluencer.objects.get(
@@ -2312,10 +2150,7 @@ def get_brand_settings_view(request):
     """
     brand_user = get_brand_user_or_403(request)
     if not brand_user:
-        return Response({
-            'status': 'error',
-            'message': 'Brand profile not found.'
-        }, status=status.HTTP_404_NOT_FOUND)
+        return api_response(False, error='Brand profile not found.', status_code=404)
 
     brand = brand_user.brand
 

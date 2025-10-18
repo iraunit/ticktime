@@ -142,7 +142,9 @@ export default function BrandSettingsPage() {
     const fetchCurrentUser = async () => {
         try {
             const response = await api.get('/auth/profile/');
-            if (response.data.status === 'success') {
+            console.log('Current user response:', response.data);
+            if (response.data.success !==false) {
+                console.log('Current user data:', response.data.user);
                 setCurrentUser(response.data.user);
                 setUserFirstName(response.data.user.first_name || '');
                 setUserLastName(response.data.user.last_name || '');

@@ -1,5 +1,6 @@
 import logging
 
+from common.api_response import api_response, format_serializer_errors
 from common.decorators import (
     auth_rate_limit,
     log_performance
@@ -104,17 +105,12 @@ def login_view(request):
         UserProfile.objects.get_or_create(user=user)
 
         profile_serializer = UserProfileSerializer(user, context={'request': request})
-        return Response({
-            'status': 'success',
+        return api_response(True, result={
             'message': 'Login successful',
             'user': profile_serializer.data,
-        }, status=status.HTTP_200_OK)
+        })
 
-    error_message = format_serializer_errors(serializer.errors)
-    return Response({
-        'status': 'error',
-        'message': error_message
-    }, status=status.HTTP_400_BAD_REQUEST)
+    return api_response(False, error=format_serializer_errors(serializer.errors), status_code=400)
 
 
 @api_view(['POST'])
@@ -134,7 +130,7 @@ def logout_view(request):
         logout(request)
 
         # Create response
-        response = Response({'status': 'success', 'message': 'Logout successful'}, status=status.HTTP_200_OK)
+        response = api_response(True, result={'message': 'Logout successful'})
 
         # Explicitly delete the session cookie to ensure it's cleared
         if session_key:
@@ -201,14 +197,13 @@ def signup_view(request):
 
             profile_serializer = UserProfileSerializer(user, context={'request': request})
 
-            return Response({
-                'status': 'success',
+            return api_response(True, result={
                 'message': 'Account created successfully! You are now logged in.',
                 'user_id': user.id,
                 'user': profile_serializer.data,
                 'requires_email_verification': False,
                 'auto_logged_in': True,
-            }, status=status.HTTP_201_CREATED)
+            }, status_code=201)
 
         except Exception as e:
             logger.error(f"User registration failed: {str(e)}")
@@ -229,11 +224,7 @@ def signup_view(request):
                 'message': 'Registration failed. Please try again.'
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-    error_message = format_serializer_errors(serializer.errors)
-    return Response({
-        'status': 'error',
-        'message': error_message
-    }, status=status.HTTP_400_BAD_REQUEST)
+    return api_response(False, error=format_serializer_errors(serializer.errors), status_code=400)
 
 
 @api_view(['POST'])
@@ -255,13 +246,12 @@ def brand_signup_view(request):
             UserProfile.objects.get_or_create(user=user)
 
             profile_serializer = UserProfileSerializer(user, context={'request': request})
-            return Response({
-                'status': 'success',
+            return api_response(True, result={
                 'message': 'Brand account created successfully! You are now logged in.',
                 'user_id': user.id,
                 'user': profile_serializer.data,
                 'auto_logged_in': True,
-            }, status=status.HTTP_201_CREATED)
+            }, status_code=201)
         except Exception as e:
             logger.error(f"Brand registration failed: {str(e)}")
             # Check if it's a database constraint error
@@ -280,11 +270,7 @@ def brand_signup_view(request):
                 'status': 'error',
                 'message': 'Brand registration failed. Please try again.'
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-    error_message = format_serializer_errors(serializer.errors)
-    return Response({
-        'status': 'error',
-        'message': error_message
-    }, status=status.HTTP_400_BAD_REQUEST)
+    return api_response(False, error=format_serializer_errors(serializer.errors), status_code=400)
 
 
 @api_view(['GET'])
@@ -299,10 +285,7 @@ def verify_email_view(request, token):
         user.is_active = True
         user.save()
 
-        return Response({
-            'status': 'success',
-            'message': 'Email verified successfully. You can now login to your account.'
-        }, status=status.HTTP_200_OK)
+        return api_response(True, result={'message': 'Email verified successfully. You can now login to your account.'})
 
     return Response({
         'status': 'error',
@@ -354,10 +337,7 @@ def forgot_password_view(request):
                 fail_silently=False,
             )
 
-            return Response({
-                'status': 'success',
-                'message': 'Password reset email sent. Please check your email.'
-            }, status=status.HTTP_200_OK)
+            return api_response(True, result={'message': 'Password reset email sent. Please check your email.'})
 
         except Exception as e:
             logger.error(f"Failed to send password reset email: {str(e)}")
@@ -366,11 +346,7 @@ def forgot_password_view(request):
                 'message': 'Failed to send password reset email. Please try again.'
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-    error_message = format_serializer_errors(serializer.errors)
-    return Response({
-        'status': 'error',
-        'message': error_message
-    }, status=status.HTTP_400_BAD_REQUEST)
+    return api_response(False, error=format_serializer_errors(serializer.errors), status_code=400)
 
 
 @api_view(['POST'])
@@ -405,16 +381,9 @@ def reset_password_view(request, uid, token):
         user.set_password(password)
         user.save()
 
-        return Response({
-            'status': 'success',
-            'message': 'Password reset successful. You can now login with your new password.'
-        }, status=status.HTTP_200_OK)
+        return api_response(True, result={'message': 'Password reset successful. You can now login with your new password.'})
 
-    error_message = format_serializer_errors(serializer.errors)
-    return Response({
-        'status': 'error',
-        'message': error_message
-    }, status=status.HTTP_400_BAD_REQUEST)
+    return api_response(False, error=format_serializer_errors(serializer.errors), status_code=400)
 
 
 @api_view(['GET'])
@@ -430,7 +399,4 @@ def user_profile_view(request):
     UserProfile.objects.get_or_create(user=user)
 
     serializer = UserProfileSerializer(user, context={'request': request})
-    return Response({
-        'status': 'success',
-        'user': serializer.data
-    }, status=status.HTTP_200_OK)
+    return api_response(True, result={'user': serializer.data})
