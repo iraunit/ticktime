@@ -15,6 +15,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from .models import BrandUser, BrandAuditLog, BookmarkedInfluencer
+from .models import Industry
 from .serializers import (
     BrandSerializer, BrandDashboardSerializer, BrandTeamSerializer, BrandUserInviteSerializer,
     BrandAuditLogSerializer, BookmarkedInfluencerSerializer, UserProfileSerializer
@@ -1801,11 +1802,11 @@ def update_brand_profile_view(request):
                 'message': 'Invalid file type. Please upload a JPEG, PNG, WebP, or GIF image.'
             }, status=status.HTTP_400_BAD_REQUEST)
 
-        # Validate file size (5MB max)
-        if logo_file.size > 5 * 1024 * 1024:
+        # Validate file size (1MB max)
+        if logo_file.size > 1 * 1024 * 1024:
             return Response({
                 'status': 'error',
-                'message': 'File size too large. Please upload an image smaller than 5MB.'
+                'message': 'File size too large. Please upload an image smaller than 1MB.'
             }, status=status.HTTP_400_BAD_REQUEST)
 
         # Update brand logo field using Django's ImageField
@@ -1829,7 +1830,19 @@ def update_brand_profile_view(request):
                 'message': 'Invalid email format.'
             }, status=status.HTTP_400_BAD_REQUEST)
 
-    # Update brand
+    # Handle industry field separately
+    if 'industry' in update_data:
+        industry_key = update_data.pop('industry')
+        try:
+            industry_obj = Industry.objects.get(key=industry_key, is_active=True)
+            brand.industry = industry_obj
+        except Industry.DoesNotExist:
+            return Response({
+                'status': 'error',
+                'message': 'Invalid industry key.'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+    # Update other fields
     for field, value in update_data.items():
         setattr(brand, field, value)
 

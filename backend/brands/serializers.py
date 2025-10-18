@@ -1,3 +1,5 @@
+from common.models import Industry
+from common.serializers import IndustrySerializer
 from django.contrib.auth.models import User
 from influencers.serializers import InfluencerPublicSerializer
 from rest_framework import serializers
@@ -7,11 +9,21 @@ from .models import Brand, BrandUser, BrandAuditLog, BookmarkedInfluencer
 
 class BrandSerializer(serializers.ModelSerializer):
     logo = serializers.SerializerMethodField()
+    industry = serializers.SlugRelatedField(
+        queryset=Industry.objects.filter(is_active=True),
+        slug_field='key'
+    )
 
     class Meta:
         model = Brand
         fields = '__all__'
         read_only_fields = ('id', 'rating', 'total_campaigns', 'is_verified')
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        if instance.industry:
+            data['industry'] = instance.industry.key
+        return data
 
     def get_logo(self, obj):
         if obj.logo:

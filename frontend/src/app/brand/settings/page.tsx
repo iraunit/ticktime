@@ -78,7 +78,7 @@ interface UserPermissions {
 
 export default function BrandSettingsPage() {
     const {cities, states, loading: locationLoading, error: locationError, lookupPincode} = useLocationData();
-    const { industries, loading: industriesLoading } = useIndustries();
+    const {industries, loading: industriesLoading} = useIndustries();
     const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
     const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
     const [brand, setBrand] = useState<Brand | null>(null);
@@ -894,13 +894,16 @@ export default function BrandSettingsPage() {
                                         Industry
                                     </label>
                                     {isEditingBrand ? (
-                                        <Select value={brandIndustry} onValueChange={setBrandIndustry} disabled={industriesLoading}>
+                                        <Select value={brandIndustry} onValueChange={setBrandIndustry}
+                                                disabled={industriesLoading}>
                                             <SelectTrigger>
-                                                <SelectValue placeholder={industriesLoading ? "Loading industries..." : "Select Industry"}/>
+                                                <SelectValue
+                                                    placeholder={industriesLoading ? "Loading industries..." : "Select Industry"}/>
                                             </SelectTrigger>
                                             <SelectContent>
                                                 {industriesLoading ? (
-                                                    <SelectItem value="loading" disabled>Loading industries...</SelectItem>
+                                                    <SelectItem value="loading" disabled>Loading
+                                                        industries...</SelectItem>
                                                 ) : (
                                                     industries.map((industry) => (
                                                         <SelectItem key={industry.key} value={industry.key}>
