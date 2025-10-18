@@ -147,3 +147,29 @@ class ContentCategory(models.Model):
 
     def __str__(self):
         return self.name
+
+
+class CountryCode(models.Model):
+    """
+    Country codes for phone numbers.
+    This model represents country codes that can be used for phone number input.
+    """
+    code = models.CharField(max_length=10, unique=True, help_text="Country code (e.g., +1, +44)")
+    country = models.CharField(max_length=100, help_text="Country name")
+    flag = models.CharField(max_length=10, blank=True, help_text="Country flag emoji")
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'country_codes'
+        verbose_name = 'Country Code'
+        verbose_name_plural = 'Country Codes'
+        indexes = [
+            models.Index(fields=['code']),
+            models.Index(fields=['is_active']),
+        ]
+        ordering = ['country']
+
+    def __str__(self):
+        return f"{self.code} ({self.country})"

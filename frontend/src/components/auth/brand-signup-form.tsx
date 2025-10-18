@@ -11,9 +11,9 @@ import {Card, CardContent, CardDescription, CardHeader, CardTitle} from "@/compo
 import {Form, FormControl, FormField, FormItem, FormLabel, FormMessage} from "@/components/ui/form";
 import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from "@/components/ui/select";
 import {Textarea} from "@/components/ui/textarea";
-import {COUNTRY_CODES} from "@/lib/constants";
 import {useAuth} from "@/hooks/use-auth";
 import {useIndustries} from "@/hooks/use-industries";
+import {useCountryCodes} from "@/hooks/use-country-codes";
 import {Building2, CheckCircle, Eye, EyeOff} from "@/lib/icons";
 
 // List of common public email domains to block
@@ -64,6 +64,7 @@ export function BrandSignupForm() {
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
     const {brandSignup} = useAuth();
     const {industries, loading: industriesLoading} = useIndustries();
+    const {countryCodes, loading: countryCodesLoading} = useCountryCodes();
 
     const form = useForm<BrandSignupFormData>({
         resolver: zodResolver(brandSignupSchema),
@@ -304,12 +305,17 @@ export function BrandSignupForm() {
                                                                     </SelectTrigger>
                                                                 </FormControl>
                                                                 <SelectContent>
-                                                                    {COUNTRY_CODES.map((option) => (
-                                                                        <SelectItem key={option.value}
-                                                                                    value={option.value}>
-                                                                            {option.label}
-                                                                        </SelectItem>
-                                                                    ))}
+                                                                    {countryCodesLoading ? (
+                                                                        <SelectItem value="loading" disabled>Loading
+                                                                            country codes...</SelectItem>
+                                                                    ) : (
+                                                                        countryCodes.map((countryCode) => (
+                                                                            <SelectItem key={countryCode.code}
+                                                                                        value={countryCode.code}>
+                                                                                {countryCode.code} ({countryCode.country}) {countryCode.flag}
+                                                                            </SelectItem>
+                                                                        ))
+                                                                    )}
                                                                 </SelectContent>
                                                             </Select>
                                                             <FormMessage/>

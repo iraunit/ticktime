@@ -13,7 +13,7 @@ import {Form, FormControl, FormDescription, FormField, FormItem, FormLabel, Form
 import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from "@/components/ui/select";
 import {useAuth} from "@/hooks/use-auth";
 import {useIndustries} from "@/hooks/use-industries";
-import {COUNTRY_CODES} from "@/lib/constants";
+import {useCountryCodes} from "@/hooks/use-country-codes";
 
 const signupSchema = z.object({
     email: z.string().email("Please enter a valid email address"),
@@ -62,6 +62,7 @@ export function SignupForm() {
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
     const {signup} = useAuth();
     const {industries, loading: industriesLoading} = useIndustries();
+    const {countryCodes, loading: countryCodesLoading} = useCountryCodes();
 
     const form = useForm<SignupFormData>({
         resolver: zodResolver(signupSchema),
@@ -323,11 +324,16 @@ export function SignupForm() {
                                                 </SelectTrigger>
                                             </FormControl>
                                             <SelectContent>
-                                                {COUNTRY_CODES.map((option) => (
-                                                    <SelectItem key={option.value} value={option.value}>
-                                                        {option.label}
-                                                    </SelectItem>
-                                                ))}
+                                                {countryCodesLoading ? (
+                                                    <SelectItem value="loading" disabled>Loading country
+                                                        codes...</SelectItem>
+                                                ) : (
+                                                    countryCodes.map((countryCode) => (
+                                                        <SelectItem key={countryCode.code} value={countryCode.code}>
+                                                            {countryCode.code} ({countryCode.country})
+                                                        </SelectItem>
+                                                    ))
+                                                )}
                                             </SelectContent>
                                         </Select>
                                         <FormMessage/>

@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import Industry, ContentCategory
+from .models import Industry, ContentCategory, CountryCode
 
 
 @admin.register(Industry)
@@ -32,3 +32,38 @@ class ContentCategoryAdmin(admin.ModelAdmin):
     search_fields = ['name', 'key', 'description']
     readonly_fields = ['created_at', 'updated_at']
     ordering = ['name']
+
+    fieldsets = (
+        ('Category Information', {
+            'fields': ('key', 'name', 'description', 'icon', 'color', 'is_active', 'sort_order')
+        }),
+        ('Timestamps', {
+            'fields': ('created_at', 'updated_at'),
+            'classes': ('collapse',)
+        }),
+    )
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).order_by('sort_order', 'name')
+
+
+@admin.register(CountryCode)
+class CountryCodeAdmin(admin.ModelAdmin):
+    list_display = ['code', 'country', 'flag', 'is_active', 'created_at']
+    list_filter = ['is_active', 'created_at']
+    search_fields = ['code', 'country']
+    readonly_fields = ['created_at', 'updated_at']
+    ordering = ['country']
+
+    fieldsets = (
+        ('Country Code Information', {
+            'fields': ('code', 'country', 'flag', 'is_active')
+        }),
+        ('Timestamps', {
+            'fields': ('created_at', 'updated_at'),
+            'classes': ('collapse',)
+        }),
+    )
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).order_by('country')
