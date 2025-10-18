@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import Industry
+from .models import Industry, ContentCategory
 
 
 @admin.register(Industry)
@@ -23,3 +23,12 @@ class IndustryAdmin(admin.ModelAdmin):
 
     def get_queryset(self, request):
         return super().get_queryset(request).order_by('name')
+
+
+@admin.register(ContentCategory)
+class ContentCategoryAdmin(admin.ModelAdmin):
+    list_display = ['name', 'key', 'description', 'is_active', 'created_at']
+    list_filter = ['is_active', 'created_at']
+    search_fields = ['name', 'key', 'description']
+    readonly_fields = ['created_at', 'updated_at']
+    ordering = ['name']

@@ -1,32 +1,29 @@
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 
-from .models import ContentCategory, INDUSTRY_CHOICES
-from .serializers import ContentCategorySerializer
+from .models import ContentCategory, Industry
+from .serializers import ContentCategorySerializer, IndustrySerializer
 
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
+@permission_classes([AllowAny])
 def get_industries_view(request):
     """
     Get all active industries.
     """
-    # Convert INDUSTRY_CHOICES to the format expected by frontend
-    industries = [
-        {'id': i, 'key': choice[0], 'name': choice[1]}
-        for i, choice in enumerate(INDUSTRY_CHOICES, 1)
-    ]
+    industries = Industry.objects.filter(is_active=True).order_by('name')
+    serializer = IndustrySerializer(industries, many=True)
 
     return Response({
         'status': 'success',
-        'industries': industries
+        'industries': serializer.data
     }, status=status.HTTP_200_OK)
 
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
+@permission_classes([AllowAny])
 def get_content_categories_view(request):
     """
     Get all active content categories.
