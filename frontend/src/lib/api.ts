@@ -3,13 +3,21 @@ import {toast} from 'sonner';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
-// Simple request config extension
 interface ExtendedAxiosRequestConfig extends InternalAxiosRequestConfig {
     _retry?: boolean;
     _retryCount?: number;
 }
 
-// Utility to read cookies
+export interface ApiError {
+    status: string;
+    message: string;
+    code?: string;
+    details?: {
+        field_errors?: Record<string, string[]>;
+        [key: string]: unknown;
+    };
+}
+
 function getCookie(name: string): string | null {
     if (typeof document === 'undefined') return null;
     const match = document.cookie.match(new RegExp('(^|; )' + name.replace(/([.$?*|{}()\[\]\\\/\+^])/g, '\\$1') + '=([^;]*)'));
@@ -27,7 +35,6 @@ export const api = axios.create({
     timeout: 8000,
 });
 
-// Request interceptor to handle CSRF
 api.interceptors.request.use(
     async (config: ExtendedAxiosRequestConfig) => {
         // Add CSRF token for unsafe methods
@@ -52,7 +59,6 @@ api.interceptors.request.use(
     (error) => Promise.reject(error)
 );
 
-// Response interceptor to handle consistent API responses
 api.interceptors.response.use(
     (response: AxiosResponse) => {
         const data = response.data;
@@ -167,6 +173,28 @@ export function handleApiError(error: unknown): string {
         return (error as { message: string }).message;
     }
     return 'An unexpected error occurred. Please try again.';
+}
+
+export function getNetworkStatus() {
+    if (typeof window === 'undefined') {
+        return {isOnline: true, isSlowConnection: false};
+    }
+    const connection = (navigator as any).connection || (navigator as any).mozConnection || (navigator as any).webkitConnection;
+    return {
+        isOnline: navigator.onLine,
+        isSlowConnection: connection ? connection.effectiveType === 'slow-2g' || connection.effectiveType === '2g' : false
+    };
+}
+
+export function logError(error: unknown, context?: string) {
+    if (process.env.NODE_ENV === 'development') {
+        console.error('API Error:', {
+            message: error instanceof Error ? error.message : 'Unknown error',
+            stack: error instanceof Error ? error.stack : undefined,
+            context,
+            timestamp: new Date().toISOString(),
+        });
+    }
 }
 
 export default api;

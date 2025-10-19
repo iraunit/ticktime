@@ -1,98 +1,98 @@
 "use client";
 
-import { useEffect, useRef } from 'react';
-import { toast } from 'sonner';
-import { useNetworkStatus } from '@/hooks/use-network-status';
-import { logError } from '@/lib/api';
+import {useEffect, useRef} from 'react';
+import {toast} from 'sonner';
+import {useNetworkStatus} from '@/hooks/use-network-status';
+import {logError} from '@/lib/api';
 
 export function GlobalErrorHandler() {
-  const { isOnline, isSlowConnection } = useNetworkStatus();
-  const wasOfflineRef = useRef(false);
+    const {isOnline, isSlowConnection} = useNetworkStatus();
+    const wasOfflineRef = useRef(false);
 
-  // Handle network status changes
-  useEffect(() => {
-    if (!isOnline) {
-      wasOfflineRef.current = true;
-      toast.error('You are offline', {
-        description: 'Please check your internet connection',
-        duration: Infinity,
-        id: 'offline-toast',
-      });
-    } else {
-      toast.dismiss('offline-toast');
-      if (wasOfflineRef.current) {
-        toast.success('Connection restored', { duration: 3000 });
-        wasOfflineRef.current = false;
-      }
-    }
-  }, [isOnline]);
+    // Handle network status changes
+    useEffect(() => {
+        if (!isOnline) {
+            wasOfflineRef.current = true;
+            toast.error('You are offline', {
+                description: 'Please check your internet connection',
+                duration: Infinity,
+                id: 'offline-toast',
+            });
+        } else {
+            toast.dismiss('offline-toast');
+            if (wasOfflineRef.current) {
+                toast.success('Connection restored', {duration: 3000});
+                wasOfflineRef.current = false;
+            }
+        }
+    }, [isOnline]);
 
-  // Handle slow connection
-  useEffect(() => {
-    if (isSlowConnection && isOnline) {
-      toast.warning('Slow connection detected', {
-        description: 'Some features may be slower than usual',
-        duration: 5000,
-        id: 'slow-connection-toast',
-      });
-    } else {
-      toast.dismiss('slow-connection-toast');
-    }
-  }, [isSlowConnection, isOnline]);
+    // Handle slow connection
+    useEffect(() => {
+        if (isSlowConnection && isOnline) {
+            toast.warning('Slow connection detected', {
+                description: 'Some features may be slower than usual',
+                duration: 5000,
+                id: 'slow-connection-toast',
+            });
+        } else {
+            toast.dismiss('slow-connection-toast');
+        }
+    }, [isSlowConnection, isOnline]);
 
-  // Handle unhandled promise rejections
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
+    // Handle unhandled promise rejections
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
 
-    const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
-      logError(event.reason, 'Unhandled Promise Rejection');
-      toast.error('Something went wrong. Please try again.', { id: 'unhandled-rejection' });
-    };
+        const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
+            logError(event.reason, 'Unhandled Promise Rejection');
+            toast.error('Something went wrong. Please try again.', {id: 'unhandled-rejection'});
+        };
 
-    const handleError = (event: ErrorEvent) => {
-      logError(event.error, 'Global Error Handler');
-      if (event.error?.name !== 'ChunkLoadError') {
-        toast.error('An unexpected error occurred. Please refresh the page.', { id: 'global-error' });
-      }
-    };
+        const handleError = (event: ErrorEvent) => {
+            logError(event.error, 'Global Error Handler');
+            if (event.error?.name !== 'ChunkLoadError') {
+                toast.error('An unexpected error occurred. Please refresh the page.', {id: 'global-error'});
+            }
+        };
 
-    window.addEventListener('unhandledrejection', handleUnhandledRejection);
-    window.addEventListener('error', handleError);
+        window.addEventListener('unhandledrejection', handleUnhandledRejection);
+        window.addEventListener('error', handleError);
 
-    return () => {
-      window.removeEventListener('unhandledrejection', handleUnhandledRejection);
-      window.removeEventListener('error', handleError);
-    };
-  }, []);
+        return () => {
+            window.removeEventListener('unhandledrejection', handleUnhandledRejection);
+            window.removeEventListener('error', handleError);
+        };
+    }, []);
 
-  // Handle chunk load errors (common in SPAs)
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
+    // Handle chunk load errors (common in SPAs)
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
 
-    const handleChunkError = () => {
-      toast.error('Application update available', {
-        description: 'Please refresh the page to get the latest version',
-        duration: Infinity,
-        action: { label: 'Refresh', onClick: () => window.location.reload() },
-      });
-    };
+        const handleChunkError = () => {
+            toast.error('Application update available', {
+                description: 'Please refresh the page to get the latest version',
+                duration: Infinity,
+                action: {label: 'Refresh', onClick: () => window.location.reload()},
+            });
+        };
 
-    const originalOnError = window.onerror;
-    window.onerror = (message, source, lineno, colno, error) => {
-      if (error?.name === 'ChunkLoadError' || (typeof message === 'string' && message.includes('Loading chunk'))) {
-        handleChunkError();
-        return true;
-      }
-      if (originalOnError) {
-        return originalOnError(message, source, lineno, colno, error);
-      }
-      return false;
-    };
+        const originalOnError = window.onerror;
+        window.onerror = (message, source, lineno, colno, error) => {
+            if (error?.name === 'ChunkLoadError' || (typeof message === 'string' && message.includes('Loading chunk'))) {
+                handleChunkError();
+                return true;
+            }
+            if (originalOnError) {
+                return originalOnError(message, source, lineno, colno, error);
+            }
+            return false;
+        };
 
-    return () => {
-      window.onerror = originalOnError;
-    };
-  }, []);
+        return () => {
+            window.onerror = originalOnError;
+        };
+    }, []);
 
-  return null; // This component doesn't render anything
+    return null;
 }

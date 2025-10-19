@@ -15,6 +15,7 @@ import {toast} from "@/lib/toast";
 import {LogoUpload} from "@/components/ui/logo-upload";
 import {ProfileImageUpload} from "@/components/ui/profile-image-upload";
 import {useLocationData} from "@/hooks/use-location-data";
+import {usePincodeLookup} from "@/hooks/use-pincode-lookup";
 import {useIndustries} from "@/hooks/use-industries";
 import {getMediaUrl} from "@/lib/utils";
 import {OptimizedAvatar} from "@/components/ui";
@@ -77,7 +78,14 @@ interface UserPermissions {
 }
 
 export default function BrandSettingsPage() {
-    const {cities, states, loading: locationLoading, error: locationError, lookupPincode} = useLocationData();
+    const {
+        cities,
+        states,
+        loading: locationLoading,
+        error: locationError,
+        lookupPincode: oldLookupPincode
+    } = useLocationData();
+    const {loading: pincodeLoading, error: pincodeError, lookupPincode} = usePincodeLookup();
     const {industries, loading: industriesLoading} = useIndustries();
     const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
     const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
@@ -143,7 +151,7 @@ export default function BrandSettingsPage() {
         try {
             const response = await api.get('/auth/profile/');
             console.log('Current user response:', response.data);
-            if (response.data.success !==false) {
+            if (response.data.success !== false) {
                 console.log('Current user data:', response.data.user);
                 setCurrentUser(response.data.user);
                 setUserFirstName(response.data.user.first_name || '');
@@ -480,27 +488,26 @@ export default function BrandSettingsPage() {
     };
 
     const handlePincodeLookup = async (pincode: string) => {
-        console.log('Pincode lookup called with:', pincode);
-        if (pincode.length === 6) {
-            console.log('Pincode length is 6, calling lookupPincode...');
-            const locationData = await lookupPincode(pincode);
-            console.log('Location data received:', locationData);
+        if (pincode.length >= 4 && userCountry) {
+            const locationData = await lookupPincode(pincode, userCountry);
             if (locationData) {
-                console.log('Setting address fields:', {
-                    country: locationData.country,
-                    state: locationData.state,
-                    city: locationData.city
-                });
-                setUserCountry(locationData.country);
                 setUserState(locationData.state);
                 setUserCity(locationData.city);
-                toast.success('Address details auto-filled from pincode');
             } else {
                 console.log('No location data found for pincode:', pincode);
-                toast.error('Could not find address details for this pincode');
+                if (pincodeError) {
+                    toast.error(pincodeError);
+                }
             }
         }
     };
+
+    // Trigger pincode lookup when country changes and pincode exists
+    useEffect(() => {
+        if (userCountry && userZipcode && userZipcode.length >= 4) {
+            handlePincodeLookup(userZipcode);
+        }
+    }, [userCountry]);
 
     const getIndustryDisplayName = (industry: string) => {
         const industryObj = industries.find(i => i.key === industry);
@@ -1221,11 +1228,7 @@ export default function BrandSettingsPage() {
                                                     <SelectValue placeholder="Select country"/>
                                                 </SelectTrigger>
                                                 <SelectContent>
-                                                    <SelectItem value="India">India</SelectItem>
-                                                    <SelectItem value="United States">United States</SelectItem>
-                                                    <SelectItem value="United Kingdom">United Kingdom</SelectItem>
-                                                    <SelectItem value="Canada">Canada</SelectItem>
-                                                    <SelectItem value="Australia">Australia</SelectItem>
+                                                    <SelectItem value="IN">India</SelectItem>
                                                 </SelectContent>
                                             </Select>
                                         ) : (
@@ -1241,20 +1244,17 @@ export default function BrandSettingsPage() {
                                             State/Province
                                         </label>
                                         {isEditingProfile ? (
-                                            <Select value={userState} onValueChange={setUserState}
-                                                    disabled={locationLoading}>
-                                                <SelectTrigger>
-                                                    <SelectValue
-                                                        placeholder={locationLoading ? "Loading states..." : "Select state"}/>
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    {states.map((state) => (
-                                                        <SelectItem key={state} value={state}>
-                                                            {state}
-                                                        </SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
+                                            <div className="space-y-2">
+                                                <Input
+                                                    value={userState}
+                                                    disabled={true}
+                                                    placeholder="Auto-filled from pincode"
+                                                    className="bg-gray-50"
+                                                />
+                                                <p className="text-xs text-gray-500">
+                                                    State will be automatically filled when you enter pincode
+                                                </p>
+                                            </div>
                                         ) : (
                                             <div className="p-3 bg-gray-50 rounded-md border">
                                                 <span className="text-gray-900">{currentUser?.state || 'Not set'}</span>
@@ -1267,21 +1267,17 @@ export default function BrandSettingsPage() {
                                             City
                                         </label>
                                         {isEditingProfile ? (
-                                            <Select value={userCity} onValueChange={setUserCity}
-                                                    disabled={locationLoading}>
-                                                <SelectTrigger>
-                                                    <SelectValue
-                                                        placeholder={locationLoading ? "Loading cities..." : "Select city"}/>
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    {cities.map((city) => (
-                                                        <SelectItem key={`${city.name}-${city.state}`}
-                                                                    value={city.name}>
-                                                            {city.name}, {city.state}
-                                                        </SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
+                                            <div className="space-y-2">
+                                                <Input
+                                                    value={userCity}
+                                                    disabled={true}
+                                                    placeholder="Auto-filled from pincode"
+                                                    className="bg-gray-50"
+                                                />
+                                                <p className="text-xs text-gray-500">
+                                                    City will be automatically filled when you enter pincode
+                                                </p>
+                                            </div>
                                         ) : (
                                             <div className="p-3 bg-gray-50 rounded-md border">
                                                 <span className="text-gray-900">{currentUser?.city || 'Not set'}</span>
@@ -1302,10 +1298,11 @@ export default function BrandSettingsPage() {
                                                         handlePincodeLookup(e.target.value);
                                                     }}
                                                     placeholder="ZIP/Postal Code"
-                                                    maxLength={6}
+                                                    maxLength={10}
+                                                    disabled={pincodeLoading}
                                                 />
                                                 <p className="text-xs text-gray-500">
-                                                    Enter a 6-digit pincode to auto-fill address details
+                                                    {pincodeLoading ? 'Looking up address...' : 'Enter pincode to auto-fill state and city'}
                                                 </p>
                                             </div>
                                         ) : (
