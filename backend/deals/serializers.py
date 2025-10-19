@@ -200,7 +200,7 @@ class DealListSerializer(serializers.ModelSerializer):
                     'logo': request.build_absolute_uri(
                         obj.campaign.brand.logo.url) if obj.campaign.brand.logo and request else (
                         obj.campaign.brand.logo.url if obj.campaign.brand.logo else None),
-                    'industry': obj.campaign.brand.industry,
+                    'industry': obj.campaign.brand.industry.key if obj.campaign.brand.industry else None,
                     'description': brand_description,
                 } if obj.campaign.brand else None,
             }
@@ -364,7 +364,7 @@ class DealDetailSerializer(serializers.ModelSerializer):
                     'id': obj.campaign.brand.id,
                     'name': obj.campaign.brand.name,
                     'logo': obj.campaign.brand.logo.url if obj.campaign.brand.logo else None,
-                    'industry': obj.campaign.brand.industry,
+                    'industry': obj.campaign.brand.industry.key if obj.campaign.brand.industry else None,
                     'description': brand_description,
                 } if obj.campaign.brand else None,
             }

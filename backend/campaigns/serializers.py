@@ -294,7 +294,7 @@ class CampaignSerializer(serializers.ModelSerializer):
                 'id': obj.brand.id,
                 'name': obj.brand.name,
                 'logo': obj.brand.logo.url if obj.brand.logo else None,
-                'industry': obj.brand.industry,
+                'industry': obj.brand.industry.key if obj.brand.industry else None,
                 'description': obj.brand.description,
             }
         return None
