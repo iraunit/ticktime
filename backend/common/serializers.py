@@ -17,10 +17,12 @@ class ContentCategorySerializer(serializers.ModelSerializer):
     """
     Serializer for ContentCategory model.
     """
+    industry_key = serializers.CharField(source='industry.key', read_only=True)
+    industry_name = serializers.CharField(source='industry.name', read_only=True)
 
     class Meta:
         model = ContentCategory
-        fields = ('key', 'name', 'description', 'icon', 'color')
+        fields = ('key', 'name', 'description', 'icon', 'color', 'industry_key', 'industry_name')
 
 
 class CountryCodeSerializer(serializers.ModelSerializer):

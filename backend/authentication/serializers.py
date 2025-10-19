@@ -94,14 +94,16 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
             )
 
             # Create influencer profile
-            InfluencerProfile.objects.create(
+            influencer_profile = InfluencerProfile.objects.create(
                 user=user,
                 user_profile=user_profile,
                 username=username,
                 industry=industry,  # Store the Industry object directly
-                categories=[],  # Store as JSON list
                 is_verified=True,
             )
+
+            # Set empty categories (many-to-many field needs to be set after creation)
+            influencer_profile.categories.set([])
 
             return user
 

@@ -12,7 +12,7 @@ import {Card, CardContent, CardDescription, CardHeader, CardTitle} from "@/compo
 import {Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage} from "@/components/ui/form";
 import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from "@/components/ui/select";
 import {useAuth} from "@/hooks/use-auth";
-import {useIndustries} from "@/hooks/use-industries";
+import {useContentCategories} from "@/hooks/use-content-categories";
 import {useCountryCodes} from "@/hooks/use-country-codes";
 
 const signupSchema = z.object({
@@ -30,7 +30,7 @@ const signupSchema = z.object({
     username: z.string()
         .min(3, "Username must be at least 3 characters")
         .regex(/^[a-zA-Z0-9_]+$/, "Username can only contain letters, numbers, and underscores"),
-    industry: z.string().min(1, "Please select an industry"),
+    industry: z.string().min(1, "Please select a content category"),
 }).refine((data) => data.password === data.password_confirm, {
     message: "Passwords don't match",
     path: ["password_confirm"],
@@ -61,7 +61,7 @@ export function SignupForm() {
     const [showPassword, setShowPassword] = useState(false);
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
     const {signup} = useAuth();
-    const {industries, loading: industriesLoading} = useIndustries();
+    const {contentCategories, loading: contentCategoriesLoading} = useContentCategories();
     const {countryCodes, loading: countryCodesLoading} = useCountryCodes();
 
     const form = useForm<SignupFormData>({
@@ -113,7 +113,17 @@ export function SignupForm() {
 
     const onSubmit = async (data: SignupFormData) => {
         try {
-            await signup.mutateAsync(data);
+            // Find the selected content category and get its industry_key
+            const selectedCategory = contentCategories.find(cat => cat.key === data.industry);
+            const industryKey = selectedCategory?.industry_key || 'other';
+            
+            const submitData = {
+                ...data,
+                industry: industryKey
+            };
+            
+            // The useAuth hook will handle the redirect to dashboard after successful signup
+            await signup.mutateAsync(submitData);
         } catch (error: any) {
             // Error toast is already handled in the useAuth hook
             // Since backend now sends simple string errors, we don't set field-specific errors
@@ -397,12 +407,12 @@ export function SignupForm() {
                                             </SelectTrigger>
                                         </FormControl>
                                         <SelectContent>
-                                            {industriesLoading ? (
-                                                <SelectItem value="loading" disabled>Loading industries...</SelectItem>
+                                            {contentCategoriesLoading ? (
+                                                <SelectItem value="loading" disabled>Loading content categories...</SelectItem>
                                             ) : (
-                                                industries.map((industry) => (
-                                                    <SelectItem key={industry.key} value={industry.key}>
-                                                        {industry.name}
+                                                contentCategories.map((category) => (
+                                                    <SelectItem key={category.key} value={category.key}>
+                                                        {category.name}
                                                     </SelectItem>
                                                 ))
                                             )}

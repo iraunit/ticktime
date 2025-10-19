@@ -86,6 +86,8 @@ class ContentCategory(models.Model):
     description = models.TextField(blank=True, help_text="Optional description of the content category")
     icon = models.CharField(max_length=50, blank=True, help_text="Icon name for UI display")
     color = models.CharField(max_length=20, default='blue', help_text="Color theme for UI display")
+    industry = models.ForeignKey(Industry, on_delete=models.PROTECT, related_name='content_categories',
+                                 help_text="Industry this content category belongs to")
     is_active = models.BooleanField(default=True)
     sort_order = models.PositiveIntegerField(default=0, help_text="Order for display in UI")
     created_at = models.DateTimeField(auto_now_add=True)
