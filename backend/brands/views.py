@@ -1497,7 +1497,7 @@ def brand_analytics_overview_view(request):
         top_campaigns.append({
             'id': campaign.id,
             'title': campaign.title,
-            'status': campaign.status,
+            'is_active': campaign.is_active,
             'total_investment': campaign.cash_amount,
             'total_reach': 0,  # Will be populated when real analytics are implemented
             'total_engagement': 0,  # Will be populated when real analytics are implemented
@@ -1613,7 +1613,7 @@ def brand_analytics_campaigns_view(request):
         campaign_analytics.append({
             'id': campaign.id,
             'title': campaign.title,
-            'status': campaign.status,
+            'is_active': campaign.is_active,
             'total_investment': campaign.cash_amount,
             'total_reach': total_reach,
             'total_impressions': total_impressions,
