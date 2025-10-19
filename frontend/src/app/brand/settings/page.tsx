@@ -369,10 +369,8 @@ export default function BrandSettingsPage() {
                 },
             });
 
-            if (response.data.status === 'success') {
+            if (response.data) {
                 toast.success('Brand information updated successfully');
-
-                // Update local state directly instead of refetching
                 if (brand) {
                     const updatedBrand = {
                         ...brand,
@@ -381,7 +379,6 @@ export default function BrandSettingsPage() {
                         description: brandDescription,
                         website: brandWebsite,
                         contact_email: brandContactEmail,
-                        // Update logo if it was uploaded
                         ...(response.data.brand.logo && {logo: response.data.brand.logo})
                     };
                     setBrand(updatedBrand);

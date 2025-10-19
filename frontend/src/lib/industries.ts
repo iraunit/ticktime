@@ -13,7 +13,7 @@ export interface IndustryCategory {
 export async function fetchIndustries(): Promise<IndustryCategory[]> {
   try {
     const response = await api.get('/common/industries/');
-    if (response.data.status === 'success') {
+    if (response.data.industries) {
       return response.data.industries;
     }
     return [];
