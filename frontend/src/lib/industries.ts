@@ -1,9 +1,9 @@
-import { api } from './api';
+import {api} from './api';
 
 export interface IndustryCategory {
-  id: number;
-  key: string;
-  name: string;
+    id: number;
+    key: string;
+    name: string;
 }
 
 /**
@@ -11,16 +11,16 @@ export interface IndustryCategory {
  * @returns Promise<IndustryCategory[]> - Array of available industries
  */
 export async function fetchIndustries(): Promise<IndustryCategory[]> {
-  try {
-    const response = await api.get('/common/industries/');
-    if (response.data.industries) {
-      return response.data.industries;
+    try {
+        const response = await api.get('/common/industries/');
+        if (response.data.industries) {
+            return response.data.industries;
+        }
+        return [];
+    } catch (error) {
+        console.error('Error fetching industries:', error);
+        return [];
     }
-    return [];
-  } catch (error) {
-    console.error('Error fetching industries:', error);
-    return [];
-  }
 }
 
 /**
@@ -28,16 +28,16 @@ export async function fetchIndustries(): Promise<IndustryCategory[]> {
  * @returns Promise<IndustryCategory[]> - Array of available categories
  */
 export async function fetchCategories(): Promise<IndustryCategory[]> {
-  try {
-    const response = await api.get('/common/categories/');
-    if (response.data.status === 'success') {
-      return response.data.categories;
+    try {
+        const response = await api.get('/common/categories/');
+        if (response.data) {
+            return response.data.categories;
+        }
+        return [];
+    } catch (error) {
+        console.error('Error fetching categories:', error);
+        return [];
     }
-    return [];
-  } catch (error) {
-    console.error('Error fetching categories:', error);
-    return [];
-  }
 }
 
 /**
@@ -47,8 +47,8 @@ export async function fetchCategories(): Promise<IndustryCategory[]> {
  * @returns string - Display name or key if not found
  */
 export function getIndustryDisplayName(key: string, industries: IndustryCategory[]): string {
-  const industry = industries.find(i => i.key === key);
-  return industry ? industry.name : key;
+    const industry = industries.find(i => i.key === key);
+    return industry ? industry.name : key;
 }
 
 /**
@@ -57,8 +57,8 @@ export function getIndustryDisplayName(key: string, industries: IndustryCategory
  * @returns Array of options with value and label
  */
 export function industriesToOptions(industries: IndustryCategory[]) {
-  return industries.map(industry => ({
-    value: industry.key,
-    label: industry.name
-  }));
+    return industries.map(industry => ({
+        value: industry.key,
+        label: industry.name
+    }));
 }

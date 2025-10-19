@@ -1,8 +1,6 @@
 from campaigns.models import Campaign
 from campaigns.serializers import CampaignCreateSerializer
 from common.api_response import api_response, format_serializer_errors
-
-
 from deals.models import Deal
 from django.contrib.auth.models import User
 from django.core.paginator import Paginator
@@ -86,7 +84,6 @@ def brand_dashboard_view(request):
     pending_content = deals.filter(
         status='content_submitted'
     ).count()
-
     serializer = BrandDashboardSerializer({
         'brand': brand,
         'stats': {

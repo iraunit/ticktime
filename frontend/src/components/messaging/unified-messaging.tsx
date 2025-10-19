@@ -115,7 +115,7 @@ export function UnifiedMessaging({userType, targetParam}: UnifiedMessagingProps)
                     messages_count: response.data.messages?.length || 0,
                     created_at: response.data.created_at || new Date().toISOString(),
                     updated_at: response.data.updated_at || new Date().toISOString(),
-                    status: response.data.status || 'active'
+                    status: response.data || 'active'
                 };
 
 

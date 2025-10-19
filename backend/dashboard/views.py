@@ -3,6 +3,7 @@ from decimal import Decimal
 
 from common.decorators import user_rate_limit, cache_response, log_performance
 from common.models import PLATFORM_CHOICES
+from common.api_response import api_response
 from deals.models import Deal
 from django.db.models import Count, Sum, Avg, F
 from django.db.models.functions import Coalesce
@@ -28,10 +29,7 @@ def dashboard_stats_view(request):
     try:
         profile = request.user.influencer_profile
     except InfluencerProfile.DoesNotExist:
-        return Response({
-            'status': 'error',
-            'message': 'Influencer profile not found.'
-        }, status=status.HTTP_404_NOT_FOUND)
+        return api_response(False, error='Influencer profile not found.', status_code=404)
 
     # Get deal statistics
     deals = Deal.objects.filter(influencer=profile)
@@ -117,10 +115,7 @@ def dashboard_stats_view(request):
 
     serializer = DashboardStatsSerializer(stats_data)
 
-    return Response({
-        'status': 'success',
-        'stats': serializer.data
-    }, status=status.HTTP_200_OK)
+    return api_response(True, result={'stats': serializer.data})
 
 
 @api_view(['GET'])
@@ -132,10 +127,7 @@ def notifications_view(request):
     try:
         profile = request.user.influencer_profile
     except InfluencerProfile.DoesNotExist:
-        return Response({
-            'status': 'error',
-            'message': 'Influencer profile not found.'
-        }, status=status.HTTP_404_NOT_FOUND)
+        return api_response(False, error='Influencer profile not found.', status_code=404)
 
     notifications = []
 
@@ -262,15 +254,14 @@ def notifications_view(request):
 
     paginated_notifications = notifications[start_index:end_index]
 
-    return Response({
-        'status': 'success',
+    return api_response(True, result={
         'notifications': paginated_notifications,
         'total_count': len(notifications),
         'unread_count': sum(1 for n in notifications if n.get('action_required', False)),
         'page': page,
         'page_size': page_size,
         'has_next': end_index < len(notifications)
-    }, status=status.HTTP_200_OK)
+    })
 
 
 @api_view(['GET'])
@@ -282,10 +273,7 @@ def performance_metrics_view(request):
     try:
         profile = request.user.influencer_profile
     except InfluencerProfile.DoesNotExist:
-        return Response({
-            'status': 'error',
-            'message': 'Influencer profile not found.'
-        }, status=status.HTTP_404_NOT_FOUND)
+        return api_response(False, error='Influencer profile not found.', status_code=404)
 
     deals = Deal.objects.filter(influencer=profile)
 
@@ -421,7 +409,4 @@ def performance_metrics_view(request):
         'monthly_performance': monthly_performance
     }
 
-    return Response({
-        'status': 'success',
-        'metrics': metrics_data
-    }, status=status.HTTP_200_OK)
+    return api_response(True, result={'metrics': metrics_data})

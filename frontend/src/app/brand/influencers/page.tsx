@@ -333,7 +333,7 @@ export default function InfluencerSearchPage() {
     const handleBookmark = async (influencerId: number) => {
         try {
             const response = await api.post(`/brands/influencers/${influencerId}/bookmark/`);
-            if (response.data.status === 'success') {
+            if (response.data) {
                 toast.success("Influencer bookmarked successfully!");
                 // Update local state immediately
                 setInfluencers(prev => prev.map(influencer =>
@@ -352,7 +352,7 @@ export default function InfluencerSearchPage() {
     const handleRemoveBookmark = async (influencerId: number) => {
         try {
             const response = await api.delete(`/brands/influencers/${influencerId}/unbookmark/`);
-            if (response.data.status === 'success') {
+            if (response.data) {
                 toast.success("Influencer removed from bookmarks!");
                 // Update local state immediately
                 setInfluencers(prev => prev.map(influencer =>
@@ -424,7 +424,7 @@ export default function InfluencerSearchPage() {
                         influencer_ids: influencerIds
                     });
 
-                    if (response.data.status === 'success') {
+                    if (response.data) {
                         successCount++;
                     }
                 } catch (error: any) {
@@ -481,7 +481,7 @@ export default function InfluencerSearchPage() {
                 content: messageContent
             });
 
-            if (response.data.status === 'success') {
+            if (response.data) {
                 toast.success('Message sent successfully!');
                 setMessageContent("");
                 setShowMessageDialog(false);

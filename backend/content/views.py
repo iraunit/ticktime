@@ -8,6 +8,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
+from common.api_response import api_response, format_serializer_errors
 from .models import ContentSubmission
 from .serializers import (
     ContentSubmissionSerializer,
@@ -24,10 +25,7 @@ def content_submissions_view(request, deal_id):
     try:
         profile = request.user.influencer_profile
     except InfluencerProfile.DoesNotExist:
-        return Response({
-            'status': 'error',
-            'message': 'Influencer profile not found.'
-        }, status=status.HTTP_404_NOT_FOUND)
+        return api_response(False, error='Influencer profile not found.', status_code=404)
 
     deal = get_object_or_404(
         Deal.objects.select_related('campaign__brand'),
@@ -39,20 +37,16 @@ def content_submissions_view(request, deal_id):
         submissions = deal.content_submissions.all().order_by('-submitted_at')
         serializer = ContentSubmissionSerializer(submissions, many=True)
 
-        return Response({
-            'status': 'success',
+        return api_response(True, result={
             'submissions': serializer.data,
             'total_count': submissions.count()
-        }, status=status.HTTP_200_OK)
+        })
 
     elif request.method == 'POST':
         # Check if deal allows content submission
         # Content can be submitted after product delivery or during active status
         if deal.status not in ['product_delivered', 'active', 'accepted', 'revision_requested']:
-            return Response({
-                'status': 'error',
-                'message': f'Content cannot be submitted for this deal in its current status: {deal.get_status_display()}.'
-            }, status=status.HTTP_400_BAD_REQUEST)
+            return api_response(False, error=f'Content cannot be submitted for this deal in its current status: {deal.get_status_display()}.', status_code=400)
 
         # Add deal to the data
         data = request.data.copy()
@@ -71,17 +65,12 @@ def content_submissions_view(request, deal_id):
             # Create notification for brand about content submission
             _create_content_notification(deal, submission, 'submitted')
 
-            return Response({
-                'status': 'success',
+            return api_response(True, result={
                 'message': 'Content submitted successfully.',
                 'submission': ContentSubmissionSerializer(submission).data
-            }, status=status.HTTP_201_CREATED)
+            }, status_code=201)
 
-        return Response({
-            'status': 'error',
-            'message': 'Invalid submission data.',
-            'errors': serializer.errors
-        }, status=status.HTTP_400_BAD_REQUEST)
+        return api_response(False, error=f'Invalid submission data. {format_serializer_errors(serializer.errors)}', status_code=400)
 
 
 @api_view(['GET', 'PUT', 'DELETE'])
@@ -93,10 +82,7 @@ def content_submission_detail_view(request, deal_id, submission_id):
     try:
         profile = request.user.influencer_profile
     except InfluencerProfile.DoesNotExist:
-        return Response({
-            'status': 'error',
-            'message': 'Influencer profile not found.'
-        }, status=status.HTTP_404_NOT_FOUND)
+        return api_response(False, error='Influencer profile not found.', status_code=404)
 
     deal = get_object_or_404(
         Deal.objects.select_related('campaign__brand'),
@@ -112,18 +98,12 @@ def content_submission_detail_view(request, deal_id, submission_id):
 
     if request.method == 'GET':
         serializer = ContentSubmissionSerializer(submission)
-        return Response({
-            'status': 'success',
-            'submission': serializer.data
-        }, status=status.HTTP_200_OK)
+        return api_response(True, result={'submission': serializer.data})
 
     elif request.method == 'PUT':
         # Check if submission can be updated
         if submission.approved is True:
-            return Response({
-                'status': 'error',
-                'message': 'Approved submissions cannot be modified.'
-            }, status=status.HTTP_400_BAD_REQUEST)
+            return api_response(False, error='Approved submissions cannot be modified.', status_code=400)
 
         # Check if this is an update after revision request
         was_revision_requested = submission.revision_requested
@@ -156,32 +136,21 @@ def content_submission_detail_view(request, deal_id, submission_id):
                     f"Content has been updated and resubmitted for review"
                 )
 
-            return Response({
-                'status': 'success',
+            return api_response(True, result={
                 'message': 'Content submission updated successfully.',
                 'submission': serializer.data
-            }, status=status.HTTP_200_OK)
+            })
 
-        return Response({
-            'status': 'error',
-            'message': 'Invalid submission data.',
-            'errors': serializer.errors
-        }, status=status.HTTP_400_BAD_REQUEST)
+        return api_response(False, error=f'Invalid submission data. {format_serializer_errors(serializer.errors)}', status_code=400)
 
     elif request.method == 'DELETE':
         # Check if submission can be deleted
         if submission.approved is True:
-            return Response({
-                'status': 'error',
-                'message': 'Approved submissions cannot be deleted.'
-            }, status=status.HTTP_400_BAD_REQUEST)
+            return api_response(False, error='Approved submissions cannot be deleted.', status_code=400)
 
         submission.delete()
 
-        return Response({
-            'status': 'success',
-            'message': 'Content submission deleted successfully.'
-        }, status=status.HTTP_200_OK)
+        return api_response(True, result={'message': 'Content submission deleted successfully.'})
 
 
 @api_view(['POST'])
@@ -194,10 +163,7 @@ def content_review_view(request, deal_id, submission_id):
     try:
         brand_user = request.user.brand_user
     except BrandUser.DoesNotExist:
-        return Response({
-            'status': 'error',
-            'message': 'Only brand users can review content submissions.'
-        }, status=status.HTTP_403_FORBIDDEN)
+        return api_response(False, error='Only brand users can review content submissions.', status_code=403)
 
     # Get the deal and verify it belongs to the brand
     deal = get_object_or_404(
@@ -215,10 +181,7 @@ def content_review_view(request, deal_id, submission_id):
 
     # Check if submission can be reviewed
     if submission.approved is True:
-        return Response({
-            'status': 'error',
-            'message': 'This submission has already been approved.'
-        }, status=status.HTTP_400_BAD_REQUEST)
+        return api_response(False, error='This submission has already been approved.', status_code=400)
 
     serializer = ContentReviewSerializer(data=request.data)
 
@@ -269,17 +232,12 @@ def content_review_view(request, deal_id, submission_id):
         # Create notification for influencer about content review
         _create_content_notification(deal, submission, action)
 
-        return Response({
-            'status': 'success',
+        return api_response(True, result={
             'message': message,
             'submission': ContentSubmissionSerializer(submission).data
-        }, status=status.HTTP_200_OK)
+        })
 
-    return Response({
-        'status': 'error',
-        'message': 'Invalid review data.',
-        'errors': serializer.errors
-    }, status=status.HTTP_400_BAD_REQUEST)
+    return api_response(False, error=f'Invalid review data. {format_serializer_errors(serializer.errors)}', status_code=400)
 
 
 @api_view(['GET'])
@@ -292,10 +250,7 @@ def brand_content_review_list(request, deal_id):
     try:
         brand_user = request.user.brand_user
     except BrandUser.DoesNotExist:
-        return Response({
-            'status': 'error',
-            'message': 'Only brand users can access this endpoint.'
-        }, status=status.HTTP_403_FORBIDDEN)
+        return api_response(False, error='Only brand users can access this endpoint.', status_code=403)
 
     # Get the deal and verify it belongs to the brand
     deal = get_object_or_404(
@@ -321,8 +276,7 @@ def brand_content_review_list(request, deal_id):
 
     serializer = ContentSubmissionSerializer(submissions, many=True)
 
-    return Response({
-        'status': 'success',
+    return api_response(True, result={
         'deal': {
             'id': deal.id,
             'campaign_title': deal.campaign.title,
@@ -331,7 +285,7 @@ def brand_content_review_list(request, deal_id):
         },
         'submissions': serializer.data,
         'total_count': submissions.count()
-    }, status=status.HTTP_200_OK)
+    })
 
 
 def _update_deal_status_after_review(deal):

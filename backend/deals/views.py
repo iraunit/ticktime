@@ -1,6 +1,7 @@
 import logging
 from datetime import datetime, timedelta
 
+from common.api_response import api_response, format_serializer_errors
 from common.cache_utils import CacheManager
 from common.decorators import (
     upload_rate_limit,
@@ -52,10 +53,7 @@ def deals_list_view(request):
     try:
         profile = request.user.influencer_profile
     except InfluencerProfile.DoesNotExist:
-        return Response({
-            'status': 'error',
-            'message': 'Influencer profile not found.'
-        }, status=status.HTTP_404_NOT_FOUND)
+        return api_response(False, error='Influencer profile not found.', status_code=404)
 
     # Get base queryset
     queryset = Deal.objects.filter(influencer=profile).select_related(
@@ -119,11 +117,10 @@ def deals_list_view(request):
 
     # Fallback without pagination
     serializer = DealListSerializer(queryset, many=True, context={'request': request})
-    return Response({
-        'status': 'success',
+    return api_response(True, result={
         'deals': serializer.data,
         'total_count': queryset.count()
-    }, status=status.HTTP_200_OK)
+    })
 
 
 @api_view(['GET'])
@@ -135,10 +132,7 @@ def deal_detail_view(request, deal_id):
     try:
         profile = request.user.influencer_profile
     except InfluencerProfile.DoesNotExist:
-        return Response({
-            'status': 'error',
-            'message': 'Influencer profile not found.'
-        }, status=status.HTTP_404_NOT_FOUND)
+        return api_response(False, error='Influencer profile not found.', status_code=404)
 
     deal = get_object_or_404(
         Deal.objects.select_related('campaign__brand'),
@@ -147,10 +141,7 @@ def deal_detail_view(request, deal_id):
     )
 
     serializer = DealDetailSerializer(deal, context={'request': request})
-    return Response({
-        'status': 'success',
-        'deal': serializer.data
-    }, status=status.HTTP_200_OK)
+    return api_response(True, result={'deal': serializer.data})
 
 
 @api_view(['POST'])
@@ -162,10 +153,7 @@ def deal_action_view(request, deal_id):
     try:
         profile = request.user.influencer_profile
     except InfluencerProfile.DoesNotExist:
-        return Response({
-            'status': 'error',
-            'message': 'Influencer profile not found.'
-        }, status=status.HTTP_404_NOT_FOUND)
+        return api_response(False, error='Influencer profile not found.', status_code=404)
 
     deal = get_object_or_404(
         Deal.objects.select_related('campaign__brand'),
@@ -175,17 +163,11 @@ def deal_action_view(request, deal_id):
 
     # Check if deal can be acted upon
     if deal.status not in ['invited', 'pending']:
-        return Response({
-            'status': 'error',
-            'message': 'This deal cannot be modified in its current status.'
-        }, status=status.HTTP_400_BAD_REQUEST)
+        return api_response(False, error='This deal cannot be modified in its current status.', status_code=400)
 
     # Check if response deadline has passed
     if deal.response_deadline_passed:
-        return Response({
-            'status': 'error',
-            'message': 'The response deadline for this deal has passed.'
-        }, status=status.HTTP_400_BAD_REQUEST)
+        return api_response(False, error='The response deadline for this deal has passed.', status_code=400)
 
     serializer = DealActionSerializer(data=request.data)
 
@@ -226,11 +208,8 @@ def deal_action_view(request, deal_id):
             'deal': updated_deal.data
         }, status=status.HTTP_200_OK)
 
-    return Response({
-        'status': 'error',
-        'message': 'Invalid action data.',
-        'errors': serializer.errors
-    }, status=status.HTTP_400_BAD_REQUEST)
+        return api_response(False, error=f'Invalid action data. {format_serializer_errors(serializer.errors)}',
+                            status_code=400)
 
 
 @api_view(['GET'])
@@ -242,10 +221,7 @@ def deal_timeline_view(request, deal_id):
     try:
         profile = request.user.influencer_profile
     except InfluencerProfile.DoesNotExist:
-        return Response({
-            'status': 'error',
-            'message': 'Influencer profile not found.'
-        }, status=status.HTTP_404_NOT_FOUND)
+        return api_response(False, error='Influencer profile not found.', status_code=404)
 
     deal = get_object_or_404(
         Deal.objects.select_related('campaign__brand'),
@@ -326,10 +302,7 @@ def recent_deals_view(request):
     try:
         profile = request.user.influencer_profile
     except InfluencerProfile.DoesNotExist:
-        return Response({
-            'status': 'error',
-            'message': 'Influencer profile not found.'
-        }, status=status.HTTP_404_NOT_FOUND)
+        return api_response(False, error='Influencer profile not found.', status_code=404)
 
     # Get recent deals (last 30 days or latest 10)
     recent_deals = Deal.objects.filter(
@@ -353,10 +326,7 @@ def collaboration_history_view(request):
     try:
         profile = request.user.influencer_profile
     except InfluencerProfile.DoesNotExist:
-        return Response({
-            'status': 'error',
-            'message': 'Influencer profile not found.'
-        }, status=status.HTTP_404_NOT_FOUND)
+        return api_response(False, error='Influencer profile not found.', status_code=404)
 
     # Get base queryset for completed collaborations
     queryset = Deal.objects.filter(
@@ -419,10 +389,7 @@ def earnings_tracking_view(request):
     try:
         profile = request.user.influencer_profile
     except InfluencerProfile.DoesNotExist:
-        return Response({
-            'status': 'error',
-            'message': 'Influencer profile not found.'
-        }, status=status.HTTP_404_NOT_FOUND)
+        return api_response(False, error='Influencer profile not found.', status_code=404)
 
     # Get deals with earnings
     deals = Deal.objects.filter(influencer=profile, status='completed')
@@ -587,10 +554,7 @@ def submit_address_view(request, deal_id):
     try:
         profile = request.user.influencer_profile
     except InfluencerProfile.DoesNotExist:
-        return Response({
-            'status': 'error',
-            'message': 'Influencer profile not found.'
-        }, status=status.HTTP_404_NOT_FOUND)
+        return api_response(False, error='Influencer profile not found.', status_code=404)
 
     deal = get_object_or_404(
         Deal.objects.select_related('campaign__brand'),
@@ -751,10 +715,7 @@ def last_deal_view(request):
     try:
         profile = request.user.influencer_profile
     except InfluencerProfile.DoesNotExist:
-        return Response({
-            'status': 'error',
-            'message': 'Influencer profile not found.'
-        }, status=status.HTTP_404_NOT_FOUND)
+        return api_response(False, error='Influencer profile not found.', status_code=404)
 
     # Get the most recent deal for this influencer
     last_deal = Deal.objects.filter(
@@ -784,10 +745,7 @@ def submit_content_placeholder(request, deal_id):
     try:
         profile = request.user.influencer_profile
     except InfluencerProfile.DoesNotExist:
-        return Response({
-            'status': 'error',
-            'message': 'Influencer profile not found.'
-        }, status=status.HTTP_404_NOT_FOUND)
+        return api_response(False, error='Influencer profile not found.', status_code=404)
 
     deal = get_object_or_404(
         Deal.objects.select_related('campaign__brand'),
@@ -844,10 +802,7 @@ def content_submissions_placeholder(request, deal_id):
     try:
         profile = request.user.influencer_profile
     except InfluencerProfile.DoesNotExist:
-        return Response({
-            'status': 'error',
-            'message': 'Influencer profile not found.'
-        }, status=status.HTTP_404_NOT_FOUND)
+        return api_response(False, error='Influencer profile not found.', status_code=404)
 
     deal = get_object_or_404(
         Deal.objects.select_related('campaign__brand'),

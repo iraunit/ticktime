@@ -1,5 +1,6 @@
 import logging
 
+from common.api_response import api_response, format_serializer_errors
 from django.db import models
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
@@ -62,17 +63,11 @@ def influencer_profile_view(request):
     try:
         profile = request.user.influencer_profile
     except InfluencerProfile.DoesNotExist:
-        return Response({
-            'status': 'error',
-            'message': 'Influencer profile not found.'
-        }, status=status.HTTP_404_NOT_FOUND)
+        return api_response(False, error='Influencer profile not found.', status_code=404)
 
     if request.method == 'GET':
         serializer = InfluencerProfileSerializer(profile, context={'request': request})
-        return Response({
-            'status': 'success',
-            'profile': serializer.data
-        }, status=status.HTTP_200_OK)
+        return api_response(True, result={'profile': serializer.data})
 
     elif request.method in ['PUT', 'PATCH']:
         partial = request.method == 'PATCH'
@@ -111,10 +106,7 @@ def upload_profile_image_view(request):
     try:
         profile = request.user.influencer_profile
     except InfluencerProfile.DoesNotExist:
-        return Response({
-            'status': 'error',
-            'message': 'Influencer profile not found.'
-        }, status=status.HTTP_404_NOT_FOUND)
+        return api_response(False, error='Influencer profile not found.', status_code=404)
 
     serializer = ProfileImageUploadSerializer(profile, data=request.data, partial=True)
 
@@ -150,10 +142,7 @@ def upload_verification_document_view(request):
     try:
         profile = request.user.influencer_profile
     except InfluencerProfile.DoesNotExist:
-        return Response({
-            'status': 'error',
-            'message': 'Influencer profile not found.'
-        }, status=status.HTTP_404_NOT_FOUND)
+        return api_response(False, error='Influencer profile not found.', status_code=404)
 
     serializer = DocumentUploadSerializer(profile, data=request.data, partial=True)
 
@@ -183,10 +172,7 @@ def bank_details_view(request):
     try:
         profile = request.user.influencer_profile
     except InfluencerProfile.DoesNotExist:
-        return Response({
-            'status': 'error',
-            'message': 'Influencer profile not found.'
-        }, status=status.HTTP_404_NOT_FOUND)
+        return api_response(False, error='Influencer profile not found.', status_code=404)
 
     if request.method == 'GET':
         serializer = BankDetailsSerializer(profile)
@@ -227,10 +213,7 @@ def social_media_accounts_view(request):
     try:
         profile = request.user.influencer_profile
     except InfluencerProfile.DoesNotExist:
-        return Response({
-            'status': 'error',
-            'message': 'Influencer profile not found.'
-        }, status=status.HTTP_404_NOT_FOUND)
+        return api_response(False, error='Influencer profile not found.', status_code=404)
 
     if request.method == 'GET':
         accounts = profile.social_accounts.all().order_by('-created_at')
@@ -274,10 +257,7 @@ def social_media_account_detail_view(request, account_id):
     try:
         profile = request.user.influencer_profile
     except InfluencerProfile.DoesNotExist:
-        return Response({
-            'status': 'error',
-            'message': 'Influencer profile not found.'
-        }, status=status.HTTP_404_NOT_FOUND)
+        return api_response(False, error='Influencer profile not found.', status_code=404)
 
     account = get_object_or_404(
         SocialMediaAccount,
@@ -332,10 +312,7 @@ def toggle_social_account_status_view(request, account_id):
     try:
         profile = request.user.influencer_profile
     except InfluencerProfile.DoesNotExist:
-        return Response({
-            'status': 'error',
-            'message': 'Influencer profile not found.'
-        }, status=status.HTTP_404_NOT_FOUND)
+        return api_response(False, error='Influencer profile not found.', status_code=404)
 
     account = get_object_or_404(
         SocialMediaAccount,
@@ -847,10 +824,7 @@ def profile_completion_status_view(request):
     try:
         profile = request.user.influencer_profile
     except InfluencerProfile.DoesNotExist:
-        return Response({
-            'status': 'error',
-            'message': 'Influencer profile not found.'
-        }, status=status.HTTP_404_NOT_FOUND)
+        return api_response(False, error='Influencer profile not found.', status_code=404)
 
     # Check required fields for profile completion
     required_fields = {
@@ -962,10 +936,7 @@ def public_influencer_profile_view(request, influencer_id):
         }, status=status.HTTP_200_OK)
 
     except InfluencerProfile.DoesNotExist:
-        return Response({
-            'status': 'error',
-            'message': 'Influencer profile not found.'
-        }, status=status.HTTP_404_NOT_FOUND)
+        return api_response(False, error='Influencer profile not found.', status_code=404)
     except Exception as e:
         logger.error(f"Error fetching public influencer profile: {e}")
         return Response({
@@ -983,10 +954,7 @@ def provide_shipping_address_view(request, deal_id):
     try:
         profile = request.user.influencer_profile
     except InfluencerProfile.DoesNotExist:
-        return Response({
-            'status': 'error',
-            'message': 'Influencer profile not found.'
-        }, status=status.HTTP_404_NOT_FOUND)
+        return api_response(False, error='Influencer profile not found.', status_code=404)
 
     try:
         deal = Deal.objects.get(id=deal_id, influencer=profile)

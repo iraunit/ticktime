@@ -178,7 +178,7 @@ export default function BrandSettingsPage() {
         try {
             const response = await api.get('/brands/settings/');
 
-            if (response.data.status === 'success') {
+            if (response.data) {
                 setBrand(response.data.brand);
                 setTeamMembers(response.data.team_members);
                 setAuditLogs(response.data.audit_logs);
@@ -204,7 +204,7 @@ export default function BrandSettingsPage() {
         try {
             const response = await api.get('/brands/team/users-by-domain/');
 
-            if (response.data.status === 'success') {
+            if (response.data) {
                 setDomainUsers(response.data.users);
             }
         } catch (error) {
@@ -224,7 +224,7 @@ export default function BrandSettingsPage() {
                 role: role
             });
 
-            if (response.data.status === 'success') {
+            if (response.data) {
                 toast.success('User invited successfully');
                 setShowDomainUsersDialog(false);
                 // Refresh team members and domain users
@@ -281,7 +281,7 @@ export default function BrandSettingsPage() {
                 role: inviteRole
             });
 
-            if (response.data.status === 'success') {
+            if (response.data) {
                 toast.success('User invited successfully');
                 setShowInviteDialog(false);
                 setInviteEmail("");
@@ -308,7 +308,7 @@ export default function BrandSettingsPage() {
                 role: newRole
             });
 
-            if (response.data.status === 'success') {
+            if (response.data) {
                 toast.success('Role updated successfully');
                 setShowRoleDialog(false);
                 setSelectedMember(null);
@@ -336,7 +336,7 @@ export default function BrandSettingsPage() {
         try {
             const response = await api.delete(`/brands/team/${member.id}/remove/`);
 
-            if (response.data.status === 'success') {
+            if (response.data) {
                 toast.success('Team member removed successfully');
                 // Update local state instead of refetching
                 setTeamMembers(prevMembers =>
@@ -450,7 +450,7 @@ export default function BrandSettingsPage() {
                 },
             });
 
-            if (response.data.status === 'success') {
+            if (response.data) {
                 toast.success('Profile updated successfully');
                 setCurrentUser(response.data.user);
                 setIsEditingProfile(false);

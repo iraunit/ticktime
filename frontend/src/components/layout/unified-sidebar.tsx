@@ -88,7 +88,7 @@ export function UnifiedSidebar({userType}: UnifiedSidebarProps) {
             try {
                 if (userType === 'brand') {
                     const response = await api.get('/brands/settings/');
-                    if (response.data.status === 'success') {
+                    if (response.data) {
                         setLogoData(prevData => ({
                             ...prevData,
                             brandLogo: response.data.brand.logo,
@@ -363,7 +363,6 @@ export function UnifiedSidebar({userType}: UnifiedSidebarProps) {
                                         className={`h-4 w-4 text-gray-400 transition-transform duration-200 ${isProfileMenuOpen ? 'rotate-180' : ''}`}/>
                                 )}
                             </button>
-                            
 
 
                             {/* Profile Dropdown Menu */}
