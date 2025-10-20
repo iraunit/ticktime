@@ -22,7 +22,7 @@ class ContentCategorySerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ContentCategory
-        fields = ('key', 'name', 'description', 'icon', 'color', 'industry_key', 'industry_name')
+        fields = ('id', 'key', 'name', 'description', 'icon', 'color', 'industry_key', 'industry_name')
 
 
 class CountryCodeSerializer(serializers.ModelSerializer):

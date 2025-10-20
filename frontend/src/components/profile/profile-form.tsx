@@ -13,6 +13,8 @@ import {toast} from '@/lib/toast';
 import {useProfile} from '@/hooks/use-profile';
 import {useIndustries} from '@/hooks/use-industries';
 import {usePincodeLookup} from '@/hooks/use-pincode-lookup';
+import {useQuery} from '@tanstack/react-query';
+import {api} from '@/lib/api';
 import {InfluencerProfile} from '@/types';
 import {getMediaUrl} from '@/lib/utils';
 import {AlertCircle, Briefcase, Camera, MapPin, Phone, Save, Settings, User} from '@/lib/icons';
@@ -34,6 +36,22 @@ export function ProfileForm({profile}: ProfileFormProps) {
     const {updateProfile, uploadProfileImage} = useProfile();
     const {industries, loading: industriesLoading} = useIndustries();
     const {loading: pincodeLoading, error: pincodeError, lookupPincode} = usePincodeLookup();
+
+    // Fetch content categories for conversion
+    const {data: categoriesData} = useQuery({
+        queryKey: ['content-categories'],
+        queryFn: async () => {
+            try {
+                const response = await api.get('/common/content-categories/');
+                return response.data.categories as Array<{ id: number; key: string; name: string }>;
+            } catch (error) {
+                console.error('Error fetching content categories:', error);
+                return [];
+            }
+        },
+        retry: 1,
+        staleTime: 5 * 60 * 1000, // 5 minutes
+    });
 
     // Debounce ref for pincode lookup
     const pincodeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -107,6 +125,11 @@ export function ProfileForm({profile}: ProfileFormProps) {
         setIsSubmitting(true);
 
         try {
+            const categoryIds = (data.categories || []).map(categoryKey => {
+                const category = categoriesData?.find(cat => cat.key === categoryKey);
+                return category?.id;
+            }).filter(id => id !== undefined);
+
             // Transform the form data to match the expected API format
             const submitData = {
                 ...data,
@@ -122,6 +145,9 @@ export function ProfileForm({profile}: ProfileFormProps) {
                 address_line1: data.user_profile?.address_line1,
                 address_line2: data.user_profile?.address_line2,
                 gender: data.user_profile?.gender,
+                categories: categoryIds,
+                bio: data.bio || '',
+                address: data.user_profile?.address_line1 || '',
             };
             await updateProfile.mutateAsync(submitData as any);
 

@@ -20,6 +20,9 @@ class InfluencerProfileSerializer(serializers.ModelSerializer):
     phone_number = serializers.SerializerMethodField()
     profile_image = serializers.SerializerMethodField()
     address = serializers.SerializerMethodField()
+    country = serializers.SerializerMethodField()
+    country_code = serializers.SerializerMethodField()
+    gender = serializers.SerializerMethodField()
     total_followers = serializers.ReadOnlyField()
     average_engagement_rate = serializers.ReadOnlyField()
     social_accounts_count = serializers.SerializerMethodField()
@@ -32,7 +35,7 @@ class InfluencerProfileSerializer(serializers.ModelSerializer):
         fields = (
             'id', 'user_first_name', 'user_last_name', 'user_email',
             'phone_number', 'username', 'industry', 'categories', 'bio', 'profile_image',
-            'address', 'aadhar_number', 'aadhar_document', 'is_verified',
+            'address', 'country', 'country_code', 'gender', 'aadhar_number', 'aadhar_document', 'is_verified',
             'bank_account_number', 'bank_ifsc_code', 'bank_account_holder_name',
             'total_followers', 'average_engagement_rate', 'social_accounts_count',
             'collaboration_types', 'minimum_collaboration_amount',
@@ -70,8 +73,21 @@ class InfluencerProfileSerializer(serializers.ModelSerializer):
                 address_parts.append(obj.user_profile.state)
             if obj.user_profile.zipcode:
                 address_parts.append(obj.user_profile.zipcode)
-            return ', '.join(address_parts)
+            # Use a special delimiter to separate address lines from other fields
+            return ' | '.join(address_parts)
         return ''
+
+    def get_country(self, obj):
+        """Get country from user profile."""
+        return obj.user_profile.country if obj.user_profile else ''
+
+    def get_country_code(self, obj):
+        """Get country code from user profile."""
+        return obj.user_profile.country_code if obj.user_profile else ''
+
+    def get_gender(self, obj):
+        """Get gender from user profile."""
+        return obj.user_profile.gender if obj.user_profile else ''
 
     def get_email_verified(self, obj):
         """Get email verification status from user profile."""
@@ -176,6 +192,15 @@ class InfluencerProfileUpdateSerializer(serializers.ModelSerializer):
         required=False
     )
 
+    # Ensure all fields are properly defined
+    bio = serializers.CharField(required=False, allow_blank=True)
+    username = serializers.CharField(required=False)
+    categories = serializers.PrimaryKeyRelatedField(
+        queryset=ContentCategory.objects.filter(is_active=True),
+        many=True,
+        required=False
+    )
+
     class Meta:
         model = InfluencerProfile
         fields = (
@@ -219,14 +244,16 @@ class InfluencerProfileUpdateSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError(f"Gender must be one of: {', '.join(valid_choices)}")
         return value.strip() if value else value
 
+    def validate_address(self, value):
+        """Validate address field - allow empty values."""
+        return value
+
+    def validate(self, attrs):
+        """Validate the entire data set."""
+        return attrs
+
     def update(self, instance, validated_data):
         """Update profile and user information."""
-        import logging
-        logger = logging.getLogger(__name__)
-
-        # Log the incoming data for debugging
-        logger.info(f"Updating profile for user {instance.user.id} with data: {validated_data}")
-
         # Extract user fields that have source='user.field_name'
         first_name = validated_data.pop('first_name', None)
         last_name = validated_data.pop('last_name', None)
@@ -249,6 +276,11 @@ class InfluencerProfileUpdateSerializer(serializers.ModelSerializer):
         categories = validated_data.pop('categories', None)
         collaboration_types = validated_data.pop('collaboration_types', None)
 
+        # Extract other profile fields
+        bio = validated_data.pop('bio', None)
+        username = validated_data.pop('username', None)
+        industry = validated_data.pop('industry', None)
+        minimum_collaboration_amount = validated_data.pop('minimum_collaboration_amount', None)
         # Update user fields
         user = instance.user
         if first_name is not None:
@@ -258,12 +290,9 @@ class InfluencerProfileUpdateSerializer(serializers.ModelSerializer):
         if first_name is not None or last_name is not None:
             user.save()
 
-        # Update UserProfile fields - create if doesn't exist
         if not instance.user_profile:
-            # Import here to avoid circular imports
             from users.models import UserProfile
             instance.user_profile = UserProfile.objects.create(user=instance.user)
-            logger.info(f"Created new UserProfile for user {instance.user.id}")
 
         # Log UserProfile update data
         user_profile_data = {
@@ -278,7 +307,6 @@ class InfluencerProfileUpdateSerializer(serializers.ModelSerializer):
             'address_line2': address_line2,
             'address': address
         }
-        logger.info(f"Updating UserProfile with data: {user_profile_data}")
 
         # Update UserProfile fields
         if phone_number is not None:
@@ -300,8 +328,8 @@ class InfluencerProfileUpdateSerializer(serializers.ModelSerializer):
         if address_line2 is not None:
             instance.user_profile.address_line2 = address_line2
 
-        # Handle legacy address field (comma-separated)
-        if address is not None:
+        # Handle legacy address field (comma-separated) - only if individual fields are not provided
+        if address is not None and not any([address_line1, address_line2, city, state, zipcode]):
             # Parse address into components (simple implementation)
             address_parts = address.split(',')
             instance.user_profile.address_line1 = address_parts[0].strip() if len(address_parts) > 0 else ''
@@ -309,20 +337,32 @@ class InfluencerProfileUpdateSerializer(serializers.ModelSerializer):
             instance.user_profile.city = address_parts[2].strip() if len(address_parts) > 2 else ''
             instance.user_profile.state = address_parts[3].strip() if len(address_parts) > 3 else ''
             instance.user_profile.zipcode = address_parts[4].strip() if len(address_parts) > 4 else ''
+        elif address is not None:
 
-        # Save UserProfile if any fields were updated
-        if any([phone_number, gender, country, country_code, state, city, zipcode, address_line1, address_line2,
-                address]):
-            instance.user_profile.save()
-            logger.info(f"Saved UserProfile for user {instance.user.id}")
-        else:
-            logger.info(f"No UserProfile fields to update for user {instance.user.id}")
+            # Save UserProfile if any fields were updated
+            user_profile_fields_updated = [phone_number, gender, country, country_code, state, city, zipcode,
+                                           address_line1, address_line2, address]
+            if any(user_profile_fields_updated):
+                instance.user_profile.save()
+            else:
+                print(f"No UserProfile fields to update for user {instance.user.id}")
 
-        # Update profile fields (excluding many-to-many fields)
+        # Update profile fields explicitly
+        if bio is not None:
+            instance.bio = bio
+        if username is not None:
+            instance.username = username
+        if industry is not None:
+            instance.industry = industry
+        if minimum_collaboration_amount is not None:
+            instance.minimum_collaboration_amount = minimum_collaboration_amount
+
+        # Update any remaining fields that weren't explicitly handled
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
-        instance.save()
 
+        # Save the instance
+        instance.save()
         # Handle many-to-many fields separately
         if categories is not None:
             instance.categories.set(categories)

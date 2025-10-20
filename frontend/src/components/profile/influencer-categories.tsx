@@ -9,6 +9,7 @@ import {useQuery} from '@tanstack/react-query';
 import {api} from '@/lib/api';
 
 interface ContentCategory {
+    id: number;
     key: string;
     name: string;
     description?: string;
