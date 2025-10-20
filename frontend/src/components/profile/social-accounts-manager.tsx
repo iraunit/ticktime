@@ -8,12 +8,12 @@ import {Button} from '@/components/ui/button';
 import {Input} from '@/components/ui/input';
 import {Label} from '@/components/ui/label';
 import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from '@/components/ui/select';
-import {Badge} from '@/components/ui/badge';
 import {useSocialAccounts} from '@/hooks/use-profile';
 import {SOCIAL_PLATFORMS} from '@/lib/constants';
 import {handleApiError} from '@/lib/api';
 import {SocialMediaAccount} from '@/types';
 import {
+    FaCheckCircle,
     FaFacebook,
     FaInstagram,
     FaLinkedin,
@@ -241,9 +241,7 @@ export function SocialAccountsManager() {
                                             {getPlatformLabel(account.platform)}
                                         </h4>
                                         {account.verified && (
-                                            <Badge variant="secondary" className="text-xs">
-                                                Verified
-                                            </Badge>
+                                            <FaCheckCircle className="w-4 h-4 text-blue-500"/>
                                         )}
                                     </div>
                                     <p className="text-sm text-gray-600">@{account.handle}</p>
