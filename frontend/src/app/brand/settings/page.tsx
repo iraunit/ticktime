@@ -19,6 +19,7 @@ import {usePincodeLookup} from "@/hooks/use-pincode-lookup";
 import {useIndustries} from "@/hooks/use-industries";
 import {getMediaUrl} from "@/lib/utils";
 import {OptimizedAvatar} from "@/components/ui";
+import {UnifiedCountrySelect} from "@/components/ui/unified-country-select";
 
 interface TeamMember {
     id: number;
@@ -485,17 +486,39 @@ export default function BrandSettingsPage() {
     };
 
     const handlePincodeLookup = async (pincode: string) => {
+        console.log('Brand settings pincode lookup triggered:', pincode);
+        console.log('Current country:', userCountry);
+
         if (pincode.length >= 4 && userCountry) {
-            const locationData = await lookupPincode(pincode, userCountry);
-            if (locationData) {
-                setUserState(locationData.state);
-                setUserCity(locationData.city);
-            } else {
-                console.log('No location data found for pincode:', pincode);
-                if (pincodeError) {
-                    toast.error(pincodeError);
+            console.log('Making pincode lookup request with country:', userCountry);
+            try {
+                const locationData = await lookupPincode(pincode, userCountry);
+                console.log('Location data received:', locationData);
+                if (locationData) {
+                    setUserState(locationData.state);
+                    setUserCity(locationData.city);
+                    toast.success('Location data updated successfully!');
+                } else {
+                    console.log('No location data found for pincode:', pincode);
+                    setUserState('');
+                    setUserCity('');
+                    if (pincodeError) {
+                        toast.error(pincodeError);
+                    } else {
+                        toast.error('No location data found for this pincode');
+                    }
                 }
+            } catch (error) {
+                console.error('Error in pincode lookup:', error);
+                setUserState('');
+                setUserCity('');
+                toast.error('Failed to lookup pincode');
             }
+        } else if (pincode.length >= 4 && !userCountry) {
+            console.log('Pincode lookup skipped - no country selected');
+            toast.error('Please select a country first');
+        } else {
+            console.log('Pincode lookup skipped - pincode length:', pincode.length, 'country:', userCountry);
         }
     };
 
@@ -1220,14 +1243,13 @@ export default function BrandSettingsPage() {
                                             Country
                                         </label>
                                         {isEditingProfile ? (
-                                            <Select value={userCountry} onValueChange={setUserCountry}>
-                                                <SelectTrigger>
-                                                    <SelectValue placeholder="Select country"/>
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    <SelectItem value="IN">India</SelectItem>
-                                                </SelectContent>
-                                            </Select>
+                                            <UnifiedCountrySelect
+                                                value={userCountry || ''}
+                                                onValueChange={setUserCountry}
+                                                disabled={false}
+                                                placeholder="Select country"
+                                                showSearch={true}
+                                            />
                                         ) : (
                                             <div className="p-3 bg-gray-50 rounded-md border">
                                                 <span

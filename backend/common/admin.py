@@ -49,15 +49,15 @@ class ContentCategoryAdmin(admin.ModelAdmin):
 
 @admin.register(CountryCode)
 class CountryCodeAdmin(admin.ModelAdmin):
-    list_display = ['code', 'country', 'flag', 'is_active', 'created_at']
+    list_display = ['code', 'shorthand', 'country', 'flag', 'is_active', 'created_at']
     list_filter = ['is_active', 'created_at']
-    search_fields = ['code', 'country']
+    search_fields = ['code', 'shorthand', 'country']
     readonly_fields = ['created_at', 'updated_at']
     ordering = ['country']
 
     fieldsets = (
         ('Country Code Information', {
-            'fields': ('code', 'country', 'flag', 'is_active')
+            'fields': ('code', 'shorthand', 'country', 'flag', 'is_active')
         }),
         ('Timestamps', {
             'fields': ('created_at', 'updated_at'),

@@ -13,7 +13,7 @@ import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from "@/c
 import {Textarea} from "@/components/ui/textarea";
 import {useAuth} from "@/hooks/use-auth";
 import {useIndustries} from "@/hooks/use-industries";
-import {useCountryCodes} from "@/hooks/use-country-codes";
+import {UnifiedCountryCodeSelect} from "@/components/ui/unified-country-code-select";
 import {Building2, CheckCircle, Eye, EyeOff} from "@/lib/icons";
 
 // List of common public email domains to block
@@ -64,7 +64,6 @@ export function BrandSignupForm() {
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
     const {brandSignup} = useAuth();
     const {industries, loading: industriesLoading} = useIndustries();
-    const {countryCodes, loading: countryCodesLoading} = useCountryCodes();
 
     const form = useForm<BrandSignupFormData>({
         resolver: zodResolver(brandSignupSchema),
@@ -296,28 +295,15 @@ export function BrandSignupForm() {
                                                         <FormItem>
                                                             <FormLabel className="text-sm font-medium text-gray-700">Country
                                                                 Code</FormLabel>
-                                                            <Select onValueChange={field.onChange}
-                                                                    defaultValue={field.value}>
-                                                                <FormControl>
-                                                                    <SelectTrigger
-                                                                        className="h-11 border-gray-200 focus:border-blue-500 focus:ring-blue-500/20">
-                                                                        <SelectValue placeholder="Code"/>
-                                                                    </SelectTrigger>
-                                                                </FormControl>
-                                                                <SelectContent>
-                                                                    {countryCodesLoading ? (
-                                                                        <SelectItem value="loading" disabled>Loading
-                                                                            country codes...</SelectItem>
-                                                                    ) : (
-                                                                        countryCodes.map((countryCode) => (
-                                                                            <SelectItem key={countryCode.code}
-                                                                                        value={countryCode.code}>
-                                                                                {countryCode.code} ({countryCode.country}) {countryCode.flag}
-                                                                            </SelectItem>
-                                                                        ))
-                                                                    )}
-                                                                </SelectContent>
-                                                            </Select>
+                                                            <FormControl>
+                                                                <UnifiedCountryCodeSelect
+                                                                    value={field.value}
+                                                                    onValueChange={field.onChange}
+                                                                    placeholder="Code"
+                                                                    showSearch={true}
+                                                                    className="h-11"
+                                                                />
+                                                            </FormControl>
                                                             <FormMessage/>
                                                         </FormItem>
                                                     )}

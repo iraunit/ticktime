@@ -1,25 +1,22 @@
 from datetime import timedelta
 from decimal import Decimal
 
+from common.api_response import api_response
 from common.decorators import user_rate_limit, cache_response, log_performance
 from common.models import PLATFORM_CHOICES
-from common.api_response import api_response
 from deals.models import Deal
 from django.db.models import Count, Sum, Avg, F
 from django.db.models.functions import Coalesce
 from django.utils import timezone
 from influencers.models import InfluencerProfile
-from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
-from rest_framework.response import Response
 
 from .serializers import DashboardStatsSerializer
 
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
-@user_rate_limit(requests_per_minute=20)
 @cache_response(timeout=300, vary_on_user=True)  # 5 minute cache
 @log_performance(threshold=1.0)
 def dashboard_stats_view(request):

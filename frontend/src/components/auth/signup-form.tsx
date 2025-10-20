@@ -13,7 +13,7 @@ import {Form, FormControl, FormDescription, FormField, FormItem, FormLabel, Form
 import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from "@/components/ui/select";
 import {useAuth} from "@/hooks/use-auth";
 import {useContentCategories} from "@/hooks/use-content-categories";
-import {useCountryCodes} from "@/hooks/use-country-codes";
+import {UnifiedCountryCodeSelect} from "@/components/ui/unified-country-code-select";
 
 const signupSchema = z.object({
     email: z.string().email("Please enter a valid email address"),
@@ -62,7 +62,6 @@ export function SignupForm() {
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
     const {signup} = useAuth();
     const {contentCategories, loading: contentCategoriesLoading} = useContentCategories();
-    const {countryCodes, loading: countryCodesLoading} = useCountryCodes();
 
     const form = useForm<SignupFormData>({
         resolver: zodResolver(signupSchema),
@@ -116,12 +115,12 @@ export function SignupForm() {
             // Find the selected content category and get its industry_key
             const selectedCategory = contentCategories.find(cat => cat.key === data.industry);
             const industryKey = selectedCategory?.industry_key || 'other';
-            
+
             const submitData = {
                 ...data,
                 industry: industryKey
             };
-            
+
             // The useAuth hook will handle the redirect to dashboard after successful signup
             await signup.mutateAsync(submitData);
         } catch (error: any) {
@@ -326,26 +325,15 @@ export function SignupForm() {
                                 render={({field}) => (
                                     <FormItem>
                                         <FormLabel className="text-sm font-medium text-gray-700">Code</FormLabel>
-                                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                            <FormControl>
-                                                <SelectTrigger
-                                                    className="h-11 border-gray-200 focus:border-purple-500 focus:ring-purple-500/20">
-                                                    <SelectValue placeholder="Code"/>
-                                                </SelectTrigger>
-                                            </FormControl>
-                                            <SelectContent>
-                                                {countryCodesLoading ? (
-                                                    <SelectItem value="loading" disabled>Loading country
-                                                        codes...</SelectItem>
-                                                ) : (
-                                                    countryCodes.map((countryCode) => (
-                                                        <SelectItem key={countryCode.code} value={countryCode.code}>
-                                                            {countryCode.code} ({countryCode.country})
-                                                        </SelectItem>
-                                                    ))
-                                                )}
-                                            </SelectContent>
-                                        </Select>
+                                        <FormControl>
+                                            <UnifiedCountryCodeSelect
+                                                value={field.value || ''}
+                                                onValueChange={field.onChange}
+                                                placeholder="Code"
+                                                showSearch={true}
+                                                className="h-11 border-gray-200 focus:border-purple-500 focus:ring-purple-500/20"
+                                            />
+                                        </FormControl>
                                         <FormMessage/>
                                     </FormItem>
                                 )}
@@ -408,7 +396,8 @@ export function SignupForm() {
                                         </FormControl>
                                         <SelectContent>
                                             {contentCategoriesLoading ? (
-                                                <SelectItem value="loading" disabled>Loading content categories...</SelectItem>
+                                                <SelectItem value="loading" disabled>Loading content
+                                                    categories...</SelectItem>
                                             ) : (
                                                 contentCategories.map((category) => (
                                                     <SelectItem key={category.key} value={category.key}>

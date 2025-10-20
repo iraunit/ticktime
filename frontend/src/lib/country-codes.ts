@@ -3,6 +3,7 @@ import {api} from './api';
 export interface CountryCode {
     id: number;
     code: string;
+    shorthand: string;
     country: string;
     flag?: string;
 }

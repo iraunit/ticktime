@@ -32,4 +32,4 @@ class CountryCodeSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = CountryCode
-        fields = ('id', 'code', 'country', 'flag')
+        fields = ('id', 'code', 'shorthand', 'country', 'flag')

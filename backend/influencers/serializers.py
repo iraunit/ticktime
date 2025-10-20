@@ -25,6 +25,7 @@ class InfluencerProfileSerializer(serializers.ModelSerializer):
     social_accounts_count = serializers.SerializerMethodField()
     email_verified = serializers.SerializerMethodField()
     phone_verified = serializers.SerializerMethodField()
+    industry = serializers.CharField(source='industry.key', read_only=True)
 
     class Meta:
         model = InfluencerProfile
@@ -169,6 +170,11 @@ class InfluencerProfileUpdateSerializer(serializers.ModelSerializer):
     country = serializers.CharField(required=False)
     country_code = serializers.CharField(required=False)
     gender = serializers.CharField(required=False)
+    industry = serializers.SlugRelatedField(
+        queryset=Industry.objects.filter(is_active=True),
+        slug_field='key',
+        required=False
+    )
 
     class Meta:
         model = InfluencerProfile

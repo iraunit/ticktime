@@ -110,10 +110,11 @@ class ContentCategory(models.Model):
 
 class CountryCode(models.Model):
     """
-    Country codes for phone numbers.
-    This model represents country codes that can be used for phone number input.
+    Country codes for phone numbers and location.
+    This model represents country codes that can be used for phone number input and location.
     """
-    code = models.CharField(max_length=10, unique=True, help_text="Country code (e.g., +1, +44)")
+    code = models.CharField(max_length=10, unique=True, help_text="Phone country code (e.g., +1, +44)")
+    shorthand = models.CharField(max_length=5, unique=True, help_text="Location country code (e.g., US, IN, GB)")
     country = models.CharField(max_length=100, help_text="Country name")
     flag = models.CharField(max_length=10, blank=True, help_text="Country flag emoji")
     is_active = models.BooleanField(default=True)
