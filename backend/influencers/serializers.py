@@ -378,6 +378,16 @@ class SocialMediaAccountSerializer(serializers.ModelSerializer):
     Serializer for social media account management.
     """
     platform_display = serializers.CharField(source='get_platform_display', read_only=True)
+    
+    followers_count = serializers.IntegerField(required=False, default=0, min_value=0)
+    engagement_rate = serializers.DecimalField(
+        max_digits=5, 
+        decimal_places=2, 
+        required=False, 
+        default=0.0, 
+        min_value=0, 
+        max_value=100
+    )
 
     class Meta:
         model = SocialMediaAccount

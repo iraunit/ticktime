@@ -1363,7 +1363,9 @@ export default function InfluencerSearchPage() {
                                                                     </Button>
                                                                     <Button
                                                                         variant="outline"
-                                                                        onClick={() => window.open(`https://${selectedInfluencer.platform_handle}`, '_blank')}
+                                                                        onClick={() => {
+                                                                            window.open(`/influencer/${selectedInfluencer.id}`, '_blank', 'noopener,noreferrer');
+                                                                        }}
                                                                         className="flex-1 border-2 border-purple-200 text-purple-700 hover:bg-purple-50"
                                                                     >
                                                                         <HiGlobeAlt className="w-4 h-4 mr-2"/>

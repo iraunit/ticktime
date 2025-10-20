@@ -283,13 +283,14 @@ class SocialMediaAccount(models.Model):
     platform = models.CharField(max_length=20, choices=PLATFORM_CHOICES)
     handle = models.CharField(max_length=100)
     profile_url = models.URLField(blank=True)
-    followers_count = models.IntegerField(validators=[MinValueValidator(0)])
+    followers_count = models.IntegerField(validators=[MinValueValidator(0)], default=0)
     following_count = models.IntegerField(validators=[MinValueValidator(0)], default=0)
     posts_count = models.IntegerField(validators=[MinValueValidator(0)], default=0)
     engagement_rate = models.DecimalField(
         max_digits=5,
         decimal_places=2,
-        validators=[MinValueValidator(0), MaxValueValidator(100)]
+        validators=[MinValueValidator(0), MaxValueValidator(100)],
+        default=0.0
     )
     average_likes = models.IntegerField(validators=[MinValueValidator(0)], default=0)
     average_comments = models.IntegerField(validators=[MinValueValidator(0)], default=0)
