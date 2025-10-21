@@ -7,6 +7,7 @@ from common.models import (
 from django.db import models
 from rest_framework import serializers
 
+from .encryption import BankDetailsEncryption
 from .models import InfluencerProfile, SocialMediaAccount, InfluencerCategoryScore
 
 
@@ -28,6 +29,10 @@ class InfluencerProfileSerializer(serializers.ModelSerializer):
     social_accounts_count = serializers.SerializerMethodField()
     email_verified = serializers.SerializerMethodField()
     phone_verified = serializers.SerializerMethodField()
+    profile_verified = serializers.SerializerMethodField()
+    bank_account_number = serializers.SerializerMethodField()
+    bank_ifsc_code = serializers.SerializerMethodField()
+    bank_account_holder_name = serializers.SerializerMethodField()
     industry = serializers.CharField(source='industry.key', read_only=True)
 
     class Meta:
@@ -39,10 +44,20 @@ class InfluencerProfileSerializer(serializers.ModelSerializer):
             'bank_account_number', 'bank_ifsc_code', 'bank_account_holder_name',
             'total_followers', 'average_engagement_rate', 'social_accounts_count',
             'collaboration_types', 'minimum_collaboration_amount',
-            'email_verified', 'phone_verified',
+            'email_verified', 'phone_verified', 'profile_verified',
+            # Demographics
+            'age_range', 'audience_gender_distribution', 'audience_age_distribution',
+            'audience_locations', 'audience_interests', 'audience_languages',
+            # Campaign readiness
+            'commerce_ready', 'campaign_ready', 'barter_ready', 'response_time',
+            'faster_responses', 'contact_availability',
+            # Performance metrics
+            'avg_rating', 'collaboration_count', 'total_earnings', 'influence_score',
+            'platform_score', 'brand_safety_score', 'content_quality_score',
             'created_at', 'updated_at'
         )
-        read_only_fields = ('id', 'is_verified', 'email_verified', 'phone_verified', 'created_at', 'updated_at')
+        read_only_fields = ('id', 'is_verified', 'email_verified', 'phone_verified', 'profile_verified', 'created_at',
+                            'updated_at')
 
     def get_social_accounts_count(self, obj):
         """Get count of active social media accounts."""
@@ -96,6 +111,34 @@ class InfluencerProfileSerializer(serializers.ModelSerializer):
     def get_phone_verified(self, obj):
         """Get phone verification status from user profile."""
         return obj.user_profile.phone_verified if obj.user_profile else False
+
+    def get_profile_verified(self, obj):
+        """Get profile verification status."""
+        return obj.profile_verified
+
+    def get_bank_account_number(self, obj):
+        """Get redacted bank account number."""
+        if obj.bank_account_number:
+            # First decrypt the account number, then redact it
+            decrypted_number = BankDetailsEncryption.decrypt_bank_data(obj.bank_account_number)
+            if decrypted_number:
+                return BankDetailsEncryption.redact_account_number(decrypted_number)
+            return "*****"
+        return obj.bank_account_number
+
+    def get_bank_ifsc_code(self, obj):
+        """Get decrypted bank IFSC code."""
+        if obj.bank_ifsc_code:
+            decrypted_code = BankDetailsEncryption.decrypt_bank_data(obj.bank_ifsc_code)
+            return decrypted_code if decrypted_code else ""
+        return obj.bank_ifsc_code
+
+    def get_bank_account_holder_name(self, obj):
+        """Get decrypted bank account holder name."""
+        if obj.bank_account_holder_name:
+            decrypted_name = BankDetailsEncryption.decrypt_bank_data(obj.bank_account_holder_name)
+            return decrypted_name if decrypted_name else ""
+        return obj.bank_account_holder_name
 
     def to_representation(self, instance):
         """Handle categories for API response."""
@@ -206,7 +249,14 @@ class InfluencerProfileUpdateSerializer(serializers.ModelSerializer):
         fields = (
             'first_name', 'last_name', 'phone_number', 'username', 'industry', 'categories', 'bio', 'address',
             'address_line1', 'address_line2', 'city', 'state', 'zipcode', 'country', 'country_code', 'gender',
-            'collaboration_types', 'minimum_collaboration_amount'
+            'collaboration_types', 'minimum_collaboration_amount',
+            # Demographics
+            'age_range',
+            # Campaign readiness
+            'commerce_ready', 'campaign_ready', 'barter_ready', 'response_time',
+            'faster_responses', 'contact_availability',
+            # Bank details
+            'bank_account_number', 'bank_ifsc_code', 'bank_account_holder_name'
         )
         # Note: first_name, last_name, phone_number, address, and address fields are handled manually in update()
 
@@ -281,6 +331,22 @@ class InfluencerProfileUpdateSerializer(serializers.ModelSerializer):
         username = validated_data.pop('username', None)
         industry = validated_data.pop('industry', None)
         minimum_collaboration_amount = validated_data.pop('minimum_collaboration_amount', None)
+
+        # Extract demographics fields
+        age_range = validated_data.pop('age_range', None)
+
+        # Extract campaign readiness fields
+        commerce_ready = validated_data.pop('commerce_ready', None)
+        campaign_ready = validated_data.pop('campaign_ready', None)
+        barter_ready = validated_data.pop('barter_ready', None)
+        response_time = validated_data.pop('response_time', None)
+        faster_responses = validated_data.pop('faster_responses', None)
+        contact_availability = validated_data.pop('contact_availability', None)
+
+        # Extract bank details
+        bank_account_number = validated_data.pop('bank_account_number', None)
+        bank_ifsc_code = validated_data.pop('bank_ifsc_code', None)
+        bank_account_holder_name = validated_data.pop('bank_account_holder_name', None)
         # Update user fields
         user = instance.user
         if first_name is not None:
@@ -357,18 +423,48 @@ class InfluencerProfileUpdateSerializer(serializers.ModelSerializer):
         if minimum_collaboration_amount is not None:
             instance.minimum_collaboration_amount = minimum_collaboration_amount
 
+        # Update demographics fields
+        if age_range is not None:
+            instance.age_range = age_range
+        if gender is not None:
+            instance.gender = gender
+
+        # Update campaign readiness fields
+        if commerce_ready is not None:
+            instance.commerce_ready = commerce_ready
+        if campaign_ready is not None:
+            instance.campaign_ready = campaign_ready
+        if barter_ready is not None:
+            instance.barter_ready = barter_ready
+        if response_time is not None:
+            instance.response_time = response_time
+        if faster_responses is not None:
+            instance.faster_responses = faster_responses
+        if contact_availability is not None:
+            instance.contact_availability = contact_availability
+
+        # Update bank details (encrypt sensitive data)
+        if bank_account_number is not None:
+            instance.bank_account_number = BankDetailsEncryption.encrypt_bank_data(bank_account_number)
+        if bank_ifsc_code is not None:
+            instance.bank_ifsc_code = BankDetailsEncryption.encrypt_bank_data(bank_ifsc_code)
+        if bank_account_holder_name is not None:
+            instance.bank_account_holder_name = BankDetailsEncryption.encrypt_bank_data(bank_account_holder_name)
+
+        # Update collaboration_types before saving
+        if collaboration_types is not None:
+            instance.collaboration_types = collaboration_types
+
         # Update any remaining fields that weren't explicitly handled
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
 
         # Save the instance
         instance.save()
+
         # Handle many-to-many fields separately
         if categories is not None:
             instance.categories.set(categories)
-
-        if collaboration_types is not None:
-            instance.collaboration_types = collaboration_types
 
         return instance
 

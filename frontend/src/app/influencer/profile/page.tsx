@@ -4,10 +4,24 @@ import {useMemo, useState} from 'react';
 import {ProfileForm} from '@/components/profile/profile-form';
 import {SocialAccountsManager} from '@/components/profile/social-accounts-manager';
 import {DocumentUpload} from '@/components/profile/document-upload';
+import {DemographicsForm} from '@/components/profile/demographics-form';
+import {CampaignReadinessForm} from '@/components/profile/campaign-readiness-form';
+import {BankDetailsForm} from '@/components/profile/bank-details-form';
+import {RatingsTransparency} from '@/components/profile/ratings-transparency';
+import {VerificationStatus} from '@/components/profile/verification-status';
 import {useProfile, useSocialAccounts} from '@/hooks/use-profile';
 import {RequireAuth} from '@/components/auth/require-auth';
 import {Badge} from '@/components/ui/badge';
-import {HiCheckCircle, HiShare, HiShieldCheck, HiUser, HiUserCircle} from 'react-icons/hi2';
+import {
+    HiChartBar,
+    HiCheckCircle,
+    HiCog,
+    HiCreditCard,
+    HiShare,
+    HiShieldCheck,
+    HiUser,
+    HiUserCircle
+} from 'react-icons/hi2';
 
 interface ProfileSection {
     id: string;
@@ -39,24 +53,28 @@ export default function ProfilePage() {
                 id: 'personal',
                 label: 'Personal details',
                 completed: !!(
-                    p.user?.first_name &&
-                    p.user?.last_name &&
+                    p.user_first_name &&
+                    p.user_last_name &&
                     p.phone_number &&
                     p.industry &&
                     p.profile_image &&
-                    p.bio?.length > 20 &&
+                    p.bio &&
                     p.address?.length > 10 &&
-                    p.categories?.length > 0
+                    p.categories?.length > 0 &&
+                    p.email_verified &&
+                    p.phone_verified
                 ),
                 actionText: !!(
-                    p.user?.first_name &&
-                    p.user?.last_name &&
+                    p.user_first_name &&
+                    p.user_last_name &&
                     p.phone_number &&
                     p.industry &&
                     p.profile_image &&
-                    p.bio?.length > 20 &&
+                    p.bio &&
                     p.address?.length > 10 &&
-                    p.categories?.length > 0
+                    p.categories?.length > 0 &&
+                    p.email_verified &&
+                    p.phone_verified
                 ) ? 'Update' : 'Add',
                 icon: HiUser,
                 color: 'blue'
@@ -70,10 +88,50 @@ export default function ProfilePage() {
                 color: 'purple'
             },
             {
+                id: 'demographics',
+                label: 'Demographics',
+                completed: !!(p.age_range && (p.user_profile?.gender || p.gender)),
+                actionText: !!(p.age_range && (p.user_profile?.gender || p.gender)) ? 'Update' : 'Add',
+                icon: HiChartBar,
+                color: 'orange'
+            },
+            {
+                id: 'campaign',
+                label: 'Campaign readiness',
+                completed: !!(p.commerce_ready || p.campaign_ready || p.barter_ready),
+                actionText: !!(p.commerce_ready || p.campaign_ready || p.barter_ready) ? 'Update' : 'Add',
+                icon: HiCog,
+                color: 'indigo'
+            },
+            {
+                id: 'bank',
+                label: 'Bank details',
+                completed: !!(p.bank_account_number && p.bank_ifsc_code && p.bank_account_holder_name),
+                actionText: !!(p.bank_account_number && p.bank_ifsc_code && p.bank_account_holder_name) ? 'Update' : 'Add',
+                icon: HiCreditCard,
+                color: 'emerald'
+            },
+            {
                 id: 'documents',
                 label: 'Verification',
                 completed: !!(p.aadhar_number && p.aadhar_document && p.is_verified),
                 actionText: !!(p.aadhar_number && p.aadhar_document && p.is_verified) ? 'Update' : 'Add',
+                icon: HiShieldCheck,
+                color: 'green'
+            },
+            {
+                id: 'ratings',
+                label: 'Performance',
+                completed: !!(p.avg_rating || p.collaboration_count > 0),
+                actionText: 'View',
+                icon: HiChartBar,
+                color: 'rose'
+            },
+            {
+                id: 'verification',
+                label: 'Verification Status',
+                completed: p.profile_verified,
+                actionText: 'View',
                 icon: HiShieldCheck,
                 color: 'green'
             }
@@ -113,8 +171,18 @@ export default function ProfilePage() {
                 return <ProfileForm profile={profile.data || undefined}/>;
             case 'social':
                 return <SocialAccountsManager/>;
+            case 'demographics':
+                return <DemographicsForm profile={profile.data || undefined}/>;
+            case 'campaign':
+                return <CampaignReadinessForm profile={profile.data || undefined}/>;
+            case 'bank':
+                return <BankDetailsForm profile={profile.data || undefined}/>;
             case 'documents':
                 return <DocumentUpload profile={profile.data || undefined}/>;
+            case 'ratings':
+                return <RatingsTransparency profile={profile.data || undefined}/>;
+            case 'verification':
+                return <VerificationStatus profile={profile.data || undefined}/>;
             default:
                 return null;
         }
@@ -134,11 +202,35 @@ export default function ProfilePage() {
                 text: 'text-purple-600',
                 border: 'border-purple-200'
             },
+            orange: {
+                bg: 'from-orange-500 to-red-500',
+                cardBg: 'from-orange-50 to-red-50',
+                text: 'text-orange-600',
+                border: 'border-orange-200'
+            },
+            indigo: {
+                bg: 'from-indigo-500 to-purple-500',
+                cardBg: 'from-indigo-50 to-purple-50',
+                text: 'text-indigo-600',
+                border: 'border-indigo-200'
+            },
+            emerald: {
+                bg: 'from-emerald-500 to-teal-500',
+                cardBg: 'from-emerald-50 to-teal-50',
+                text: 'text-emerald-600',
+                border: 'border-emerald-200'
+            },
             green: {
                 bg: 'from-green-500 to-emerald-500',
                 cardBg: 'from-green-50 to-emerald-50',
                 text: 'text-green-600',
                 border: 'border-green-200'
+            },
+            rose: {
+                bg: 'from-rose-500 to-pink-500',
+                cardBg: 'from-rose-50 to-pink-50',
+                text: 'text-rose-600',
+                border: 'border-rose-200'
             }
         };
         return schemes[color as keyof typeof schemes] || schemes.blue;
@@ -315,7 +407,11 @@ export default function ProfilePage() {
                                                 <p className="text-sm text-gray-600 mt-0.5">
                                                     {activeSection === 'personal' && 'Update your basic information and profile details'}
                                                     {activeSection === 'social' && 'Connect your social media accounts to showcase your reach'}
+                                                    {activeSection === 'demographics' && 'Set your age range and audience demographics'}
+                                                    {activeSection === 'campaign' && 'Configure your campaign readiness and collaboration preferences'}
+                                                    {activeSection === 'bank' && 'Add your bank details for secure payments'}
                                                     {activeSection === 'documents' && 'Complete verification to build trust with brands'}
+                                                    {activeSection === 'ratings' && 'View your performance metrics and transparency indicators'}
                                                 </p>
                                             </div>
                                         </div>

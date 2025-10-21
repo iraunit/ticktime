@@ -27,6 +27,8 @@ class InfluencerProfile(models.Model):
     aadhar_number = models.CharField(max_length=12, blank=True, default='')
     aadhar_document = models.FileField(upload_to='documents/', blank=True, null=True)
     is_verified = models.BooleanField(default=False)
+    profile_verified = models.BooleanField(default=False,
+                                           help_text='Profile is verified when aadhar, email, and phone are all verified')
 
     # Enhanced location fields
     country = models.CharField(max_length=100, blank=True, default='')
@@ -114,9 +116,9 @@ class InfluencerProfile(models.Model):
     )
 
     # Financial information
-    bank_account_number = models.CharField(max_length=20, blank=True, default='')
-    bank_ifsc_code = models.CharField(max_length=11, blank=True, default='')
-    bank_account_holder_name = models.CharField(max_length=100, blank=True, default='')
+    bank_account_number = models.CharField(max_length=500, blank=True, default='')
+    bank_ifsc_code = models.CharField(max_length=500, blank=True, default='')
+    bank_account_holder_name = models.CharField(max_length=500, blank=True, default='')
 
     # Performance metrics
     avg_rating = models.DecimalField(
@@ -268,6 +270,18 @@ class InfluencerProfile(models.Model):
         self.has_linkedin = self.social_accounts.filter(platform='linkedin', is_active=True).exists()
         self.save(
             update_fields=['has_instagram', 'has_youtube', 'has_tiktok', 'has_twitter', 'has_facebook', 'has_linkedin'])
+
+    def update_profile_verification(self):
+        """Update profile_verified based on aadhar, email, and phone verification status"""
+        # Check if all required verifications are complete
+        aadhar_verified = bool(self.aadhar_number and self.aadhar_document)
+        email_verified = self.user_profile.email_verified if self.user_profile else False
+        phone_verified = self.user_profile.phone_verified if self.user_profile else False
+
+        # Profile is verified only when all three are verified
+        self.profile_verified = aadhar_verified and email_verified and phone_verified
+        self.save(update_fields=['profile_verified'])
+        return self.profile_verified
 
 
 class SocialMediaAccount(models.Model):

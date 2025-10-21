@@ -1,6 +1,7 @@
 from django.contrib import admin
 from django.db.models import Q
 from django.utils.html import format_html
+from users.models import UserProfile
 
 from .models import InfluencerProfile, SocialMediaAccount, InfluencerAudienceInsight, InfluencerCategoryScore
 
@@ -9,18 +10,22 @@ from .models import InfluencerProfile, SocialMediaAccount, InfluencerAudienceIns
 class InfluencerProfileAdmin(admin.ModelAdmin):
     list_display = [
         'username', 'user_full_name', 'industry', 'categories_display', 'total_followers',
-        'aadhar_verification_status', 'is_verified', 'created_at'
+        'email_verification_status', 'phone_verification_status', 'aadhar_verification_status',
+        'profile_verification_status', 'is_verified', 'created_at'
     ]
-    list_filter = ['industry', 'categories', 'is_verified', 'created_at']
+    list_filter = ['industry', 'categories', 'is_verified', 'profile_verified', 'created_at']
     search_fields = ['username', 'user__first_name', 'user__last_name', 'user__email', 'aadhar_number']
     readonly_fields = ['created_at', 'updated_at', 'total_followers', 'average_engagement_rate', 'phone_number_display',
                        'address_display', 'profile_image_display', 'aadhar_document_display',
-                       'collaboration_types_display',
+                       'collaboration_types_display', 'aadhar_verification_status', 'profile_verification_status',
+                       'email_verification_status', 'phone_verification_status', 'email_verified_edit',
+                       'phone_verified_edit',
                        'available_platforms_display', 'content_keywords_display', 'bio_keywords_display',
                        'user_country_display', 'user_state_display', 'user_city_display', 'user_zipcode_display',
                        'user_gender_display']
     filter_horizontal = ['categories']
-    actions = ['verify_aadhar_documents', 'unverify_aadhar_documents', 'mark_as_verified', 'mark_as_unverified']
+    actions = ['verify_aadhar_documents', 'unverify_aadhar_documents', 'mark_as_verified', 'mark_as_unverified',
+               'update_profile_verification']
 
     fieldsets = (
         ('User Information', {
@@ -36,6 +41,16 @@ class InfluencerProfileAdmin(admin.ModelAdmin):
         ('Demographics', {
             'fields': ('user_gender_display', 'age_range'),
             'description': 'Demographic information'
+        }),
+        ('Current Verification Status', {
+            'fields': ('email_verification_status', 'phone_verification_status', 'aadhar_verification_status',
+                       'profile_verification_status'),
+            'description': 'Current verification status (read-only)',
+            'classes': ('collapse',)
+        }),
+        ('Email & Phone Verification', {
+            'fields': ('email_verified_edit', 'phone_verified_edit'),
+            'description': 'Edit email and phone verification status directly'
         }),
         ('Aadhar Verification', {
             'fields': ('aadhar_number', 'aadhar_document_display', 'is_verified'),
@@ -134,6 +149,24 @@ class InfluencerProfileAdmin(admin.ModelAdmin):
 
     profile_image_display.short_description = 'Profile Image'
 
+    def email_verification_status(self, obj):
+        """Display email verification status"""
+        if obj.user_profile and obj.user_profile.email_verified:
+            return '✅ Verified'
+        else:
+            return '❌ Not Verified'
+
+    email_verification_status.short_description = 'Email Status'
+
+    def phone_verification_status(self, obj):
+        """Display phone verification status"""
+        if obj.user_profile and obj.user_profile.phone_verified:
+            return '✅ Verified'
+        else:
+            return '❌ Not Verified'
+
+    phone_verification_status.short_description = 'Phone Status'
+
     def aadhar_verification_status(self, obj):
         """Display Aadhar verification status with visual indicators"""
         if obj.is_verified:
@@ -146,6 +179,15 @@ class InfluencerProfileAdmin(admin.ModelAdmin):
             return '❌ Not Provided'
 
     aadhar_verification_status.short_description = 'Aadhar Status'
+
+    def profile_verification_status(self, obj):
+        """Display overall profile verification status"""
+        if obj.profile_verified:
+            return '✅ Fully Verified'
+        else:
+            return '❌ Not Fully Verified'
+
+    profile_verification_status.short_description = 'Profile Status'
 
     def aadhar_document_display(self, obj):
         """Display Aadhar document with download link"""
@@ -188,6 +230,20 @@ class InfluencerProfileAdmin(admin.ModelAdmin):
         self.message_user(request, f'{updated} influencer(s) marked as unverified.')
 
     mark_as_unverified.short_description = 'Mark as unverified'
+
+    def update_profile_verification(self, request, queryset):
+        """Bulk action to update profile verification status"""
+        updated_count = 0
+        for profile in queryset:
+            if profile.update_profile_verification():
+                updated_count += 1
+
+        self.message_user(
+            request,
+            f'Profile verification status updated for {updated_count} influencer(s).'
+        )
+
+    update_profile_verification.short_description = 'Update profile verification status'
 
     def collaboration_types_display(self, obj):
         """Display collaboration types in a readable format"""
@@ -253,6 +309,43 @@ class InfluencerProfileAdmin(admin.ModelAdmin):
         return 'Not set'
 
     user_gender_display.short_description = 'Gender'
+
+    def email_verified_edit(self, obj):
+        """Editable email verification field"""
+        if obj.user_profile:
+            return obj.user_profile.email_verified
+        return False
+
+    email_verified_edit.short_description = 'Email Verified'
+    email_verified_edit.boolean = True
+
+    def phone_verified_edit(self, obj):
+        """Editable phone verification field"""
+        if obj.user_profile:
+            return obj.user_profile.phone_verified
+        return False
+
+    phone_verified_edit.short_description = 'Phone Verified'
+    phone_verified_edit.boolean = True
+
+    def save_model(self, request, obj, form, change):
+        """Override save to handle verification field updates"""
+        super().save_model(request, obj, form, change)
+
+        # Get verification values from request.POST
+        if request.method == 'POST':
+            email_verified = request.POST.get('email_verified_edit') == 'on'
+            phone_verified = request.POST.get('phone_verified_edit') == 'on'
+
+            if obj.user_profile:
+                obj.user_profile.email_verified = email_verified
+                obj.user_profile.phone_verified = phone_verified
+                obj.user_profile.save()
+                # Update profile verification status
+                obj.update_profile_verification()
+
+
+# Remove UserProfileInline since UserProfile doesn't have ForeignKey to InfluencerProfile
 
 
 class SocialMediaAccountInline(admin.TabularInline):
