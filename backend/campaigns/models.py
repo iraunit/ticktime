@@ -40,6 +40,9 @@ class Campaign(models.Model):
     industry = models.CharField(max_length=50, default='other')
     industry_category = models.ForeignKey('common.Industry', on_delete=models.PROTECT,
                                           related_name='campaign_industries', null=True, blank=True)
+    # Support multiple industries and content categories
+    industries = models.JSONField(default=list, blank=True, help_text='List of industry keys')
+    content_categories = models.JSONField(default=list, blank=True, help_text='List of content category keys')
     execution_mode = models.CharField(
         max_length=20,
         choices=[

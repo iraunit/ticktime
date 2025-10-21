@@ -906,40 +906,6 @@ export default function CampaignDetailPage() {
                                                         onChange={(e) => handleInputChange('campaign_live_date', e.target.value)}
                                                     />
                                                 </div>
-                                                {(editData.deal_type === 'product' || editData.deal_type === 'hybrid') ? (
-                                                    <div>
-                                                        <label className="block text-sm font-medium text-gray-700 mb-2">Content
-                                                            Submission (Barter)</label>
-                                                        <Select
-                                                            value={(editData.barter_submission_after_days || '').toString()}
-                                                            onValueChange={(v) => handleInputChange('barter_submission_after_days', parseInt(v))}>
-                                                            <SelectTrigger>
-                                                                <SelectValue
-                                                                    placeholder="Select days after product receipt"/>
-                                                            </SelectTrigger>
-                                                            <SelectContent>
-                                                                <SelectItem value="3">3 days after receiving
-                                                                    product</SelectItem>
-                                                                <SelectItem value="5">5 days after receiving
-                                                                    product</SelectItem>
-                                                                <SelectItem value="7">7 days after receiving
-                                                                    product</SelectItem>
-                                                                <SelectItem value="10">10 days after receiving
-                                                                    product</SelectItem>
-                                                            </SelectContent>
-                                                        </Select>
-                                                    </div>
-                                                ) : (
-                                                    <div>
-                                                        <label className="block text-sm font-medium text-gray-700 mb-2">Content
-                                                            Submission Deadline</label>
-                                                        <Input
-                                                            type="date"
-                                                            value={editData.submission_deadline || ''}
-                                                            onChange={(e) => handleInputChange('submission_deadline', e.target.value)}
-                                                        />
-                                                    </div>
-                                                )}
                                             </>
                                         ) : (
                                             <>
@@ -955,22 +921,6 @@ export default function CampaignDetailPage() {
                                                         <span className="text-gray-500">Campaign Live:</span>
                                                         <span
                                                             className="font-medium">{formatDate(campaign.campaign_live_date)}</span>
-                                                    </div>
-                                                )}
-                                                {(campaign.deal_type === 'product' || campaign.deal_type === 'hybrid') ? (
-                                                    <div className="flex items-center gap-2 text-sm">
-                                                        <HiCalendarDays className="w-4 h-4 text-gray-500"/>
-                                                        <span className="text-gray-500">Content Submission:</span>
-                                                        <span
-                                                            className="font-medium">{campaign.barter_submission_after_days ? `${campaign.barter_submission_after_days} days after product receipt` : '—'}</span>
-                                                    </div>
-                                                ) : (
-                                                    <div className="flex items-center gap-2 text-sm">
-                                                        <HiCalendarDays className="w-4 h-4 text-gray-500"/>
-                                                        <span
-                                                            className="text-gray-500">Content Submission Deadline:</span>
-                                                        <span
-                                                            className="font-medium">{formatDate(campaign.submission_deadline)}</span>
                                                     </div>
                                                 )}
 

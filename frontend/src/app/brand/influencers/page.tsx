@@ -341,6 +341,9 @@ export default function InfluencerSearchPage() {
                         ? {...influencer, is_bookmarked: true}
                         : influencer
                 ));
+                if (selectedInfluencer && selectedInfluencer.id === influencerId) {
+                    setSelectedInfluencer(prev => prev ? {...prev, is_bookmarked: true} : null);
+                }
             }
         } catch (error) {
             console.error('Failed to bookmark influencer:', error);
@@ -360,6 +363,9 @@ export default function InfluencerSearchPage() {
                         ? {...influencer, is_bookmarked: false}
                         : influencer
                 ));
+                if (selectedInfluencer && selectedInfluencer.id === influencerId) {
+                    setSelectedInfluencer(prev => prev ? {...prev, is_bookmarked: false} : null);
+                }
             }
         } catch (error) {
             console.error('Failed to remove bookmark:', error);
@@ -1273,7 +1279,7 @@ export default function InfluencerSearchPage() {
                                                                         <Button
                                                                             variant="outline"
                                                                             size="sm"
-                                                                            onClick={() => handleBookmark(selectedInfluencer.id)}
+                                                                            onClick={() => selectedInfluencer.is_bookmarked ? handleRemoveBookmark(selectedInfluencer.id) : handleBookmark(selectedInfluencer.id)}
                                                                             className={selectedInfluencer.is_bookmarked ? "bg-blue-50 border-blue-200 text-blue-700" : ""}
                                                                         >
                                                                             <HiBookmark

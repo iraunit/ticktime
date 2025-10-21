@@ -53,6 +53,8 @@ interface CampaignData {
     campaign_live_date: string;
     target_influencers: number;
     industry: string;
+    industries: string[];
+    content_categories: string[];
     execution_mode: 'manual' | 'manual_managed' | 'fully_managed';
     application_deadline_visible_to_influencers: boolean;
     target_audience_age_min: number;
@@ -128,7 +130,9 @@ export default function CreateCampaignPage() {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [formErrors, setFormErrors] = useState<string[]>([]);
     const [industries, setIndustries] = useState<Array<{ id: number; key: string; name: string }>>([]);
+    const [contentCategories, setContentCategories] = useState<Array<{ id: number; key: string; name: string }>>([]);
     const [selectedIndustries, setSelectedIndustries] = useState<string[]>([]);
+    const [selectedContentCategories, setSelectedContentCategories] = useState<string[]>([]);
     const [isEditing, setIsEditing] = useState(false);
     const [editingCampaignId, setEditingCampaignId] = useState<string | null>(null);
 
@@ -149,6 +153,8 @@ export default function CreateCampaignPage() {
         campaign_live_date: '',
         target_influencers: 1,
         industry: '',
+        industries: [],
+        content_categories: [],
         execution_mode: 'manual',
         application_deadline_visible_to_influencers: true,
         target_audience_age_min: 18,
@@ -204,6 +210,18 @@ export default function CreateCampaignPage() {
             // Keep legacy single field in sync with the first selected as primary - ensure it's clean
             const cleanValue = (next[0] || '').toString().slice(0, 50);
             handleInputChange('industry', cleanValue);
+            // Update the industries array
+            handleInputChange('industries', next);
+            return next;
+        });
+    };
+
+    const handleContentCategoryToggle = (categoryKey: string) => {
+        setSelectedContentCategories(prev => {
+            const exists = prev.includes(categoryKey);
+            const next = exists ? prev.filter(k => k !== categoryKey) : [...prev, categoryKey];
+            // Update the content_categories array
+            handleInputChange('content_categories', next);
             return next;
         });
     };
@@ -294,6 +312,8 @@ export default function CreateCampaignPage() {
                 ...campaignData,
                 // Backend serializer accepts category id; avoids varchar(50) overflow
                 industry: primaryId,
+                industries: selectedIndustries,
+                content_categories: selectedContentCategories,
                 content_requirements: campaignData.content_requirements,
             };
 
@@ -434,11 +454,10 @@ export default function CreateCampaignPage() {
             if (campaignData.campaign_live_date) {
                 const liveDate = new Date(campaignData.campaign_live_date);
                 const today = new Date();
-                const minDate = new Date();
-                minDate.setDate(today.getDate() + 15);
+                today.setHours(0, 0, 0, 0);
 
-                if (liveDate < minDate) {
-                    return 'Must be at least 15 days from today';
+                if (liveDate < today) {
+                    return 'Campaign live date cannot be in the past';
                 }
             }
         }
@@ -459,15 +478,14 @@ export default function CreateCampaignPage() {
             }
         }
 
-        // Validate campaign live date is at least 15 days from today
+        // Validate campaign live date is not in the past
         if (campaignData.campaign_live_date) {
             const liveDate = new Date(campaignData.campaign_live_date);
             const today = new Date();
-            const minDate = new Date();
-            minDate.setDate(today.getDate() + 14);
+            today.setHours(0, 0, 0, 0);
 
-            if (liveDate < minDate) {
-                errors.push('Campaign live date must be at least 15 days from today.');
+            if (liveDate < today) {
+                errors.push('Campaign live date cannot be in the past.');
             }
         }
 
@@ -544,10 +562,12 @@ export default function CreateCampaignPage() {
         setCampaignData(prev => ({
             ...prev,
             application_deadline: addDays(7),
-            campaign_live_date: addDays(15),
+            campaign_live_date: addDays(7),
             submission_deadline: addDays(7)
         }));
         api.get('/common/industries/').then(res => setIndustries(res.data.industries || [])).catch(() => {
+        });
+        api.get('/common/content-categories/').then(res => setContentCategories(res.data.categories || [])).catch(() => {
         });
     }, []);
 
@@ -599,6 +619,8 @@ export default function CreateCampaignPage() {
 
                             return val.slice(0, 50);
                         })(),
+                        industries: campaign.industries || [],
+                        content_categories: campaign.content_categories || [],
                         execution_mode: campaign.execution_mode || 'manual',
                         application_deadline_visible_to_influencers: campaign.application_deadline_visible_to_influencers !== false,
                         target_audience_age_min: 18,
@@ -608,8 +630,10 @@ export default function CreateCampaignPage() {
                         barter_submission_after_days: campaign.barter_submission_after_days || undefined,
                     });
 
-                    // Set selected industries if available (prefer key, else clean and coerce to string)
-                    if (campaign.industry_key || campaign.industry) {
+                    // Set selected industries if available
+                    if (campaign.industries && campaign.industries.length > 0) {
+                        setSelectedIndustries(campaign.industries);
+                    } else if (campaign.industry_key || campaign.industry) {
                         let val = (campaign.industry_key || String(campaign.industry)).toString().trim();
 
                         // Clean malformed object representations
@@ -627,6 +651,11 @@ export default function CreateCampaignPage() {
                         }
                     }
 
+                    // Set selected content categories if available
+                    if (campaign.content_categories && campaign.content_categories.length > 0) {
+                        setSelectedContentCategories(campaign.content_categories);
+                    }
+
                 } catch (error: any) {
                     console.error('Failed to fetch campaign data:', error);
                     toast.error('Failed to load campaign data for editing.');
@@ -637,6 +666,17 @@ export default function CreateCampaignPage() {
             fetchCampaignData();
         }
     }, [router]);
+
+    // Handle industry selection when industries data is loaded and we're in edit mode
+    useEffect(() => {
+        if (isEditing && industries.length > 0 && selectedIndustries.length === 0 && campaignData.industry) {
+            // Check if the industry key exists in the loaded industries
+            const industryExists = industries.some(ind => ind.key === campaignData.industry);
+            if (industryExists) {
+                setSelectedIndustries([campaignData.industry]);
+            }
+        }
+    }, [industries, isEditing, campaignData.industry, selectedIndustries.length]);
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100">
@@ -903,6 +943,35 @@ export default function CreateCampaignPage() {
                                         )}
                                         <p className="text-xs text-gray-500">Select one or more industries. The first
                                             selected will be used as the primary.</p>
+                                    </div>
+
+                                    {/* Content Categories */}
+                                    <div className="space-y-2">
+                                        <label className="flex items-center gap-2 text-sm font-semibold text-gray-800">
+                                            <div className="w-1.5 h-1.5 bg-purple-500 rounded-full"></div>
+                                            Content Categories
+                                        </label>
+                                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+                                            {contentCategories.map((category) => {
+                                                const isActive = selectedContentCategories.includes(category.key);
+                                                return (
+                                                    <button
+                                                        key={category.key}
+                                                        onClick={() => handleContentCategoryToggle(category.key)}
+                                                        className={`px-3 py-2 rounded-full text-sm border-2 transition-all text-left ${
+                                                            isActive
+                                                                ? 'border-transparent text-white shadow-md bg-gradient-to-br from-purple-500 to-pink-600'
+                                                                : 'border-gray-200 bg-white hover:border-gray-300'
+                                                        }`}
+                                                        aria-pressed={isActive}
+                                                    >
+                                                        {category.name}
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                        <p className="text-xs text-gray-500">Select content categories that best
+                                            describe your campaign content.</p>
                                     </div>
                                 </div>
                             </div>
@@ -1220,7 +1289,6 @@ export default function CreateCampaignPage() {
                                                         placeholder="Select campaign live date"
                                                         min={(() => {
                                                             const today = new Date();
-                                                            today.setDate(today.getDate() + 15);
                                                             return today.toISOString().split('T')[0];
                                                         })()}
                                                         error={!!(getFieldError('campaign_live_date') || getDateValidationError('campaign_live_date'))}
@@ -1232,7 +1300,7 @@ export default function CreateCampaignPage() {
                                                         </p>
                                                     )}
                                                     <p className="text-xs text-gray-500 mt-1">When should the campaign
-                                                        content go live? (Minimum 15 days from today)</p>
+                                                        content go live?</p>
                                                 </div>
 
                                                 {(campaignData.deal_type === 'product' || campaignData.deal_type === 'hybrid') && (
@@ -1304,13 +1372,15 @@ export default function CreateCampaignPage() {
                                                             </SelectItem>
                                                             <SelectItem value="manual_managed">
                                                                 <div className="flex flex-col">
-                                                                    <span className="font-medium">Manual + Managed by Us</span>
+                                                                    <span
+                                                                        className="font-medium">Manual + Managed by Us</span>
                                                                     <span className="text-xs text-gray-500">You select influencers, we handle coordination</span>
                                                                 </div>
                                                             </SelectItem>
                                                             <SelectItem value="fully_managed">
                                                                 <div className="flex flex-col">
-                                                                    <span className="font-medium">Managed by Us Fully</span>
+                                                                    <span
+                                                                        className="font-medium">Managed by Us Fully</span>
                                                                     <span className="text-xs text-gray-500">We handle influencer selection and coordination</span>
                                                                 </div>
                                                             </SelectItem>

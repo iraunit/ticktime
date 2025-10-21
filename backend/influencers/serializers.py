@@ -954,6 +954,7 @@ class InfluencerPublicSerializer(serializers.ModelSerializer):
     average_engagement_rate = serializers.ReadOnlyField()
     platforms = serializers.SerializerMethodField()
     bio = serializers.CharField(read_only=True)
+    industry = serializers.CharField(source='industry.name', read_only=True)
     categories = serializers.SerializerMethodField()
     followers = serializers.SerializerMethodField()
     engagement_rate = serializers.SerializerMethodField()
@@ -1057,6 +1058,8 @@ class InfluencerPublicProfileSerializer(serializers.ModelSerializer):
     average_engagement_rate = serializers.ReadOnlyField()
     social_accounts_count = serializers.SerializerMethodField()
     social_accounts = SocialAccountPublicSerializer(many=True, read_only=True)
+    industry = serializers.CharField(source='industry.name', read_only=True)
+    categories = serializers.SerializerMethodField()
     recent_collaborations = serializers.SerializerMethodField()
     brand_collaborations = serializers.SerializerMethodField()
     content_keywords = serializers.ReadOnlyField()
@@ -1085,6 +1088,10 @@ class InfluencerPublicProfileSerializer(serializers.ModelSerializer):
                 return request.build_absolute_uri(obj.user_profile.profile_image.url)
             return obj.user_profile.profile_image.url
         return None
+
+    def get_categories(self, obj):
+        """Get influencer categories."""
+        return list(obj.categories.values_list('name', flat=True))
 
     def get_recent_collaborations(self, obj):
         """Get recent collaborations (deals) for this influencer."""

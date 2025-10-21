@@ -7,6 +7,17 @@ from rest_framework import serializers
 from .models import Campaign
 
 
+class OptionalDateTimeField(serializers.DateTimeField):
+    """
+    DateTimeField that handles empty strings by converting them to None.
+    """
+
+    def to_internal_value(self, data):
+        if data == '' or data is None:
+            return None
+        return super().to_internal_value(data)
+
+
 class IndustryField(serializers.Field):
     """
     Single Industry reference field.
@@ -20,7 +31,7 @@ class IndustryField(serializers.Field):
                 return obj.industry_category.key
         except Exception:
             pass
-        return getattr(obj, 'industry', None)
+        return getattr(obj, 'industry', '')
 
     def to_internal_value(self, data):
         if isinstance(data, int):
@@ -42,6 +53,7 @@ class CampaignCreateSerializer(serializers.ModelSerializer):
     Serializer for creating new campaigns.
     """
     industry = IndustryField(required=True)
+    submission_deadline = OptionalDateTimeField(required=False, allow_null=True)
 
     class Meta:
         model = Campaign
@@ -50,7 +62,8 @@ class CampaignCreateSerializer(serializers.ModelSerializer):
             'products', 'platforms_required', 'content_requirements',
             'special_instructions', 'application_deadline', 'submission_deadline',
             'barter_submission_after_days', 'campaign_live_date', 'target_influencers',
-            'industry', 'execution_mode', 'application_deadline_visible_to_influencers'
+            'industry', 'industries', 'content_categories', 'execution_mode',
+            'application_deadline_visible_to_influencers'
         )
         extra_kwargs = {
             'title': {'required': True},
@@ -143,9 +156,9 @@ class CampaignCreateSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Target influencers must be at least 1.")
 
         if data.get('campaign_live_date'):
-            min_live = timezone.now() + timedelta(days=15)
-            if data['campaign_live_date'] < min_live:
-                raise serializers.ValidationError("Campaign live date must be at least 15 days from today.")
+            # Only validate that the date is not in the past
+            if data['campaign_live_date'] < timezone.now():
+                raise serializers.ValidationError("Campaign live date cannot be in the past.")
 
         if data.get('deal_type') in ['product', 'hybrid'] and data.get('barter_submission_after_days') is not None:
             if data['barter_submission_after_days'] < 1:
@@ -243,11 +256,12 @@ class CampaignListSerializer(serializers.ModelSerializer):
     class Meta:
         model = Campaign
         fields = (
-            'id', 'title', 'description', 'deal_type', 'deal_type_display',
+            'id', 'title', 'description', 'objectives', 'deal_type', 'deal_type_display',
             'cash_amount', 'total_value', 'application_deadline', 'campaign_live_date',
             'is_active', 'is_expired', 'days_until_deadline', 'created_at',
             'brand_name', 'platforms_required', 'content_requirements',
-            'target_influencers', 'total_invited', 'industry', 'industry_key', 'industry_name', 'execution_mode'
+            'target_influencers', 'total_invited', 'industry', 'industries', 'content_categories', 'industry_key',
+            'industry_name', 'execution_mode'
         )
         read_only_fields = ('id', 'total_value', 'is_expired', 'days_until_deadline', 'created_at')
 
@@ -270,6 +284,7 @@ class CampaignSerializer(serializers.ModelSerializer):
     industry_key = serializers.SerializerMethodField()
     industry_name = serializers.SerializerMethodField()
     industry = IndustryField(required=False)
+    submission_deadline = OptionalDateTimeField(required=False, allow_null=True)
 
     def get_industry_key(self, obj):
         try:
@@ -330,12 +345,12 @@ class CampaignSerializer(serializers.ModelSerializer):
     class Meta:
         model = Campaign
         fields = (
-            'id', 'title', 'description', 'deal_type', 'deal_type_display',
-            'cash_amount', 'total_value', 'application_deadline', 'campaign_live_date',
+            'id', 'title', 'description', 'objectives', 'deal_type', 'deal_type_display',
+            'cash_amount', 'total_value', 'application_deadline', 'submission_deadline', 'campaign_live_date',
             'is_active', 'is_expired', 'days_until_deadline', 'created_at',
             'brand', 'platforms_required', 'content_requirements',
             'target_influencers', 'deals', 'total_invited', 'total_accepted', 'total_completed', 'total_rejected',
-            'industry', 'industry_key', 'industry_name', 'execution_mode'
+            'industry', 'industries', 'content_categories', 'industry_key', 'industry_name', 'execution_mode'
         )
         read_only_fields = ('id', 'total_value', 'is_expired', 'days_until_deadline', 'created_at')
 

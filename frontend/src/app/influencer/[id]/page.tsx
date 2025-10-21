@@ -13,7 +13,6 @@ import {
     HiArrowTrendingDown,
     HiArrowTrendingUp,
     HiChatBubbleLeft,
-    HiChatBubbleLeftRight,
     HiCheckCircle,
     HiExclamationTriangle,
     HiEye,
@@ -24,6 +23,16 @@ import {
     HiStar,
     HiUsers
 } from "react-icons/hi2";
+import {
+    FaFacebook,
+    FaInstagram,
+    FaLinkedin,
+    FaPinterest,
+    FaSnapchat,
+    FaTiktok,
+    FaTwitter,
+    FaYoutube
+} from "react-icons/fa";
 
 interface InfluencerProfile {
     id: number;
@@ -211,14 +220,18 @@ export default function InfluencerProfilePage() {
 
     const getPlatformIcon = (platform: string) => {
         const icons: { [key: string]: { icon: any, color: string, bgColor: string } } = {
-            instagram: {icon: '📷', color: 'text-pink-600', bgColor: 'bg-gradient-to-r from-purple-500 to-pink-500'},
-            youtube: {icon: '📺', color: 'text-red-600', bgColor: 'bg-red-500'},
-            tiktok: {icon: '🎵', color: 'text-black', bgColor: 'bg-black'},
-            twitter: {icon: '🐦', color: 'text-blue-500', bgColor: 'bg-blue-500'},
-            facebook: {icon: '📘', color: 'text-blue-600', bgColor: 'bg-blue-600'},
-            linkedin: {icon: '💼', color: 'text-blue-700', bgColor: 'bg-blue-700'},
-            snapchat: {icon: '👻', color: 'text-yellow-500', bgColor: 'bg-yellow-500'},
-            pinterest: {icon: '📌', color: 'text-red-500', bgColor: 'bg-red-500'}
+            instagram: {
+                icon: FaInstagram,
+                color: 'text-pink-600',
+                bgColor: 'bg-gradient-to-r from-purple-500 to-pink-500'
+            },
+            youtube: {icon: FaYoutube, color: 'text-red-600', bgColor: 'bg-red-500'},
+            tiktok: {icon: FaTiktok, color: 'text-black', bgColor: 'bg-black'},
+            twitter: {icon: FaTwitter, color: 'text-blue-500', bgColor: 'bg-blue-500'},
+            facebook: {icon: FaFacebook, color: 'text-blue-600', bgColor: 'bg-blue-600'},
+            linkedin: {icon: FaLinkedin, color: 'text-blue-700', bgColor: 'bg-blue-700'},
+            snapchat: {icon: FaSnapchat, color: 'text-yellow-500', bgColor: 'bg-yellow-500'},
+            pinterest: {icon: FaPinterest, color: 'text-red-500', bgColor: 'bg-red-500'}
         };
         return icons[platform] || {icon: '🌐', color: 'text-gray-600', bgColor: 'bg-gray-500'};
     };
@@ -455,7 +468,8 @@ export default function InfluencerProfilePage() {
                                                     <div className="flex items-center gap-3">
                                                         <div
                                                             className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center">
-                                                            <span className="text-sm">{platformIcon.icon}</span>
+                                                            <platformIcon.icon
+                                                                className={`w-4 h-4 ${platformIcon.color}`}/>
                                                         </div>
                                                         <div>
                                                             <h3 className="font-medium text-gray-900 capitalize">
@@ -736,17 +750,6 @@ export default function InfluencerProfilePage() {
                             </CardHeader>
                             <CardContent>
                                 <div className="space-y-2">
-                                    <Button
-                                        className="w-full"
-                                        onClick={() => {
-                                            const url = `/brand/messages?influencer=${profile.id}`;
-                                            window.open(url, '_blank');
-                                        }}
-                                    >
-                                        <HiChatBubbleLeftRight className="w-4 h-4 mr-2"/>
-                                        Send Message
-                                    </Button>
-
                                     <Button
                                         variant="outline"
                                         className="w-full"

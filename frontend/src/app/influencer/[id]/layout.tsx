@@ -1,7 +1,6 @@
 "use client";
 
 import {RequireInfluencerAuth} from "@/components/auth/require-influencer-auth";
-import {InfluencerDashboardLayout} from "@/components/layout/dashboard-layout";
 
 export default function InfluencerProfileLayout({
                                                     children,
@@ -13,9 +12,11 @@ export default function InfluencerProfileLayout({
             allowBrandAccess={true}
             restrictToOwnProfile={true}
         >
-            <InfluencerDashboardLayout>
-                {children}
-            </InfluencerDashboardLayout>
+            <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100">
+                <main className="w-full">
+                    {children}
+                </main>
+            </div>
         </RequireInfluencerAuth>
     );
 }
