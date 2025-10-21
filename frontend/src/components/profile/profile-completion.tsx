@@ -72,7 +72,7 @@ export function ProfileCompletion({
       {
         id: 'verification',
         label: 'Verification',
-        completed: !!(profile.aadhar_number && profile.aadhar_document),
+        completed: !!(profile.aadhar_number && profile.aadhar_document && profile.is_verified),
         icon: '✅',
         description: 'Identity verification documents'
       }

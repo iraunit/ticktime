@@ -1,19 +1,26 @@
 from django.contrib import admin
+from django.db.models import Q
+from django.utils.html import format_html
 
-from .models import InfluencerProfile, SocialMediaAccount
+from .models import InfluencerProfile, SocialMediaAccount, InfluencerAudienceInsight, InfluencerCategoryScore
 
 
 @admin.register(InfluencerProfile)
 class InfluencerProfileAdmin(admin.ModelAdmin):
     list_display = [
         'username', 'user_full_name', 'industry', 'categories_display', 'total_followers',
-        'is_verified', 'created_at'
+        'aadhar_verification_status', 'is_verified', 'created_at'
     ]
     list_filter = ['industry', 'categories', 'is_verified', 'created_at']
-    search_fields = ['username', 'user__first_name', 'user__last_name', 'user__email']
+    search_fields = ['username', 'user__first_name', 'user__last_name', 'user__email', 'aadhar_number']
     readonly_fields = ['created_at', 'updated_at', 'total_followers', 'average_engagement_rate', 'phone_number_display',
-                       'address_display', 'profile_image_display']
+                       'address_display', 'profile_image_display', 'aadhar_document_display',
+                       'collaboration_types_display',
+                       'available_platforms_display', 'content_keywords_display', 'bio_keywords_display',
+                       'user_country_display', 'user_state_display', 'user_city_display', 'user_zipcode_display',
+                       'user_gender_display']
     filter_horizontal = ['categories']
+    actions = ['verify_aadhar_documents', 'unverify_aadhar_documents', 'mark_as_verified', 'mark_as_unverified']
 
     fieldsets = (
         ('User Information', {
@@ -22,11 +29,56 @@ class InfluencerProfileAdmin(admin.ModelAdmin):
         ('Contact Information', {
             'fields': ('phone_number_display', 'address_display', 'profile_image_display')
         }),
-        ('Profile Details', {
-            'fields': ('is_verified', 'country', 'state', 'city')
+        ('Location Details', {
+            'fields': ('user_country_display', 'user_state_display', 'user_city_display', 'user_zipcode_display'),
+            'description': 'Geographic location information from user profile'
         }),
-        ('Verification Documents', {
-            'fields': ('aadhar_number', 'aadhar_document')
+        ('Demographics', {
+            'fields': ('user_gender_display', 'age_range'),
+            'description': 'Demographic information'
+        }),
+        ('Aadhar Verification', {
+            'fields': ('aadhar_number', 'aadhar_document_display', 'is_verified'),
+            'description': 'Verify the Aadhar document and mark the influencer as verified'
+        }),
+        ('Influencer Metrics', {
+            'fields': ('influence_score', 'platform_score', 'avg_rating', 'collaboration_count', 'total_earnings'),
+            'description': 'Performance and engagement metrics'
+        }),
+        ('Platform Metrics', {
+            'fields': ('average_interaction', 'average_views', 'average_dislikes', 'available_platforms_display'),
+            'classes': ('collapse',),
+            'description': 'Platform-specific performance data'
+        }),
+        ('Response & Availability', {
+            'fields': ('response_time', 'faster_responses', 'contact_availability'),
+            'description': 'Response and availability settings'
+        }),
+        ('Campaign Readiness', {
+            'fields': ('commerce_ready', 'campaign_ready', 'barter_ready'),
+            'description': 'Campaign participation preferences'
+        }),
+        ('Collaboration Preferences', {
+            'fields': ('collaboration_types_display', 'minimum_collaboration_amount'),
+            'description': 'Collaboration type preferences and requirements'
+        }),
+        ('Platform Flags', {
+            'fields': ('has_instagram', 'has_youtube', 'has_tiktok', 'has_twitter', 'has_facebook', 'has_linkedin',
+                       'instagram_verified'),
+            'classes': ('collapse',),
+            'description': 'Platform presence flags (auto-updated)'
+        }),
+        ('Content & Audience', {
+            'fields': ('content_keywords_display', 'bio_keywords_display', 'brand_safety_score',
+                       'content_quality_score'),
+            'classes': ('collapse',),
+            'description': 'Content analysis and quality metrics'
+        }),
+        ('Audience Insights', {
+            'fields': ('audience_gender_distribution', 'audience_age_distribution', 'audience_locations',
+                       'audience_interests', 'audience_languages'),
+            'classes': ('collapse',),
+            'description': 'Audience demographic and interest data'
         }),
         ('Banking Information', {
             'fields': ('bank_account_number', 'bank_ifsc_code', 'bank_account_holder_name')
@@ -82,6 +134,126 @@ class InfluencerProfileAdmin(admin.ModelAdmin):
 
     profile_image_display.short_description = 'Profile Image'
 
+    def aadhar_verification_status(self, obj):
+        """Display Aadhar verification status with visual indicators"""
+        if obj.is_verified:
+            return '✅ Verified'
+        elif obj.aadhar_document:
+            return '📄 Document Uploaded (Pending Verification)'
+        elif obj.aadhar_number:
+            return '📝 Number Only (No Document)'
+        else:
+            return '❌ Not Provided'
+
+    aadhar_verification_status.short_description = 'Aadhar Status'
+
+    def aadhar_document_display(self, obj):
+        """Display Aadhar document with download link"""
+        if obj.aadhar_document:
+            return format_html(
+                '<a href="{}" target="_blank">📄 View Document</a>',
+                obj.aadhar_document.url
+            )
+        return 'No document uploaded'
+
+    aadhar_document_display.short_description = 'Aadhar Document'
+
+    def verify_aadhar_documents(self, request, queryset):
+        """Bulk action to verify Aadhar documents"""
+        updated = queryset.filter(aadhar_document__isnull=False).update(is_verified=True)
+        self.message_user(
+            request,
+            f'{updated} influencer(s) verified successfully. Only profiles with uploaded documents were verified.'
+        )
+
+    verify_aadhar_documents.short_description = 'Verify Aadhar documents (bulk action)'
+
+    def unverify_aadhar_documents(self, request, queryset):
+        """Bulk action to unverify Aadhar documents"""
+        updated = queryset.update(is_verified=False)
+        self.message_user(request, f'{updated} influencer(s) unverified successfully.')
+
+    unverify_aadhar_documents.short_description = 'Unverify Aadhar documents (bulk action)'
+
+    def mark_as_verified(self, request, queryset):
+        """Bulk action to mark influencers as verified"""
+        updated = queryset.update(is_verified=True)
+        self.message_user(request, f'{updated} influencer(s) marked as verified.')
+
+    mark_as_verified.short_description = 'Mark as verified'
+
+    def mark_as_unverified(self, request, queryset):
+        """Bulk action to mark influencers as unverified"""
+        updated = queryset.update(is_verified=False)
+        self.message_user(request, f'{updated} influencer(s) marked as unverified.')
+
+    mark_as_unverified.short_description = 'Mark as unverified'
+
+    def collaboration_types_display(self, obj):
+        """Display collaboration types in a readable format"""
+        if obj.collaboration_types:
+            return ', '.join(obj.collaboration_types)
+        return 'Not set'
+
+    collaboration_types_display.short_description = 'Collaboration Types'
+
+    def available_platforms_display(self, obj):
+        """Display available platforms in a readable format"""
+        if obj.available_platforms:
+            return ', '.join(obj.available_platforms)
+        return 'Not set'
+
+    available_platforms_display.short_description = 'Available Platforms'
+
+    def content_keywords_display(self, obj):
+        """Display content keywords in a readable format"""
+        if obj.content_keywords:
+            return ', '.join(obj.content_keywords[:10]) + ('...' if len(obj.content_keywords) > 10 else '')
+        return 'Not set'
+
+    content_keywords_display.short_description = 'Content Keywords'
+
+    def bio_keywords_display(self, obj):
+        """Display bio keywords in a readable format"""
+        if obj.bio_keywords:
+            return ', '.join(obj.bio_keywords[:10]) + ('...' if len(obj.bio_keywords) > 10 else '')
+        return 'Not set'
+
+    bio_keywords_display.short_description = 'Bio Keywords'
+
+    def user_country_display(self, obj):
+        """Display country from user profile"""
+        return obj.user_profile.country if obj.user_profile else 'Not set'
+
+    user_country_display.short_description = 'Country'
+
+    def user_state_display(self, obj):
+        """Display state from user profile"""
+        return obj.user_profile.state if obj.user_profile else 'Not set'
+
+    user_state_display.short_description = 'State'
+
+    def user_city_display(self, obj):
+        """Display city from user profile"""
+        return obj.user_profile.city if obj.user_profile else 'Not set'
+
+    user_city_display.short_description = 'City'
+
+    def user_zipcode_display(self, obj):
+        """Display zipcode from user profile"""
+        return obj.user_profile.zipcode if obj.user_profile else 'Not set'
+
+    user_zipcode_display.short_description = 'Zipcode'
+
+    def user_gender_display(self, obj):
+        """Display gender from user profile"""
+        if obj.user_profile and obj.user_profile.gender:
+            return dict(obj.user_profile._meta.get_field('gender').choices).get(obj.user_profile.gender,
+                                                                                obj.user_profile.gender)
+        return 'Not set'
+
+    user_gender_display.short_description = 'Gender'
+
 
 class SocialMediaAccountInline(admin.TabularInline):
     model = SocialMediaAccount
@@ -106,3 +278,61 @@ class SocialMediaAccountAdmin(admin.ModelAdmin):
 
 # Add inline relationships
 InfluencerProfileAdmin.inlines = [SocialMediaAccountInline]
+
+
+class AadharVerificationFilter(admin.SimpleListFilter):
+    title = 'Aadhar Verification Status'
+    parameter_name = 'aadhar_status'
+
+    def lookups(self, request, model_admin):
+        return (
+            ('verified', 'Verified'),
+            ('document_uploaded', 'Document Uploaded (Pending)'),
+            ('number_only', 'Number Only (No Document)'),
+            ('not_provided', 'Not Provided'),
+        )
+
+    def queryset(self, request, queryset):
+        if self.value() == 'verified':
+            return queryset.filter(is_verified=True)
+        elif self.value() == 'document_uploaded':
+            return queryset.filter(aadhar_document__isnull=False, is_verified=False)
+        elif self.value() == 'number_only':
+            return queryset.filter(aadhar_number__isnull=False, aadhar_number__gt='', aadhar_document__isnull=True)
+        elif self.value() == 'not_provided':
+            return queryset.filter(Q(aadhar_number__isnull=True) | Q(aadhar_number=''))
+
+
+# Add the custom filter to the admin class
+InfluencerProfileAdmin.list_filter = ['industry', 'categories', 'is_verified', 'created_at', AadharVerificationFilter]
+
+
+@admin.register(InfluencerAudienceInsight)
+class InfluencerAudienceInsightAdmin(admin.ModelAdmin):
+    list_display = [
+        'influencer_username', 'platform', 'male_percentage', 'female_percentage',
+        'age_18_24_percentage', 'age_25_34_percentage', 'active_followers_percentage'
+    ]
+    list_filter = ['platform', 'created_at']
+    search_fields = ['influencer__username']
+    readonly_fields = ['created_at', 'updated_at']
+
+    def influencer_username(self, obj):
+        return obj.influencer.username
+
+    influencer_username.short_description = 'Influencer'
+
+
+@admin.register(InfluencerCategoryScore)
+class InfluencerCategoryScoreAdmin(admin.ModelAdmin):
+    list_display = [
+        'influencer_username', 'category_name', 'score', 'is_primary', 'is_flag'
+    ]
+    list_filter = ['category_name', 'is_primary', 'is_flag', 'created_at']
+    search_fields = ['influencer__username', 'category_name']
+    readonly_fields = ['created_at', 'updated_at']
+
+    def influencer_username(self, obj):
+        return obj.influencer.username
+
+    influencer_username.short_description = 'Influencer'

@@ -86,7 +86,10 @@ export const profileApi = {
 
         // Axios will automatically handle CSRF tokens from HTTP-only cookies
         return api.post('/influencers/profile/upload-document/', formData, {
-            // Let axios set Content-Type automatically for multipart/form-data
+            headers: {
+                'Content-Type': undefined,
+            },
+            transformRequest: [(data) => data],
             signal,
             onUploadProgress: (progressEvent: any) => {
                 if (onProgress && progressEvent.total) {

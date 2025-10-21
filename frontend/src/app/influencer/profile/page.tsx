@@ -72,8 +72,8 @@ export default function ProfilePage() {
             {
                 id: 'documents',
                 label: 'Verification',
-                completed: !!(p.aadhar_number && p.aadhar_document),
-                actionText: !!(p.aadhar_number && p.aadhar_document) ? 'Update' : 'Add',
+                completed: !!(p.aadhar_number && p.aadhar_document && p.is_verified),
+                actionText: !!(p.aadhar_number && p.aadhar_document && p.is_verified) ? 'Update' : 'Add',
                 icon: HiShieldCheck,
                 color: 'green'
             }
