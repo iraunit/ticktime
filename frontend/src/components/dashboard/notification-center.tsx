@@ -19,7 +19,6 @@ import {
 
 interface NotificationCenterProps {
     notifications: Notification[];
-    onMarkAsRead?: (id: number) => void;
     isLoading?: boolean;
 }
 
@@ -66,7 +65,6 @@ const notificationStyles = {
 
 export function NotificationCenter({
                                        notifications,
-                                       onMarkAsRead,
                                        isLoading = false,
                                    }: NotificationCenterProps) {
     const [isExpanded, setIsExpanded] = useState(false);
@@ -80,9 +78,6 @@ export function NotificationCenter({
         ? visibleNotifications
         : visibleNotifications.slice(0, 3);
 
-    const handleMarkAsRead = (id: number) => {
-        onMarkAsRead?.(id);
-    };
 
     const handleDismiss = (id: number) => {
         setDismissedNotifications((prev) => [...prev, id]);
@@ -234,16 +229,6 @@ export function NotificationCenter({
                                                 {notification.type.replace('_', ' ').toUpperCase()}
                                             </Badge>
 
-                                            {!notification.read && (
-                                                <Button
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    onClick={() => handleMarkAsRead(notification.id)}
-                                                    className="text-xs text-gray-500 hover:text-gray-700 hover:bg-gray-100 px-3 py-1 rounded-md whitespace-nowrap"
-                                                >
-                                                    Mark as read
-                                                </Button>
-                                            )}
                                         </div>
                                     </div>
                                 </div>

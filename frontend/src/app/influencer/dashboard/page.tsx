@@ -15,7 +15,7 @@ import {useUserContext} from "@/components/providers/app-providers";
 export default function InfluencerDashboardPage() {
     const {user} = useUserContext();
     const {stats, recentDeals} = useDashboard();
-    const {notifications, markAsRead} = useNotifications();
+    const {notifications} = useNotifications();
     const {acceptDeal, rejectDeal} = useDeals();
 
     // Auto-refresh functionality only when authenticated (user present)
@@ -83,13 +83,6 @@ export default function InfluencerDashboardPage() {
         }
     };
 
-    const handleMarkNotificationAsRead = async (notificationId: number) => {
-        try {
-            await markAsRead.mutateAsync(notificationId);
-        } catch (error) {
-            console.error("Failed to mark notification as read:", error);
-        }
-    };
 
     const userName = user?.first_name || 'Creator';
     const currentHour = new Date().getHours();
@@ -189,8 +182,7 @@ export default function InfluencerDashboardPage() {
                         </div>
                         <NotificationCenter
                             notifications={notifications.data || []}
-                            onMarkAsRead={handleMarkNotificationAsRead}
-                            isLoading={markAsRead.isPending}
+                            isLoading={false}
                         />
                     </div>
 

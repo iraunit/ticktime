@@ -277,9 +277,6 @@ export const dashboardApi = {
     getRecentDeals: () => api.get('/dashboard/recent-deals/'),
 
     getNotifications: () => api.get('/dashboard/notifications/'),
-
-    markNotificationRead: (id: number) =>
-        api.patch(`/dashboard/notifications/${id}/`, {read: true}),
 };
 
 // Analytics API functions
