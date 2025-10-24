@@ -26,11 +26,12 @@ import {Deal} from "@/types";
 import {useDeal} from "@/hooks/use-deals";
 import {CheckCircle, ExternalLink, Link as LinkIcon, Plus, Trash2, Upload, X} from "@/lib/icons";
 import Image from "next/image";
-// import { FileUpload, ImageUpload, VideoUpload } from "@/components/ui/file-upload";
 import {ErrorDisplay} from "@/components/ui/error-display";
 import {useErrorHandling} from "@/hooks/use-error-handling";
 import {toast} from "sonner";
-import {platformDisplayNames} from "@/lib/platform-config";
+import {getPlatformConfig, platformDisplayNames} from "@/lib/platform-config";
+import {getContentTypeConfig} from "@/lib/icon-config";
+import {getMediaUrl} from "@/lib/utils";
 
 interface ContentSubmission {
     id: number;
@@ -348,21 +349,32 @@ export function ContentSubmission({deal, isOpen, onClose, onSuccess, editingSubm
                     <Card>
                         <CardContent className="pt-4">
                             <div className="flex items-center space-x-4">
-                                {deal.campaign?.brand?.logo && (
+                                {deal.campaign?.brand?.logo ? (
                                     <Image
-                                        src={deal.campaign.brand.logo}
+                                        src={getMediaUrl(deal.campaign.brand.logo) || deal.campaign.brand.logo}
                                         alt={deal.campaign.brand.name}
                                         width={48}
                                         height={48}
-                                        className="rounded-lg"
+                                        className="rounded-lg object-cover"
+                                        onError={(e) => {
+                                            e.currentTarget.style.display = 'none';
+                                        }}
                                     />
+                                ) : (
+                                    <div className="w-12 h-12 rounded-lg bg-gray-200 flex items-center justify-center">
+                                        <span className="text-gray-500 text-xs font-medium">
+                                            {deal.campaign?.brand?.name?.charAt(0) || 'B'}
+                                        </span>
+                                    </div>
                                 )}
                                 <div>
                                     <h3 className="font-medium">{deal.campaign?.brand?.name}</h3>
                                     <p className="text-sm text-gray-600">{deal.campaign?.title}</p>
-                                    <Badge variant="outline" className="mt-1">
-                                        {deal.campaign?.deal_type}
-                                    </Badge>
+                                    <div className="flex items-center gap-2 mt-1">
+                                        <Badge variant="outline">
+                                            {deal.campaign?.deal_type}
+                                        </Badge>
+                                    </div>
                                 </div>
                             </div>
                         </CardContent>
@@ -407,11 +419,18 @@ export function ContentSubmission({deal, isOpen, onClose, onSuccess, editingSubm
                                                 </SelectTrigger>
                                             </FormControl>
                                             <SelectContent>
-                                                {PLATFORM_OPTIONS.map((option) => (
-                                                    <SelectItem key={option.value} value={option.value}>
-                                                        {option.label}
-                                                    </SelectItem>
-                                                ))}
+                                                {PLATFORM_OPTIONS.map((option) => {
+                                                    const config = getPlatformConfig(option.value);
+                                                    const Icon = config?.icon;
+                                                    return (
+                                                        <SelectItem key={option.value} value={option.value}>
+                                                            <div className="flex items-center gap-2">
+                                                                {Icon && <Icon className={`w-4 h-4 ${config?.color}`}/>}
+                                                                <span>{option.label}</span>
+                                                            </div>
+                                                        </SelectItem>
+                                                    );
+                                                })}
                                             </SelectContent>
                                         </Select>
                                         <FormMessage/>
@@ -437,11 +456,18 @@ export function ContentSubmission({deal, isOpen, onClose, onSuccess, editingSubm
                                                 </SelectTrigger>
                                             </FormControl>
                                             <SelectContent>
-                                                {CONTENT_TYPE_OPTIONS.map((option) => (
-                                                    <SelectItem key={option.value} value={option.value}>
-                                                        {option.label}
-                                                    </SelectItem>
-                                                ))}
+                                                {CONTENT_TYPE_OPTIONS.map((option) => {
+                                                    const config = getContentTypeConfig(option.value);
+                                                    const Icon = config?.icon;
+                                                    return (
+                                                        <SelectItem key={option.value} value={option.value}>
+                                                            <div className="flex items-center gap-2">
+                                                                {Icon && <Icon className={`w-4 h-4 ${config?.color}`}/>}
+                                                                <span>{option.label}</span>
+                                                            </div>
+                                                        </SelectItem>
+                                                    );
+                                                })}
                                             </SelectContent>
                                         </Select>
                                         <FormMessage/>

@@ -28,7 +28,7 @@ import {
     Youtube,
     Zap,
 } from "@/lib/icons";
-import {platformConfig} from "@/lib/platform-config";
+import {getDealTypeConfig, platformConfig} from "@/lib/platform-config";
 import Image from "next/image";
 import Link from "next/link";
 
@@ -265,41 +265,14 @@ export function DealDetails({
                                     <h4 className="font-semibold text-gray-900 mb-2 text-sm">💼 Deal Type</h4>
                                     <div className="flex items-center">
                                         {(() => {
-                                            const dealType = deal?.campaign?.deal_type_display || deal?.campaign?.deal_type?.toUpperCase() || 'N/A';
-                                            const isCash = dealType.toLowerCase().includes('cash');
-                                            const isProduct = dealType.toLowerCase().includes('product') || dealType.toLowerCase().includes('barter');
-                                            const isHybrid = dealType.toLowerCase().includes('hybrid');
-
-                                            let bgColor, textColor, borderColor, icon;
-
-                                            if (isCash) {
-                                                bgColor = 'bg-green-50';
-                                                textColor = 'text-green-700';
-                                                borderColor = 'border-green-200';
-                                                icon = '💰';
-                                            } else if (isProduct) {
-                                                bgColor = 'bg-orange-50';
-                                                textColor = 'text-orange-700';
-                                                borderColor = 'border-orange-200';
-                                                icon = '📦';
-                                            } else if (isHybrid) {
-                                                bgColor = 'bg-purple-50';
-                                                textColor = 'text-purple-700';
-                                                borderColor = 'border-purple-200';
-                                                icon = '🎁';
-                                            } else {
-                                                bgColor = 'bg-gray-50';
-                                                textColor = 'text-gray-700';
-                                                borderColor = 'border-gray-200';
-                                                icon = '💼';
-                                            }
-
+                                            const dealType = deal?.campaign?.deal_type;
+                                            const config = getDealTypeConfig(dealType || '');
                                             return (
                                                 <div
-                                                    className={`${bgColor} ${borderColor} border rounded-lg px-3 py-2 flex items-center gap-2 shadow-sm`}>
-                                                    <span className="text-sm">{icon}</span>
-                                                    <span className={`text-sm font-medium ${textColor}`}>
-                                                        {dealType}
+                                                    className={`${config.bg} ${config.border} border rounded-lg px-3 py-2 flex items-center gap-2 shadow-sm`}>
+                                                    <span className="text-sm">{config.icon}</span>
+                                                    <span className={`text-sm font-medium ${config.color}`}>
+                                                        {config.label}
                                                     </span>
                                                 </div>
                                             );
