@@ -239,8 +239,54 @@ export function AnalyticsOverview() {
                         </div>
                     </CardHeader>
                     <CardContent className="p-3">
-                        <div className="h-32 flex items-center justify-center bg-gray-50 rounded-md">
-                            <p className="text-sm text-gray-500">Chart visualization would go here</p>
+                        <div className="h-32">
+                            {monthlyEarnings.length > 0 ? (
+                                <div className="h-full flex items-end justify-between gap-1">
+                                    {monthlyEarnings.slice(-6).map((month: any, index: number) => {
+                                        const maxAmount = Math.max(...monthlyEarnings.map((m: any) => m.amount));
+                                        const hasEarnings = month.amount > 0;
+
+                                        // Calculate height - ensure minimum visible height
+                                        let height;
+                                        if (hasEarnings) {
+                                            height = maxAmount > 0 ? (month.amount / maxAmount) * 100 : 0;
+                                            height = Math.max(height, 20); // Minimum 20% for earnings
+                                        } else {
+                                            height = 8; // Small bar for zero earnings
+                                        }
+
+                                        return (
+                                            <div key={index} className="flex-1 flex flex-col items-center h-full">
+                                                <div className="flex-1 flex items-end w-full">
+                                                    <div
+                                                        className={`w-full rounded-t-sm transition-all duration-300 ${
+                                                            hasEarnings
+                                                                ? 'bg-gradient-to-t from-green-500 to-emerald-400 hover:from-green-600 hover:to-emerald-500'
+                                                                : 'bg-gradient-to-t from-gray-300 to-gray-400'
+                                                        }`}
+                                                        style={{height: `${height}%`}}
+                                                    />
+                                                </div>
+                                                <div className="text-xs text-gray-500 mt-1 text-center">
+                                                    {new Date(month.month + '-01').toLocaleDateString('en-US', {month: 'short'})}
+                                                </div>
+                                                {hasEarnings && (
+                                                    <div className="text-xs text-green-600 font-medium mt-1">
+                                                        ₹{month.amount.toLocaleString()}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            ) : (
+                                <div className="h-full flex items-center justify-center bg-gray-50 rounded-md">
+                                    <div className="text-center">
+                                        <div className="w-8 h-8 bg-gray-300 rounded-full mx-auto mb-2"></div>
+                                        <p className="text-xs text-gray-500">No data available</p>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </CardContent>
                 </Card>
