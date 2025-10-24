@@ -32,79 +32,11 @@ import {
     HiUsers
 } from "react-icons/hi2";
 import {HiX} from "react-icons/hi";
-import {
-    FaFacebook,
-    FaInstagram,
-    FaLinkedin,
-    FaPinterest,
-    FaSnapchat,
-    FaTiktok,
-    FaTwitter,
-    FaYoutube
-} from "react-icons/fa";
+import {platformConfig} from "@/lib/platform-config";
 import {api} from "@/lib/api";
 import {toast} from "@/lib/toast";
 import {GlobalLoader} from "@/components/ui/global-loader";
 
-// Platform configuration with real icons
-const platformConfig = {
-    youtube: {
-        icon: FaYoutube,
-        color: "text-red-600",
-        bg: "bg-red-50",
-        border: "border-red-200",
-        gradient: "from-red-500 to-red-600"
-    },
-    instagram: {
-        icon: FaInstagram,
-        color: "text-pink-600",
-        bg: "bg-pink-50",
-        border: "border-pink-200",
-        gradient: "from-pink-500 to-purple-500"
-    },
-    tiktok: {
-        icon: FaTiktok,
-        color: "text-gray-800",
-        bg: "bg-gray-50",
-        border: "border-gray-200",
-        gradient: "from-gray-800 to-gray-900"
-    },
-    twitter: {
-        icon: FaTwitter,
-        color: "text-blue-500",
-        bg: "bg-blue-50",
-        border: "border-blue-200",
-        gradient: "from-blue-400 to-blue-500"
-    },
-    facebook: {
-        icon: FaFacebook,
-        color: "text-blue-600",
-        bg: "bg-blue-50",
-        border: "border-blue-200",
-        gradient: "from-blue-600 to-blue-700"
-    },
-    linkedin: {
-        icon: FaLinkedin,
-        color: "text-blue-700",
-        bg: "bg-blue-50",
-        border: "border-blue-200",
-        gradient: "from-blue-700 to-blue-800"
-    },
-    snapchat: {
-        icon: FaSnapchat,
-        color: "text-yellow-500",
-        bg: "bg-yellow-50",
-        border: "border-yellow-200",
-        gradient: "from-yellow-400 to-yellow-500"
-    },
-    pinterest: {
-        icon: FaPinterest,
-        color: "text-red-500",
-        bg: "bg-red-50",
-        border: "border-red-200",
-        gradient: "from-red-500 to-red-600"
-    }
-};
 
 interface Influencer {
     id: number;

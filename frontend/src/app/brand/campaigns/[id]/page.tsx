@@ -31,7 +31,7 @@ import {
     HiUsers,
     HiXCircle
 } from "react-icons/hi2";
-import {FaInstagram, FaLinkedin, FaTiktok, FaTwitter, FaYoutube} from "react-icons/fa";
+import {platformConfig} from "@/lib/platform-config";
 import {api} from "@/lib/api";
 import {toast} from "@/lib/toast";
 import {GlobalLoader} from "@/components/ui/global-loader";
@@ -149,13 +149,6 @@ interface Message {
     created_at: string;
 }
 
-const platformConfig = {
-    youtube: {icon: FaYoutube, color: "text-red-600", bg: "bg-red-50", border: "border-red-200"},
-    instagram: {icon: FaInstagram, color: "text-pink-600", bg: "bg-pink-50", border: "border-pink-200"},
-    tiktok: {icon: FaTiktok, color: "text-gray-800", bg: "bg-gray-50", border: "border-gray-200"},
-    twitter: {icon: FaTwitter, color: "text-blue-500", bg: "bg-blue-50", border: "border-blue-200"},
-    linkedin: {icon: FaLinkedin, color: "text-blue-700", bg: "bg-blue-50", border: "border-blue-200"},
-} as const;
 
 const dealStatusColors = {
     invited: 'bg-blue-100 text-blue-800 hover:bg-blue-200',

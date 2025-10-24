@@ -28,7 +28,7 @@ import {
     Youtube,
     Zap,
 } from "@/lib/icons";
-import {FaInstagram, FaLinkedin, FaTiktok, FaTwitter, FaYoutube} from "react-icons/fa";
+import {platformConfig} from "@/lib/platform-config";
 import Image from "next/image";
 import Link from "next/link";
 
@@ -51,14 +51,6 @@ const platformIcons = {
     Facebook: Facebook,
 };
 
-const platformConfig = {
-    youtube: {icon: FaYoutube, color: "text-red-600", bg: "bg-red-50", border: "border-red-200"},
-    instagram: {icon: FaInstagram, color: "text-pink-600", bg: "bg-pink-50", border: "border-pink-200"},
-    tiktok: {icon: FaTiktok, color: "text-gray-800", bg: "bg-gray-50", border: "border-gray-200"},
-    twitter: {icon: FaTwitter, color: "text-blue-500", bg: "bg-blue-50", border: "border-blue-200"},
-    linkedin: {icon: FaLinkedin, color: "text-blue-700", bg: "bg-blue-50", border: "border-blue-200"},
-    facebook: {icon: Facebook, color: "text-blue-600", bg: "bg-blue-50", border: "border-blue-200"},
-} as const;
 
 const statusColors = {
     invited: "bg-blue-100 text-blue-800 border-blue-200 hover:bg-blue-200",

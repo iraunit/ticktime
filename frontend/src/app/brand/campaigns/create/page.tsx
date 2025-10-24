@@ -35,7 +35,7 @@ import {
     HiUsers,
     HiXMark
 } from "react-icons/hi2";
-import {FaInstagram, FaLinkedin, FaTiktok, FaTwitter, FaYoutube} from "react-icons/fa";
+import {platformConfig, platformDisplayNames} from "@/lib/platform-config";
 
 interface CampaignData {
     title: string;
@@ -63,54 +63,6 @@ interface CampaignData {
     target_audience_location: string;
     barter_submission_after_days?: number;
 }
-
-// Real platform icons with brand colors
-const platformConfig = {
-    youtube: {
-        icon: FaYoutube,
-        color: "text-red-600",
-        bg: "bg-red-50",
-        border: "border-red-200",
-        gradient: "from-red-500 to-red-600"
-    },
-    instagram: {
-        icon: FaInstagram,
-        color: "text-pink-600",
-        bg: "bg-pink-50",
-        border: "border-pink-200",
-        gradient: "from-pink-500 to-purple-500"
-    },
-    tiktok: {
-        icon: FaTiktok,
-        color: "text-gray-800",
-        bg: "bg-gray-50",
-        border: "border-gray-200",
-        gradient: "from-gray-800 to-gray-900"
-    },
-    twitter: {
-        icon: FaTwitter,
-        color: "text-blue-500",
-        bg: "bg-blue-50",
-        border: "border-blue-200",
-        gradient: "from-blue-400 to-blue-500"
-    },
-    linkedin: {
-        icon: FaLinkedin,
-        color: "text-blue-700",
-        bg: "bg-blue-50",
-        border: "border-blue-200",
-        gradient: "from-blue-700 to-blue-800"
-    },
-} as const;
-
-// Human-friendly display names for platforms
-const platformDisplayNames: Record<string, string> = {
-    youtube: 'YouTube',
-    instagram: 'Instagram',
-    tiktok: 'TikTok',
-    twitter: 'Twitter',
-    linkedin: 'LinkedIn',
-};
 
 
 // Convert platformConfig to platforms array for mapping

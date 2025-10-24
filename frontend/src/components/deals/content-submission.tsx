@@ -1,6 +1,6 @@
 "use client";
 
-import {useCallback, useState, useEffect} from "react";
+import {useCallback, useEffect, useState} from "react";
 import {useFieldArray, useForm} from "react-hook-form";
 import {zodResolver} from "@hookform/resolvers/zod";
 import {z} from "zod";
@@ -30,6 +30,7 @@ import Image from "next/image";
 import {ErrorDisplay} from "@/components/ui/error-display";
 import {useErrorHandling} from "@/hooks/use-error-handling";
 import {toast} from "sonner";
+import {platformDisplayNames} from "@/lib/platform-config";
 
 interface ContentSubmission {
     id: number;
@@ -60,14 +61,10 @@ interface ContentSubmissionProps {
     editingSubmission?: ContentSubmission | null;
 }
 
-const PLATFORM_OPTIONS = [
-    {value: "instagram", label: "Instagram"},
-    {value: "youtube", label: "YouTube"},
-    {value: "tiktok", label: "TikTok"},
-    {value: "twitter", label: "Twitter"},
-    {value: "facebook", label: "Facebook"},
-    {value: "linkedin", label: "LinkedIn"},
-];
+const PLATFORM_OPTIONS = Object.entries(platformDisplayNames).map(([value, label]) => ({
+    value,
+    label
+}));
 
 const CONTENT_TYPE_OPTIONS = [
     {value: "image", label: "Image"},
@@ -240,7 +237,7 @@ export function ContentSubmission({deal, isOpen, onClose, onSuccess, editingSubm
         } catch (err: any) {
             if (err.name !== 'AbortError') {
                 setError(err);
-                
+
                 // Show validation errors as toast messages
                 if (err.response?.data?.errors) {
                     const errors = err.response.data.errors;
@@ -341,7 +338,8 @@ export function ContentSubmission({deal, isOpen, onClose, onSuccess, editingSubm
                 <DialogHeader>
                     <DialogTitle>{editingSubmission ? 'Edit Content Submission' : 'Submit Content'}</DialogTitle>
                     <DialogDescription>
-                        {editingSubmission ? 'Update your content submission' : 'Submit your content (files, links, or posts)'} for the campaign: {deal.campaign?.title}
+                        {editingSubmission ? 'Update your content submission' : 'Submit your content (files, links, or posts)'} for
+                        the campaign: {deal.campaign?.title}
                     </DialogDescription>
                 </DialogHeader>
 
