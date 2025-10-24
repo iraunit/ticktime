@@ -28,6 +28,7 @@ import {
     Youtube,
     Zap,
 } from "@/lib/icons";
+import {FaInstagram, FaLinkedin, FaTiktok, FaTwitter, FaYoutube} from "react-icons/fa";
 import Image from "next/image";
 import Link from "next/link";
 
@@ -49,6 +50,15 @@ const platformIcons = {
     Twitter: Twitter,
     Facebook: Facebook,
 };
+
+const platformConfig = {
+    youtube: {icon: FaYoutube, color: "text-red-600", bg: "bg-red-50", border: "border-red-200"},
+    instagram: {icon: FaInstagram, color: "text-pink-600", bg: "bg-pink-50", border: "border-pink-200"},
+    tiktok: {icon: FaTiktok, color: "text-gray-800", bg: "bg-gray-50", border: "border-gray-200"},
+    twitter: {icon: FaTwitter, color: "text-blue-500", bg: "bg-blue-50", border: "border-blue-200"},
+    linkedin: {icon: FaLinkedin, color: "text-blue-700", bg: "bg-blue-50", border: "border-blue-200"},
+    facebook: {icon: Facebook, color: "text-blue-600", bg: "bg-blue-50", border: "border-blue-200"},
+} as const;
 
 const statusColors = {
     invited: "bg-blue-100 text-blue-800 border-blue-200 hover:bg-blue-200",
@@ -183,9 +193,13 @@ export function DealDetails({
                             {/* Description */}
                             <div>
                                 <p className="text-sm text-gray-700 leading-relaxed mb-3">
-                                    {(typeof deal?.campaign?.description === 'object'
-                                        ? (deal?.campaign?.description as any)?.description
-                                        : deal?.campaign?.description) || 'Campaign details will be provided after acceptance'}
+                                    {(() => {
+                                        const desc = deal?.campaign?.description;
+                                        if (typeof desc === 'object' && desc !== null) {
+                                            return (desc as any)?.description || 'Campaign details will be provided after acceptance';
+                                        }
+                                        return desc || 'Campaign details will be provided after acceptance';
+                                    })()}
                                 </p>
 
                                 {/* Content Requirements */}
@@ -196,7 +210,13 @@ export function DealDetails({
                                             📝 Content Requirements
                                         </h4>
                                         <p className="text-xs text-blue-800">
-                                            {deal.campaign.content_requirements}
+                                            {(() => {
+                                                const req = deal.campaign.content_requirements;
+                                                if (typeof req === 'object' && req !== null) {
+                                                    return (req as any)?.description || JSON.stringify(req);
+                                                }
+                                                return req || '';
+                                            })()}
                                         </p>
                                     </div>
                                 )}
@@ -209,7 +229,13 @@ export function DealDetails({
                                             📌 Special Instructions
                                         </h4>
                                         <p className="text-xs text-purple-800">
-                                            {deal.campaign.special_instructions}
+                                            {(() => {
+                                                const instructions = deal.campaign.special_instructions;
+                                                if (typeof instructions === 'object' && instructions !== null) {
+                                                    return (instructions as any)?.description || JSON.stringify(instructions);
+                                                }
+                                                return instructions || '';
+                                            })()}
                                         </p>
                                     </div>
                                 )}
@@ -218,37 +244,75 @@ export function DealDetails({
                             {/* Campaign Quick Info */}
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 {/* Platforms */}
-                                <div>
+                                <div className="flex flex-col">
                                     <h4 className="font-semibold text-gray-900 mb-2 text-sm">📱 Platforms Required</h4>
                                     <div className="flex flex-wrap gap-2">
                                         {deal?.campaign?.platforms_required && deal.campaign.platforms_required.length > 0 ? (
                                             deal.campaign.platforms_required.map((platform) => {
-                                                const Icon = platformIcons[platform as keyof typeof platformIcons];
+                                                const cfg = platformConfig[platform as keyof typeof platformConfig];
+                                                const Icon = cfg?.icon;
                                                 return (
                                                     <div key={platform}
-                                                         className="flex items-center space-x-2 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
-                                                        {Icon && <Icon className="h-4 w-4 text-blue-600"/>}
-                                                        <span
-                                                            className="capitalize text-sm font-medium text-blue-700">{platform}</span>
+                                                         className={`px-3 py-2 rounded-lg border text-sm flex items-center gap-2 shadow-sm ${cfg ? cfg.bg + ' ' + cfg.border : 'bg-gray-50 border-gray-200'}`}>
+                                                        {Icon && <Icon className={`w-4 h-4 ${cfg?.color}`}/>}
+                                                        <span className="capitalize font-medium">{platform}</span>
                                                     </div>
                                                 );
                                             })
                                         ) : (
-                                            <span className="text-xs text-gray-500">Not specified</span>
+                                            <div
+                                                className="bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 flex items-center gap-2 shadow-sm">
+                                                <span className="text-sm text-gray-500">Not specified</span>
+                                            </div>
                                         )}
                                     </div>
                                 </div>
 
                                 {/* Deal Type */}
-                                <div>
+                                <div className="flex flex-col">
                                     <h4 className="font-semibold text-gray-900 mb-2 text-sm">💼 Deal Type</h4>
-                                    {deal?.campaign?.deal_type_display && (
-                                        <div
-                                            className="bg-green-50 border border-green-200 rounded-lg px-3 py-2 inline-block">
-                                            <span
-                                                className="text-sm font-medium text-green-700">{deal.campaign.deal_type_display}</span>
-                                        </div>
-                                    )}
+                                    <div className="flex items-center">
+                                        {(() => {
+                                            const dealType = deal?.campaign?.deal_type_display || deal?.campaign?.deal_type?.toUpperCase() || 'N/A';
+                                            const isCash = dealType.toLowerCase().includes('cash');
+                                            const isProduct = dealType.toLowerCase().includes('product') || dealType.toLowerCase().includes('barter');
+                                            const isHybrid = dealType.toLowerCase().includes('hybrid');
+
+                                            let bgColor, textColor, borderColor, icon;
+
+                                            if (isCash) {
+                                                bgColor = 'bg-green-50';
+                                                textColor = 'text-green-700';
+                                                borderColor = 'border-green-200';
+                                                icon = '💰';
+                                            } else if (isProduct) {
+                                                bgColor = 'bg-orange-50';
+                                                textColor = 'text-orange-700';
+                                                borderColor = 'border-orange-200';
+                                                icon = '📦';
+                                            } else if (isHybrid) {
+                                                bgColor = 'bg-purple-50';
+                                                textColor = 'text-purple-700';
+                                                borderColor = 'border-purple-200';
+                                                icon = '🎁';
+                                            } else {
+                                                bgColor = 'bg-gray-50';
+                                                textColor = 'text-gray-700';
+                                                borderColor = 'border-gray-200';
+                                                icon = '💼';
+                                            }
+
+                                            return (
+                                                <div
+                                                    className={`${bgColor} ${borderColor} border rounded-lg px-3 py-2 flex items-center gap-2 shadow-sm`}>
+                                                    <span className="text-sm">{icon}</span>
+                                                    <span className={`text-sm font-medium ${textColor}`}>
+                                                        {dealType}
+                                                    </span>
+                                                </div>
+                                            );
+                                        })()}
+                                    </div>
                                 </div>
                             </div>
 
@@ -509,9 +573,13 @@ export function DealDetails({
                                             </div>
                                             {product.description && product.description !== 'description' && (
                                                 <p className="text-xs text-orange-700 mb-1">
-                                                    {(typeof product.description === 'object'
-                                                        ? (product.description as any)?.description
-                                                        : product.description)}
+                                                    {(() => {
+                                                        const desc = product.description;
+                                                        if (typeof desc === 'object' && desc !== null) {
+                                                            return (desc as any)?.description || '';
+                                                        }
+                                                        return desc || '';
+                                                    })()}
                                                 </p>
                                             )}
                                             <div className="text-xs text-orange-600">
