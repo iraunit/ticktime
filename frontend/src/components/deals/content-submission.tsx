@@ -7,7 +7,6 @@ import {z} from "zod";
 import {Button} from "@/components/ui/button";
 import {Card, CardContent} from "@/components/ui/card";
 import {InlineLoader} from "@/components/ui/global-loader";
-import {Badge} from "@/components/ui/badge";
 import {Input} from "@/components/ui/input";
 import {Textarea} from "@/components/ui/textarea";
 import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from "@/components/ui/select";
@@ -29,7 +28,7 @@ import Image from "next/image";
 import {ErrorDisplay} from "@/components/ui/error-display";
 import {useErrorHandling} from "@/hooks/use-error-handling";
 import {toast} from "sonner";
-import {getPlatformConfig, platformDisplayNames} from "@/lib/platform-config";
+import {getDealTypeConfig, getPlatformConfig, platformDisplayNames} from "@/lib/platform-config";
 import {getContentTypeConfig} from "@/lib/icon-config";
 import {getMediaUrl} from "@/lib/utils";
 
@@ -371,9 +370,19 @@ export function ContentSubmission({deal, isOpen, onClose, onSuccess, editingSubm
                                     <h3 className="font-medium">{deal.campaign?.brand?.name}</h3>
                                     <p className="text-sm text-gray-600">{deal.campaign?.title}</p>
                                     <div className="flex items-center gap-2 mt-1">
-                                        <Badge variant="outline">
-                                            {deal.campaign?.deal_type}
-                                        </Badge>
+                                        {(() => {
+                                            const dealType = deal.campaign?.deal_type;
+                                            const config = getDealTypeConfig(dealType || '');
+                                            return (
+                                                <div
+                                                    className={`inline-flex items-center gap-2 px-3 py-1 rounded-lg border ${config.bg} ${config.border}`}>
+                                                    <span className="text-sm">{config.icon}</span>
+                                                    <span className={`text-sm font-medium ${config.color}`}>
+                                                        {config.label}
+                                                    </span>
+                                                </div>
+                                            );
+                                        })()}
                                     </div>
                                 </div>
                             </div>
