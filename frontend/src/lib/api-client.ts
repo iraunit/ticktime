@@ -280,30 +280,21 @@ export const dashboardApi = {
 };
 
 // Analytics API functions
-// TODO: Analytics endpoints not yet implemented in backend
 export const analyticsApi = {
     getCollaborationHistory: (params?: {
         page?: number;
         limit?: number;
         brand?: string;
         status?: string;
-    }) => {
-        console.warn('Analytics API not yet implemented in backend');
-        return Promise.resolve({data: {collaborations: []}});
-    },
+    }) => api.get('/dashboard/analytics/collaborations/', {params}),
 
     getEarnings: (params?: {
         period?: 'month' | 'quarter' | 'year';
         year?: number;
-    }) => {
-        console.warn('Analytics API not yet implemented in backend');
-        return Promise.resolve({data: {earnings: []}});
-    },
-
+    }) => api.get('/dashboard/analytics/earnings/', {params}),
 
     rateBrand: (dealId: number, rating: number, review?: string) => {
-        console.warn('Analytics API not yet implemented in backend');
-        return Promise.resolve({data: {success: true}});
+        return api.post(`/deals/${dealId}/rate/`, {rating, review});
     },
 };
 

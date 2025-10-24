@@ -46,11 +46,23 @@ export function AnalyticsOverview() {
         ? collaborationHistory.data
         : (collaborationHistory.data?.collaborations || []);
 
+    // Calculate additional metrics
+    const totalCollaborations = historyData.length || 0;
+    const totalEarnings = (earningsData as any)?.total_earnings || 0;
+    const avgEarningsPerCollaboration = totalCollaborations > 0 ? totalEarnings / totalCollaborations : 0;
+    const topBrand = (earningsData as any)?.top_brands?.[0];
+    const monthlyEarnings = (earningsData as any)?.monthly_earnings || [];
+    const currentMonthEarnings = monthlyEarnings.length > 0 ? monthlyEarnings[monthlyEarnings.length - 1]?.amount || 0 : 0;
+
+    // Calculate success rate (completed vs total collaborations)
+    const completedCollaborations = historyData.filter((collab: any) => collab.status === 'completed').length;
+    const successRate = totalCollaborations > 0 ? (completedCollaborations / totalCollaborations) * 100 : 0;
+
     // Define colorful stat cards with gradients and responsive design
     const statCards = [
         {
             title: "Total Collaborations",
-            value: historyData.length || 0,
+            value: totalCollaborations,
             description: "All time partnerships",
             icon: HiCalendarDays,
             iconBg: "bg-gradient-to-r from-blue-500 to-indigo-500",
@@ -60,7 +72,7 @@ export function AnalyticsOverview() {
         },
         {
             title: "Total Earnings",
-            value: `₹${(earningsData as any)?.total_earnings?.toLocaleString() || 0}`,
+            value: `₹${totalEarnings.toLocaleString()}`,
             description: "Revenue generated",
             icon: HiBanknotes,
             iconBg: "bg-gradient-to-r from-green-500 to-emerald-500",
@@ -71,6 +83,36 @@ export function AnalyticsOverview() {
                 value: (earningsData as any).growth_metrics.earnings_growth,
                 isPositive: (earningsData as any).growth_metrics.earnings_growth > 0
             } : undefined
+        },
+        {
+            title: "Avg per Collaboration",
+            value: `₹${avgEarningsPerCollaboration.toLocaleString()}`,
+            description: "Average earnings per deal",
+            icon: HiChartBar,
+            iconBg: "bg-gradient-to-r from-purple-500 to-pink-500",
+            cardBg: "bg-gradient-to-br from-purple-50 to-pink-50",
+            textColor: "text-purple-800",
+            border: "border-purple-200"
+        },
+        {
+            title: "This Month",
+            value: `₹${currentMonthEarnings.toLocaleString()}`,
+            description: "Current month earnings",
+            icon: HiArrowTrendingUp,
+            iconBg: "bg-gradient-to-r from-orange-500 to-red-500",
+            cardBg: "bg-gradient-to-br from-orange-50 to-red-50",
+            textColor: "text-orange-800",
+            border: "border-orange-200"
+        },
+        {
+            title: "Success Rate",
+            value: `${successRate.toFixed(1)}%`,
+            description: "Completed collaborations",
+            icon: HiChartBar,
+            iconBg: "bg-gradient-to-r from-indigo-500 to-purple-500",
+            cardBg: "bg-gradient-to-br from-indigo-50 to-purple-50",
+            textColor: "text-indigo-800",
+            border: "border-indigo-200"
         }
     ];
 
@@ -92,7 +134,7 @@ export function AnalyticsOverview() {
             </div>
 
             {/* Compact Stats Grid */}
-            <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
                 {statCards.map((stat, index) => {
                     const Icon = stat.icon;
                     return (
