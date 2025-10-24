@@ -14,6 +14,7 @@ import {ContentReview} from "@/components/brand/content-review";
 import {toast} from "@/lib/toast";
 import {api} from "@/lib/api";
 import {brandApi} from "@/lib/api-client";
+import {getDealTypeConfig, getPlatformConfig} from "@/lib/platform-config";
 import {
     HiArrowPath,
     HiBolt,
@@ -279,6 +280,15 @@ export default function DealDetailsPage() {
             console.log('Updating notes:', notes); // Debug log
             const response = await api.patch(`/brands/deals/${dealId}/notes/`, {notes});
             console.log('Notes update response:', response); // Debug log
+
+            // Update local state with the new notes
+            if (deal) {
+                setDeal({
+                    ...deal,
+                    notes: notes
+                });
+            }
+
             toast.success('Notes updated successfully');
             setIsEditingNotes(false); // Exit edit mode after successful update
         } catch (error: any) {
@@ -698,9 +708,20 @@ export default function DealDetailsPage() {
                                                         className="text-xs font-medium text-gray-500 uppercase tracking-wide">Deal
                                                         Type</label>
                                                     <div>
-                                                        <Badge variant="secondary" className="capitalize font-medium">
-                                                            {deal.campaign?.deal_type || "N/A"}
-                                                        </Badge>
+                                                        {(() => {
+                                                            const dealType = deal.campaign?.deal_type;
+                                                            const config = getDealTypeConfig(dealType || '');
+                                                            return (
+                                                                <div
+                                                                    className={`inline-flex items-center gap-2 px-3 py-1 rounded-lg border ${config.bg} ${config.border}`}>
+                                                                    <span className="text-sm">{config.icon}</span>
+                                                                    <span
+                                                                        className={`text-sm font-medium ${config.color}`}>
+                                                                        {config.label}
+                                                                    </span>
+                                                                </div>
+                                                            );
+                                                        })()}
                                                     </div>
                                                 </div>
                                                 <div className="space-y-2">
@@ -812,14 +833,24 @@ export default function DealDetailsPage() {
                                                         Platforms</label>
                                                     <div className="flex flex-wrap gap-2">
                                                         {deal.campaign?.platforms_required?.length > 0 ? (
-                                                            deal.campaign.platforms_required.map((platform: string) => (
-                                                                <Badge key={platform} variant="outline"
-                                                                       className="text-xs capitalize bg-white border-purple-300 text-purple-700">
-                                                                    {platform}
-                                                                </Badge>
-                                                            ))
+                                                            deal.campaign.platforms_required.map((platform: string) => {
+                                                                const config = getPlatformConfig(platform);
+                                                                const Icon = config?.icon;
+                                                                return (
+                                                                    <div key={platform}
+                                                                         className={`px-3 py-2 rounded-lg border text-sm flex items-center gap-2 shadow-sm ${config ? config.bg + ' ' + config.border : 'bg-gray-50 border-gray-200'}`}>
+                                                                        {Icon && <Icon
+                                                                            className={`w-4 h-4 ${config?.color}`}/>}
+                                                                        <span
+                                                                            className="capitalize font-medium">{platform}</span>
+                                                                    </div>
+                                                                );
+                                                            })
                                                         ) : (
-                                                            <span className="text-sm text-gray-500 italic">No specific platforms required</span>
+                                                            <div
+                                                                className="bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 flex items-center gap-2 shadow-sm">
+                                                                <span className="text-sm text-gray-500">No specific platforms required</span>
+                                                            </div>
                                                         )}
                                                     </div>
                                                 </div>
@@ -970,6 +1001,57 @@ export default function DealDetailsPage() {
                                                                 <p><strong>Brand Review:</strong> {deal.brand_review}
                                                                 </p>
                                                             )}
+                                                        </div>
+                                                    </div>
+                                                )}
+
+                                                {/* General Deal Information - Always Visible */}
+                                                <div className="bg-gray-50 p-3 rounded-lg border border-gray-200">
+                                                    <h5 className="font-medium text-gray-900 mb-2 flex items-center gap-2">
+                                                        <HiInformationCircle className="w-4 h-4"/>
+                                                        Deal Timeline
+                                                    </h5>
+                                                    <div className="text-sm text-gray-700 space-y-1">
+                                                        <p>
+                                                            <strong>Invited:</strong> {new Date(deal.invited_at).toLocaleDateString()}
+                                                        </p>
+                                                        {deal.responded_at && (
+                                                            <p>
+                                                                <strong>Responded:</strong> {new Date(deal.responded_at).toLocaleDateString()}
+                                                            </p>
+                                                        )}
+                                                        {deal.accepted_at && (
+                                                            <p>
+                                                                <strong>Accepted:</strong> {new Date(deal.accepted_at).toLocaleDateString()}
+                                                            </p>
+                                                        )}
+                                                        {deal.shortlisted_at && (
+                                                            <p>
+                                                                <strong>Shortlisted:</strong> {new Date(deal.shortlisted_at).toLocaleDateString()}
+                                                            </p>
+                                                        )}
+                                                        {deal.content_submitted_at && (
+                                                            <p><strong>Content
+                                                                Submitted:</strong> {new Date(deal.content_submitted_at).toLocaleDateString()}
+                                                            </p>
+                                                        )}
+                                                        {deal.completed_at && (
+                                                            <p>
+                                                                <strong>Completed:</strong> {new Date(deal.completed_at).toLocaleDateString()}
+                                                            </p>
+                                                        )}
+                                                    </div>
+                                                </div>
+
+                                                {/* Deal Notes - Always Visible */}
+                                                {deal.notes && (
+                                                    <div className="bg-blue-50 p-3 rounded-lg border border-blue-200">
+                                                        <h5 className="font-medium text-blue-900 mb-2 flex items-center gap-2">
+                                                            <HiDocumentText className="w-4 h-4"/>
+                                                            Deal Notes
+                                                        </h5>
+                                                        <div className="text-sm text-blue-800">
+                                                            <p>{deal.notes}</p>
                                                         </div>
                                                     </div>
                                                 )}
@@ -1905,8 +1987,11 @@ export default function DealDetailsPage() {
                                                     className={`w-8 h-8 rounded-full flex items-center justify-center border-2 ${
                                                         deal.status === 'invited' ? 'border-blue-500 bg-blue-50' : 'border-gray-300 bg-gray-50'
                                                     }`}>
-                                                    <HiClock
-                                                        className={`w-4 h-4 ${deal.status === 'invited' ? 'text-blue-600' : 'text-gray-400'}`}/>
+                                                    {deal.status === 'invited' ? (
+                                                        <HiClock className="w-4 h-4 text-blue-600"/>
+                                                    ) : (
+                                                        <HiCheckCircle className="w-4 h-4 text-green-600"/>
+                                                    )}
                                                 </div>
                                                 <div className="flex-1">
                                                     <div className="flex items-center justify-between">
