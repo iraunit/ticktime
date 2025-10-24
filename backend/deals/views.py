@@ -16,12 +16,9 @@ from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from influencers.models import InfluencerProfile, SocialMediaAccount
 from messaging.models import Conversation, Message
-from messaging.models import Message, Conversation
-from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import IsAuthenticated
-from rest_framework.response import Response
 
 from .models import Deal
 from .serializers import (
@@ -202,14 +199,13 @@ def deal_action_view(request, deal_id):
 
         # Return updated deal information
         updated_deal = DealDetailSerializer(deal, context={'request': request})
-        return Response({
-            'status': 'success',
+        return api_response(True, {
             'message': message,
             'deal': updated_deal.data
-        }, status=status.HTTP_200_OK)
+        })
 
-        return api_response(False, error=f'Invalid action data. {format_serializer_errors(serializer.errors)}',
-                            status_code=400)
+    return api_response(False, error=f'Invalid action data. {format_serializer_errors(serializer.errors)}',
+                        status_code=400)
 
 
 @api_view(['GET'])
@@ -283,12 +279,11 @@ def deal_timeline_view(request, deal_id):
 
     serializer = DealTimelineSerializer(timeline_events, many=True)
 
-    return Response({
-        'status': 'success',
+    return api_response(True, {
         'timeline': serializer.data,
         'current_status': current_status,
         'current_status_display': deal.get_status_display()
-    }, status=status.HTTP_200_OK)
+    })
 
 
 @api_view(['GET'])
@@ -311,10 +306,7 @@ def recent_deals_view(request):
 
     serializer = DealListSerializer(recent_deals, many=True, context={'request': request})
 
-    return Response({
-        'status': 'success',
-        'recent_deals': serializer.data
-    }, status=status.HTTP_200_OK)
+    return api_response(True, {'recent_deals': serializer.data})
 
 
 @api_view(['GET'])
@@ -368,16 +360,15 @@ def collaboration_history_view(request):
         serializer = CollaborationHistorySerializer(page, many=True)
         paginated_response = paginator.get_paginated_response(serializer.data)
         # Add status to the paginated response
-        paginated_response.data['status'] = 'success'
+        paginated_response.data['success'] = True
         paginated_response.data['collaborations'] = paginated_response.data.pop('results')
         return paginated_response
 
     serializer = CollaborationHistorySerializer(queryset, many=True)
-    return Response({
-        'status': 'success',
+    return api_response(True, {
         'collaborations': serializer.data,
         'total_count': queryset.count()
-    }, status=status.HTTP_200_OK)
+    })
 
 
 @api_view(['GET'])
@@ -447,10 +438,7 @@ def earnings_tracking_view(request):
         'recent_payments': EarningsPaymentSerializer(recent_payments, many=True).data
     }
 
-    return Response({
-        'status': 'success',
-        'earnings': earnings_data
-    }, status=status.HTTP_200_OK)
+    return api_response(True, {'earnings': earnings_data})
 
 
 @api_view(['GET', 'POST'])
@@ -468,10 +456,7 @@ def deal_messages_view(request, deal_id):
     is_influencer = hasattr(request.user, 'influencer_profile') and request.user.influencer_profile == deal.influencer
 
     if not (is_brand_user or is_influencer):
-        return Response({
-            'status': 'error',
-            'message': 'You do not have permission to access this deal\'s messages.'
-        }, status=status.HTTP_403_FORBIDDEN)
+        return api_response(False, error='You do not have permission to access this deal\'s messages.', status_code=403)
 
     # Get or create conversation for this deal
     conversation, created = Conversation.objects.get_or_create(deal=deal)
@@ -488,8 +473,7 @@ def deal_messages_view(request, deal_id):
 
         serialized_messages = MessageSerializer(messages, many=True).data
 
-        return Response({
-            'status': 'success',
+        return api_response(True, {
             'messages': serialized_messages,
             'conversation_id': conversation.id,
             'deal_title': deal.campaign.title,
@@ -502,16 +486,13 @@ def deal_messages_view(request, deal_id):
                 sender_type='brand' if is_influencer else 'influencer',
                 **({'read_by_influencer': False} if is_influencer else {'read_by_brand': False})
             ).count()
-        }, status=status.HTTP_200_OK)
+        })
 
     elif request.method == 'POST':
         # Send a new message
         content = request.data.get('content', '').strip()
         if not content:
-            return Response({
-                'status': 'error',
-                'message': 'Message content is required.'
-            }, status=status.HTTP_400_BAD_REQUEST)
+            return api_response(False, error='Message content is required.', status_code=400)
 
         # Determine sender type
         sender_type = 'brand' if is_brand_user else 'influencer'
@@ -529,11 +510,10 @@ def deal_messages_view(request, deal_id):
         # Serialize the message
         serialized_message = MessageSerializer(message).data
 
-        return Response({
-            'status': 'success',
+        return api_response(True, {
             'message_data': serialized_message,
             'conversation_id': conversation.id
-        }, status=status.HTTP_201_CREATED)
+        }, status_code=201)
 
 
 @api_view(['POST', 'GET'])  # Add GET for debugging
@@ -544,12 +524,11 @@ def submit_address_view(request, deal_id):
     """
     # Debug endpoint - return simple response for GET requests
     if request.method == 'GET':
-        return Response({
-            'status': 'success',
+        return api_response(True, {
             'message': f'Address endpoint is working for deal {deal_id}',
             'method': 'GET',
             'user': str(request.user) if request.user.is_authenticated else 'Anonymous'
-        }, status=status.HTTP_200_OK)
+        })
 
     try:
         profile = request.user.influencer_profile
@@ -566,17 +545,15 @@ def submit_address_view(request, deal_id):
     # More permissive status validation for better user experience
     allowed_statuses = ['invited', 'pending', 'accepted', 'shortlisted', 'address_requested', 'active']
     if deal.status not in allowed_statuses:
-        return Response({
-            'status': 'error',
-            'message': f'Address can only be submitted when deal status is one of: {", ".join(allowed_statuses)}. Current status: {deal.status}'
-        }, status=status.HTTP_400_BAD_REQUEST)
+        return api_response(False,
+                            error=f'Address can only be submitted when deal status is one of: {", ".join(allowed_statuses)}. Current status: {deal.status}',
+                            status_code=400)
 
     # Check if deal type requires shipping (more permissive for testing)
     if deal.campaign.deal_type not in ['product', 'hybrid', 'cash']:
-        return Response({
-            'status': 'error',
-            'message': f'Address submission is not supported for this deal type ({deal.campaign.deal_type}). Supported types are: product, hybrid, cash.'
-        }, status=status.HTTP_400_BAD_REQUEST)
+        return api_response(False,
+                            error=f'Address submission is not supported for this deal type ({deal.campaign.deal_type}). Supported types are: product, hybrid, cash.',
+                            status_code=400)
 
     # Validate address data
     serializer = AddressSubmissionSerializer(data=request.data)
@@ -601,11 +578,10 @@ def submit_address_view(request, deal_id):
 
         # Return updated deal information
         updated_deal = DealDetailSerializer(deal, context={'request': request})
-        return Response({
-            'status': 'success',
+        return api_response(True, {
             'message': 'Address submitted successfully.',
             'deal': updated_deal.data
-        }, status=status.HTTP_200_OK)
+        })
 
     # Flatten errors for toast display
     error_messages = []
@@ -615,10 +591,7 @@ def submit_address_view(request, deal_id):
 
     error_string = " ".join(error_messages)
 
-    return Response({
-        'status': 'error',
-        'message': error_string if error_string else 'Invalid data submitted.',
-    }, status=status.HTTP_400_BAD_REQUEST)
+    return api_response(False, error=error_string if error_string else 'Invalid data submitted.', status_code=400)
 
 
 @api_view(['POST'])
@@ -636,10 +609,7 @@ def update_deal_status_view(request, deal_id):
         from brands.models import BrandUser
         brand_user = BrandUser.objects.get(user=request.user)
     except BrandUser.DoesNotExist:
-        return Response({
-            'status': 'error',
-            'message': 'Brand user profile not found.'
-        }, status=status.HTTP_404_NOT_FOUND)
+        return api_response(False, error='Brand user profile not found.', status_code=404)
 
     # Get deal and verify brand owns it
     deal = get_object_or_404(
@@ -651,11 +621,7 @@ def update_deal_status_view(request, deal_id):
     # Validate the request data
     serializer = DealStatusUpdateSerializer(data=request.data)
     if not serializer.is_valid():
-        return Response({
-            'status': 'error',
-            'message': 'Invalid data provided.',
-            'errors': serializer.errors
-        }, status=status.HTTP_400_BAD_REQUEST)
+        return api_response(False, error='Invalid data provided.', status_code=400)
 
     # Get the validated data
     new_status = serializer.validated_data['status']
@@ -678,10 +644,7 @@ def update_deal_status_view(request, deal_id):
     }
 
     if new_status not in valid_transitions.get(deal.status, []):
-        return Response({
-            'status': 'error',
-            'message': f'Cannot transition from {deal.status} to {new_status}'
-        }, status=status.HTTP_400_BAD_REQUEST)
+        return api_response(False, error=f'Cannot transition from {deal.status} to {new_status}', status_code=400)
 
     # Update deal with new status and additional information
     deal.set_status_with_timestamp(new_status)
@@ -699,11 +662,10 @@ def update_deal_status_view(request, deal_id):
 
     # Return updated deal information
     updated_deal = DealDetailSerializer(deal, context={'request': request})
-    return Response({
-        'status': 'success',
+    return api_response(True, {
         'message': f'Deal status updated to {new_status}',
         'deal': updated_deal.data
-    }, status=status.HTTP_200_OK)
+    })
 
 
 @api_view(['GET'])
@@ -723,17 +685,13 @@ def last_deal_view(request):
     ).select_related('campaign__brand').order_by('-invited_at').first()
 
     if not last_deal:
-        return Response({
-            'status': 'success',
+        return api_response(True, {
             'message': 'No deals found for this influencer.',
             'last_deal': None
-        }, status=status.HTTP_200_OK)
+        })
 
     serializer = DealDetailSerializer(last_deal, context={'request': request})
-    return Response({
-        'status': 'success',
-        'last_deal': serializer.data
-    }, status=status.HTTP_200_OK)
+    return api_response(True, {'last_deal': serializer.data})
 
 
 @api_view(['POST'])
@@ -755,10 +713,9 @@ def submit_content_placeholder(request, deal_id):
 
     # Check if deal allows content submission
     if deal.status not in ['product_delivered', 'active', 'accepted', 'revision_requested']:
-        return Response({
-            'status': 'error',
-            'message': f'Content cannot be submitted for this deal in its current status: {deal.get_status_display()}.'
-        }, status=status.HTTP_400_BAD_REQUEST)
+        return api_response(False,
+                            error=f'Content cannot be submitted for this deal in its current status: {deal.get_status_display()}.',
+                            status_code=400)
 
     # Add deal to the data
     data = request.data.copy()
@@ -780,17 +737,12 @@ def submit_content_placeholder(request, deal_id):
         from content.views import _create_content_notification
         _create_content_notification(deal, submission, 'submitted')
 
-        return Response({
-            'status': 'success',
+        return api_response(True, {
             'message': 'Content submitted successfully.',
             'submission': ContentSubmissionSerializer(submission).data
-        }, status=status.HTTP_201_CREATED)
+        }, status_code=201)
 
-    return Response({
-        'status': 'error',
-        'message': 'Invalid submission data.',
-        'errors': serializer.errors
-    }, status=status.HTTP_400_BAD_REQUEST)
+    return api_response(False, error='Invalid submission data.', status_code=400)
 
 
 @api_view(['GET'])
@@ -817,8 +769,7 @@ def content_submissions_placeholder(request, deal_id):
     from content.serializers import ContentSubmissionSerializer
     serializer = ContentSubmissionSerializer(submissions, many=True)
 
-    return Response({
-        'status': 'success',
+    return api_response(True, {
         'submissions': serializer.data,
         'total_count': submissions.count()
-    }, status=status.HTTP_200_OK)
+    })

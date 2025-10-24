@@ -264,10 +264,13 @@ export function useDealMutations() {
         },
         onSuccess: (data, dealId) => {
             console.log('useDealMutations: acceptDeal API call successful for deal:', dealId, 'Response:', data);
-            // Invalidate relevant queries to refresh data
-            queryClient.invalidateQueries({queryKey: ['deals']});
-            queryClient.invalidateQueries({queryKey: ['dashboard']});
-            queryClient.invalidateQueries({queryKey: ['deal']});
+            // Optimistically update the deal status
+            queryClient.setQueryData(['dashboard', 'recentDeals'], (old: any[]) => {
+                if (!old) return old;
+                return old.map((deal: any) =>
+                    deal.id === dealId ? {...deal, status: 'accepted'} : deal
+                );
+            });
         },
         onError: (err, dealId) => {
             console.error('useDealMutations: acceptDeal API call failed for deal:', dealId, 'Error:', err);
@@ -281,10 +284,13 @@ export function useDealMutations() {
         },
         onSuccess: (data, {id: dealId}) => {
             console.log('useDealMutations: rejectDeal API call successful for deal:', dealId, 'Response:', data);
-            // Invalidate relevant queries to refresh data
-            queryClient.invalidateQueries({queryKey: ['deals']});
-            queryClient.invalidateQueries({queryKey: ['dashboard']});
-            queryClient.invalidateQueries({queryKey: ['deal']});
+            // Optimistically update the deal status
+            queryClient.setQueryData(['dashboard', 'recentDeals'], (old: any[]) => {
+                if (!old) return old;
+                return old.map((deal: any) =>
+                    deal.id === dealId ? {...deal, status: 'rejected'} : deal
+                );
+            });
         },
         onError: (err, {id: dealId}) => {
             console.error('useDealMutations: rejectDeal API call failed for deal:', dealId, 'Error:', err);

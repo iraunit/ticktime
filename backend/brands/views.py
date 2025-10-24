@@ -322,8 +322,7 @@ def brand_campaigns_view(request):
     from campaigns.serializers import CampaignListSerializer
     serializer = CampaignListSerializer(campaigns_page, many=True)
 
-    return Response({
-        'status': 'success',
+    return api_response(True, {
         'campaigns': serializer.data,
         'pagination': {
             'current_page': page,
@@ -514,8 +513,7 @@ def brand_deals_by_campaigns_view(request):
             'deals': deals_serializer.data
         })
 
-    return Response({
-        'status': 'success',
+    return api_response(True, {
         'campaigns': campaigns_data,
         'pagination': {
             'current_page': page,
@@ -603,8 +601,7 @@ def brand_deals_view(request):
     from deals.serializers import DealListSerializer
     serializer = DealListSerializer(deals_page, many=True)
 
-    return Response({
-        'status': 'success',
+    return api_response(True, {
         'deals': serializer.data,
         'pagination': {
             'current_page': page,
@@ -651,10 +648,7 @@ def update_deal_status_view(request, deal_id):
     deal.save(update_fields=['status'])
 
     from deals.serializers import DealListSerializer
-    return Response({
-        'status': 'success',
-        'deal': DealListSerializer(deal).data
-    })
+    return api_response(True, {'deal': DealListSerializer(deal).data})
 
 
 @api_view(['PATCH'])
@@ -695,8 +689,7 @@ def bulk_update_deals_status_view(request):
 
     qs.update(status=new_status)
 
-    return Response({
-        'status': 'success',
+    return api_response(True, {
         'updated_count': len(affected_ids),
         'updated_ids': affected_ids
     })
@@ -721,26 +714,17 @@ def request_address_view(request, deal_id):
         }, status=status.HTTP_404_NOT_FOUND)
 
     if not deal.requires_product_shipping:
-        return Response({
-            'status': 'error',
-            'message': 'This deal does not require product shipping.'
-        }, status=status.HTTP_400_BAD_REQUEST)
+        return api_response(False, error='This deal does not require product shipping.', status_code=400)
 
     if deal.status != 'shortlisted':
-        return Response({
-            'status': 'error',
-            'message': 'Can only request address for shortlisted deals.'
-        }, status=status.HTTP_400_BAD_REQUEST)
+        return api_response(False, error='Can only request address for shortlisted deals.', status_code=400)
 
     deal.status = 'address_requested'
     deal.address_requested_at = timezone.now()
     deal.save(update_fields=['status', 'address_requested_at'])
 
     from deals.serializers import DealListSerializer
-    return Response({
-        'status': 'success',
-        'deal': DealListSerializer(deal).data
-    })
+    return api_response(True, {'deal': DealListSerializer(deal).data})
 
 
 @api_view(['PATCH'])
