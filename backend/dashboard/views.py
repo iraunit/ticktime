@@ -17,7 +17,6 @@ from .serializers import DashboardStatsSerializer
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
-@cache_response(timeout=300, vary_on_user=True)  # 5 minute cache
 @log_performance(threshold=1.0)
 def dashboard_stats_view(request):
     """

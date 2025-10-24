@@ -6,17 +6,19 @@ import {RecentDeals} from "@/components/dashboard/recent-deals";
 import {NotificationCenter} from "@/components/dashboard/notification-center";
 import {QuickActions} from "@/components/dashboard/quick-actions";
 import {useDashboard, useNotifications} from "@/hooks/use-dashboard";
-import {useDeals} from "@/hooks/use-deals";
+import {useDealMutations} from "@/hooks/use-deals";
 import {Button} from "@/components/ui/button";
 import {HiArrowPath, HiHandRaised} from "react-icons/hi2";
 import {toast} from "@/lib/toast";
 import {useUserContext} from "@/components/providers/app-providers";
+import {useQueryClient} from "@tanstack/react-query";
 
 export default function InfluencerDashboardPage() {
     const {user} = useUserContext();
     const {stats, recentDeals} = useDashboard();
     const {notifications} = useNotifications();
-    const {acceptDeal, rejectDeal} = useDeals();
+    const {acceptDeal, rejectDeal} = useDealMutations();
+    const queryClient = useQueryClient();
 
     // Auto-refresh functionality only when authenticated (user present)
     useEffect(() => {
@@ -32,6 +34,12 @@ export default function InfluencerDashboardPage() {
     }, [stats, recentDeals, notifications, user]);
 
     const handleRefresh = () => {
+        // Clear all dashboard-related queries
+        queryClient.removeQueries({queryKey: ['dashboard']});
+        queryClient.removeQueries({queryKey: ['deals']});
+        queryClient.removeQueries({queryKey: ['notifications']});
+
+        // Force refetch
         stats.refetch();
         recentDeals.refetch();
         notifications.refetch();
@@ -69,7 +77,7 @@ export default function InfluencerDashboardPage() {
         try {
             await acceptDeal.mutateAsync(dealId);
             toast.success("Deal accepted successfully!");
-        } catch {
+        } catch (error) {
             toast.error("Failed to accept deal. Please try again.");
         }
     };

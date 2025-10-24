@@ -201,7 +201,9 @@ def deal_action_view(request, deal_id):
         updated_deal = DealDetailSerializer(deal, context={'request': request})
         return api_response(True, {
             'message': message,
-            'deal': updated_deal.data
+            'deal': updated_deal.data,
+            'timestamp': timezone.now().isoformat(),
+            'deal_status': deal.status
         })
 
     return api_response(False, error=f'Invalid action data. {format_serializer_errors(serializer.errors)}',
@@ -288,7 +290,6 @@ def deal_timeline_view(request, deal_id):
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
-@cache_response(timeout=180, vary_on_user=True)  # 3 minute cache
 @log_performance(threshold=0.5)
 def recent_deals_view(request):
     """
@@ -306,7 +307,11 @@ def recent_deals_view(request):
 
     serializer = DealListSerializer(recent_deals, many=True, context={'request': request})
 
-    return api_response(True, {'recent_deals': serializer.data})
+    return api_response(True, {
+        'recent_deals': serializer.data,
+        'timestamp': timezone.now().isoformat(),
+        'count': len(serializer.data)
+    })
 
 
 @api_view(['GET'])

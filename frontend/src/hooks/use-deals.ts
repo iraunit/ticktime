@@ -259,18 +259,39 @@ export function useDealMutations() {
 
     const acceptDealMutation = useMutation({
         mutationFn: (id: number) => {
-            console.log('useDealMutations: Calling acceptDeal API for deal:', id);
             return dealsApi.acceptDeal(id);
         },
         onSuccess: (data, dealId) => {
-            console.log('useDealMutations: acceptDeal API call successful for deal:', dealId, 'Response:', data);
-            // Optimistically update the deal status
-            queryClient.setQueryData(['dashboard', 'recentDeals'], (old: any[]) => {
-                if (!old) return old;
-                return old.map((deal: any) =>
-                    deal.id === dealId ? {...deal, status: 'accepted'} : deal
-                );
-            });
+            try {
+                // First, update the query data with the fresh data from the API
+                queryClient.setQueryData(['dashboard', 'recentDeals'], (old: any) => {
+                    if (!old) return old;
+
+                    // Handle different data structures
+                    if (Array.isArray(old)) {
+                        return old.map((deal: any) =>
+                            deal.id === dealId ? {...deal, status: 'accepted', ...data.deal} : deal
+                        );
+                    } else if (old && typeof old === 'object' && old.recent_deals && Array.isArray(old.recent_deals)) {
+                        // Handle case where data is wrapped in an object
+                        return {
+                            ...old,
+                            recent_deals: old.recent_deals.map((deal: any) =>
+                                deal.id === dealId ? {...deal, status: 'accepted', ...data.deal} : deal
+                            )
+                        };
+                    }
+
+                    return old;
+                });
+
+                // Invalidate specific queries to ensure fresh data on next load
+                queryClient.invalidateQueries({queryKey: ['dashboard', 'recentDeals']});
+                queryClient.invalidateQueries({queryKey: ['deals']});
+
+            } catch (error) {
+                console.error('useDealMutations: Error updating query data:', error);
+            }
         },
         onError: (err, dealId) => {
             console.error('useDealMutations: acceptDeal API call failed for deal:', dealId, 'Error:', err);
@@ -284,13 +305,31 @@ export function useDealMutations() {
         },
         onSuccess: (data, {id: dealId}) => {
             console.log('useDealMutations: rejectDeal API call successful for deal:', dealId, 'Response:', data);
-            // Optimistically update the deal status
-            queryClient.setQueryData(['dashboard', 'recentDeals'], (old: any[]) => {
+            // Update the query data with the fresh data from the API
+            queryClient.setQueryData(['dashboard', 'recentDeals'], (old: any) => {
                 if (!old) return old;
-                return old.map((deal: any) =>
-                    deal.id === dealId ? {...deal, status: 'rejected'} : deal
-                );
+
+                // Handle different data structures
+                if (Array.isArray(old)) {
+                    return old.map((deal: any) =>
+                        deal.id === dealId ? {...deal, status: 'rejected', ...data.deal} : deal
+                    );
+                } else if (old && typeof old === 'object' && old.recent_deals && Array.isArray(old.recent_deals)) {
+                    // Handle case where data is wrapped in an object
+                    return {
+                        ...old,
+                        recent_deals: old.recent_deals.map((deal: any) =>
+                            deal.id === dealId ? {...deal, status: 'rejected', ...data.deal} : deal
+                        )
+                    };
+                }
+
+                return old;
             });
+
+            // Invalidate specific queries to ensure fresh data on next load
+            queryClient.invalidateQueries({queryKey: ['dashboard', 'recentDeals']});
+            queryClient.invalidateQueries({queryKey: ['deals']});
         },
         onError: (err, {id: dealId}) => {
             console.error('useDealMutations: rejectDeal API call failed for deal:', dealId, 'Error:', err);
