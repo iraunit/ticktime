@@ -7,7 +7,7 @@ class ContentReviewHistorySerializer(serializers.ModelSerializer):
     """
     Serializer for content review history tracking.
     """
-    reviewed_by_username = serializers.CharField(source='reviewed_by.username', read_only=True)
+    reviewed_by_username = serializers.SerializerMethodField()
     action_display = serializers.CharField(source='get_action_display', read_only=True)
 
     class Meta:
@@ -17,6 +17,19 @@ class ContentReviewHistorySerializer(serializers.ModelSerializer):
             'reviewed_at', 'reviewed_by_username'
         )
         read_only_fields = fields
+
+    def get_reviewed_by_username(self, obj):
+        """Return a user-friendly display name for the reviewer."""
+        user = obj.reviewed_by
+        if user.first_name and user.last_name:
+            return f"{user.first_name} {user.last_name}"
+        elif user.first_name:
+            return user.first_name
+        else:
+            username = user.username
+            if '@' in username:
+                return username.split('@')[0]
+            return username
 
 
 class ContentSubmissionSerializer(serializers.ModelSerializer):

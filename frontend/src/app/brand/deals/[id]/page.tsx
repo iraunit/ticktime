@@ -149,7 +149,6 @@ export default function DealDetailsPage() {
             // Use the dedicated deal detail endpoint
             const response = await api.get(`/brands/deals/${dealId}/`);
             const dealData = response.data.deal;
-            console.log('Deal data received:', dealData); // Debug log
             setDeal(dealData);
             setNotes(dealData.notes || "");
         } catch (error: any) {
@@ -178,14 +177,12 @@ export default function DealDetailsPage() {
                 feedback,
                 revision_notes: revisionNotes,
             });
-
             // Refresh data
             await Promise.all([fetchDeal(), fetchContentSubmissions()]);
-
             toast.success(`Content ${action.replace('_', ' ')}d successfully`);
         } catch (error: any) {
             console.error('Failed to review content:', error);
-            throw error; // Re-throw to let ContentReview component handle
+            throw error;
         }
     };
 
@@ -310,12 +307,11 @@ export default function DealDetailsPage() {
         }
     }, [dealId, fetchDeal, fetchContentSubmissions]);
 
-    // Auto-switch to content tab when content is submitted
     useEffect(() => {
         if (deal && ['content_submitted', 'under_review'].includes(deal.status) && contentSubmissions.length > 0 && activeTab === 'overview') {
             setActiveTab('content');
         }
-    }, [deal, contentSubmissions.length, activeTab]);
+    }, [deal?.status, contentSubmissions.length]);
 
     const formatCurrency = (amount: number) => {
         return new Intl.NumberFormat("en-IN", {

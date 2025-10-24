@@ -175,6 +175,17 @@ export function handleApiError(error: unknown): string {
     return 'An unexpected error occurred. Please try again.';
 }
 
+export function getFieldErrors(error: unknown): Record<string, string[]> {
+    if (error && typeof error === 'object' && 'response' in error) {
+        const axiosError = error as any;
+        const responseData = axiosError.response?.data;
+        if (responseData && responseData.details && responseData.details.field_errors) {
+            return responseData.details.field_errors;
+        }
+    }
+    return {};
+}
+
 export function getNetworkStatus() {
     if (typeof window === 'undefined') {
         return {isOnline: true, isSlowConnection: false};

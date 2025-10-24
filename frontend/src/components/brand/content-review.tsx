@@ -62,6 +62,16 @@ interface BrandDeal {
     notes?: string;
 }
 
+interface ReviewHistory {
+    id: number;
+    action: string;
+    action_display: string;
+    feedback: string;
+    revision_notes: string;
+    reviewed_at: string;
+    reviewed_by_username: string;
+}
+
 interface ContentSubmission {
     id: number;
     platform: string;
@@ -82,6 +92,7 @@ interface ContentSubmission {
     revision_notes?: string;
     review_count: number;
     status_display: string;
+    review_history?: ReviewHistory[];
 }
 
 interface ContentReviewProps {
@@ -376,6 +387,69 @@ export function ContentReview({deal, submissions, onReview, isLoading}: ContentR
                                                 <p className="text-sm text-yellow-800">{submission.revision_notes}</p>
                                             </div>
                                         )}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Review History */}
+                            {submission.review_history && submission.review_history.length > 0 && (
+                                <div className="border-t pt-4">
+                                    <h4 className="font-medium text-sm text-gray-900 mb-2">Review History</h4>
+                                    <div className="space-y-2 max-h-32 overflow-y-auto">
+                                        {submission.review_history.map((review, index) => (
+                                            <div
+                                                key={review.id}
+                                                className={`p-3 rounded-lg border ${
+                                                    review.action === 'approve'
+                                                        ? 'bg-green-50 border-green-200'
+                                                        : review.action === 'reject'
+                                                            ? 'bg-red-50 border-red-200'
+                                                            : 'bg-orange-50 border-orange-200'
+                                                }`}
+                                            >
+                                                <div className="flex items-center justify-between mb-1">
+                                                    <div className="flex items-center space-x-2">
+                                                        <Badge
+                                                            variant={
+                                                                review.action === 'approve'
+                                                                    ? 'secondary'
+                                                                    : review.action === 'reject'
+                                                                        ? 'destructive'
+                                                                        : 'outline'
+                                                            }
+                                                            className={`text-xs ${
+                                                                review.action === 'approve'
+                                                                    ? 'bg-green-100 text-green-800 border-green-200'
+                                                                    : review.action === 'reject'
+                                                                        ? ''
+                                                                        : 'bg-orange-100 text-orange-800 border-orange-200'
+                                                            }`}
+                                                        >
+                                                            {review.action_display}
+                                                        </Badge>
+                                                        <span className="text-xs text-gray-500">
+                                                             by {review.reviewed_by_username}
+                                                         </span>
+                                                    </div>
+                                                    <span className="text-xs text-gray-400">
+                                                         {new Date(review.reviewed_at).toLocaleDateString("en-US", {
+                                                             month: "short",
+                                                             day: "numeric",
+                                                             hour: "2-digit",
+                                                             minute: "2-digit",
+                                                         })}
+                                                     </span>
+                                                </div>
+                                                {review.feedback && (
+                                                    <p className="text-xs text-gray-700 mt-1">{review.feedback}</p>
+                                                )}
+                                                {review.revision_notes && (
+                                                    <p className="text-xs text-gray-600 mt-1 italic">
+                                                        Revision: {review.revision_notes}
+                                                    </p>
+                                                )}
+                                            </div>
+                                        ))}
                                     </div>
                                 </div>
                             )}
