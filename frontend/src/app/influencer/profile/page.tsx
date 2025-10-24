@@ -7,7 +7,6 @@ import {DocumentUpload} from '@/components/profile/document-upload';
 import {DemographicsForm} from '@/components/profile/demographics-form';
 import {CampaignReadinessForm} from '@/components/profile/campaign-readiness-form';
 import {BankDetailsForm} from '@/components/profile/bank-details-form';
-import {RatingsTransparency} from '@/components/profile/ratings-transparency';
 import {VerificationStatus} from '@/components/profile/verification-status';
 import {useProfile, useSocialAccounts} from '@/hooks/use-profile';
 import {RequireAuth} from '@/components/auth/require-auth';
@@ -120,14 +119,6 @@ export default function ProfilePage() {
                 color: 'green'
             },
             {
-                id: 'ratings',
-                label: 'Performance',
-                completed: !!(p.avg_rating || p.collaboration_count > 0),
-                actionText: 'View',
-                icon: HiChartBar,
-                color: 'rose'
-            },
-            {
                 id: 'verification',
                 label: 'Verification Status',
                 completed: p.profile_verified,
@@ -179,8 +170,6 @@ export default function ProfilePage() {
                 return <BankDetailsForm profile={profile.data || undefined}/>;
             case 'documents':
                 return <DocumentUpload profile={profile.data || undefined}/>;
-            case 'ratings':
-                return <RatingsTransparency profile={profile.data || undefined}/>;
             case 'verification':
                 return <VerificationStatus profile={profile.data || undefined}/>;
             default:
@@ -411,7 +400,6 @@ export default function ProfilePage() {
                                                     {activeSection === 'campaign' && 'Configure your campaign readiness and collaboration preferences'}
                                                     {activeSection === 'bank' && 'Add your bank details for secure payments'}
                                                     {activeSection === 'documents' && 'Complete verification to build trust with brands'}
-                                                    {activeSection === 'ratings' && 'View your performance metrics and transparency indicators'}
                                                 </p>
                                             </div>
                                         </div>
