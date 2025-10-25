@@ -1071,7 +1071,7 @@ export default function InfluencerSearchPage() {
                                             <div className="flex items-center gap-1">
                                                 <HiStar className="w-3 h-3 text-yellow-500 fill-current"/>
                                                 <span className="font-medium text-gray-900 text-sm">
-                            {influencer.score || (typeof influencer.avg_rating === 'number' ? influencer.avg_rating.toFixed(1) : "N/A")}
+                            {typeof influencer.avg_rating === 'number' && influencer.avg_rating > 0 ? influencer.avg_rating.toFixed(1) : "0.0"}
                           </span>
                                             </div>
                                         </td>

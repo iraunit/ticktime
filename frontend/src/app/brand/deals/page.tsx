@@ -41,6 +41,7 @@ interface Deal {
         id: number;
         title: string;
         brand_name: string;
+        deal_type?: string;
     };
     status: 'invited' | 'pending' | 'accepted' | 'active' | 'content_submitted' | 'under_review' | 'revision_requested' | 'approved' | 'completed' | 'rejected' | 'cancelled' | 'dispute';
     status_display?: string;
