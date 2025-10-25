@@ -916,7 +916,8 @@ def brand_deal_detail_view(request, deal_id):
     try:
         deal = Deal.objects.select_related(
             'campaign__brand',
-            'influencer__user'
+            'influencer__user',
+            'influencer__user_profile'
         ).prefetch_related(
             'influencer__social_accounts',
             'content_submissions'
@@ -930,7 +931,7 @@ def brand_deal_detail_view(request, deal_id):
     from deals.serializers import DealDetailSerializer
     return Response({
         'status': 'success',
-        'deal': DealDetailSerializer(deal).data
+        'deal': DealDetailSerializer(deal, context={'request': request}).data
     })
 
 
