@@ -36,6 +36,7 @@ import {platformConfig} from "@/lib/platform-config";
 import {api} from "@/lib/api";
 import {toast} from "@/lib/toast";
 import {GlobalLoader} from "@/components/ui/global-loader";
+import {CampaignSelectionDialog} from "@/components/campaigns/campaign-selection-dialog";
 
 
 interface Influencer {
@@ -452,17 +453,13 @@ export default function InfluencerSearchPage() {
             toast.error('Please select influencers first.');
             return;
         }
-        fetchCampaigns();
         setShowCampaignDialog(true);
-        setCampaignSearchTerm(""); // Clear search when opening
     };
 
     // Open campaign dialog for individual influencer
     const openIndividualCampaignDialog = (influencerId: number) => {
         setIndividualInfluencer(influencerId);
-        fetchCampaigns();
         setShowCampaignDialog(true);
-        setCampaignSearchTerm(""); // Clear search when opening
     };
 
     useEffect(() => {
@@ -1396,205 +1393,22 @@ export default function InfluencerSearchPage() {
                 )}
 
                 {/* Campaign Selection Dialog */}
-                <Dialog open={showCampaignDialog} onOpenChange={(open) => {
-                    setShowCampaignDialog(open);
-                    if (!open) setIndividualInfluencer(null);
-                }}>
-                    <DialogContent className="max-w-lg">
-                        <DialogHeader>
-                            <DialogTitle className="text-xl font-bold text-gray-900">
-                                {individualInfluencer ? 'Add to Campaigns' : (selectedInfluencers.size === 1 ? 'Add to Campaigns' : `Add ${selectedInfluencers.size} Influencers to Campaigns`)}
-                            </DialogTitle>
-                        </DialogHeader>
-                        <div className="space-y-4">
-                            {/* Show which influencer is being added */}
-                            {individualInfluencer && (
-                                <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                                    <p className="text-sm text-blue-800">
-                                        Adding influencer: <span className="font-medium">
-                      {(() => {
-                          const influencer = influencers.find(i => i.id === individualInfluencer);
-                          return influencer ? (influencer.full_name || influencer.username || `ID ${individualInfluencer}`) : `ID ${individualInfluencer}`;
-                      })()}
-                    </span>
-                                    </p>
-                                </div>
-                            )}
-                            {!individualInfluencer && selectedInfluencers.size === 1 && (
-                                <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                                    <p className="text-sm text-blue-800">
-                                        Adding influencer: <span className="font-medium">
-                      {(() => {
-                          const influencerId = Array.from(selectedInfluencers)[0];
-                          const influencer = influencers.find(i => i.id === influencerId);
-                          return influencer ? (influencer.full_name || influencer.username || `ID ${influencerId}`) : `ID ${influencerId}`;
-                      })()}
-                    </span>
-                                    </p>
-                                </div>
-                            )}
-                            <div>
-                                <div className="flex items-center justify-between mb-3">
-                                    <label className="block text-sm font-medium text-gray-700">
-                                        Select Campaigns ({selectedCampaigns.size} selected)
-                                    </label>
-
-                                </div>
-
-                                {/* Always use searchable multi-select */}
-                                <div className="space-y-3">
-                                    <ReactSelect
-                                        options={campaigns
-                                            .sort((a: any, b: any) => {
-                                                // Sort by creation date (most recent first)
-                                                const getDate = (obj: any) => {
-                                                    const dateStr = obj.created_at || obj.created || obj.date_created;
-                                                    if (!dateStr) return new Date(0);
-                                                    const date = new Date(dateStr);
-                                                    return isNaN(date.getTime()) ? new Date(0) : date;
-                                                };
-                                                const dateA = getDate(a);
-                                                const dateB = getDate(b);
-                                                return dateB.getTime() - dateA.getTime();
-                                            })
-                                            .map((c: any) => ({
-                                                value: c.id.toString(),
-                                                label: `${c.title}${(() => {
-                                                    const dateStr = c.created_at || c.created || c.date_created;
-                                                    if (!dateStr) return '';
-                                                    const date = new Date(dateStr);
-                                                    return isNaN(date.getTime()) ? '' : ` (${date.toLocaleDateString()})`;
-                                                })()}`,
-                                                meta: c
-                                            }))}
-                                        isMulti
-                                        classNamePrefix="rs"
-                                        placeholder="Search campaigns..."
-                                        value={Array.from(selectedCampaigns).map(id => {
-                                            const c = campaigns.find((x: any) => x.id.toString() === id);
-                                            return c ? {
-                                                value: id,
-                                                label: `${c.title}${(() => {
-                                                    const dateStr = c.created_at || c.created || c.date_created;
-                                                    if (!dateStr) return '';
-                                                    const date = new Date(dateStr);
-                                                    return isNaN(date.getTime()) ? '' : ` (${date.toLocaleDateString()})`;
-                                                })()}`,
-                                                meta: c
-                                            } : {value: id, label: id} as any;
-                                        })}
-                                        onChange={(vals) => {
-                                            const ids = new Set((vals as any[]).map(v => v.value));
-                                            setSelectedCampaigns(ids as Set<string>);
-                                        }}
-                                        styles={{
-                                            control: (base) => ({...base, borderColor: '#e5e7eb', minHeight: 44}),
-                                            multiValue: (base) => ({...base, backgroundColor: '#eef2ff'}),
-                                            multiValueLabel: (base) => ({...base, color: '#4338ca'}),
-                                        }}
-                                        menuPlacement="auto"
-                                        closeMenuOnSelect={false}
-                                        hideSelectedOptions={false}
-                                        isClearable={false}
-                                    />
-                                    {selectedCampaigns.size > 0 && (
-                                        <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                                            <p className="text-sm font-medium text-blue-800 mb-2">
-                                                Selected Campaigns ({selectedCampaigns.size}):
-                                            </p>
-                                            <div className="space-y-1">
-                                                {Array.from(selectedCampaigns).slice(0, 10).map(campaignId => {
-                                                    const campaign = campaigns.find((c: any) => c.id.toString() === campaignId);
-                                                    return campaign ? (
-                                                        <div key={campaignId}
-                                                             className="flex items-center justify-between text-sm">
-                                                            <div className="flex flex-col">
-                                                                <span className="text-blue-700">{campaign.title}</span>
-                                                                {(campaign.created_at || campaign.created || campaign.date_created) && (
-                                                                    <span className="text-xs text-blue-500">
-                                    Created: {(() => {
-                                                                        const dateStr = campaign.created_at || campaign.created || campaign.date_created;
-                                                                        if (!dateStr) return '';
-                                                                        const date = new Date(dateStr);
-                                                                        return isNaN(date.getTime()) ? '' : date.toLocaleDateString();
-                                                                    })()}
-                                  </span>
-                                                                )}
-                                                            </div>
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="sm"
-                                                                onClick={() => handleCampaignSelect(campaignId)}
-                                                                className="h-4 w-4 p-0 text-blue-600 hover:text-blue-800"
-                                                            >
-                                                                <HiX className="w-3 h-3"/>
-                                                            </Button>
-                                                        </div>
-                                                    ) : null;
-                                                })}
-                                                {selectedCampaigns.size > 10 && (
-                                                    <div
-                                                        className="text-xs text-blue-700">and {selectedCampaigns.size - 10} more...</div>
-                                                )}
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-
-                            {selectedInfluencers.size > 1 && (
-                                <div className="text-sm text-gray-600">
-                                    <p>Selected influencers: {selectedInfluencers.size}</p>
-                                    <div className="text-xs text-gray-500 mt-1">
-                                        {(() => {
-                                            const names = Array.from(selectedInfluencers).map(id => {
-                                                const inf = influencers.find(i => i.id === id);
-                                                if (!inf) return '';
-                                                const uname = getDisplayUsername(inf);
-                                                return inf.full_name || uname || `ID ${id}`;
-                                            }).filter(Boolean);
-                                            if (names.length > 10) {
-                                                const head = names.slice(0, 3).join(', ');
-                                                return `${head} and ${names.length - 3} more...`;
-                                            }
-                                            return names.join(', ');
-                                        })()}
-                                    </div>
-                                </div>
-                            )}
-
-                            <div className="flex gap-3 pt-4">
-                                <Button
-                                    variant="outline"
-                                    onClick={() => {
-                                        setShowCampaignDialog(false);
-                                        setIndividualInfluencer(null);
-                                    }}
-                                    className="flex-1"
-                                >
-                                    Cancel
-                                </Button>
-                                <Button
-                                    onClick={handleAddToCampaigns}
-                                    disabled={selectedCampaigns.size === 0 || (!individualInfluencer && selectedInfluencers.size === 0) || isLoadingActions}
-                                    className="flex-1 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white"
-                                >
-                                    {isLoadingActions ? (
-                                        <>
-                                            <HiArrowPath className="w-4 h-4 mr-2 animate-spin"/>
-                                            Adding...
-                                        </>
-                                    ) : (
-                                        <>
-                                            <HiPlus className="w-4 h-4 mr-2"/>
-                                            {individualInfluencer ? 'Add to Campaigns' : (selectedInfluencers.size === 1 ? 'Add to Campaigns' : `Add ${selectedInfluencers.size} Influencers to Campaigns`)}
-                                        </>
-                                    )}
-                                </Button>
-                            </div>
-                        </div>
-                    </DialogContent>
-                </Dialog>
+                <CampaignSelectionDialog
+                    trigger={<div style={{display: 'none'}}/>}
+                    influencerIds={individualInfluencer ? [individualInfluencer] : Array.from(selectedInfluencers)}
+                    title={individualInfluencer ? 'Add to Campaigns' : (selectedInfluencers.size === 1 ? 'Add to Campaigns' : `Add ${selectedInfluencers.size} Influencers to Campaigns`)}
+                    open={showCampaignDialog}
+                    onOpenChange={(open) => {
+                        setShowCampaignDialog(open);
+                        if (!open) setIndividualInfluencer(null);
+                    }}
+                    onSuccess={() => {
+                        setShowCampaignDialog(false);
+                        setIndividualInfluencer(null);
+                        setSelectedInfluencers(new Set());
+                        fetchInfluencers(1, false);
+                    }}
+                />
 
                 {/* Message Dialog */}
                 <Dialog open={showMessageDialog} onOpenChange={setShowMessageDialog}>

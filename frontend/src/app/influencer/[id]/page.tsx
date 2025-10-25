@@ -8,6 +8,7 @@ import {Badge} from "@/components/ui/badge";
 import {GlobalLoader} from "@/components/ui/global-loader";
 import {toast} from "@/lib/toast";
 import {api} from "@/lib/api";
+import {CampaignSelectionDialog} from "@/components/campaigns/campaign-selection-dialog";
 import {
     HiArrowLeft,
     HiArrowTrendingDown,
@@ -33,6 +34,7 @@ import {
     FaTwitter,
     FaYoutube
 } from "react-icons/fa";
+import {getDealTypeConfig} from "@/lib/platform-config";
 
 interface InfluencerProfile {
     id: number;
@@ -54,6 +56,11 @@ interface InfluencerProfile {
     content_keywords: string[];
     hashtags_used: HashtagUsage[];
     performance_metrics: PerformanceMetrics;
+    // Collaboration details
+    collaboration_types?: ('cash' | 'barter' | 'hybrid')[];
+    minimum_collaboration_amount?: number;
+    barter_ready?: boolean;
+    commerce_ready?: boolean;
 }
 
 interface BrandCollaboration {
@@ -148,12 +155,15 @@ export default function InfluencerProfilePage() {
     const [profile, setProfile] = useState<InfluencerProfile | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [isBookmarked, setIsBookmarked] = useState(false);
+    const [isBookmarking, setIsBookmarking] = useState(false);
 
     const fetchProfile = async () => {
         setIsLoading(true);
         setError(null);
         try {
             const response = await api.get(`/influencers/${influencerId}/public/`);
+            console.log('Influencer profile data:', response.data.influencer);
             setProfile(response.data.influencer);
         } catch (error: any) {
             console.error('Failed to fetch influencer profile:', error);
@@ -177,9 +187,48 @@ export default function InfluencerProfilePage() {
         }
     };
 
+    const checkBookmarkStatus = async () => {
+        try {
+            const response = await api.get('/brands/bookmarks/');
+            const bookmarks = response.data.bookmarks || [];
+            const isBookmarked = bookmarks.some((bookmark: any) =>
+                bookmark.influencer.id === parseInt(influencerId)
+            );
+            setIsBookmarked(isBookmarked);
+        } catch (error) {
+            console.error('Failed to check bookmark status:', error);
+        }
+    };
+
+    const handleBookmark = async () => {
+        if (!profile) return;
+
+        setIsBookmarking(true);
+        try {
+            if (isBookmarked) {
+                // Remove bookmark
+                await api.delete(`/brands/influencers/${influencerId}/unbookmark/`);
+                setIsBookmarked(false);
+                toast.success('Influencer removed from bookmarks');
+            } else {
+                // Add bookmark
+                await api.post(`/brands/influencers/${influencerId}/bookmark/`);
+                setIsBookmarked(true);
+                toast.success('Influencer bookmarked successfully');
+            }
+        } catch (error: any) {
+            console.error('Failed to bookmark/unbookmark:', error);
+            toast.error(error.response?.data?.message || 'Failed to update bookmark');
+        } finally {
+            setIsBookmarking(false);
+        }
+    };
+
+
     useEffect(() => {
         if (influencerId) {
             fetchProfile();
+            checkBookmarkStatus();
         }
     }, [influencerId]);
 
@@ -443,6 +492,59 @@ export default function InfluencerProfilePage() {
                                                 <div className="text-xs text-gray-500">Campaigns</div>
                                             </div>
                                         </div>
+
+                                        {/* Collaboration Details */}
+                                        <div className="mt-4 pt-4 border-t border-gray-200">
+                                            <h4 className="text-sm font-medium text-gray-900 mb-3">Collaboration
+                                                Preferences</h4>
+
+                                            {/* Minimum Amount */}
+                                            {profile.minimum_collaboration_amount && profile.minimum_collaboration_amount > 0 && (
+                                                <div className="mb-3">
+                                                    <span className="text-sm text-gray-600">Minimum Amount: </span>
+                                                    <span className="text-sm font-semibold text-gray-900">
+                                                        ₹{profile.minimum_collaboration_amount.toLocaleString()}
+                                                    </span>
+                                                </div>
+                                            )}
+
+                                            {/* Collaboration Types */}
+                                            {profile.collaboration_types && profile.collaboration_types.length > 0 && (
+                                                <div className="mb-3">
+                                                    <span
+                                                        className="text-sm text-gray-600 mb-2 block">Deal Types:</span>
+                                                    <div className="flex gap-2 flex-wrap">
+                                                        {profile.collaboration_types.map((type) => {
+                                                            const config = getDealTypeConfig(type);
+
+                                                            return (
+                                                                <Badge key={type} variant="outline"
+                                                                       className={`text-xs ${config.bg} ${config.color} ${config.border} flex items-center gap-1`}>
+                                                                    <span className="text-sm">{config.icon}</span>
+                                                                    {config.label}
+                                                                </Badge>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {/* Readiness Indicators */}
+                                            <div className="flex gap-2 flex-wrap">
+                                                {profile.barter_ready && (
+                                                    <Badge variant="outline"
+                                                           className="text-xs bg-orange-50 text-orange-700 border-orange-200">
+                                                        Barter Ready
+                                                    </Badge>
+                                                )}
+                                                {profile.commerce_ready && (
+                                                    <Badge variant="outline"
+                                                           className="text-xs bg-blue-50 text-blue-700 border-blue-200">
+                                                        Commerce Ready
+                                                    </Badge>
+                                                )}
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             </CardContent>
@@ -558,18 +660,22 @@ export default function InfluencerProfilePage() {
                                                 <div className="flex items-center gap-3">
                                                     {brand.logo ? (
                                                         <img
-                                                            src={brand.logo}
+                                                            src={brand.logo.startsWith('http') ? brand.logo : `/media/${brand.logo}`}
                                                             alt={brand.name}
                                                             className="w-8 h-8 rounded-full object-cover border border-gray-200"
+                                                            onError={(e) => {
+                                                                const target = e.target as HTMLImageElement;
+                                                                target.style.display = 'none';
+                                                                target.nextElementSibling?.classList.remove('hidden');
+                                                            }}
                                                         />
-                                                    ) : (
-                                                        <div
-                                                            className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center">
-                                                            <span className="text-gray-600 font-medium text-sm">
-                                                                {brand.name.charAt(0)}
-                                                            </span>
-                                                        </div>
-                                                    )}
+                                                    ) : null}
+                                                    <div
+                                                        className={`w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center ${brand.logo ? 'hidden' : ''}`}>
+                                                        <span className="text-gray-600 font-medium text-sm">
+                                                            {brand.name.charAt(0)}
+                                                        </span>
+                                                    </div>
                                                     <div>
                                                         <h4 className="font-medium text-gray-900 text-sm">{brand.name}</h4>
                                                         <p className="text-xs text-gray-500">
@@ -753,24 +859,26 @@ export default function InfluencerProfilePage() {
                                     <Button
                                         variant="outline"
                                         className="w-full"
-                                        onClick={() => {
-                                            toast.success('Influencer bookmarked!');
-                                        }}
+                                        onClick={handleBookmark}
+                                        disabled={isBookmarking}
                                     >
-                                        <HiHeart className="w-4 h-4 mr-2"/>
-                                        Bookmark
+                                        <HiHeart className={`w-4 h-4 mr-2 ${isBookmarked ? 'text-red-500' : ''}`}/>
+                                        {isBookmarked ? 'Remove Bookmark' : 'Bookmark'}
                                     </Button>
 
-                                    <Button
-                                        variant="outline"
-                                        className="w-full"
-                                        onClick={() => {
-                                            toast.info('Campaign invitation feature coming soon!');
-                                        }}
-                                    >
-                                        <HiUsers className="w-4 h-4 mr-2"/>
-                                        Invite to Campaign
-                                    </Button>
+                                    <CampaignSelectionDialog
+                                        trigger={
+                                            <Button
+                                                variant="outline"
+                                                className="w-full"
+                                            >
+                                                <HiUsers className="w-4 h-4 mr-2"/>
+                                                Add to Campaign
+                                            </Button>
+                                        }
+                                        influencerIds={[parseInt(influencerId)]}
+                                        title="Add to Campaign"
+                                    />
                                 </div>
                             </CardContent>
                         </Card>

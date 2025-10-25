@@ -967,7 +967,9 @@ class InfluencerPublicSerializer(serializers.ModelSerializer):
         fields = (
             'id', 'username', 'name', 'profile_image', 'industry', 'is_verified',
             'total_followers', 'average_engagement_rate', 'platforms', 'bio',
-            'categories', 'followers', 'engagement_rate', 'rate_per_post', 'avg_rating', 'location'
+            'categories', 'followers', 'engagement_rate', 'rate_per_post', 'avg_rating', 'location',
+            # Collaboration details
+            'collaboration_types', 'minimum_collaboration_amount', 'barter_ready', 'commerce_ready'
         )
 
     def get_name(self, obj):
@@ -1073,7 +1075,9 @@ class InfluencerPublicProfileSerializer(serializers.ModelSerializer):
             'industry', 'categories', 'profile_image', 'is_verified',
             'total_followers', 'average_engagement_rate', 'social_accounts_count',
             'created_at', 'social_accounts', 'recent_collaborations', 'brand_collaborations',
-            'content_keywords', 'hashtags_used', 'performance_metrics'
+            'content_keywords', 'hashtags_used', 'performance_metrics',
+            # Collaboration details
+            'collaboration_types', 'minimum_collaboration_amount', 'barter_ready', 'commerce_ready'
         )
 
     def get_social_accounts_count(self, obj):
