@@ -1,6 +1,6 @@
 "use client";
 
-import {useMemo, useState} from 'react';
+import React, {useMemo, useState} from 'react';
 import {ProfileForm} from '@/components/profile/profile-form';
 import {SocialAccountsManager} from '@/components/profile/social-accounts-manager';
 import {DocumentUpload} from '@/components/profile/document-upload';
@@ -9,6 +9,7 @@ import {CampaignReadinessForm} from '@/components/profile/campaign-readiness-for
 import {BankDetailsForm} from '@/components/profile/bank-details-form';
 import {VerificationStatus} from '@/components/profile/verification-status';
 import {useProfile, useSocialAccounts} from '@/hooks/use-profile';
+import {useQueryClient} from '@tanstack/react-query';
 import {RequireAuth} from '@/components/auth/require-auth';
 import {Badge} from '@/components/ui/badge';
 import {
@@ -35,6 +36,12 @@ export default function ProfilePage() {
     const [activeSection, setActiveSection] = useState<string>('personal');
     const {profile} = useProfile();
     const {socialAccounts} = useSocialAccounts();
+    const queryClient = useQueryClient();
+
+    // Refresh profile data when component mounts to get latest ratings
+    React.useEffect(() => {
+        queryClient.invalidateQueries({queryKey: ['profile']});
+    }, [queryClient]);
 
     const accountsList = useMemo(() => {
         return Array.isArray(socialAccounts.data as any)
@@ -363,6 +370,13 @@ export default function ProfilePage() {
                             : 'Not set'
                         }
                       </span>
+                                    </div>
+                                    <div
+                                        className="flex justify-between items-center p-2.5 bg-gradient-to-r from-yellow-50 to-orange-50 rounded-lg border border-yellow-200">
+                                        <span className="text-sm font-medium text-yellow-700">Avg Rating</span>
+                                        <span className="text-base font-bold text-yellow-800">
+                                            {profile.data?.avg_rating && parseFloat(profile.data.avg_rating) > 0 ? parseFloat(profile.data.avg_rating).toFixed(1) : '0.0'}
+                                        </span>
                                     </div>
                                 </div>
                             </div>

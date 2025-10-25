@@ -556,6 +556,10 @@ export default function BrandDealsPage() {
                                                 <p className="text-xs text-gray-500">
                                                     {getLastActivityDate(deal) || 'No activity'}
                                                 </p>
+                                                {deal.status === 'completed' && typeof deal.brand_rating === 'number' && (
+                                                    <p className="text-xs text-gray-600 mt-1">You
+                                                        rated: {deal.brand_rating}/5 ⭐</p>
+                                                )}
                                             </div>
 
                                             {deal.status === 'completed' && typeof deal.brand_rating !== 'number' && (
@@ -574,13 +578,6 @@ export default function BrandDealsPage() {
                                                 </Button>
                                             )}
 
-                                            {/* Secondary info column below amount */}
-                                            <div className="text-right">
-                                                {deal.status === 'completed' && typeof deal.brand_rating === 'number' && (
-                                                    <div className="text-xs text-gray-600">You
-                                                        rated: {deal.brand_rating}/5 ⭐</div>
-                                                )}
-                                            </div>
 
                                             <div
                                                 className="w-8 h-8 rounded-full bg-red-100 group-hover:bg-red-200 flex items-center justify-center transition-all duration-200">

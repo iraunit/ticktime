@@ -926,8 +926,15 @@ def rate_influencer_view(request, deal_id):
     ).count()
     influencer.save(update_fields=['avg_rating', 'collaboration_count'])
 
-    from brands.serializers import BrandDealDetailSerializer
-    serializer = BrandDealDetailSerializer(deal, context={'request': request})
+    # Invalidate influencer profile cache
+    try:
+        from django.core.cache import cache
+        cache.delete(f'influencer_profile_{influencer.id}')
+    except Exception:
+        pass
+
+    from deals.serializers import DealDetailSerializer
+    serializer = DealDetailSerializer(deal, context={'request': request})
     return api_response(True, {
         'message': 'Influencer rated successfully.',
         'deal': serializer.data
