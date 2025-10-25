@@ -834,13 +834,17 @@ def rate_brand_view(request, deal_id):
         influencer_rating__isnull=False
     )
     # Use influencer_rating to compute brand's average (influencers rate brands)
-    avg_rating = completed_deals.aggregate(
-        avg=Coalesce(Sum('influencer_rating'), 0)
-    )['avg']
-    count = completed_deals.count()
-    if count > 0:
-        brand.rating = avg_rating / count
-        brand.save()
+    from django.db.models import Avg
+    avg_rating_result = completed_deals.aggregate(avg_rating=Avg('influencer_rating'))
+    avg_rating = avg_rating_result['avg_rating'] or 0
+
+    # Update brand model
+    brand.rating = avg_rating
+    brand.total_campaigns = Deal.objects.filter(
+        campaign__brand=brand,
+        status='completed'
+    ).count()
+    brand.save(update_fields=['rating', 'total_campaigns'])
 
     # Invalidate brand ratings cache for settings page
     try:
@@ -910,14 +914,17 @@ def rate_influencer_view(request, deal_id):
         status='completed',
         brand_rating__isnull=False
     )
-    avg_rating = completed_deals.aggregate(
-        avg=Coalesce(Sum('brand_rating'), 0)
-    )['avg']
-    count = completed_deals.count()
-    if count > 0:
-        # Store on avg_rating field used by serializers/UI
-        influencer.avg_rating = avg_rating / count
-        influencer.save(update_fields=['avg_rating'])
+    from django.db.models import Avg
+    avg_rating_result = completed_deals.aggregate(avg_rating=Avg('brand_rating'))
+    avg_rating = avg_rating_result['avg_rating'] or 0
+
+    # Update influencer model
+    influencer.avg_rating = avg_rating
+    influencer.collaboration_count = Deal.objects.filter(
+        influencer=influencer,
+        status='completed'
+    ).count()
+    influencer.save(update_fields=['avg_rating', 'collaboration_count'])
 
     from brands.serializers import BrandDealDetailSerializer
     serializer = BrandDealDetailSerializer(deal, context={'request': request})

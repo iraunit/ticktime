@@ -2178,11 +2178,11 @@ def get_brand_settings_view(request):
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
-@cache_response(timeout=300)  # Cache for 5 minutes
+@cache_response(timeout=3600)  # Cache for 1 hour
 def brand_ratings_and_reviews_view(request):
     """
     Get brand's average rating and recent reviews/feedbacks from influencers.
-    This is a heavy operation so it's cached for 5 minutes.
+    This is a heavy operation so it's cached for 1 hour.
     """
     from django.core.cache import cache
 
@@ -2285,12 +2285,16 @@ def brand_ratings_and_reviews_view(request):
         'recent_reviews': reviews,
     }
 
-    # Cache the data for 5 minutes
-    cache.set(cache_key, response_data, timeout=300)
+    # Cache the data for 1 hour
+    cache.set(cache_key, response_data, timeout=3600)
 
-    # Also update brand.rating for consistency
+    # Update brand model with calculated values
     brand.rating = avg_rating
-    brand.save(update_fields=['rating'])
+    brand.total_campaigns = Deal.objects.filter(
+        campaign__brand=brand,
+        status='completed'
+    ).count()
+    brand.save(update_fields=['rating', 'total_campaigns'])
 
     return Response({
         'status': 'success',
