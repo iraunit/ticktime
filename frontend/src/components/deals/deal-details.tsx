@@ -133,9 +133,24 @@ export function DealDetails({
                             <h1 className="text-xl font-bold text-gray-900 leading-tight mb-1">
                                 {deal?.campaign?.title || 'Campaign Details'}
                             </h1>
-                            <p className="text-base font-semibold text-blue-600 mb-2">
-                                {deal?.campaign?.brand?.name || 'Brand Partner'}
-                            </p>
+                            <div className="flex items-center gap-2 mb-1">
+                                <p className="text-base font-semibold text-blue-600">
+                                    {deal?.campaign?.brand?.name || 'Brand Partner'}
+                                </p>
+                                {deal?.campaign?.brand?.rating && (
+                                    <div
+                                        className="flex items-center gap-1 bg-yellow-50 px-2 py-0.5 rounded-full border border-yellow-200">
+                                        <Zap className="h-3 w-3 text-yellow-500 fill-yellow-500"/>
+                                        <span className="text-xs font-semibold text-yellow-700">
+                                            {deal.campaign.brand.rating.toFixed(1)}
+                                        </span>
+                                    </div>
+                                )}
+                            </div>
+                            {typeof deal?.influencer_rating === 'number' && (
+                                <div className="text-xs text-gray-600 mb-1">Brand Rating: {deal.influencer_rating}/5
+                                    ⭐</div>
+                            )}
                             <div className="flex items-center space-x-1 text-xs text-gray-600">
                                 <Clock className="h-3 w-3 text-gray-400"/>
                                 <span>Invited {formatDateTime(deal?.invited_at || new Date().toISOString())}</span>

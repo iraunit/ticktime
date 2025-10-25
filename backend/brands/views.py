@@ -1,6 +1,7 @@
 from campaigns.models import Campaign
 from campaigns.serializers import CampaignCreateSerializer
 from common.api_response import api_response, format_serializer_errors
+from common.decorators import cache_response
 from deals.models import Deal
 from django.contrib.auth.models import User
 from django.core.paginator import Paginator
@@ -2172,4 +2173,127 @@ def get_brand_settings_view(request):
             'can_view_analytics': brand_user.can_view_analytics,
             'role': brand_user.role
         }
+    })
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+@cache_response(timeout=300)  # Cache for 5 minutes
+def brand_ratings_and_reviews_view(request):
+    """
+    Get brand's average rating and recent reviews/feedbacks from influencers.
+    This is a heavy operation so it's cached for 5 minutes.
+    """
+    from django.core.cache import cache
+
+    brand_user = get_brand_user_or_403(request)
+    if not brand_user:
+        return api_response(False, error='Brand user not found.', status_code=404)
+
+    brand = brand_user.brand
+
+    # Generate cache key based on brand ID
+    cache_key = f'brand_ratings_reviews_{brand.id}'
+
+    # Try to get from cache first
+    cached_data = cache.get(cache_key)
+    if cached_data:
+        return Response({
+            'status': 'success',
+            'cached': True,
+            **cached_data
+        })
+
+    # Get all completed deals with ratings and reviews
+    from deals.models import Deal
+    rated_deals = Deal.objects.filter(
+        campaign__brand=brand,
+        status='completed',
+        influencer_rating__isnull=False
+    ).select_related(
+        'influencer__user',
+        'influencer__user_profile',
+        'campaign'
+    ).order_by('-completed_at')[:20]  # Get last 20 reviews
+
+    # Calculate rating statistics
+    total_ratings = Deal.objects.filter(
+        campaign__brand=brand,
+        status='completed',
+        influencer_rating__isnull=False
+    ).count()
+
+    # Get rating distribution
+    rating_distribution = {
+        '5': Deal.objects.filter(campaign__brand=brand, status='completed', influencer_rating=5).count(),
+        '4': Deal.objects.filter(campaign__brand=brand, status='completed', influencer_rating=4).count(),
+        '3': Deal.objects.filter(campaign__brand=brand, status='completed', influencer_rating=3).count(),
+        '2': Deal.objects.filter(campaign__brand=brand, status='completed', influencer_rating=2).count(),
+        '1': Deal.objects.filter(campaign__brand=brand, status='completed', influencer_rating=1).count(),
+    }
+
+    # Calculate average rating from actual deals
+    from django.db.models import Avg
+    avg_rating_result = Deal.objects.filter(
+        campaign__brand=brand,
+        status='completed',
+        influencer_rating__isnull=False
+    ).aggregate(avg_rating=Avg('influencer_rating'))
+
+    avg_rating = avg_rating_result['avg_rating'] or 0
+
+    # Serialize reviews
+    reviews = []
+    for deal in rated_deals:
+        # Get profile image from user_profile
+        profile_image_url = None
+        if deal.influencer.user_profile and deal.influencer.user_profile.profile_image:
+            # Build absolute URL if request available
+            try:
+                from django.contrib.sites.shortcuts import get_current_site
+                if hasattr(request, 'build_absolute_uri'):
+                    profile_image_url = request.build_absolute_uri(
+                        deal.influencer.user_profile.profile_image.url
+                    )
+                else:
+                    profile_image_url = deal.influencer.user_profile.profile_image.url
+            except Exception:
+                profile_image_url = deal.influencer.user_profile.profile_image.url
+
+        reviews.append({
+            'id': deal.id,
+            'rating': deal.influencer_rating,
+            'review': deal.influencer_review or '',
+            'influencer': {
+                'id': deal.influencer.id,
+                'username': deal.influencer.username,
+                'full_name': f"{deal.influencer.user.first_name} {deal.influencer.user.last_name}".strip(),
+                'profile_image': profile_image_url,
+            },
+            'campaign': {
+                'id': deal.campaign.id,
+                'title': deal.campaign.title,
+            },
+            'completed_at': deal.completed_at.isoformat() if deal.completed_at else None,
+        })
+
+    # Prepare response data
+    response_data = {
+        'average_rating': float(avg_rating) if avg_rating else 0,
+        'total_ratings': total_ratings,
+        'rating_distribution': rating_distribution,
+        'recent_reviews': reviews,
+    }
+
+    # Cache the data for 5 minutes
+    cache.set(cache_key, response_data, timeout=300)
+
+    # Also update brand.rating for consistency
+    brand.rating = avg_rating
+    brand.save(update_fields=['rating'])
+
+    return Response({
+        'status': 'success',
+        'cached': False,
+        **response_data
     })

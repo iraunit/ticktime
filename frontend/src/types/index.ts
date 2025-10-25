@@ -142,6 +142,11 @@ export interface Deal {
     rejection_reason?: string;
     total_value: number;
     payment_status?: 'pending' | 'processing' | 'completed' | 'failed';
+    // Rating fields
+    brand_rating?: number;
+    brand_review?: string;
+    influencer_rating?: number;
+    influencer_review?: string;
     // Barter deal specific fields
     shipping_address?: {
         address_line1: string;

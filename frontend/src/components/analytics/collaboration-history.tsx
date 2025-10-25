@@ -271,17 +271,6 @@ export function CollaborationHistory() {
                                                 </div>
                                             )}
                                         </div>
-
-                                        {/* Rate Button */}
-                                        {collaboration.status === 'completed' && !collaboration.rating && (
-                                            <Button
-                                                onClick={() => openRatingDialog(collaboration)}
-                                                size="sm"
-                                                className="bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 text-white border-0 shadow-md hover:shadow-lg transition-all duration-200 text-xs px-3 py-1.5"
-                                            >
-                                                Rate Brand
-                                            </Button>
-                                        )}
                                     </div>
                                 </div>
                             </CardContent>

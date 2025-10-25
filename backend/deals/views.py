@@ -778,3 +778,150 @@ def content_submissions_placeholder(request, deal_id):
         'submissions': serializer.data,
         'total_count': submissions.count()
     })
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def rate_brand_view(request, deal_id):
+    """
+    Influencer rates a brand after completing a deal.
+    """
+    try:
+        profile = request.user.influencer_profile
+    except InfluencerProfile.DoesNotExist:
+        return api_response(False, error='Influencer profile not found.', status_code=404)
+
+    deal = get_object_or_404(
+        Deal.objects.select_related('campaign__brand'),
+        id=deal_id,
+        influencer=profile
+    )
+
+    # Check if deal is completed
+    if deal.status != 'completed':
+        return api_response(False, error='You can only rate completed deals.', status_code=400)
+
+    # Check if already rated
+    if deal.influencer_rating is not None:
+        return api_response(False, error='You have already rated this brand.', status_code=400)
+
+    # Get rating and review from request
+    rating = request.data.get('rating')
+    review = request.data.get('review', '')
+
+    # Validate rating
+    if not rating:
+        return api_response(False, error='Rating is required.', status_code=400)
+
+    try:
+        rating = int(rating)
+        if rating < 1 or rating > 5:
+            return api_response(False, error='Rating must be between 1 and 5.', status_code=400)
+    except (ValueError, TypeError):
+        return api_response(False, error='Invalid rating value.', status_code=400)
+
+    # Update deal with rating
+    deal.influencer_rating = rating
+    deal.influencer_review = review
+    deal.save()
+
+    # Recalculate brand's average rating
+    from brands.models import Brand
+    brand = deal.campaign.brand
+    completed_deals = Deal.objects.filter(
+        campaign__brand=brand,
+        status='completed',
+        influencer_rating__isnull=False
+    )
+    # Use influencer_rating to compute brand's average (influencers rate brands)
+    avg_rating = completed_deals.aggregate(
+        avg=Coalesce(Sum('influencer_rating'), 0)
+    )['avg']
+    count = completed_deals.count()
+    if count > 0:
+        brand.rating = avg_rating / count
+        brand.save()
+
+    # Invalidate brand ratings cache for settings page
+    try:
+        from django.core.cache import cache
+        cache.delete(f'brand_ratings_reviews_{brand.id}')
+    except Exception:
+        pass
+
+    serializer = DealDetailSerializer(deal, context={'request': request})
+    return api_response(True, {
+        'message': 'Brand rated successfully.',
+        'deal': serializer.data
+    })
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def rate_influencer_view(request, deal_id):
+    """
+    Brand rates an influencer after completing a deal.
+    """
+    # Check if user is a brand user
+    try:
+        from brands.models import BrandUser
+        brand_user = BrandUser.objects.select_related('brand').get(user=request.user)
+    except BrandUser.DoesNotExist:
+        return api_response(False, error='Brand user not found.', status_code=404)
+
+    deal = get_object_or_404(
+        Deal.objects.select_related('campaign__brand', 'influencer'),
+        id=deal_id,
+        campaign__brand=brand_user.brand
+    )
+
+    # Check if deal is completed
+    if deal.status != 'completed':
+        return api_response(False, error='You can only rate completed deals.', status_code=400)
+
+    # Check if already rated
+    if deal.brand_rating is not None:
+        return api_response(False, error='You have already rated this influencer.', status_code=400)
+
+    # Get rating and review from request
+    rating = request.data.get('rating')
+    review = request.data.get('review', '')
+
+    # Validate rating
+    if not rating:
+        return api_response(False, error='Rating is required.', status_code=400)
+
+    try:
+        rating = int(rating)
+        if rating < 1 or rating > 5:
+            return api_response(False, error='Rating must be between 1 and 5.', status_code=400)
+    except (ValueError, TypeError):
+        return api_response(False, error='Invalid rating value.', status_code=400)
+
+    # Update deal with rating
+    deal.brand_rating = rating
+    deal.brand_review = review
+    deal.save()
+
+    # Recalculate influencer's average rating
+    influencer = deal.influencer
+    completed_deals = Deal.objects.filter(
+        influencer=influencer,
+        status='completed',
+        brand_rating__isnull=False
+    )
+    avg_rating = completed_deals.aggregate(
+        avg=Coalesce(Sum('brand_rating'), 0)
+    )['avg']
+    count = completed_deals.count()
+    if count > 0:
+        # Store on avg_rating field used by serializers/UI
+        influencer.avg_rating = avg_rating / count
+        influencer.save(update_fields=['avg_rating'])
+
+    from brands.serializers import BrandDealDetailSerializer
+    serializer = BrandDealDetailSerializer(deal, context={'request': request})
+    return api_response(True, {
+        'message': 'Influencer rated successfully.',
+        'deal': serializer.data
+    })

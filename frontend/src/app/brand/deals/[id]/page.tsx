@@ -1460,9 +1460,12 @@ export default function DealDetailsPage() {
                                                         <p><strong>Completed
                                                             Date:</strong> {new Date(deal.completed_at).toLocaleDateString()}
                                                         </p>
-                                                        {deal.brand_rating && (
-                                                            <p><strong>Brand Rating:</strong> {deal.brand_rating}/5 ⭐
-                                                            </p>
+                                                        {typeof deal.brand_rating === 'number' && (
+                                                            <p><strong>Your Rating:</strong> {deal.brand_rating}/5 ⭐</p>
+                                                        )}
+                                                        {typeof deal.influencer_rating === 'number' && (
+                                                            <p><strong>Influencer's Rating for
+                                                                Brand:</strong> {deal.influencer_rating}/5 ⭐</p>
                                                         )}
                                                         {deal.brand_review && (
                                                             <p><strong>Brand Review:</strong> {deal.brand_review}</p>

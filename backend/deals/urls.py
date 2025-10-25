@@ -25,4 +25,8 @@ urlpatterns = [
 
     # Last deal endpoint for influencer
     path('influencer/last-deal/', views.last_deal_view, name='last_deal'),
+    
+    # Rating endpoints
+    path('deals/<int:deal_id>/rate-brand/', views.rate_brand_view, name='rate_brand'),
+    path('deals/<int:deal_id>/rate-influencer/', views.rate_influencer_view, name='rate_influencer'),
 ]

@@ -4,12 +4,14 @@ import {useState} from "react";
 import {useClientTime} from "@/hooks/use-client-time";
 import {Card, CardContent, CardHeader, CardTitle} from "@/components/ui/card";
 import {Badge} from "@/components/ui/badge";
+import {Button} from "@/components/ui/button";
 import {Deal} from "@/types";
 import {cn} from "@/lib/utils";
-import {HiBanknotes, HiCamera, HiClock, HiGlobeAlt, HiPlayCircle, HiShare} from "react-icons/hi2";
+import {HiBanknotes, HiCamera, HiClock, HiGlobeAlt, HiPlayCircle, HiShare, HiStar} from "react-icons/hi2";
 import Image from "next/image";
 import {DealActions} from "./deal-actions";
 import {ContentSubmissionModal} from "./content-submission";
+import {RatingDialog} from "./rating-dialog";
 
 interface DealCardProps {
     deal: Deal;
@@ -65,6 +67,7 @@ export function DealCard({
                              className,
                          }: DealCardProps) {
     const [showContentSubmission, setShowContentSubmission] = useState(false);
+    const [showRatingDialog, setShowRatingDialog] = useState(false);
 
     // Debug logging
     console.log('DealCard render:', {
@@ -140,7 +143,8 @@ export function DealCard({
                     <div className="flex items-start justify-between gap-3">
                         <div className="flex items-start space-x-3 flex-1">
                             {/* Brand Logo */}
-                            <div className="w-12 h-12 rounded-lg overflow-hidden shadow-md border border-white bg-white flex-shrink-0">
+                            <div
+                                className="w-12 h-12 rounded-lg overflow-hidden shadow-md border border-white bg-white flex-shrink-0">
                                 {deal?.campaign?.brand?.logo ? (
                                     <Image
                                         src={deal.campaign.brand.logo}
@@ -165,7 +169,8 @@ export function DealCard({
                                         }}
                                     />
                                 ) : (
-                                    <div className="w-full h-full bg-gradient-to-br from-blue-100 to-indigo-200 flex items-center justify-center">
+                                    <div
+                                        className="w-full h-full bg-gradient-to-br from-blue-100 to-indigo-200 flex items-center justify-center">
                                         <span className="text-lg font-bold text-blue-600">
                                             {deal?.campaign?.brand?.name?.charAt(0)?.toUpperCase() || "B"}
                                         </span>
@@ -354,6 +359,41 @@ export function DealCard({
                         onContentSubmission={() => setShowContentSubmission(true)}
                         isLoading={isLoading}
                     />
+
+                    {/* Rating Button for Completed Deals */}
+                    {deal.status === 'completed' && !deal.influencer_rating && (
+                        <div className="mt-3 pt-3 border-t border-gray-200">
+                            <Button
+                                onClick={() => setShowRatingDialog(true)}
+                                size="sm"
+                                className="w-full bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 text-white"
+                            >
+                                <HiStar className="w-4 h-4 mr-2"/>
+                                Rate Brand
+                            </Button>
+                        </div>
+                    )}
+
+                    {/* Display Rating if Already Rated */}
+                    {deal.status === 'completed' && deal.influencer_rating && (
+                        <div className="mt-3 pt-3 border-t border-gray-200">
+                            <div className="flex items-center justify-between">
+                                <span className="text-sm text-gray-600">Your Rating:</span>
+                                <div className="flex items-center gap-1">
+                                    {[...Array(5)].map((_, i) => (
+                                        <HiStar
+                                            key={i}
+                                            className={`w-4 h-4 ${
+                                                i < (deal.influencer_rating || 0)
+                                                    ? "text-yellow-400 fill-yellow-400"
+                                                    : "text-gray-300"
+                                            }`}
+                                        />
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    )}
                 </CardContent>
             </Card>
 
@@ -363,6 +403,21 @@ export function DealCard({
                     deal={deal}
                     isOpen={showContentSubmission}
                     onClose={() => setShowContentSubmission(false)}
+                />
+            )}
+
+            {/* Rating Dialog */}
+            {showRatingDialog && (
+                <RatingDialog
+                    open={showRatingDialog}
+                    onOpenChange={setShowRatingDialog}
+                    dealId={deal.id}
+                    targetName={deal.campaign?.brand?.name || 'Brand'}
+                    ratingType="brand"
+                    onRatingSubmitted={() => {
+                        // Refresh the deals list
+                        window.location.reload();
+                    }}
                 />
             )}
         </>

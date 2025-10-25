@@ -57,4 +57,7 @@ urlpatterns = [
     path('analytics/overview/', views.brand_analytics_overview_view, name='brand-analytics-overview'),
     path('analytics/campaigns/', views.brand_analytics_campaigns_view, name='brand-analytics-campaigns'),
     path('audit-logs/', views.brand_audit_logs_view, name='brand-audit-logs'),
+
+    # Ratings & Reviews
+    path('ratings-and-reviews/', views.brand_ratings_and_reviews_view, name='brand-ratings-reviews'),
 ]

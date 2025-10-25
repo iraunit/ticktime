@@ -9,7 +9,16 @@ import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from "@/c
 import {Tabs, TabsContent, TabsList, TabsTrigger} from "@/components/ui/tabs";
 import {Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger} from "@/components/ui/dialog";
 import {Textarea} from "@/components/ui/textarea";
-import {HiCog6Tooth, HiDocumentText, HiEye, HiPencil, HiShieldCheck, HiTrash, HiUserPlus} from "react-icons/hi2";
+import {
+    HiCog6Tooth,
+    HiDocumentText,
+    HiEye,
+    HiPencil,
+    HiShieldCheck,
+    HiStar,
+    HiTrash,
+    HiUserPlus
+} from "react-icons/hi2";
 import {api} from "@/lib/api";
 import {toast} from "@/lib/toast";
 import {LogoUpload} from "@/components/ui/logo-upload";
@@ -143,9 +152,14 @@ export default function BrandSettingsPage() {
     const [userAddressLine2, setUserAddressLine2] = useState("");
     const [isSavingProfile, setIsSavingProfile] = useState(false);
 
+    // Ratings and reviews state
+    const [ratingsData, setRatingsData] = useState<any>(null);
+    const [isLoadingRatings, setIsLoadingRatings] = useState(false);
+
     useEffect(() => {
         fetchBrandSettings();
         fetchCurrentUser();
+        fetchRatingsAndReviews();
     }, []);
 
     const fetchCurrentUser = async () => {
@@ -197,6 +211,21 @@ export default function BrandSettingsPage() {
             toast.error('Failed to load brand settings');
         } finally {
             setIsLoading(false);
+        }
+    };
+
+    const fetchRatingsAndReviews = async () => {
+        setIsLoadingRatings(true);
+        try {
+            const response = await api.get('/brands/ratings-and-reviews/');
+            if (response.data) {
+                setRatingsData(response.data);
+            }
+        } catch (error) {
+            console.error('Error fetching ratings and reviews:', error);
+            // Don't show error toast as this is supplementary data
+        } finally {
+            setIsLoadingRatings(false);
         }
     };
 
@@ -558,9 +587,10 @@ export default function BrandSettingsPage() {
             </div>
 
             <Tabs defaultValue="team" className="space-y-6">
-                <TabsList className="grid w-full grid-cols-4">
+                <TabsList className="grid w-full grid-cols-5">
                     <TabsTrigger value="team">Team Management</TabsTrigger>
                     <TabsTrigger value="audit">Audit Logs</TabsTrigger>
+                    <TabsTrigger value="ratings">Ratings & Reviews</TabsTrigger>
                     <TabsTrigger value="settings">Brand Settings</TabsTrigger>
                     <TabsTrigger value="profile">My Profile</TabsTrigger>
                 </TabsList>
@@ -819,6 +849,158 @@ export default function BrandSettingsPage() {
                     </div>
                 </TabsContent>
 
+                {/* Ratings & Reviews Tab */}
+                <TabsContent value="ratings" className="space-y-6">
+                    <div>
+                        <h2 className="text-xl font-semibold text-gray-900 mb-4">Ratings & Reviews</h2>
+                        <p className="text-gray-600">See what influencers are saying about working with your brand</p>
+                    </div>
+
+                    {isLoadingRatings ? (
+                        <Card className="p-8 text-center">
+                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto"></div>
+                            <p className="text-gray-600 mt-4">Loading ratings...</p>
+                        </Card>
+                    ) : ratingsData ? (
+                        <div className="space-y-6">
+                            {/* Rating Overview */}
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                <Card className="p-6">
+                                    <div className="text-center">
+                                        <div className="flex items-center justify-center gap-2 mb-2">
+                                            <HiStar className="w-8 h-8 text-yellow-400 fill-yellow-400"/>
+                                            <span className="text-4xl font-bold text-gray-900">
+                                                {ratingsData.average_rating.toFixed(1)}
+                                            </span>
+                                        </div>
+                                        <p className="text-sm text-gray-600">Average Rating</p>
+                                        <p className="text-xs text-gray-500 mt-1">
+                                            Based on {ratingsData.total_ratings} reviews
+                                        </p>
+                                    </div>
+                                </Card>
+
+                                <Card className="p-6 col-span-2">
+                                    <h3 className="text-sm font-semibold text-gray-900 mb-3">Rating Distribution</h3>
+                                    <div className="space-y-2">
+                                        {[5, 4, 3, 2, 1].map((star) => {
+                                            const count = ratingsData.rating_distribution[star.toString()] || 0;
+                                            const percentage = ratingsData.total_ratings > 0
+                                                ? (count / ratingsData.total_ratings) * 100
+                                                : 0;
+                                            return (
+                                                <div key={star} className="flex items-center gap-3">
+                                                    <div className="flex items-center gap-1 w-16">
+                                                        <span
+                                                            className="text-sm font-medium text-gray-700">{star}</span>
+                                                        <HiStar className="w-4 h-4 text-yellow-400 fill-yellow-400"/>
+                                                    </div>
+                                                    <div
+                                                        className="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
+                                                        <div
+                                                            className="h-full bg-yellow-400 rounded-full transition-all duration-300"
+                                                            style={{width: `${percentage}%`}}
+                                                        />
+                                                    </div>
+                                                    <span
+                                                        className="text-sm text-gray-600 w-12 text-right">{count}</span>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </Card>
+                            </div>
+
+                            {/* Recent Reviews */}
+                            <div>
+                                <h3 className="text-lg font-semibold text-gray-900 mb-4">Recent Feedback</h3>
+                                <div className="space-y-3">
+                                    {ratingsData.recent_reviews && ratingsData.recent_reviews.length > 0 ? (
+                                        ratingsData.recent_reviews.map((review: any) => (
+                                            <Card key={review.id} className="p-4">
+                                                <div className="flex items-start gap-3">
+                                                    <div className="flex-shrink-0">
+                                                        {review.influencer.profile_image ? (
+                                                            <img
+                                                                src={review.influencer.profile_image}
+                                                                alt={review.influencer.full_name}
+                                                                className="w-8 h-8 rounded-full object-cover"
+                                                            />
+                                                        ) : (
+                                                            <div
+                                                                className="w-8 h-8 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center text-white font-bold text-xs">
+                                                                {review.influencer.username.charAt(0).toUpperCase()}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                    <div className="flex-1">
+                                                        <div className="flex items-center justify-between mb-1">
+                                                            <div>
+                                                                <h4 className="font-semibold text-gray-900 text-sm">
+                                                                    {review.influencer.full_name || review.influencer.username}
+                                                                </h4>
+                                                                <p className="text-xs text-gray-500">@{review.influencer.username}</p>
+                                                            </div>
+                                                            <div className="flex items-center gap-1">
+                                                                {[...Array(5)].map((_, i) => (
+                                                                    <HiStar
+                                                                        key={i}
+                                                                        className={`w-3 h-3 ${
+                                                                            i < review.rating
+                                                                                ? "text-yellow-400 fill-yellow-400"
+                                                                                : "text-gray-300"
+                                                                        }`}
+                                                                    />
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                        {review.review && (
+                                                            <p className="text-gray-700 text-sm mb-2 line-clamp-3">{review.review}</p>
+                                                        )}
+                                                        <div className="flex items-center gap-3 text-xs text-gray-500">
+                                                            <span>Campaign: {review.campaign.title}</span>
+                                                            {review.completed_at && (
+                                                                <span>•</span>
+                                                            )}
+                                                            {review.completed_at && (
+                                                                <span>
+                                                                    {new Date(review.completed_at).toLocaleDateString()}
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </Card>
+                                        ))
+                                    ) : (
+                                        <Card className="p-8 text-center">
+                                            <div
+                                                className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                                                <HiStar className="w-8 h-8 text-gray-400"/>
+                                            </div>
+                                            <h3 className="text-lg font-medium text-gray-900 mb-2">No reviews yet</h3>
+                                            <p className="text-gray-600">
+                                                Complete collaborations to receive feedback from influencers.
+                                            </p>
+                                        </Card>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    ) : (
+                        <Card className="p-8 text-center">
+                            <div
+                                className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                                <HiStar className="w-8 h-8 text-gray-400"/>
+                            </div>
+                            <h3 className="text-lg font-medium text-gray-900 mb-2">No ratings data available</h3>
+                            <p className="text-gray-600">
+                                Start collaborating with influencers to build your brand reputation.
+                            </p>
+                        </Card>
+                    )}
+                </TabsContent>
+
                 {/* Brand Settings Tab */}
                 <TabsContent value="settings" className="space-y-6">
                     <div className="flex items-center justify-between">
@@ -829,9 +1011,6 @@ export default function BrandSettingsPage() {
                                     <Badge variant={brand.is_verified ? "default" : "secondary"}>
                                         {brand.is_verified ? "Verified" : "Unverified"}
                                     </Badge>
-                                    <span className="text-sm text-gray-500">
-                    Rating: {brand.rating}/5 • {brand.total_campaigns} campaigns
-                  </span>
                                 </div>
                             )}
                         </div>

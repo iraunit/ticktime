@@ -466,7 +466,7 @@ export default function InfluencerProfilePage() {
                                         </p>
 
                                         {/* Key Metrics */}
-                                        <div className="grid grid-cols-4 gap-4">
+                                        <div className="grid grid-cols-5 gap-4">
                                             <div className="text-center">
                                                 <div className="text-lg font-semibold text-gray-900">
                                                     {formatFollowers(profile.total_followers)}
@@ -487,9 +487,18 @@ export default function InfluencerProfilePage() {
                                             </div>
                                             <div className="text-center">
                                                 <div className="text-lg font-semibold text-gray-900">
-                                                    {profile.performance_metrics?.completed_campaigns || 0}
+                                                    {typeof profile.avg_rating === 'number' ? profile.avg_rating.toFixed(1) : 'N/A'}
                                                 </div>
-                                                <div className="text-xs text-gray-500">Campaigns</div>
+                                                <div className="text-xs text-gray-500">Avg Rating</div>
+                                            </div>
+                                            <div className="text-center">
+                                                <div className="flex items-center justify-center gap-1">
+                                                    <HiStar className="w-4 h-4 text-yellow-400 fill-yellow-400"/>
+                                                    <div className="text-lg font-semibold text-gray-900">
+                                                        {profile.rating ? profile.rating.toFixed(1) : 'N/A'}
+                                                    </div>
+                                                </div>
+                                                <div className="text-xs text-gray-500">Rating</div>
                                             </div>
                                         </div>
 
