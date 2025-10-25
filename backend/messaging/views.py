@@ -368,3 +368,60 @@ def conversation_messages_view(request, conversation_id):
 
     return Response({'status': 'error', 'message': 'Invalid message data.', 'errors': serializer.errors},
                     status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def unread_count_view(request):
+    """
+    Get total unread messages count for the authenticated user.
+    Works for both brand users and influencers.
+    """
+    is_influencer = hasattr(request.user, 'influencer_profile')
+    is_brand = hasattr(request.user, 'brand_user')
+
+    if is_influencer:
+        try:
+            profile = request.user.influencer_profile
+            # Count unread messages where sender is brand
+            unread_count = Message.objects.filter(
+                conversation__deal__influencer=profile,
+                sender_type='brand',
+                read_by_influencer=False
+            ).count()
+
+            return Response({
+                'status': 'success',
+                'unread_count': unread_count
+            }, status=status.HTTP_200_OK)
+        except InfluencerProfile.DoesNotExist:
+            return Response({
+                'status': 'error',
+                'message': 'Influencer profile not found.'
+            }, status=status.HTTP_404_NOT_FOUND)
+
+    elif is_brand:
+        brand_user = getattr(request.user, 'brand_user', None)
+        if not brand_user:
+            return Response({
+                'status': 'error',
+                'message': 'Brand user not found.'
+            }, status=status.HTTP_404_NOT_FOUND)
+
+        # Count unread messages where sender is influencer
+        unread_count = Message.objects.filter(
+            conversation__deal__campaign__brand=brand_user.brand,
+            sender_type='influencer',
+            read_by_brand=False
+        ).count()
+
+        return Response({
+            'status': 'success',
+            'unread_count': unread_count
+        }, status=status.HTTP_200_OK)
+
+    else:
+        return Response({
+            'status': 'error',
+            'message': 'Unauthorized.'
+        }, status=status.HTTP_401_UNAUTHORIZED)

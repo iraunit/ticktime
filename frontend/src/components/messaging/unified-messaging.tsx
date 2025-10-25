@@ -14,6 +14,7 @@ import {
     HiMagnifyingGlass,
     HiPaperAirplane
 } from "react-icons/hi2";
+import {useQueryClient} from "@tanstack/react-query";
 
 interface Message {
     id: number;
@@ -55,6 +56,7 @@ interface UnifiedMessagingProps {
 }
 
 export function UnifiedMessaging({userType, targetParam}: UnifiedMessagingProps) {
+    const queryClient = useQueryClient();
     const [conversations, setConversations] = useState<Conversation[]>([]);
     const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
     const [messages, setMessages] = useState<Message[]>([]);
@@ -196,6 +198,9 @@ export function UnifiedMessaging({userType, targetParam}: UnifiedMessagingProps)
                 .sort((a: any, b: any) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
             console.log('Setting ordered messages:', ordered);
             setMessages(ordered);
+
+            // Invalidate unread count cache when messages are viewed
+            queryClient.invalidateQueries({queryKey: ['unread-messages-count']});
         } catch (error: any) {
             console.error('Failed to fetch messages:', error);
             toast.error(error?.response?.data?.message || 'Failed to load messages.');
@@ -250,6 +255,9 @@ export function UnifiedMessaging({userType, targetParam}: UnifiedMessagingProps)
                     }
                     : conv
             ));
+
+            // Invalidate unread count cache when a message is sent
+            queryClient.invalidateQueries({queryKey: ['unread-messages-count']});
         } catch (error: any) {
             console.error('Failed to send message:', error);
             toast.error('Failed to send message.');

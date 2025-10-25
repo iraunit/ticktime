@@ -12,4 +12,6 @@ urlpatterns = [
          name='conversation_messages'),
     # Removed - moved to deals app to avoid conflicts
     path('deals/<int:deal_id>/messages/<int:message_id>/', views.message_detail_view, name='message_detail'),
+    # Get total unread messages count
+    path('unread-count/', views.unread_count_view, name='unread_count'),
 ]

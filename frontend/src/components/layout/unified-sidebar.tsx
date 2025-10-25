@@ -25,6 +25,7 @@ import {
 import {api} from "@/lib/api";
 import {Button} from "@/components/ui/button";
 import {OptimizedAvatar} from "@/components/ui/optimized-image";
+import {useUnreadCount} from "@/hooks/use-messaging";
 
 // Navigation items for different user types
 const brandNavigation = [
@@ -55,6 +56,7 @@ export function UnifiedSidebar({userType}: UnifiedSidebarProps) {
     const {isCollapsed, isHoverExpanded, setIsHoverExpanded, toggleSidebar} = useSidebar();
     const {logout} = useAuth();
     const {user} = useUserContext();
+    const {data: unreadCount = 0} = useUnreadCount();
     const [logoData, setLogoData] = useState<{
         logo: string | null;
         name: string;
@@ -277,6 +279,11 @@ export function UnifiedSidebar({userType}: UnifiedSidebarProps) {
                             const isActive = (item.href === '/brand/dashboard' || item.href === '/influencer/dashboard')
                                 ? pathname === item.href
                                 : pathname === item.href || pathname.startsWith(item.href + '/');
+
+                            // Check if this is the Messages item
+                            const isMessagesItem = item.name === 'Messages';
+                            const showBadge = isMessagesItem && unreadCount > 0;
+
                             return (
                                 <Link
                                     key={item.name}
@@ -308,13 +315,30 @@ export function UnifiedSidebar({userType}: UnifiedSidebarProps) {
                                                 : 'text-gray-400 group-hover:text-gray-600 group-hover:bg-gray-100'
                                         } ${isExpanded ? 'mr-3' : ''}`}>
                                         <item.icon className="w-full h-full"/>
+
+                                        {/* Unread Count Badge - Show on collapsed sidebar */}
+                                        {showBadge && !isExpanded && (
+                                            <div
+                                                className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 bg-red-600 text-white text-[10px] font-bold rounded-full flex items-center justify-center shadow-md animate-pulse">
+                                                {unreadCount > 99 ? '99+' : unreadCount}
+                                            </div>
+                                        )}
                                     </div>
 
                                     {/* Text - Only show when expanded */}
                                     {isExpanded && (
-                                        <span className="transition-all duration-300 font-medium whitespace-nowrap">
+                                        <span
+                                            className="transition-all duration-300 font-medium whitespace-nowrap flex-1">
                       {item.name}
                     </span>
+                                    )}
+
+                                    {/* Unread Count Badge - Show on expanded sidebar */}
+                                    {showBadge && isExpanded && (
+                                        <div
+                                            className="ml-auto min-w-[24px] h-5 px-2 bg-red-600 text-white text-xs font-bold rounded-full flex items-center justify-center shadow-md animate-pulse">
+                                            {unreadCount > 99 ? '99+' : unreadCount}
+                                        </div>
                                     )}
 
                                     {/* Hover Effect */}
