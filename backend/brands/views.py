@@ -773,7 +773,7 @@ def update_tracking_view(request, deal_id):
 def bulk_update_csv_view(request):
     """
     Bulk update deals via CSV upload
-    Expected CSV format: email,status,tracking_number,tracking_url
+    Expected CSV format: username,status,tracking_number,tracking_url
     """
     brand_user = get_brand_user_or_403(request)
     if not brand_user:
@@ -801,7 +801,7 @@ def bulk_update_csv_view(request):
         csv_reader = csv.DictReader(io.StringIO(csv_content))
 
         # Validate headers
-        expected_headers = {'email', 'status'}
+        expected_headers = {'username', 'status'}
         if not expected_headers.issubset(set(csv_reader.fieldnames or [])):
             return Response({
                 'status': 'error',
@@ -814,13 +814,13 @@ def bulk_update_csv_view(request):
         valid_statuses = [choice[0] for choice in Deal._meta.get_field('status').choices]
 
         for row_num, row in enumerate(csv_reader, start=2):  # Start at 2 for header row
-            email = row.get('email', '').strip()
+            username = row.get('username', '').strip()
             new_status = row.get('status', '').strip()
             tracking_number = row.get('tracking_number', '').strip()
             tracking_url = row.get('tracking_url', '').strip()
 
-            if not email or not new_status:
-                errors.append(f'Row {row_num}: Email and status are required')
+            if not username or not new_status:
+                errors.append(f'Row {row_num}: Username and status are required')
                 continue
 
             if new_status not in valid_statuses:
@@ -828,16 +828,16 @@ def bulk_update_csv_view(request):
                 continue
 
             try:
-                # Find influencer by email and get their deals with this brand
+                # Find influencer by username and get their deals with this brand
                 from influencers.models import InfluencerProfile
-                influencer = InfluencerProfile.objects.get(user__email=email)
+                influencer = InfluencerProfile.objects.get(username=username)
                 deals = Deal.objects.filter(
                     campaign__brand=brand_user.brand,
                     influencer=influencer
                 )
 
                 if not deals.exists():
-                    errors.append(f'Row {row_num}: No deals found for {email}')
+                    errors.append(f'Row {row_num}: No deals found for username {username}')
                     continue
 
                 # Update all deals for this influencer
@@ -857,13 +857,13 @@ def bulk_update_csv_view(request):
                     update_fields.append('shipped_at')
 
                 deals.update(**update_data)
-                updates.append(f'Updated {deals.count()} deal(s) for {email}')
+                updates.append(f'Updated {deals.count()} deal(s) for username {username}')
 
             except InfluencerProfile.DoesNotExist:
-                errors.append(f'Row {row_num}: Influencer with email {email} not found')
+                errors.append(f'Row {row_num}: Influencer with username {username} not found')
                 continue
             except Exception as e:
-                errors.append(f'Row {row_num}: Error processing {email}: {str(e)}')
+                errors.append(f'Row {row_num}: Error processing {username}: {str(e)}')
                 continue
 
         return Response({
@@ -894,10 +894,10 @@ def download_csv_template_view(request):
     response['Content-Disposition'] = 'attachment; filename="bulk_update_template.csv"'
 
     writer = csv.writer(response)
-    writer.writerow(['email', 'status', 'tracking_number', 'tracking_url'])
+    writer.writerow(['username', 'status', 'tracking_number', 'tracking_url'])
     writer.writerow(
-        ['influencer@example.com', 'product_shipped', 'TRK123456789', 'https://tracking.example.com/TRK123456789'])
-    writer.writerow(['another@example.com', 'shortlisted', '', ''])
+        ['influencer_username', 'product_shipped', 'TRK123456789', 'https://tracking.example.com/TRK123456789'])
+    writer.writerow(['another_username', 'shortlisted', '', ''])
 
     return response
 
