@@ -9,7 +9,6 @@ import {CampaignReadinessForm} from '@/components/profile/campaign-readiness-for
 import {BankDetailsForm} from '@/components/profile/bank-details-form';
 import {VerificationStatus} from '@/components/profile/verification-status';
 import {useProfile, useSocialAccounts} from '@/hooks/use-profile';
-import {useQueryClient} from '@tanstack/react-query';
 import {RequireAuth} from '@/components/auth/require-auth';
 import {Badge} from '@/components/ui/badge';
 import {
@@ -36,12 +35,6 @@ export default function ProfilePage() {
     const [activeSection, setActiveSection] = useState<string>('personal');
     const {profile} = useProfile();
     const {socialAccounts} = useSocialAccounts();
-    const queryClient = useQueryClient();
-
-    // Refresh profile data when component mounts to get latest ratings
-    React.useEffect(() => {
-        queryClient.invalidateQueries({queryKey: ['profile']});
-    }, [queryClient]);
 
     const accountsList = useMemo(() => {
         return Array.isArray(socialAccounts.data as any)

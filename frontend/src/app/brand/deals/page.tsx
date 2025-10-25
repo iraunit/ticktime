@@ -12,6 +12,7 @@ import {DealListSkeleton} from "@/components/ui/skeleton-layouts";
 import {RatingDialog} from "@/components/deals/rating-dialog";
 import {toast} from "@/lib/toast";
 import api from "@/lib/api";
+import {getDealTypeConfig} from "@/lib/platform-config";
 import {
     HiArrowPath,
     HiCheckCircle,
@@ -171,38 +172,38 @@ export default function BrandDealsPage() {
         return () => clearTimeout(timeoutId);
     }, [viewMode, searchTerm, statusFilter, sortBy, pagination.current_page, fetchDealsByCampaigns, fetchDeals]);
 
-    const formatCurrency = (amount: number) => {
+    const formatCurrency = useCallback((amount: number) => {
         return new Intl.NumberFormat("en-IN", {
             style: "currency",
             currency: "INR",
             minimumFractionDigits: 0,
             maximumFractionDigits: 0,
         }).format(amount);
-    };
+    }, []);
 
-    const formatDate = (dateString: string) => {
+    const formatDate = useCallback((dateString: string) => {
         return new Date(dateString).toLocaleDateString('en-IN', {
             day: 'numeric',
             month: 'short',
             year: 'numeric'
         });
-    };
+    }, []);
 
-    const getLastActivityDate = (deal: Deal): string | undefined => {
+    const getLastActivityDate = useCallback((deal: Deal): string | undefined => {
         const ts = deal.completed_at || deal.accepted_at || deal.responded_at || deal.invited_at;
         return ts ? formatDate(ts) : undefined;
-    };
+    }, [formatDate]);
 
-    const getFullImageUrl = (imagePath: string | null | undefined) => {
+    const getFullImageUrl = useCallback((imagePath: string | null | undefined) => {
         if (!imagePath) return undefined;
         if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
             return imagePath;
         }
         // If it's a relative path, construct the full URL using backend domain
         return `http://localhost:8000${imagePath}`;
-    };
+    }, []);
 
-    const getStatusBadge = (status: string, display?: string) => {
+    const getStatusBadge = useCallback((status: string, display?: string) => {
         const statusOption = statusOptions.find(s => s.value === status);
         const color = statusOption?.color || 'gray';
 
@@ -220,26 +221,21 @@ export default function BrandDealsPage() {
                 {display || statusOption?.label || status}
             </Badge>
         );
-    };
+    }, []);
 
-    const getDealTypeBadge = (dealType?: string, dealTypeDisplay?: string) => {
+    const getDealTypeBadge = useCallback((dealType?: string, dealTypeDisplay?: string) => {
         if (!dealType) return null;
 
-        const typeColors: Record<string, string> = {
-            'cash': 'bg-gradient-to-r from-emerald-100 to-green-100 text-emerald-800 border-emerald-300',
-            'product': 'bg-gradient-to-r from-orange-100 to-amber-100 text-orange-800 border-orange-300',
-            'hybrid': 'bg-gradient-to-r from-purple-100 to-pink-100 text-purple-800 border-purple-300',
-        };
-
-        const displayText = dealTypeDisplay || dealType;
-        const colorClass = typeColors[dealType] || 'bg-gradient-to-r from-blue-100 to-indigo-100 text-blue-800 border-blue-300';
+        const config = getDealTypeConfig(dealType);
+        const displayText = dealTypeDisplay || config.label;
+        const finalText = displayText === 'Product Only' ? 'Barter Only' : displayText;
 
         return (
-            <Badge className={`${colorClass} border text-xs font-medium shadow-sm`}>
-                {displayText === 'Product Only' ? 'Barter' : displayText}
+            <Badge className={`${config.bg} ${config.color} ${config.border} border text-xs font-medium shadow-sm`}>
+                {config.icon} {finalText}
             </Badge>
         );
-    };
+    }, []);
 
     const clearFilters = () => {
         setSearchTerm("");
@@ -357,7 +353,7 @@ export default function BrandDealsPage() {
                 </div>
 
                 {/* Content */}
-                {isLoading && <DealListSkeleton/>}
+                {isLoading && deals.length === 0 && campaigns.length === 0 && <DealListSkeleton/>}
 
                 {!isLoading && (viewMode === 'campaigns' ? campaigns.length === 0 : deals.length === 0) && (
                     <Card
@@ -392,202 +388,209 @@ export default function BrandDealsPage() {
                 )}
 
                 {/* Campaigns View */}
-                {!isLoading && viewMode === 'campaigns' && campaigns.length > 0 && (
-                    <div className="space-y-3">
-                        {campaigns.map((campaign) => (
-                            <Card key={campaign.id}
-                                  className="shadow-md border-0 bg-gradient-to-r from-white via-red-50/20 to-rose-50/30 hover:shadow-lg hover:from-red-50/30 hover:to-rose-50/40 transition-all duration-200">
-                                <CardHeader className="pb-2">
-                                    <div className="flex items-center justify-between">
-                                        <div className="flex-1">
-                                            <div className="flex items-center gap-2 mb-2">
-                                                <CardTitle className="text-base font-semibold text-gray-900">
-                                                    {campaign.title}
-                                                </CardTitle>
-                                                {getDealTypeBadge(campaign.deal_type, campaign.deal_type_display)}
-                                            </div>
-                                            <div className="flex items-center gap-4 text-sm">
+                {campaigns.length > 0 && (
+                    <div className={viewMode === 'campaigns' ? 'block' : 'hidden'}>
+                        <div className="space-y-3">
+                            {campaigns.map((campaign) => (
+                                <Card key={campaign.id}
+                                      className="shadow-md border-0 bg-gradient-to-r from-white via-red-50/20 to-rose-50/30 hover:shadow-lg hover:from-red-50/30 hover:to-rose-50/40 transition-all duration-200">
+                                    <CardHeader className="pb-2">
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex-1">
+                                                <div className="flex items-center gap-2 mb-2">
+                                                    <CardTitle className="text-base font-semibold text-gray-900">
+                                                        {campaign.title}
+                                                    </CardTitle>
+                                                    {getDealTypeBadge(campaign.deal_type, campaign.deal_type_display)}
+                                                </div>
+                                                <div className="flex items-center gap-4 text-sm">
                         <span className="flex items-center gap-1 text-red-600">
                           <HiUsers className="w-3 h-3"/>
                             {campaign.total_invited || campaign.deals_count} deals
                         </span>
-                                                <span className="flex items-center gap-1 text-emerald-600">
+                                                    <span className="flex items-center gap-1 text-emerald-600">
                           <HiCheckCircle className="w-3 h-3"/>
-                                                    {campaign.completed_deals} completed
+                                                        {campaign.completed_deals} completed
                         </span>
-                                                <span className="flex items-center gap-1 text-rose-600">
+                                                    <span className="flex items-center gap-1 text-rose-600">
                           <HiCurrencyDollar className="w-3 h-3"/>
-                                                    {formatCurrency(campaign.total_value)}
+                                                        {formatCurrency(campaign.total_value)}
                         </span>
-                                                {campaign.target_influencers && (
-                                                    <span className="flex items-center gap-1 text-amber-600">
+                                                    {campaign.target_influencers && (
+                                                        <span className="flex items-center gap-1 text-amber-600">
                             <HiUsers className="w-3 h-3"/>
-                                                        {campaign.total_invited || campaign.deals_count}/{campaign.target_influencers} needed
+                                                            {campaign.total_invited || campaign.deals_count}/{campaign.target_influencers} needed
                           </span>
-                                                )}
-                                            </div>
-                                        </div>
-                                        <div className="flex items-center gap-2">
-                                            <Button variant="outline" size="sm"
-                                                    onClick={() => router.push(`/brand/campaigns/${campaign.id}`)}
-                                                    className="text-xs px-2 py-1 border-red-200 text-red-700 hover:bg-red-50">
-                                                <HiEye className="w-3 h-3 mr-1"/>
-                                                View
-                                            </Button>
-                                            <Button size="sm"
-                                                    onClick={() => window.open(`/brand/campaigns/${campaign.id}/deals`, '_blank')}
-                                                    className="text-xs px-2 py-1 bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700">
-                                                Manage
-                                            </Button>
-                                        </div>
-                                    </div>
-                                </CardHeader>
-
-                                <CardContent>
-                                    <div className="space-y-2">
-                                        {campaign.deals.slice(0, 3).map((deal) => (
-                                            <div key={deal.id}
-                                                 className="flex items-center justify-between p-2 bg-gradient-to-r from-white to-red-50/40 rounded-lg border border-red-100 hover:from-red-50/30 hover:to-rose-50/50 transition-all duration-200">
-                                                <div className="flex items-center gap-3">
-                                                    <div className="relative">
-                                                        {deal.influencer?.profile_image || deal.influencer?.avatar ? (
-                                                            <img
-                                                                src={getFullImageUrl(deal.influencer.profile_image || deal.influencer.avatar)}
-                                                                alt={deal.influencer?.full_name || deal.influencer?.username || 'Influencer'}
-                                                                className="w-8 h-8 rounded-full object-cover"
-                                                                onError={(e) => {
-                                                                    const target = e.target as HTMLImageElement;
-                                                                    target.style.display = 'none';
-                                                                    target.nextElementSibling?.classList.remove('hidden');
-                                                                }}
-                                                            />
-                                                        ) : null}
-                                                        <div
-                                                            className={`w-8 h-8 bg-gradient-to-br from-red-500 to-rose-600 rounded-full flex items-center justify-center text-white font-bold text-sm ${deal.influencer?.profile_image || deal.influencer?.avatar ? 'hidden' : ''}`}>
-                                                            {(deal.influencer?.full_name || deal.influencer?.username || '?').charAt(0).toUpperCase()}
-                                                        </div>
-                                                    </div>
-                                                    <div>
-                                                        <p className="text-sm font-medium text-gray-900">{deal.influencer?.full_name || deal.influencer?.username || 'Unknown Influencer'}</p>
-                                                        <p className="text-xs text-gray-500">{deal.influencer?.username || 'N/A'}</p>
-                                                    </div>
-                                                </div>
-
-                                                <div className="flex items-center gap-3">
-                                                    {getStatusBadge(deal.status, deal.status_display)}
-                                                    <span className="text-sm font-medium text-gray-700">
-                            {formatCurrency(deal.value)}
-                          </span>
-                                                    <Button variant="ghost" size="sm"
-                                                            onClick={() => window.open(`/brand/deals/${deal.id}`, '_blank')}
-                                                            className="p-1 hover:bg-red-100">
-                                                        <HiEye className="w-3 h-3"/>
-                                                    </Button>
+                                                    )}
                                                 </div>
                                             </div>
-                                        ))}
-
-                                        {campaign.deals.length > 3 && (
-                                            <div className="text-center pt-2">
+                                            <div className="flex items-center gap-2">
                                                 <Button variant="outline" size="sm"
-                                                        onClick={() => window.open(`/brand/campaigns/${campaign.id}/deals`, '_blank')}
+                                                        onClick={() => router.push(`/brand/campaigns/${campaign.id}`)}
                                                         className="text-xs px-2 py-1 border-red-200 text-red-700 hover:bg-red-50">
-                                                    View {campaign.deals.length - 3} more
+                                                    <HiEye className="w-3 h-3 mr-1"/>
+                                                    View
+                                                </Button>
+                                                <Button size="sm"
+                                                        onClick={() => window.open(`/brand/campaigns/${campaign.id}/deals`, '_blank')}
+                                                        className="text-xs px-2 py-1 bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700">
+                                                    Manage
                                                 </Button>
                                             </div>
-                                        )}
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        ))}
+                                        </div>
+                                    </CardHeader>
+
+                                    <CardContent>
+                                        <div className="space-y-2">
+                                            {campaign.deals.slice(0, 3).map((deal) => (
+                                                <div key={deal.id}
+                                                     className="flex items-center justify-between p-2 bg-gradient-to-r from-white to-red-50/40 rounded-lg border border-red-100 hover:from-red-50/30 hover:to-rose-50/50 transition-all duration-200">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="relative">
+                                                            {deal.influencer?.profile_image || deal.influencer?.avatar ? (
+                                                                <img
+                                                                    src={getFullImageUrl(deal.influencer.profile_image || deal.influencer.avatar)}
+                                                                    alt={deal.influencer?.full_name || deal.influencer?.username || 'Influencer'}
+                                                                    className="w-8 h-8 rounded-full object-cover"
+                                                                    onError={(e) => {
+                                                                        const target = e.target as HTMLImageElement;
+                                                                        target.style.display = 'none';
+                                                                        target.nextElementSibling?.classList.remove('hidden');
+                                                                    }}
+                                                                />
+                                                            ) : null}
+                                                            <div
+                                                                className={`w-8 h-8 bg-gradient-to-br from-red-500 to-rose-600 rounded-full flex items-center justify-center text-white font-bold text-sm ${deal.influencer?.profile_image || deal.influencer?.avatar ? 'hidden' : ''}`}>
+                                                                {(deal.influencer?.full_name || deal.influencer?.username || '?').charAt(0).toUpperCase()}
+                                                            </div>
+                                                        </div>
+                                                        <div>
+                                                            <p className="text-sm font-medium text-gray-900">{deal.influencer?.full_name || deal.influencer?.username || 'Unknown Influencer'}</p>
+                                                            <p className="text-xs text-gray-500">{deal.influencer?.username || 'N/A'}</p>
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="flex items-center gap-3">
+                                                        {getStatusBadge(deal.status, deal.status_display)}
+                                                        <span className="text-sm font-medium text-gray-700">
+                            {formatCurrency(deal.value)}
+                          </span>
+                                                        <Button variant="ghost" size="sm"
+                                                                onClick={() => window.open(`/brand/deals/${deal.id}`, '_blank')}
+                                                                className="p-1 hover:bg-red-100">
+                                                            <HiEye className="w-3 h-3"/>
+                                                        </Button>
+                                                    </div>
+                                                </div>
+                                            ))}
+
+                                            {campaign.deals.length > 3 && (
+                                                <div className="text-center pt-2">
+                                                    <Button variant="outline" size="sm"
+                                                            onClick={() => window.open(`/brand/campaigns/${campaign.id}/deals`, '_blank')}
+                                                            className="text-xs px-2 py-1 border-red-200 text-red-700 hover:bg-red-50">
+                                                        View {campaign.deals.length - 3} more
+                                                    </Button>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                            ))}
+                        </div>
                     </div>
                 )}
 
                 {/* All Deals View */}
-                {!isLoading && viewMode === 'deals' && deals.length > 0 && (
-                    <div className="grid gap-2">
-                        {deals.map((deal) => (
-                            <Card
-                                key={deal.id}
-                                className="shadow-md border-0 bg-gradient-to-r from-white via-red-50/20 to-rose-50/20 hover:shadow-lg hover:from-red-50/30 hover:to-rose-50/30 transition-all duration-200 cursor-pointer group"
-                                onClick={() => window.open(`/brand/deals/${deal.id}`, '_blank')}
-                            >
-                                <CardContent className="p-4">
-                                    <div className="flex items-center justify-between">
-                                        <div className="flex items-center gap-4 flex-1">
-                                            <div className="relative flex-shrink-0">
-                                                {deal.influencer?.profile_image || deal.influencer?.avatar ? (
-                                                    <img
-                                                        src={getFullImageUrl(deal.influencer.profile_image || deal.influencer.avatar)}
-                                                        alt={deal.influencer?.full_name || deal.influencer?.username || 'Influencer'}
-                                                        className="w-12 h-12 rounded-full object-cover shadow-md ring-2 ring-white group-hover:ring-red-200 transition-all duration-200"
-                                                        onError={(e) => {
-                                                            const target = e.target as HTMLImageElement;
-                                                            target.style.display = 'none';
-                                                            target.nextElementSibling?.classList.remove('hidden');
+                {deals.length > 0 && (
+                    <div className={viewMode === 'deals' ? 'block' : 'hidden'}>
+                        <div className="grid gap-2">
+                            {deals.map((deal) => (
+                                <Card
+                                    key={deal.id}
+                                    className="shadow-md border-0 bg-gradient-to-r from-white via-red-50/20 to-rose-50/20 hover:shadow-lg hover:from-red-50/30 hover:to-rose-50/30 transition-all duration-200 cursor-pointer group"
+                                    onClick={() => window.open(`/brand/deals/${deal.id}`, '_blank')}
+                                >
+                                    <CardContent className="p-4">
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-4 flex-1">
+                                                <div className="relative flex-shrink-0">
+                                                    {deal.influencer?.profile_image || deal.influencer?.avatar ? (
+                                                        <img
+                                                            src={getFullImageUrl(deal.influencer.profile_image || deal.influencer.avatar)}
+                                                            alt={deal.influencer?.full_name || deal.influencer?.username || 'Influencer'}
+                                                            className="w-12 h-12 rounded-full object-cover shadow-md ring-2 ring-white group-hover:ring-red-200 transition-all duration-200"
+                                                            onError={(e) => {
+                                                                const target = e.target as HTMLImageElement;
+                                                                target.style.display = 'none';
+                                                                target.nextElementSibling?.classList.remove('hidden');
+                                                            }}
+                                                        />
+                                                    ) : null}
+                                                    <div
+                                                        className={`w-12 h-12 bg-gradient-to-br from-red-500 to-rose-600 rounded-full flex items-center justify-center text-white font-bold text-sm shadow-md ring-2 ring-white group-hover:ring-red-200 transition-all duration-200 ${deal.influencer?.profile_image || deal.influencer?.avatar ? 'hidden' : ''}`}>
+                                                        {(deal.influencer?.full_name || deal.influencer?.username || '?').charAt(0).toUpperCase()}
+                                                    </div>
+                                                </div>
+
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="flex items-center gap-2 mb-1">
+                                                        <h3 className="text-base font-semibold text-gray-900 group-hover:text-red-700 transition-colors duration-200 truncate">
+                                                            {deal.influencer?.full_name || deal.influencer?.username || 'Unknown Influencer'}
+                                                        </h3>
+                                                        {getStatusBadge(deal.status, deal.status_display)}
+                                                    </div>
+                                                    <p className="text-sm text-gray-500 mb-1">@{deal.influencer?.username || 'N/A'}</p>
+                                                    <p className="text-sm text-red-600 font-medium group-hover:text-red-700 transition-colors duration-200 truncate">
+                                                        {deal.campaign?.title || 'Untitled Campaign'}
+                                                    </p>
+                                                    <p className="text-xs text-gray-500 capitalize">
+                                                        {deal.campaign?.deal_type || 'Unknown Type'}
+                                                    </p>
+                                                </div>
+                                            </div>
+
+                                            <div className="flex items-center gap-4 flex-shrink-0">
+                                                <div className="text-right">
+                                                    <p className="text-base font-bold text-gray-900 group-hover:text-red-700 transition-colors duration-200">
+                                                        {formatCurrency(deal.value)}
+                                                    </p>
+                                                    <p className="text-xs text-gray-500">
+                                                        {getLastActivityDate(deal) || 'No activity'}
+                                                    </p>
+                                                    {deal.status === 'completed' && typeof deal.brand_rating === 'number' && (
+                                                        <p className="text-xs text-gray-600 mt-1">You
+                                                            rated: {deal.brand_rating}/5 ⭐</p>
+                                                    )}
+                                                </div>
+
+                                                {deal.status === 'completed' && typeof deal.brand_rating !== 'number' && (
+                                                    <Button
+                                                        variant="outline"
+                                                        size="sm"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setSelectedDealForRating(deal);
+                                                            setRatingDialogOpen(true);
                                                         }}
-                                                    />
-                                                ) : null}
-                                                <div
-                                                    className={`w-12 h-12 bg-gradient-to-br from-red-500 to-rose-600 rounded-full flex items-center justify-center text-white font-bold text-sm shadow-md ring-2 ring-white group-hover:ring-red-200 transition-all duration-200 ${deal.influencer?.profile_image || deal.influencer?.avatar ? 'hidden' : ''}`}>
-                                                    {(deal.influencer?.full_name || deal.influencer?.username || '?').charAt(0).toUpperCase()}
-                                                </div>
-                                            </div>
-
-                                            <div className="flex-1 min-w-0">
-                                                <div className="flex items-center gap-2 mb-1">
-                                                    <h3 className="text-base font-semibold text-gray-900 group-hover:text-red-700 transition-colors duration-200 truncate">
-                                                        {deal.influencer?.full_name || deal.influencer?.username || 'Unknown Influencer'}
-                                                    </h3>
-                                                    {getStatusBadge(deal.status, deal.status_display)}
-                                                </div>
-                                                <p className="text-sm text-gray-500 mb-1">@{deal.influencer?.username || 'N/A'}</p>
-                                                <p className="text-sm text-red-600 font-medium group-hover:text-red-700 transition-colors duration-200 truncate">
-                                                    {deal.campaign?.title || 'Untitled Campaign'}
-                                                </p>
-                                            </div>
-                                        </div>
-
-                                        <div className="flex items-center gap-4 flex-shrink-0">
-                                            <div className="text-right">
-                                                <p className="text-base font-bold text-gray-900 group-hover:text-red-700 transition-colors duration-200">
-                                                    {formatCurrency(deal.value)}
-                                                </p>
-                                                <p className="text-xs text-gray-500">
-                                                    {getLastActivityDate(deal) || 'No activity'}
-                                                </p>
-                                                {deal.status === 'completed' && typeof deal.brand_rating === 'number' && (
-                                                    <p className="text-xs text-gray-600 mt-1">You
-                                                        rated: {deal.brand_rating}/5 ⭐</p>
+                                                        className="text-xs px-2 py-1 border-yellow-200 text-yellow-700 hover:bg-yellow-50"
+                                                    >
+                                                        <HiStar className="w-3 h-3 mr-1"/>
+                                                        Rate
+                                                    </Button>
                                                 )}
-                                            </div>
-
-                                            {deal.status === 'completed' && typeof deal.brand_rating !== 'number' && (
-                                                <Button
-                                                    variant="outline"
-                                                    size="sm"
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        setSelectedDealForRating(deal);
-                                                        setRatingDialogOpen(true);
-                                                    }}
-                                                    className="text-xs px-2 py-1 border-yellow-200 text-yellow-700 hover:bg-yellow-50"
-                                                >
-                                                    <HiStar className="w-3 h-3 mr-1"/>
-                                                    Rate
-                                                </Button>
-                                            )}
 
 
-                                            <div
-                                                className="w-8 h-8 rounded-full bg-red-100 group-hover:bg-red-200 flex items-center justify-center transition-all duration-200">
-                                                <HiEye className="w-4 h-4 text-red-600 group-hover:text-red-700"/>
+                                                <div
+                                                    className="w-8 h-8 rounded-full bg-red-100 group-hover:bg-red-200 flex items-center justify-center transition-all duration-200">
+                                                    <HiEye className="w-4 h-4 text-red-600 group-hover:text-red-700"/>
+                                                </div>
                                             </div>
                                         </div>
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        ))}
+                                    </CardContent>
+                                </Card>
+                            ))}
+                        </div>
                     </div>
                 )}
 
