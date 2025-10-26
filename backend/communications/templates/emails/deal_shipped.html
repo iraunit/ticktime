@@ -1,0 +1,48 @@
+{% extends "emails/base_email.html" %}
+
+{% block title %}Product Shipped - {{ site_name }}{% endblock %}
+
+{% block content %}
+<h2>Hi {{ user.first_name|default:user.username }}!</h2>
+
+<p>Great news! Your product has been shipped for the campaign.</p>
+
+<div class="info-box">
+    <h3 style="margin-top: 0;">{{ campaign.title }}</h3>
+    <p><strong>Brand:</strong> {{ brand.name }}</p>
+    {% if deal.tracking_number %}
+    <p><strong>Tracking Number:</strong> {{ deal.tracking_number }}</p>
+    {% endif %}
+    {% if deal.shipped_at %}
+    <p><strong>Shipped On:</strong> {{ deal.shipped_at|date:"F d, Y" }}</p>
+    {% endif %}
+</div>
+
+{% if deal.tracking_url %}
+<div style="text-align: center; margin: 30px 0;">
+    <a href="{{ deal.tracking_url }}" class="button">Track Your Shipment</a>
+</div>
+{% endif %}
+
+<p><strong>What's Next?</strong></p>
+<ul>
+    <li>Your product should arrive within 5-7 business days</li>
+    <li>Once received, create content according to campaign guidelines</li>
+    <li>Submit your content before the deadline</li>
+</ul>
+
+{% if custom_message %}
+<div class="divider"></div>
+<p><strong>Message from {{ brand.name }}:</strong></p>
+<p style="font-style: italic; color: #555;">{{ custom_message }}</p>
+{% endif %}
+
+<div style="text-align: center; margin: 20px 0;">
+    <a href="{{ deal_url }}" class="button" style="background: linear-gradient(135deg, #34d399 0%, #10b981 100%);">View Campaign Details</a>
+</div>
+
+<p style="font-size: 14px; color: #666;">
+    If you have any questions about the shipment or the campaign, please contact the brand directly through the platform.
+</p>
+{% endblock %}
+

@@ -1,0 +1,43 @@
+{% extends "emails/base_email.html" %}
+
+{% block title %}Campaign Accepted - {{ site_name }}{% endblock %}
+
+{% block content %}
+<h2>Hi {{ user.first_name|default:user.username }}!</h2>
+
+<p>Congratulations! Your participation in the campaign has been confirmed.</p>
+
+<div class="info-box">
+    <h3 style="margin-top: 0;">{{ campaign.title }}</h3>
+    <p><strong>Brand:</strong> {{ brand.name }}</p>
+    <p><strong>Status:</strong> Accepted ✓</p>
+    {% if campaign.submission_deadline %}
+    <p><strong>Submission Deadline:</strong> {{ campaign.submission_deadline|date:"F d, Y" }}</p>
+    {% endif %}
+</div>
+
+<p><strong>Next Steps:</strong></p>
+<ul>
+    <li>Review the campaign requirements carefully</li>
+    <li>Create content according to the guidelines</li>
+    <li>Submit your content before the deadline</li>
+    {% if deal.requires_product_shipping %}
+    <li>Provide your shipping address if required</li>
+    {% endif %}
+</ul>
+
+{% if custom_message %}
+<div class="divider"></div>
+<p><strong>Message from {{ brand.name }}:</strong></p>
+<p style="font-style: italic; color: #555;">{{ custom_message }}</p>
+{% endif %}
+
+<div style="text-align: center; margin: 30px 0;">
+    <a href="{{ deal_url }}" class="button">View Campaign</a>
+</div>
+
+<p style="font-size: 14px; color: #666;">
+    We're excited about this collaboration! If you have any questions, feel free to reach out to the brand.
+</p>
+{% endblock %}
+

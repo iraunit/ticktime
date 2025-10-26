@@ -19,6 +19,7 @@ class Brand(models.Model):
     contact_email = models.EmailField()
     # Removed country_code and contact_phone as they're now in UserProfile
     is_verified = models.BooleanField(default=False)
+    is_locked = models.BooleanField(default=False, help_text='Lock account for non-payment or other reasons')
     rating = models.DecimalField(
         max_digits=3,
         decimal_places=2,
@@ -36,6 +37,7 @@ class Brand(models.Model):
             models.Index(fields=['domain']),
             models.Index(fields=['industry']),
             models.Index(fields=['is_verified']),
+            models.Index(fields=['is_locked']),
             models.Index(fields=['rating']),
         ]
 

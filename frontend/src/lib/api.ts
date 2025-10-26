@@ -208,4 +208,39 @@ export function logError(error: unknown, context?: string) {
     }
 }
 
+// Communication API methods
+export const communicationApi = {
+    /**
+     * Send verification email to current user
+     */
+    sendVerificationEmail: async () => {
+        return api.post('/communications/send-verification/');
+    },
+
+    /**
+     * Verify email using token from magic link
+     */
+    verifyEmail: async (token: string) => {
+        return api.get(`/communications/verify-email/${token}/`);
+    },
+
+    /**
+     * Send campaign notifications to influencers
+     */
+    sendCampaignNotification: async (data: {
+        deal_ids: number[];
+        notification_type: 'invitation' | 'status_update' | 'accepted' | 'shipped' | 'completed';
+        custom_message?: string;
+    }) => {
+        return api.post('/communications/send-campaign-notification/', data);
+    },
+
+    /**
+     * Check account status (email verification, lock status)
+     */
+    checkAccountStatus: async () => {
+        return api.get('/communications/account-status/');
+    },
+};
+
 export default api;

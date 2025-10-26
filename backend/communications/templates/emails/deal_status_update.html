@@ -1,0 +1,30 @@
+{% extends "emails/base_email.html" %}
+
+{% block title %}Campaign Update - {{ site_name }}{% endblock %}
+
+{% block content %}
+<h2>Hi {{ user.first_name|default:user.username }}!</h2>
+
+<p>There's an update on your campaign with {{ brand.name }}.</p>
+
+<div class="info-box">
+    <h3 style="margin-top: 0;">{{ campaign.title }}</h3>
+    <p><strong>Brand:</strong> {{ brand.name }}</p>
+    <p><strong>Current Status:</strong> {{ deal.get_status_display }}</p>
+</div>
+
+{% if custom_message %}
+<div class="divider"></div>
+<p><strong>Message from {{ brand.name }}:</strong></p>
+<p style="font-style: italic; color: #555;">{{ custom_message }}</p>
+{% endif %}
+
+<div style="text-align: center; margin: 30px 0;">
+    <a href="{{ deal_url }}" class="button">View Deal Details</a>
+</div>
+
+<p style="font-size: 14px; color: #666;">
+    Log in to your account to see the complete details and take any necessary actions.
+</p>
+{% endblock %}
+

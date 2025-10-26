@@ -14,18 +14,18 @@ Including another URLconf
     1. Import the include() function: from django.urls import include, path
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
-from django.contrib import admin
-from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
+from django.contrib import admin
+from django.urls import path, include
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    
+
     # Authentication and user management
     path('api/auth/', include('authentication.urls', namespace='authentication')),
     path('api/users/', include('users.urls', namespace='users')),
-    
+
     # Core business logic apps
     path('api/influencers/', include('influencers.urls', namespace='influencers')),
     path('api/brands/', include('brands.urls', namespace='brands')),
@@ -33,11 +33,12 @@ urlpatterns = [
     path('api/common/', include('common.urls', namespace='common')),
     path('api/', include('deals.urls', namespace='deals')),
     path('api/content/deals/', include('content.urls', namespace='content')),
-    
+
     # Communication and analytics
     path('api/messaging/', include('messaging.urls', namespace='messaging')),
     path('api/dashboard/', include('dashboard.urls', namespace='dashboard')),
-    
+    path('api/communications/', include('communications.urls', namespace='communications')),
+
     # Core app removed - functionality distributed to other apps
 ]
 

@@ -1,0 +1,42 @@
+{% extends "emails/base_email.html" %}
+
+{% block title %}New Campaign Invitation - {{ site_name }}{% endblock %}
+
+{% block content %}
+<h2>Hi {{ user.first_name|default:user.username }}!</h2>
+
+<p>Great news! You've been invited to participate in a new campaign.</p>
+
+<div class="info-box">
+    <h3 style="margin-top: 0;">{{ campaign.title }}</h3>
+    <p><strong>Brand:</strong> {{ brand.name }}</p>
+    <p><strong>Deal Type:</strong> {{ campaign.deal_type_display }}</p>
+    {% if campaign.cash_amount %}
+    <p><strong>Compensation:</strong> ₹{{ campaign.cash_amount }}</p>
+    {% endif %}
+    {% if campaign.application_deadline %}
+    <p><strong>Application Deadline:</strong> {{ campaign.application_deadline|date:"F d, Y" }}</p>
+    {% endif %}
+</div>
+
+{% if campaign.description %}
+<p><strong>Campaign Description:</strong></p>
+<p>{{ campaign.description }}</p>
+{% endif %}
+
+{% if custom_message %}
+<div class="divider"></div>
+<p><strong>Message from {{ brand.name }}:</strong></p>
+<p style="font-style: italic; color: #555;">{{ custom_message }}</p>
+{% endif %}
+
+<div style="text-align: center; margin: 30px 0;">
+    <a href="{{ campaign_url }}" class="button">View Campaign Details</a>
+</div>
+
+<p style="font-size: 14px; color: #666;">
+    This is an exciting opportunity to collaborate with {{ brand.name }}. 
+    Review the campaign details and respond at your earliest convenience.
+</p>
+{% endblock %}
+

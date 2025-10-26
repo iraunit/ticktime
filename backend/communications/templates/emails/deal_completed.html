@@ -1,0 +1,42 @@
+{% extends "emails/base_email.html" %}
+
+{% block title %}Campaign Completed - {{ site_name }}{% endblock %}
+
+{% block content %}
+<h2>Hi {{ user.first_name|default:user.username }}!</h2>
+
+<p>Congratulations! Your campaign has been successfully completed.</p>
+
+<div class="info-box">
+    <h3 style="margin-top: 0;">{{ campaign.title }}</h3>
+    <p><strong>Brand:</strong> {{ brand.name }}</p>
+    <p><strong>Status:</strong> Completed ✓</p>
+    {% if deal.completed_at %}
+    <p><strong>Completed On:</strong> {{ deal.completed_at|date:"F d, Y" }}</p>
+    {% endif %}
+</div>
+
+<p>Thank you for your excellent work on this campaign! We hope you enjoyed the collaboration with {{ brand.name }}.</p>
+
+{% if custom_message %}
+<div class="divider"></div>
+<p><strong>Message from {{ brand.name }}:</strong></p>
+<p style="font-style: italic; color: #555;">{{ custom_message }}</p>
+{% endif %}
+
+<div style="text-align: center; margin: 30px 0;">
+    <a href="{{ deal_url }}" class="button">View Campaign Summary</a>
+</div>
+
+<p><strong>What's Next?</strong></p>
+<ul>
+    <li>Leave a review for {{ brand.name }}</li>
+    <li>Check your payment status</li>
+    <li>Explore more campaign opportunities</li>
+</ul>
+
+<p style="font-size: 14px; color: #666;">
+    We'd love to hear about your experience. Your feedback helps us improve the platform for everyone!
+</p>
+{% endblock %}
+
