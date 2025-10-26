@@ -41,7 +41,8 @@ export function MainLayout({
                 ServiceWorkerCache.cacheAssets([
                     '/',
                     '/manifest.json',
-                    '/favicon.ico'
+                    '/favicon.png',
+                    '/ticktime-logo.png'
                 ]);
             }).catch(console.warn);
         }, 100);
