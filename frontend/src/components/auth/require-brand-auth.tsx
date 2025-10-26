@@ -22,14 +22,14 @@ export function RequireBrandAuth({ children }: RequireBrandAuthProps) {
       
       // If not authenticated, redirect to login
       if (!isAuthenticated() || !user) {
-        router.replace('/login');
+        router.replace('/accounts/login');
         return;
       }
       
       // If user is not a brand user, redirect to their appropriate dashboard
       if (user.account_type !== 'brand' || !user.brand_profile) {
         if (user.account_type === 'influencer') {
-          router.replace('/dashboard');
+          router.replace('/influencer/dashboard');
         } else {
           router.replace('/login?error=Brand access required');
         }

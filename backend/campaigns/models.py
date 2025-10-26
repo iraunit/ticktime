@@ -1,7 +1,7 @@
-from django.db import models
-from django.core.validators import MinValueValidator, MaxValueValidator
-from django.utils import timezone
 from common.models import DEAL_TYPE_CHOICES
+from django.core.validators import MinValueValidator
+from django.db import models
+from django.utils import timezone
 
 
 class Campaign(models.Model):
@@ -10,20 +10,21 @@ class Campaign(models.Model):
     that influencers can participate in.
     """
     brand = models.ForeignKey('brands.Brand', on_delete=models.CASCADE, related_name='campaigns')
-    created_by = models.ForeignKey('auth.User', on_delete=models.SET_NULL, null=True, blank=True, related_name='created_campaigns')
+    created_by = models.ForeignKey('auth.User', on_delete=models.SET_NULL, null=True, blank=True,
+                                   related_name='created_campaigns')
     title = models.CharField(max_length=200)
     description = models.TextField()
     objectives = models.TextField(blank=True)
     deal_type = models.CharField(max_length=20, choices=DEAL_TYPE_CHOICES)
     cash_amount = models.DecimalField(
-        max_digits=10, 
-        decimal_places=2, 
+        max_digits=10,
+        decimal_places=2,
         default=0.00,
         validators=[MinValueValidator(0)]
     )
     product_value = models.DecimalField(
-        max_digits=10, 
-        decimal_places=2, 
+        max_digits=10,
+        decimal_places=2,
         default=0.00,
         validators=[MinValueValidator(0)]
     )
@@ -37,13 +38,17 @@ class Campaign(models.Model):
     content_count = models.IntegerField(default=0, help_text='Number of content pieces expected')
     # Keep legacy text field to avoid destructive/complex migration; new FK holds the canonical industry
     industry = models.CharField(max_length=50, default='other')
-    industry_category = models.ForeignKey('common.Category', on_delete=models.PROTECT, related_name='campaign_industries', null=True, blank=True)
+    industry_category = models.ForeignKey('common.Industry', on_delete=models.PROTECT,
+                                          related_name='campaign_industries', null=True, blank=True)
+    # Support multiple industries and content categories
+    industries = models.JSONField(default=list, blank=True, help_text='List of industry keys')
+    content_categories = models.JSONField(default=list, blank=True, help_text='List of content category keys')
     execution_mode = models.CharField(
         max_length=20,
         choices=[
             ('manual', 'Manual'),
-            ('hybrid', 'Hybrid'),
-            ('managed', 'Managed'),
+            ('manual_managed', 'Manual + Managed by Us'),
+            ('fully_managed', 'Managed by Us Fully'),
         ],
         default='manual'
     )
@@ -51,7 +56,8 @@ class Campaign(models.Model):
     product_delivery_date = models.DateTimeField(null=True, blank=True)
     # Timelines
     submission_deadline = models.DateTimeField(null=True, blank=True)
-    barter_submission_after_days = models.IntegerField(null=True, blank=True, help_text='For barter deals, days after product received to submit content')
+    barter_submission_after_days = models.IntegerField(null=True, blank=True,
+                                                       help_text='For barter deals, days after product received to submit content')
     campaign_live_date = models.DateTimeField(null=True, blank=True)
     application_deadline_visible_to_influencers = models.BooleanField(default=True)
     payment_schedule = models.TextField(blank=True)
@@ -82,16 +88,19 @@ class Campaign(models.Model):
     def total_value(self):
         """Calculate total deal value (cash + product value)"""
         # For barter/hybrid deals, calculate from products array if available
-        if self.deal_type in ['product', 'hybrid'] and self.products:
+        if self.deal_type in ['product', 'hybrid'] and self.products and isinstance(self.products, list):
             calculated_product_value = 0
-            if isinstance(self.products, list):
-                for product in self.products:
-                    if isinstance(product, dict):
-                        value = product.get('value', 0)
-                        quantity = product.get('quantity', 1)
-                        if isinstance(value, (int, float)) and isinstance(quantity, (int, float)):
-                            calculated_product_value += value * quantity
-            return self.cash_amount + calculated_product_value
+            for product in self.products:
+                if isinstance(product, dict):
+                    value = product.get('value', 0)
+                    quantity = product.get('quantity', 1)
+                    if isinstance(value, (int, float)) and isinstance(quantity, (int, float)):
+                        calculated_product_value += value * quantity
+
+            # If we calculated a value from products, use it; otherwise fallback to product_value
+            if calculated_product_value > 0:
+                return self.cash_amount + calculated_product_value
+
         # Fallback to stored product_value for backward compatibility
         return self.cash_amount + self.product_value
 

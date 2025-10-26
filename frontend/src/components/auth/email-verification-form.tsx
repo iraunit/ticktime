@@ -68,7 +68,7 @@ export function EmailVerificationForm({ token }: EmailVerificationFormProps) {
               You can now sign in to your account and start collaborating with brands.
             </p>
             <Button asChild className="w-full">
-              <Link href="/login">
+              <Link href="/accounts/login">
                 Continue to sign in
               </Link>
             </Button>
@@ -96,12 +96,12 @@ export function EmailVerificationForm({ token }: EmailVerificationFormProps) {
           </p>
           <div className="space-y-2">
             <Button asChild variant="outline" className="w-full">
-              <Link href="/signup">
+              <Link href="/accounts/signup">
                 Create a new account
               </Link>
             </Button>
             <Button asChild className="w-full">
-              <Link href="/login">
+              <Link href="/accounts/login">
                 Try signing in
               </Link>
             </Button>

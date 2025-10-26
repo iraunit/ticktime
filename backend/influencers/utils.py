@@ -1,7 +1,6 @@
+from typing import Dict, List, Optional
+
 import requests
-import json
-from typing import Dict, List, Optional, Tuple
-from django.conf import settings
 from django.core.cache import cache
 
 
@@ -9,7 +8,7 @@ class LocationManager:
     """
     Utility class for managing location data, especially for Indian cities and pincodes
     """
-    
+
     @staticmethod
     def get_location_from_pincode(pincode: str) -> Optional[Dict]:
         """
@@ -17,18 +16,18 @@ class LocationManager:
         """
         cache_key = f"pincode_{pincode}"
         cached_data = cache.get(cache_key)
-        
+
         if cached_data:
             print(f"Returning cached data for pincode {pincode}")
             return cached_data
-        
+
         try:
             # Using India Post API (free service)
             url = f"https://api.postalpincode.in/pincode/{pincode}"
             print(f"Fetching data from: {url}")
             response = requests.get(url, timeout=5)
             print(f"Response status: {response.status_code}")
-            
+
             if response.status_code == 200:
                 data = response.json()
                 print(f"API response: {data}")
@@ -42,7 +41,7 @@ class LocationManager:
                         'area': post_office['Name']
                     }
                     print(f"Location data created: {location_data}")
-                    
+
                     # Cache for 24 hours
                     cache.set(cache_key, location_data, 86400)
                     return location_data
@@ -52,9 +51,9 @@ class LocationManager:
                 print(f"API request failed with status: {response.status_code}")
         except Exception as e:
             print(f"Error fetching pincode data: {e}")
-        
+
         return None
-    
+
     @staticmethod
     def get_popular_cities(country: str = 'India') -> List[Dict]:
         """
@@ -84,7 +83,7 @@ class LocationManager:
                 {'name': 'Vadodara', 'state': 'Gujarat'},
             ]
         return []
-    
+
     @staticmethod
     def get_states(country: str = 'India') -> List[str]:
         """
@@ -107,7 +106,7 @@ class InfluencerSearchHelper:
     """
     Helper class for influencer search functionality
     """
-    
+
     @staticmethod
     def get_platform_specific_filters(platform: str) -> Dict:
         """
@@ -116,13 +115,16 @@ class InfluencerSearchHelper:
         filters = {
             'instagram': {
                 'content_types': ['Posts', 'Reels', 'Stories', 'IGTV'],
-                'metrics': ['Avg Image Likes', 'Avg Image Comments', 'Avg Reel Plays', 'Avg Reel Likes', 'Avg Reel Comments'],
+                'metrics': ['Avg Image Likes', 'Avg Image Comments', 'Avg Reel Plays', 'Avg Reel Likes',
+                            'Avg Reel Comments'],
                 'features': ['Instagram Verified', 'Has YouTube', 'Commerce Ready', 'Campaign Ready', 'Barter Ready'],
-                'audience_filters': ['Audience Gender', 'Audience Location', 'Audience Interest', 'Audience Language', 'Audience Age Range']
+                'audience_filters': ['Audience Gender', 'Audience Location', 'Audience Interest', 'Audience Language',
+                                     'Audience Age Range']
             },
             'youtube': {
                 'content_types': ['Videos', 'Shorts', 'Live Streams'],
-                'metrics': ['Subscribers', 'Avg Video Views', 'Avg Shorts Plays', 'Avg Shorts Likes', 'Avg Shorts Comments'],
+                'metrics': ['Subscribers', 'Avg Video Views', 'Avg Shorts Plays', 'Avg Shorts Likes',
+                            'Avg Shorts Comments'],
                 'features': ['Has Instagram', 'Commerce Ready', 'Campaign Ready', 'Barter Ready'],
                 'audience_filters': ['Audience Gender', 'Audience Location', 'Audience Age Range']
             },
@@ -133,9 +135,9 @@ class InfluencerSearchHelper:
                 'audience_filters': ['Audience Gender', 'Audience Location', 'Audience Interest', 'Audience Language']
             }
         }
-        
+
         return filters.get(platform, {})
-    
+
     @staticmethod
     def get_follower_ranges() -> List[Dict]:
         """
@@ -149,14 +151,14 @@ class InfluencerSearchHelper:
             {'label': 'Mega (500K - 1M)', 'min': 500000, 'max': 1000000},
             {'label': 'A-Listers (1M+)', 'min': 1000000, 'max': 999999999}
         ]
-    
+
     @staticmethod
     def get_influence_score_ranges() -> List[str]:
         """
         Get influence score range options
         """
         return ['All', '7+', '8+', '9+']
-    
+
     @staticmethod
     def get_engagement_ranges() -> List[Dict]:
         """
@@ -170,7 +172,7 @@ class InfluencerSearchHelper:
             {'label': '5-10%', 'min': 5, 'max': 10},
             {'label': '10%+', 'min': 10, 'max': 100}
         ]
-    
+
     @staticmethod
     def get_sort_options(platform: str) -> List[Dict]:
         """
@@ -184,7 +186,7 @@ class InfluencerSearchHelper:
             {'value': 'recently_active', 'label': 'Recently Active'},
             {'value': 'growth_rate', 'label': 'Growth Rate'}
         ]
-        
+
         platform_specific = {
             'instagram': [
                 {'value': 'avg_likes', 'label': 'Avg Likes'},
@@ -197,7 +199,7 @@ class InfluencerSearchHelper:
                 {'value': 'avg_shorts_plays', 'label': 'Avg Shorts Plays'}
             ]
         }
-        
+
         return base_options + platform_specific.get(platform, [])
 
 
@@ -205,7 +207,7 @@ class ContentAnalyzer:
     """
     Utility for analyzing influencer content and extracting keywords
     """
-    
+
     @staticmethod
     def extract_keywords_from_text(text: str) -> List[str]:
         """
@@ -213,7 +215,7 @@ class ContentAnalyzer:
         """
         if not text:
             return []
-        
+
         # Common stop words to exclude
         stop_words = {
             'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for',
@@ -221,20 +223,20 @@ class ContentAnalyzer:
             'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could',
             'should', 'may', 'might', 'must', 'can', 'this', 'that', 'these', 'those'
         }
-        
+
         # Extract words and filter
         words = text.lower().split()
         keywords = [word for word in words if word not in stop_words and len(word) > 2]
-        
+
         return list(set(keywords))  # Remove duplicates
-    
+
     @staticmethod
     def analyze_content_quality(text: str, engagement_rate: float, followers: int) -> float:
         """
         Analyze content quality based on various factors
         """
         score = 0.0
-        
+
         # Text quality (30% weight)
         if text:
             word_count = len(text.split())
@@ -242,7 +244,7 @@ class ContentAnalyzer:
                 score += 0.3
             elif 5 <= word_count <= 500:  # Acceptable length
                 score += 0.2
-        
+
         # Engagement rate (40% weight)
         if engagement_rate > 0:
             if engagement_rate >= 5:
@@ -253,7 +255,7 @@ class ContentAnalyzer:
                 score += 0.2
             else:
                 score += 0.1
-        
+
         # Follower count (30% weight)
         if followers > 0:
             if followers >= 1000000:
@@ -264,29 +266,29 @@ class ContentAnalyzer:
                 score += 0.2
             else:
                 score += 0.1
-        
+
         return min(score, 10.0)  # Cap at 10
-    
+
     @staticmethod
     def calculate_brand_safety_score(content_keywords: List[str], audience_data: Dict) -> float:
         """
         Calculate brand safety score based on content and audience
         """
         score = 10.0  # Start with perfect score
-        
+
         # Negative keywords that might affect brand safety
         negative_keywords = {
             'controversial', 'political', 'religious', 'sensitive', 'inappropriate',
             'offensive', 'discriminatory', 'hate', 'violence', 'explicit'
         }
-        
+
         # Check content keywords
         for keyword in content_keywords:
             if keyword.lower() in negative_keywords:
                 score -= 2.0
-        
+
         # Check audience demographics (if available)
         if audience_data.get('fake_followers_percentage', 0) > 20:
             score -= 3.0
-        
+
         return max(score, 0.0)  # Minimum 0

@@ -1,5 +1,5 @@
 from django.contrib import admin
-from django.utils.html import format_html
+
 from .models import Conversation, Message
 
 
@@ -11,6 +11,7 @@ class ConversationAdmin(admin.ModelAdmin):
 
     def deal_info(self, obj):
         return f"{obj.deal.campaign.title} - {obj.deal.influencer.username}"
+
     deal_info.short_description = 'Deal'
 
     def last_message_preview(self, obj):
@@ -19,6 +20,7 @@ class ConversationAdmin(admin.ModelAdmin):
             preview = last_msg.content[:50] + "..." if len(last_msg.content) > 50 else last_msg.content
             return f"{last_msg.sender_type}: {preview}"
         return "No messages"
+
     last_message_preview.short_description = 'Last Message'
 
 
@@ -32,7 +34,7 @@ class MessageInline(admin.TabularInline):
 @admin.register(Message)
 class MessageAdmin(admin.ModelAdmin):
     list_display = [
-        'conversation_info', 'sender_type', 'content_preview', 
+        'conversation_info', 'sender_type', 'content_preview',
         'read_by_influencer', 'read_by_brand', 'created_at'
     ]
     list_filter = ['sender_type', 'read_by_influencer', 'read_by_brand', 'created_at']
@@ -42,10 +44,12 @@ class MessageAdmin(admin.ModelAdmin):
 
     def conversation_info(self, obj):
         return f"{obj.conversation.deal.campaign.title} - {obj.conversation.deal.influencer.username}"
+
     conversation_info.short_description = 'Conversation'
 
     def content_preview(self, obj):
         return obj.content[:100] + "..." if len(obj.content) > 100 else obj.content
+
     content_preview.short_description = 'Content'
 
 

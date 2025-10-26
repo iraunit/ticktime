@@ -1,10 +1,9 @@
-from rest_framework import serializers
 from django.utils import timezone
+from influencers.models import InfluencerProfile
+from messaging.models import Conversation
+from rest_framework import serializers
 
 from .models import Deal
-from campaigns.serializers import CampaignSerializer
-from messaging.models import Conversation
-from influencers.models import InfluencerProfile
 
 
 class SimpleInfluencerSerializer(serializers.ModelSerializer):
@@ -19,7 +18,7 @@ class SimpleInfluencerSerializer(serializers.ModelSerializer):
     categories = serializers.SerializerMethodField()
     platforms = serializers.SerializerMethodField()
     location = serializers.SerializerMethodField()
-    
+
     class Meta:
         model = InfluencerProfile
         fields = (
@@ -27,7 +26,7 @@ class SimpleInfluencerSerializer(serializers.ModelSerializer):
             'followers_count', 'engagement_rate', 'categories', 'platforms', 'location',
             'is_verified', 'rating'
         )
-    
+
     def get_full_name(self, obj):
         """Get full name from user."""
         if obj.user.first_name and obj.user.last_name:
@@ -40,6 +39,9 @@ class SimpleInfluencerSerializer(serializers.ModelSerializer):
     def get_profile_image(self, obj):
         try:
             if obj.user_profile and obj.user_profile.profile_image:
+                request = self.context.get('request')
+                if request:
+                    return request.build_absolute_uri(obj.user_profile.profile_image.url)
                 return obj.user_profile.profile_image.url
         except Exception:
             pass
@@ -86,7 +88,7 @@ class DealListSerializer(serializers.ModelSerializer):
     """
     Serializer for deal list view with essential information.
     """
-    campaign = CampaignSerializer(read_only=True)
+    campaign = serializers.SerializerMethodField()
     influencer = SimpleInfluencerSerializer(read_only=True)
     status_display = serializers.CharField(source='get_status_display', read_only=True)
     is_active = serializers.ReadOnlyField()
@@ -122,7 +124,7 @@ class DealListSerializer(serializers.ModelSerializer):
     def get_value(self, obj):
         """Get the deal value from the campaign."""
         return obj.campaign.total_value
-    
+
     def get_conversation(self, obj):
         """Get conversation information if it exists."""
         try:
@@ -134,7 +136,7 @@ class DealListSerializer(serializers.ModelSerializer):
             }
         except:
             return None
-    
+
     def get_last_message(self, obj):
         """Get the last message in the conversation if it exists."""
         try:
@@ -158,13 +160,51 @@ class DealListSerializer(serializers.ModelSerializer):
         except:
             pass
         return None
-    
+
     def get_unread_count(self, obj):
         """Get unread message count for the brand."""
         try:
             return obj.conversation.unread_count_for_brand
         except:
             return 0
+
+    def get_campaign(self, obj):
+        """Get campaign information without circular import."""
+        if obj.campaign:
+            request = self.context.get('request')
+            campaign_description = obj.campaign.description
+            if isinstance(campaign_description, dict):
+                campaign_description = campaign_description.get('description', '')
+
+            brand_description = ''
+            if obj.campaign.brand:
+                brand_description = obj.campaign.brand.description
+                if isinstance(brand_description, dict):
+                    brand_description = brand_description.get('description', '')
+
+            return {
+                'id': obj.campaign.id,
+                'title': obj.campaign.title,
+                'description': campaign_description,
+                'deal_type': obj.campaign.deal_type,
+                'cash_amount': str(obj.campaign.cash_amount),
+                'total_value': str(obj.campaign.total_value),
+                'application_deadline': obj.campaign.application_deadline,
+                'submission_deadline': obj.campaign.submission_deadline,
+                'barter_submission_after_days': obj.campaign.barter_submission_after_days,
+                'platforms_required': obj.campaign.platforms_required,
+                'content_requirements': obj.campaign.content_requirements,
+                'brand': {
+                    'id': obj.campaign.brand.id,
+                    'name': obj.campaign.brand.name,
+                    'logo': request.build_absolute_uri(
+                        obj.campaign.brand.logo.url) if obj.campaign.brand.logo and request else (
+                        obj.campaign.brand.logo.url if obj.campaign.brand.logo else None),
+                    'industry': obj.campaign.brand.industry.key if obj.campaign.brand.industry else None,
+                    'description': brand_description,
+                } if obj.campaign.brand else None,
+            }
+        return None
 
 
 class DealListLiteSerializer(serializers.ModelSerializer):
@@ -245,11 +285,12 @@ class DealListLiteSerializer(serializers.ModelSerializer):
         except Conversation.DoesNotExist:
             return 0
 
+
 class DealDetailSerializer(serializers.ModelSerializer):
     """
     Serializer for detailed deal view with comprehensive information.
     """
-    campaign = CampaignSerializer(read_only=True)
+    campaign = serializers.SerializerMethodField()
     influencer = SimpleInfluencerSerializer(read_only=True)
     status_display = serializers.CharField(source='get_status_display', read_only=True)
     payment_status_display = serializers.CharField(source='get_payment_status_display', read_only=True)
@@ -294,6 +335,41 @@ class DealDetailSerializer(serializers.ModelSerializer):
         from content.serializers import ContentSubmissionSerializer
         return ContentSubmissionSerializer(obj.content_submissions.all(), many=True).data
 
+    def get_campaign(self, obj):
+        """Get campaign information without circular import."""
+        if obj.campaign:
+            campaign_description = obj.campaign.description
+            if isinstance(campaign_description, dict):
+                campaign_description = campaign_description.get('description', '')
+
+            brand_description = ''
+            if obj.campaign.brand:
+                brand_description = obj.campaign.brand.description
+                if isinstance(brand_description, dict):
+                    brand_description = brand_description.get('description', '')
+
+            return {
+                'id': obj.campaign.id,
+                'title': obj.campaign.title,
+                'description': campaign_description,
+                'deal_type': obj.campaign.deal_type,
+                'cash_amount': str(obj.campaign.cash_amount),
+                'total_value': str(obj.campaign.total_value),
+                'application_deadline': obj.campaign.application_deadline,
+                'submission_deadline': obj.campaign.submission_deadline,
+                'barter_submission_after_days': obj.campaign.barter_submission_after_days,
+                'platforms_required': obj.campaign.platforms_required,
+                'content_requirements': obj.campaign.content_requirements,
+                'brand': {
+                    'id': obj.campaign.brand.id,
+                    'name': obj.campaign.brand.name,
+                    'logo': obj.campaign.brand.logo.url if obj.campaign.brand.logo else None,
+                    'industry': obj.campaign.brand.industry.key if obj.campaign.brand.industry else None,
+                    'description': brand_description,
+                } if obj.campaign.brand else None,
+            }
+        return None
+
 
 class DealActionSerializer(serializers.Serializer):
     """
@@ -307,14 +383,14 @@ class DealActionSerializer(serializers.Serializer):
     def validate(self, attrs):
         """Validate action-specific requirements."""
         action = attrs.get('action')
-        
+
         if action == 'reject':
             # Rejection reason is optional but recommended
             pass
         elif action == 'accept':
             # Custom terms are optional for acceptance
             pass
-        
+
         return attrs
 
 
@@ -334,26 +410,54 @@ class CollaborationHistorySerializer(serializers.ModelSerializer):
     """
     Serializer for collaboration history with performance metrics.
     """
-    brand_name = serializers.CharField(source='campaign.brand.name', read_only=True)
-    brand_logo = serializers.ImageField(source='campaign.brand.logo', read_only=True)
+    brand = serializers.SerializerMethodField()
     campaign_title = serializers.CharField(source='campaign.title', read_only=True)
     deal_type = serializers.CharField(source='campaign.deal_type', read_only=True)
-    total_value = serializers.DecimalField(source='campaign.total_value', max_digits=10, decimal_places=2, read_only=True)
-    cash_amount = serializers.DecimalField(source='campaign.cash_amount', max_digits=10, decimal_places=2, read_only=True)
-    product_value = serializers.DecimalField(source='campaign.product_value', max_digits=10, decimal_places=2, read_only=True)
-    platforms_used = serializers.JSONField(source='campaign.platforms_required', read_only=True)
+    total_value = serializers.SerializerMethodField()
+    cash_amount = serializers.DecimalField(source='campaign.cash_amount', max_digits=10, decimal_places=2,
+                                           read_only=True)
+    product_value = serializers.DecimalField(source='campaign.product_value', max_digits=10, decimal_places=2,
+                                             read_only=True)
+    platforms = serializers.SerializerMethodField()
     content_submissions_count = serializers.SerializerMethodField()
     collaboration_duration = serializers.SerializerMethodField()
 
     class Meta:
         model = Deal
         fields = [
-            'id', 'brand_name', 'brand_logo', 'campaign_title', 'deal_type',
-            'total_value', 'cash_amount', 'product_value', 'platforms_used',
+            'id', 'brand', 'campaign_title', 'deal_type',
+            'total_value', 'cash_amount', 'product_value', 'platforms',
             'payment_status', 'payment_date', 'brand_rating', 'brand_review',
             'invited_at', 'accepted_at', 'completed_at', 'content_submissions_count',
             'collaboration_duration'
         ]
+
+    def get_total_value(self, obj):
+        """Get total value for the deal's campaign."""
+        if obj.campaign:
+            return obj.campaign.total_value
+        return 0
+
+    def get_brand(self, obj):
+        """Get brand information in the format expected by frontend."""
+        if obj.campaign and obj.campaign.brand:
+            return {
+                'id': obj.campaign.brand.id,
+                'name': obj.campaign.brand.name,
+                'logo': obj.campaign.brand.logo.url if obj.campaign.brand.logo else None,
+                'description': obj.campaign.brand.description,
+                'industry': obj.campaign.brand.industry.key if obj.campaign.brand.industry else None,
+            }
+        return None
+
+    def get_platforms(self, obj):
+        """Get platforms in the format expected by frontend."""
+        if obj.campaign and obj.campaign.platforms_required:
+            if isinstance(obj.campaign.platforms_required, list):
+                return obj.campaign.platforms_required
+            elif isinstance(obj.campaign.platforms_required, str):
+                return [obj.campaign.platforms_required]
+        return []
 
     def get_content_submissions_count(self, obj):
         """Get the number of content submissions for this deal."""

@@ -1,13 +1,12 @@
 "use client";
 
-import {useCallback, useState, useEffect} from "react";
+import {useCallback, useEffect, useState} from "react";
 import {useFieldArray, useForm} from "react-hook-form";
 import {zodResolver} from "@hookform/resolvers/zod";
 import {z} from "zod";
 import {Button} from "@/components/ui/button";
 import {Card, CardContent} from "@/components/ui/card";
 import {InlineLoader} from "@/components/ui/global-loader";
-import {Badge} from "@/components/ui/badge";
 import {Input} from "@/components/ui/input";
 import {Textarea} from "@/components/ui/textarea";
 import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from "@/components/ui/select";
@@ -26,10 +25,12 @@ import {Deal} from "@/types";
 import {useDeal} from "@/hooks/use-deals";
 import {CheckCircle, ExternalLink, Link as LinkIcon, Plus, Trash2, Upload, X} from "@/lib/icons";
 import Image from "next/image";
-// import { FileUpload, ImageUpload, VideoUpload } from "@/components/ui/file-upload";
 import {ErrorDisplay} from "@/components/ui/error-display";
 import {useErrorHandling} from "@/hooks/use-error-handling";
 import {toast} from "sonner";
+import {getDealTypeConfig, getPlatformConfig, platformDisplayNames} from "@/lib/platform-config";
+import {getContentTypeConfig} from "@/lib/icon-config";
+import {getMediaUrl} from "@/lib/utils";
 
 interface ContentSubmission {
     id: number;
@@ -60,14 +61,10 @@ interface ContentSubmissionProps {
     editingSubmission?: ContentSubmission | null;
 }
 
-const PLATFORM_OPTIONS = [
-    {value: "instagram", label: "Instagram"},
-    {value: "youtube", label: "YouTube"},
-    {value: "tiktok", label: "TikTok"},
-    {value: "twitter", label: "Twitter"},
-    {value: "facebook", label: "Facebook"},
-    {value: "linkedin", label: "LinkedIn"},
-];
+const PLATFORM_OPTIONS = Object.entries(platformDisplayNames).map(([value, label]) => ({
+    value,
+    label
+}));
 
 const CONTENT_TYPE_OPTIONS = [
     {value: "image", label: "Image"},
@@ -240,7 +237,7 @@ export function ContentSubmission({deal, isOpen, onClose, onSuccess, editingSubm
         } catch (err: any) {
             if (err.name !== 'AbortError') {
                 setError(err);
-                
+
                 // Show validation errors as toast messages
                 if (err.response?.data?.errors) {
                     const errors = err.response.data.errors;
@@ -341,7 +338,8 @@ export function ContentSubmission({deal, isOpen, onClose, onSuccess, editingSubm
                 <DialogHeader>
                     <DialogTitle>{editingSubmission ? 'Edit Content Submission' : 'Submit Content'}</DialogTitle>
                     <DialogDescription>
-                        {editingSubmission ? 'Update your content submission' : 'Submit your content (files, links, or posts)'} for the campaign: {deal.campaign?.title}
+                        {editingSubmission ? 'Update your content submission' : 'Submit your content (files, links, or posts)'} for
+                        the campaign: {deal.campaign?.title}
                     </DialogDescription>
                 </DialogHeader>
 
@@ -350,21 +348,42 @@ export function ContentSubmission({deal, isOpen, onClose, onSuccess, editingSubm
                     <Card>
                         <CardContent className="pt-4">
                             <div className="flex items-center space-x-4">
-                                {deal.campaign?.brand?.logo && (
+                                {deal.campaign?.brand?.logo ? (
                                     <Image
-                                        src={deal.campaign.brand.logo}
+                                        src={getMediaUrl(deal.campaign.brand.logo) || deal.campaign.brand.logo}
                                         alt={deal.campaign.brand.name}
                                         width={48}
                                         height={48}
-                                        className="rounded-lg"
+                                        className="rounded-lg object-cover"
+                                        onError={(e) => {
+                                            e.currentTarget.style.display = 'none';
+                                        }}
                                     />
+                                ) : (
+                                    <div className="w-12 h-12 rounded-lg bg-gray-200 flex items-center justify-center">
+                                        <span className="text-gray-500 text-xs font-medium">
+                                            {deal.campaign?.brand?.name?.charAt(0) || 'B'}
+                                        </span>
+                                    </div>
                                 )}
                                 <div>
                                     <h3 className="font-medium">{deal.campaign?.brand?.name}</h3>
                                     <p className="text-sm text-gray-600">{deal.campaign?.title}</p>
-                                    <Badge variant="outline" className="mt-1">
-                                        {deal.campaign?.deal_type}
-                                    </Badge>
+                                    <div className="flex items-center gap-2 mt-1">
+                                        {(() => {
+                                            const dealType = deal.campaign?.deal_type;
+                                            const config = getDealTypeConfig(dealType || '');
+                                            return (
+                                                <div
+                                                    className={`inline-flex items-center gap-2 px-3 py-1 rounded-lg border ${config.bg} ${config.border}`}>
+                                                    <span className="text-sm">{config.icon}</span>
+                                                    <span className={`text-sm font-medium ${config.color}`}>
+                                                        {config.label}
+                                                    </span>
+                                                </div>
+                                            );
+                                        })()}
+                                    </div>
                                 </div>
                             </div>
                         </CardContent>
@@ -409,11 +428,18 @@ export function ContentSubmission({deal, isOpen, onClose, onSuccess, editingSubm
                                                 </SelectTrigger>
                                             </FormControl>
                                             <SelectContent>
-                                                {PLATFORM_OPTIONS.map((option) => (
-                                                    <SelectItem key={option.value} value={option.value}>
-                                                        {option.label}
-                                                    </SelectItem>
-                                                ))}
+                                                {PLATFORM_OPTIONS.map((option) => {
+                                                    const config = getPlatformConfig(option.value);
+                                                    const Icon = config?.icon;
+                                                    return (
+                                                        <SelectItem key={option.value} value={option.value}>
+                                                            <div className="flex items-center gap-2">
+                                                                {Icon && <Icon className={`w-4 h-4 ${config?.color}`}/>}
+                                                                <span>{option.label}</span>
+                                                            </div>
+                                                        </SelectItem>
+                                                    );
+                                                })}
                                             </SelectContent>
                                         </Select>
                                         <FormMessage/>
@@ -439,11 +465,18 @@ export function ContentSubmission({deal, isOpen, onClose, onSuccess, editingSubm
                                                 </SelectTrigger>
                                             </FormControl>
                                             <SelectContent>
-                                                {CONTENT_TYPE_OPTIONS.map((option) => (
-                                                    <SelectItem key={option.value} value={option.value}>
-                                                        {option.label}
-                                                    </SelectItem>
-                                                ))}
+                                                {CONTENT_TYPE_OPTIONS.map((option) => {
+                                                    const config = getContentTypeConfig(option.value);
+                                                    const Icon = config?.icon;
+                                                    return (
+                                                        <SelectItem key={option.value} value={option.value}>
+                                                            <div className="flex items-center gap-2">
+                                                                {Icon && <Icon className={`w-4 h-4 ${config?.color}`}/>}
+                                                                <span>{option.label}</span>
+                                                            </div>
+                                                        </SelectItem>
+                                                    );
+                                                })}
                                             </SelectContent>
                                         </Select>
                                         <FormMessage/>

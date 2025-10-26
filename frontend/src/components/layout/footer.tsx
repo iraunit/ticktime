@@ -43,7 +43,7 @@ export function Footer() {
 								</Link>
 							</li>
 							<li>
-								<Link href="/deals" className="text-gray-400 hover:text-white transition-colors">
+								<Link href="/influencer/deals" className="text-gray-400 hover:text-white transition-colors">
 									Deals
 								</Link>
 							</li>

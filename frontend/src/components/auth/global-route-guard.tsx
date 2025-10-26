@@ -4,6 +4,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useUserContext } from "@/components/providers/app-providers";
 import { useRouter, usePathname } from "next/navigation";
 import { useEffect, useRef } from "react";
+import { getDashboardRoute } from "@/lib/redirect-utils";
 
 interface GlobalRouteGuardProps {
   children: React.ReactNode;
@@ -32,11 +33,11 @@ export function GlobalRouteGuard({ children }: GlobalRouteGuardProps) {
                                 pathname.startsWith('/profile');
 
       // Skip redirect for auth pages
-      const isAuthPage = pathname.startsWith('/login') || 
-                        pathname.startsWith('/signup') || 
-                        pathname.startsWith('/forgot-password') || 
-                        pathname.startsWith('/reset-password') ||
-                        pathname.startsWith('/verify-email');
+      const isAuthPage = pathname.startsWith('/accounts/login') || 
+                        pathname.startsWith('/accounts/signup') || 
+                        pathname.startsWith('/accounts/forgot-password') || 
+                        pathname.startsWith('/accounts/reset-password') ||
+                        pathname.startsWith('/accounts/verify-email');
 
       if (isAuthPage) {
         return;
@@ -45,26 +46,24 @@ export function GlobalRouteGuard({ children }: GlobalRouteGuardProps) {
       // Redirect brand users away from influencer pages
       if (user.account_type === 'brand' && user.brand_profile && isInfluencerRoute) {
         hasRedirected.current = true;
-        router.push('/brand');
+        const dashboardRoute = getDashboardRoute(user);
+        router.push(dashboardRoute);
         return;
       }
 
       // Redirect influencer users away from brand pages
       if (user.account_type === 'influencer' && user.influencer_profile && isBrandRoute) {
         hasRedirected.current = true;
-        router.push('/dashboard');
+        const dashboardRoute = getDashboardRoute(user);
+        router.push(dashboardRoute);
         return;
       }
 
       // Handle root path redirect
       if (pathname === '/' || pathname === '') {
-        if (user.account_type === 'brand' && user.brand_profile) {
-          hasRedirected.current = true;
-          router.push('/brand');
-        } else if (user.account_type === 'influencer' && user.influencer_profile) {
-          hasRedirected.current = true;
-          router.push('/dashboard');
-        }
+        hasRedirected.current = true;
+        const dashboardRoute = getDashboardRoute(user);
+        router.push(dashboardRoute);
         return;
       }
     }

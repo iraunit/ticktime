@@ -6,6 +6,11 @@ export * from './use-profile';
 export * from './use-deals';
 export * from './use-dashboard';
 export * from './use-analytics';
+export * from './use-industries';
+export * from './use-content-categories';
+export * from './use-country-codes';
+export * from './use-pincode-lookup';
+export * from './use-messaging';
 
 // Error handling hooks
 export * from './use-error-handling';

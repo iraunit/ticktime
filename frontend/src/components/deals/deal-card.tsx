@@ -4,12 +4,15 @@ import {useState} from "react";
 import {useClientTime} from "@/hooks/use-client-time";
 import {Card, CardContent, CardHeader, CardTitle} from "@/components/ui/card";
 import {Badge} from "@/components/ui/badge";
+import {Button} from "@/components/ui/button";
 import {Deal} from "@/types";
 import {cn} from "@/lib/utils";
-import {HiBanknotes, HiCamera, HiClock, HiGlobeAlt, HiPlayCircle, HiShare} from "react-icons/hi2";
+import {HiBanknotes, HiClock, HiGlobeAlt, HiStar} from "react-icons/hi2";
 import Image from "next/image";
 import {DealActions} from "./deal-actions";
 import {ContentSubmissionModal} from "./content-submission";
+import {RatingDialog} from "./rating-dialog";
+import {getPlatformLabel, platformConfig} from "@/lib/platform-config";
 
 interface DealCardProps {
     deal: Deal;
@@ -47,11 +50,21 @@ const dealTypeColors = {
     hybrid: "bg-gradient-to-r from-purple-100 to-pink-100 text-purple-800 border-purple-300",
 };
 
-const platformIcons = {
-    Instagram: HiCamera,
-    YouTube: HiPlayCircle,
-    Twitter: HiGlobeAlt,
-    Facebook: HiShare,
+// Helper function to get platform icon from config
+const getPlatformIcon = (platformName: string) => {
+    for (const [key, config] of Object.entries(platformConfig)) {
+        if (config.label === platformName) {
+            return config.icon;
+        }
+    }
+
+    const normalizedKey = platformName.toLowerCase();
+    if (platformConfig[normalizedKey as keyof typeof platformConfig]) {
+        return platformConfig[normalizedKey as keyof typeof platformConfig].icon;
+    }
+
+    // Fallback
+    return HiGlobeAlt;
 };
 
 export function DealCard({
@@ -62,6 +75,24 @@ export function DealCard({
                              className,
                          }: DealCardProps) {
     const [showContentSubmission, setShowContentSubmission] = useState(false);
+    const [showRatingDialog, setShowRatingDialog] = useState(false);
+
+    // Debug logging
+    console.log('DealCard render:', {
+        dealId: deal?.id,
+        campaignTitle: deal?.campaign?.title,
+        brandName: deal?.campaign?.brand?.name,
+        brandLogo: deal?.campaign?.brand?.logo,
+        brandLogoType: typeof deal?.campaign?.brand?.logo,
+        brandLogoLength: deal?.campaign?.brand?.logo?.length,
+        applicationDeadline: deal?.campaign?.application_deadline,
+        submissionDeadline: deal?.campaign?.submission_deadline,
+        barterSubmissionDays: deal?.campaign?.barter_submission_after_days,
+        platforms: deal?.campaign?.platforms_required,
+        dealType: deal?.campaign?.deal_type,
+        fullCampaign: deal?.campaign,
+        fullBrand: deal?.campaign?.brand
+    });
 
     const formatDate = (dateString: string) => {
         return new Date(dateString).toLocaleDateString("en-US", {
@@ -120,18 +151,40 @@ export function DealCard({
                     <div className="flex items-start justify-between gap-3">
                         <div className="flex items-start space-x-3 flex-1">
                             {/* Brand Logo */}
-                            {deal?.campaign?.brand?.logo && (
-                                <div
-                                    className="w-12 h-12 rounded-lg overflow-hidden shadow-md border border-white bg-white flex-shrink-0">
+                            <div
+                                className="w-12 h-12 rounded-lg overflow-hidden shadow-md border border-white bg-white flex-shrink-0">
+                                {deal?.campaign?.brand?.logo ? (
                                     <Image
                                         src={deal.campaign.brand.logo}
                                         alt={deal?.campaign?.brand?.name || "Brand"}
                                         width={48}
                                         height={48}
                                         className="w-full h-full object-cover"
+                                        onError={(e) => {
+                                            // Fallback to initials if image fails to load
+                                            const target = e.target as HTMLImageElement;
+                                            target.style.display = 'none';
+                                            const parent = target.parentElement;
+                                            if (parent) {
+                                                parent.innerHTML = `
+                                                    <div class="w-full h-full bg-gradient-to-br from-blue-100 to-indigo-200 flex items-center justify-center">
+                                                        <span class="text-lg font-bold text-blue-600">
+                                                            ${deal?.campaign?.brand?.name?.charAt(0)?.toUpperCase() || "B"}
+                                                        </span>
+                                                    </div>
+                                                `;
+                                            }
+                                        }}
                                     />
-                                </div>
-                            )}
+                                ) : (
+                                    <div
+                                        className="w-full h-full bg-gradient-to-br from-blue-100 to-indigo-200 flex items-center justify-center">
+                                        <span className="text-lg font-bold text-blue-600">
+                                            {deal?.campaign?.brand?.name?.charAt(0)?.toUpperCase() || "B"}
+                                        </span>
+                                    </div>
+                                )}
+                            </div>
 
                             <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-1.5 mb-1.5">
@@ -141,7 +194,7 @@ export function DealCard({
                                     {deal?.campaign?.deal_type && (
                                         <Badge
                                             className={cn("text-xs font-medium border", dealTypeColors[deal.campaign.deal_type as keyof typeof dealTypeColors] || dealTypeColors.hybrid)}>
-                                            {deal.campaign.deal_type.toUpperCase()}
+                                            {deal.campaign.deal_type === 'product' ? 'BARTER' : deal.campaign.deal_type.toUpperCase()}
                                         </Badge>
                                     )}
                                     {isUrgent && (
@@ -153,7 +206,23 @@ export function DealCard({
                                 </div>
 
                                 <CardTitle className="text-lg font-bold text-gray-900 mb-1 leading-tight">
-                                    {deal?.campaign?.title || "Campaign Title"}
+                                    <a
+                                        href={`/influencer/deals/${deal.id}`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="hover:text-blue-600 transition-colors duration-200 cursor-pointer"
+                                        onClick={(e) => {
+                                            // Allow middle click and ctrl+click to open in new tab
+                                            if (e.ctrlKey || e.metaKey || e.button === 1) {
+                                                return; // Let browser handle it
+                                            }
+                                            // For regular clicks, prevent default and handle navigation
+                                            e.preventDefault();
+                                            window.location.href = `/influencer/deals/${deal.id}`;
+                                        }}
+                                    >
+                                        {deal?.campaign?.title || "Campaign Title"}
+                                    </a>
                                 </CardTitle>
 
                                 <p className="text-sm font-semibold text-blue-600 mb-1">
@@ -165,16 +234,16 @@ export function DealCard({
                 </CardHeader>
 
                 <CardContent className="relative pt-0">
-                    {/* Campaign Description */}
-                    <p className="text-gray-700 mb-3 leading-relaxed line-clamp-2 text-sm">
+                    {/* Campaign Description - more concise */}
+                    <p className="text-gray-600 mb-3 leading-relaxed line-clamp-1 text-sm">
                         {deal?.campaign?.description || "No description available."}
                     </p>
 
                     {/* Compact Key Details Grid */}
-                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 mb-4">
+                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 mb-3">
                         {/* Compensation */}
                         <div
-                            className="bg-gradient-to-br from-green-50 to-emerald-100 rounded-md p-2 border border-green-200">
+                            className="bg-gradient-to-br from-green-50 to-emerald-100 rounded-md p-1.5 border border-green-200">
                             <div className="flex items-center text-green-700 mb-0.5">
                                 <HiBanknotes className="h-3 w-3 mr-1"/>
                                 <span className="text-xs font-medium">
@@ -184,7 +253,8 @@ export function DealCard({
                             </div>
                             <div className="text-sm font-bold text-green-800">
                                 {deal?.total_value ? formatCurrency(deal.total_value) :
-                                    deal?.campaign?.cash_amount ? formatCurrency(deal.campaign.cash_amount) : "TBD"}
+                                    deal?.campaign?.total_value ? formatCurrency(deal.campaign.total_value) :
+                                        deal?.campaign?.cash_amount ? formatCurrency(Number(deal.campaign.cash_amount)) : "TBD"}
                             </div>
                             {(deal?.campaign?.deal_type === 'product' || deal?.campaign?.deal_type === 'hybrid') &&
                                 deal?.campaign?.products && deal.campaign.products.length > 0 && (
@@ -196,7 +266,7 @@ export function DealCard({
 
                         {/* Deadline */}
                         <div className={cn(
-                            "rounded-md p-2 border",
+                            "rounded-md p-1.5 border",
                             isUrgent
                                 ? "bg-gradient-to-br from-red-50 to-orange-100 border-red-200"
                                 : "bg-gradient-to-br from-blue-50 to-indigo-100 border-blue-200"
@@ -216,27 +286,76 @@ export function DealCard({
                             </div>
                         </div>
 
-                        {/* Deliverables */}
+                        {/* Submission Deadline */}
                         <div
-                            className="bg-gradient-to-br from-purple-50 to-pink-100 rounded-md p-2 border border-purple-200">
+                            className="bg-gradient-to-br from-purple-50 to-pink-100 rounded-md p-1.5 border border-purple-200">
                             <div className="flex items-center text-purple-700 mb-0.5">
-                                <HiCamera className="h-3 w-3 mr-1"/>
-                                <span className="text-xs font-medium">Content</span>
+                                <HiClock className="h-3 w-3 mr-1"/>
+                                <span className="text-xs font-medium">Submit By</span>
                             </div>
                             <div className="text-sm font-bold text-purple-800">
-                                {typeof deal?.campaign?.content_requirements === 'object' && deal?.campaign?.content_requirements?.post_count || 0} pieces
+                                {(() => {
+                                    if (deal?.campaign?.submission_deadline) {
+                                        return formatDate(deal.campaign.submission_deadline);
+                                    } else if (deal?.campaign?.barter_submission_after_days) {
+                                        return `${deal.campaign.barter_submission_after_days} days after delivery`;
+                                    } else if (deal?.campaign?.application_deadline) {
+                                        // Fallback to application deadline if no submission deadline
+                                        const appDeadline = new Date(deal.campaign.application_deadline);
+                                        const now = new Date();
+                                        const daysDiff = Math.ceil((appDeadline.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+                                        if (daysDiff > 0) {
+                                            return `${daysDiff} days`;
+                                        } else {
+                                            return "ASAP";
+                                        }
+                                    }
+                                    return "TBD";
+                                })()}
                             </div>
                         </div>
 
                         {/* Platform */}
                         <div
-                            className="bg-gradient-to-br from-indigo-50 to-blue-100 rounded-md p-2 border border-indigo-200">
+                            className="bg-gradient-to-br from-indigo-50 to-blue-100 rounded-md p-1.5 border border-indigo-200">
                             <div className="flex items-center text-indigo-700 mb-0.5">
                                 <HiGlobeAlt className="h-3 w-3 mr-1"/>
                                 <span className="text-xs font-medium">Platform</span>
                             </div>
                             <div className="text-sm font-bold text-indigo-800">
-                                {typeof deal?.campaign?.content_requirements === 'object' && deal?.campaign?.content_requirements?.platforms?.join(", ") || "Multi"}
+                                {(() => {
+                                    const platforms = deal?.campaign?.platforms_required || [];
+
+                                    if (platforms.length === 0) return "Multi";
+
+                                    if (platforms.length === 1) {
+                                        const platform = platforms[0];
+                                        const IconComponent = getPlatformIcon(platform);
+                                        return (
+                                            <div className="flex items-center">
+                                                {IconComponent && <IconComponent className="h-3 w-3 mr-1"/>}
+                                                <span>{getPlatformLabel(platform) || platform}</span>
+                                            </div>
+                                        );
+                                    }
+
+                                    return (
+                                        <div className="flex items-center space-x-1">
+                                            {platforms.slice(0, 2).map((platform: string, index: number) => {
+                                                const IconComponent = getPlatformIcon(platform);
+                                                return IconComponent ? (
+                                                    <IconComponent key={index} className="h-3 w-3"
+                                                                   title={getPlatformLabel(platform) || platform}/>
+                                                ) : (
+                                                    <span key={index} className="text-xs">{platform.slice(0, 2)}</span>
+                                                );
+                                            })}
+                                            {platforms.length > 2 && (
+                                                <span className="text-xs">+{platforms.length - 2}</span>
+                                            )}
+                                        </div>
+                                    );
+                                })()}
                             </div>
                         </div>
                     </div>
@@ -249,6 +368,41 @@ export function DealCard({
                         onContentSubmission={() => setShowContentSubmission(true)}
                         isLoading={isLoading}
                     />
+
+                    {/* Rating Button for Completed Deals */}
+                    {deal.status === 'completed' && !deal.influencer_rating && (
+                        <div className="mt-3 pt-3 border-t border-gray-200">
+                            <Button
+                                onClick={() => setShowRatingDialog(true)}
+                                size="sm"
+                                className="w-full bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 text-white"
+                            >
+                                <HiStar className="w-4 h-4 mr-2"/>
+                                Rate Brand
+                            </Button>
+                        </div>
+                    )}
+
+                    {/* Display Rating if Already Rated */}
+                    {deal.status === 'completed' && deal.influencer_rating && (
+                        <div className="mt-3 pt-3 border-t border-gray-200">
+                            <div className="flex items-center justify-between">
+                                <span className="text-sm text-gray-600">Your Rating:</span>
+                                <div className="flex items-center gap-1">
+                                    {[...Array(5)].map((_, i) => (
+                                        <HiStar
+                                            key={i}
+                                            className={`w-4 h-4 ${
+                                                i < (deal.influencer_rating || 0)
+                                                    ? "text-yellow-400 fill-yellow-400"
+                                                    : "text-gray-300"
+                                            }`}
+                                        />
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    )}
                 </CardContent>
             </Card>
 
@@ -258,6 +412,21 @@ export function DealCard({
                     deal={deal}
                     isOpen={showContentSubmission}
                     onClose={() => setShowContentSubmission(false)}
+                />
+            )}
+
+            {/* Rating Dialog */}
+            {showRatingDialog && (
+                <RatingDialog
+                    open={showRatingDialog}
+                    onOpenChange={setShowRatingDialog}
+                    dealId={deal.id}
+                    targetName={deal.campaign?.brand?.name || 'Brand'}
+                    ratingType="brand"
+                    onRatingSubmitted={() => {
+                        // Refresh the deals list
+                        window.location.reload();
+                    }}
                 />
             )}
         </>

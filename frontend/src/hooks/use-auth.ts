@@ -6,6 +6,7 @@ import { authApi } from '@/lib/api-client';
 import { useRouter } from 'next/navigation';
 import { useUserContext } from '@/components/providers/app-providers';
 import { toast } from '@/lib/toast';
+import { getDashboardRoute } from '@/lib/redirect-utils';
 
 // Auth state management (session-based)
 export function useAuth() {
@@ -81,15 +82,10 @@ export function useAuth() {
         return;
       }
       
-      // Redirect based on account type
+      // Redirect based on account type using utility function
       const user = response?.data?.user;
-      if (user?.account_type === 'brand') {
-        router.push('/brand');
-      } else if (user?.account_type === 'influencer') {
-        router.push('/dashboard');
-      } else {
-        router.push('/dashboard'); // fallback
-      }
+      const dashboardRoute = getDashboardRoute(user);
+      router.push(dashboardRoute);
     },
     onError: (error: any) => {
       const errorMessage = formatErrorMessage(error);
@@ -120,8 +116,10 @@ export function useAuth() {
         queryClient.invalidateQueries({ queryKey: ['user'] });
         await refreshUserContext();
         
-        // Redirect to dashboard since user is already logged in
-        router.push('/dashboard');
+        // Redirect to appropriate dashboard since user is already logged in
+        const user = response?.data?.user;
+        const dashboardRoute = getDashboardRoute(user);
+        router.push(dashboardRoute);
       } else {
         // Fallback: redirect to login with success message
         router.push('/login?message=Account created successfully! You can now log in.');
@@ -157,8 +155,10 @@ export function useAuth() {
         queryClient.invalidateQueries({ queryKey: ['user'] });
         await refreshUserContext();
         
-        // Redirect to brand dashboard since user is already logged in
-        router.push('/brand');
+        // Redirect to appropriate dashboard since user is already logged in
+        const user = response?.data?.user;
+        const dashboardRoute = getDashboardRoute(user);
+        router.push(dashboardRoute);
       } else {
         // Fallback: redirect to login with success message
         router.push('/login?message=Brand account created. Please log in.');
@@ -204,7 +204,7 @@ export function useAuth() {
       authApi.resetPassword(token, password),
     onSuccess: () => {
       toast.success('Password reset successful! You can now log in with your new password.');
-      router.push('/login');
+      router.push('/accounts/login');
     },
     onError: (error: any) => {
       const errorMessage = formatErrorMessage(error);

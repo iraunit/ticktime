@@ -1,15 +1,14 @@
-from rest_framework import serializers
-from django.contrib.auth.models import User
-from django.core.exceptions import ValidationError
-from django.utils import timezone
-from .models import InfluencerProfile, SocialMediaAccount, InfluencerCategoryScore
+import re
+
 from common.models import (
-    INDUSTRY_CHOICES, PLATFORM_CHOICES, DEAL_STATUS_CHOICES, 
+    Industry, ContentCategory, PLATFORM_CHOICES, DEAL_STATUS_CHOICES,
     DEAL_TYPE_CHOICES, CONTENT_TYPE_CHOICES
 )
-import re
-import json
 from django.db import models
+from rest_framework import serializers
+
+from .encryption import BankDetailsEncryption
+from .models import InfluencerProfile, SocialMediaAccount, InfluencerCategoryScore
 
 
 class InfluencerProfileSerializer(serializers.ModelSerializer):
@@ -22,21 +21,43 @@ class InfluencerProfileSerializer(serializers.ModelSerializer):
     phone_number = serializers.SerializerMethodField()
     profile_image = serializers.SerializerMethodField()
     address = serializers.SerializerMethodField()
+    country = serializers.SerializerMethodField()
+    country_code = serializers.SerializerMethodField()
+    gender = serializers.SerializerMethodField()
     total_followers = serializers.ReadOnlyField()
     average_engagement_rate = serializers.ReadOnlyField()
     social_accounts_count = serializers.SerializerMethodField()
+    email_verified = serializers.SerializerMethodField()
+    phone_verified = serializers.SerializerMethodField()
+    profile_verified = serializers.SerializerMethodField()
+    bank_account_number = serializers.SerializerMethodField()
+    bank_ifsc_code = serializers.SerializerMethodField()
+    bank_account_holder_name = serializers.SerializerMethodField()
+    industry = serializers.CharField(source='industry.key', read_only=True)
 
     class Meta:
         model = InfluencerProfile
         fields = (
             'id', 'user_first_name', 'user_last_name', 'user_email',
             'phone_number', 'username', 'industry', 'categories', 'bio', 'profile_image',
-            'address', 'aadhar_number', 'aadhar_document', 'is_verified',
+            'address', 'country', 'country_code', 'gender', 'aadhar_number', 'aadhar_document', 'is_verified',
             'bank_account_number', 'bank_ifsc_code', 'bank_account_holder_name',
             'total_followers', 'average_engagement_rate', 'social_accounts_count',
+            'collaboration_types', 'minimum_collaboration_amount',
+            'email_verified', 'phone_verified', 'profile_verified',
+            # Demographics
+            'age_range', 'audience_gender_distribution', 'audience_age_distribution',
+            'audience_locations', 'audience_interests', 'audience_languages',
+            # Campaign readiness
+            'commerce_ready', 'campaign_ready', 'barter_ready', 'response_time',
+            'faster_responses', 'contact_availability',
+            # Performance metrics
+            'avg_rating', 'collaboration_count', 'total_earnings', 'influence_score',
+            'platform_score', 'brand_safety_score', 'content_quality_score',
             'created_at', 'updated_at'
         )
-        read_only_fields = ('id', 'is_verified', 'created_at', 'updated_at')
+        read_only_fields = ('id', 'is_verified', 'email_verified', 'phone_verified', 'profile_verified', 'created_at',
+                            'updated_at')
 
     def get_social_accounts_count(self, obj):
         """Get count of active social media accounts."""
@@ -67,8 +88,57 @@ class InfluencerProfileSerializer(serializers.ModelSerializer):
                 address_parts.append(obj.user_profile.state)
             if obj.user_profile.zipcode:
                 address_parts.append(obj.user_profile.zipcode)
-            return ', '.join(address_parts)
+            # Use a special delimiter to separate address lines from other fields
+            return ' | '.join(address_parts)
         return ''
+
+    def get_country(self, obj):
+        """Get country from user profile."""
+        return obj.user_profile.country if obj.user_profile else ''
+
+    def get_country_code(self, obj):
+        """Get country code from user profile."""
+        return obj.user_profile.country_code if obj.user_profile else ''
+
+    def get_gender(self, obj):
+        """Get gender from user profile."""
+        return obj.user_profile.gender if obj.user_profile else ''
+
+    def get_email_verified(self, obj):
+        """Get email verification status from user profile."""
+        return obj.user_profile.email_verified if obj.user_profile else False
+
+    def get_phone_verified(self, obj):
+        """Get phone verification status from user profile."""
+        return obj.user_profile.phone_verified if obj.user_profile else False
+
+    def get_profile_verified(self, obj):
+        """Get profile verification status."""
+        return obj.profile_verified
+
+    def get_bank_account_number(self, obj):
+        """Get redacted bank account number."""
+        if obj.bank_account_number:
+            # First decrypt the account number, then redact it
+            decrypted_number = BankDetailsEncryption.decrypt_bank_data(obj.bank_account_number)
+            if decrypted_number:
+                return BankDetailsEncryption.redact_account_number(decrypted_number)
+            return "*****"
+        return obj.bank_account_number
+
+    def get_bank_ifsc_code(self, obj):
+        """Get decrypted bank IFSC code."""
+        if obj.bank_ifsc_code:
+            decrypted_code = BankDetailsEncryption.decrypt_bank_data(obj.bank_ifsc_code)
+            return decrypted_code if decrypted_code else ""
+        return obj.bank_ifsc_code
+
+    def get_bank_account_holder_name(self, obj):
+        """Get decrypted bank account holder name."""
+        if obj.bank_account_holder_name:
+            decrypted_name = BankDetailsEncryption.decrypt_bank_data(obj.bank_account_holder_name)
+            return decrypted_name if decrypted_name else ""
+        return obj.bank_account_holder_name
 
     def to_representation(self, instance):
         """Handle categories for API response."""
@@ -76,6 +146,8 @@ class InfluencerProfileSerializer(serializers.ModelSerializer):
         # Convert ManyToMany categories to list of category keys
         if 'categories' in data:
             data['categories'] = [cat.key for cat in instance.categories.all()]
+        if 'collaboration_types' in data:
+            data['collaboration_types'] = instance.collaboration_types
         return data
 
     def validate_username(self, value):
@@ -83,16 +155,16 @@ class InfluencerProfileSerializer(serializers.ModelSerializer):
         # Check if username is being changed
         if self.instance and self.instance.username == value:
             return value
-            
+
         if InfluencerProfile.objects.filter(username=value).exists():
             raise serializers.ValidationError("This username is already taken.")
-        
+
         # Username should be alphanumeric with underscores and dots allowed
         if not re.match(r'^[a-zA-Z0-9._]+$', value):
             raise serializers.ValidationError(
                 "Username can only contain letters, numbers, dots, and underscores."
             )
-        
+
         return value
 
     def validate_phone_number(self, value):
@@ -119,83 +191,281 @@ class InfluencerProfileSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError("Please enter a valid IFSC code.")
         return value.upper() if value else value
 
+    def validate_collaboration_types(self, value):
+        """Validate collaboration types."""
+        if value:
+            valid_types = ['cash', 'barter', 'hybrid']
+            if not isinstance(value, list):
+                raise serializers.ValidationError("Collaboration types must be a list.")
+
+            for collab_type in value:
+                if collab_type not in valid_types:
+                    raise serializers.ValidationError(
+                        f"Invalid collaboration type: {collab_type}. Must be one of: {', '.join(valid_types)}"
+                    )
+
+            if len(value) == 0:
+                raise serializers.ValidationError("At least one collaboration type must be selected.")
+
+        return value
+
 
 class InfluencerProfileUpdateSerializer(serializers.ModelSerializer):
     """
     Serializer for updating basic influencer profile information.
     """
-    first_name = serializers.CharField(source='user.first_name', required=False)
-    last_name = serializers.CharField(source='user.last_name', required=False)
+    # User fields - handled manually in update method
+    first_name = serializers.CharField(required=False)
+    last_name = serializers.CharField(required=False)
     phone_number = serializers.CharField(required=False)
     address = serializers.CharField(required=False)
+
+    # Individual address fields for frontend compatibility
+    address_line1 = serializers.CharField(required=False)
+    address_line2 = serializers.CharField(required=False)
+    city = serializers.CharField(required=False)
+    state = serializers.CharField(required=False)
+    zipcode = serializers.CharField(required=False)
+    country = serializers.CharField(required=False)
+    country_code = serializers.CharField(required=False)
+    gender = serializers.CharField(required=False)
+    industry = serializers.SlugRelatedField(
+        queryset=Industry.objects.filter(is_active=True),
+        slug_field='key',
+        required=False
+    )
+
+    # Ensure all fields are properly defined
+    bio = serializers.CharField(required=False, allow_blank=True)
+    username = serializers.CharField(required=False)
+    categories = serializers.PrimaryKeyRelatedField(
+        queryset=ContentCategory.objects.filter(is_active=True),
+        many=True,
+        required=False
+    )
 
     class Meta:
         model = InfluencerProfile
         fields = (
-            'first_name', 'last_name', 'phone_number', 'username', 
-            'industry', 'categories', 'bio', 'address'
+            'first_name', 'last_name', 'phone_number', 'username', 'industry', 'categories', 'bio', 'address',
+            'address_line1', 'address_line2', 'city', 'state', 'zipcode', 'country', 'country_code', 'gender',
+            'collaboration_types', 'minimum_collaboration_amount',
+            # Demographics
+            'age_range',
+            # Campaign readiness
+            'commerce_ready', 'campaign_ready', 'barter_ready', 'response_time',
+            'faster_responses', 'contact_availability',
+            # Bank details
+            'bank_account_number', 'bank_ifsc_code', 'bank_account_holder_name'
         )
+        # Note: first_name, last_name, phone_number, address, and address fields are handled manually in update()
 
     def validate_username(self, value):
         """Validate username is unique and follows proper format."""
         # Check if username is being changed
         if self.instance and self.instance.username == value:
             return value
-            
+
         if InfluencerProfile.objects.filter(username=value).exists():
             raise serializers.ValidationError("This username is already taken.")
-        
+
         # Username should be alphanumeric with underscores and dots allowed
         if not re.match(r'^[a-zA-Z0-9._]+$', value):
             raise serializers.ValidationError(
                 "Username can only contain letters, numbers, dots, and underscores."
             )
-        
+
         return value
 
     def validate_phone_number(self, value):
         """Validate phone number format."""
-        if value:
-            phone_pattern = r'^\+?[\d\s\-\(\)]{10,15}$'
-            if not re.match(phone_pattern, value):
+        if value and value.strip():
+            # More flexible phone number validation - allow digits, spaces, dashes, parentheses, and plus
+            phone_pattern = r'^\+?[\d\s\-\(\)\.]{7,20}$'
+            if not re.match(phone_pattern, value.strip()):
                 raise serializers.ValidationError("Please enter a valid phone number.")
+        return value.strip() if value else value
+
+    def validate_gender(self, value):
+        """Validate gender choice."""
+        if value and value.strip():
+            valid_choices = ['male', 'female', 'other', 'prefer_not_to_say']
+            if value.strip() not in valid_choices:
+                raise serializers.ValidationError(f"Gender must be one of: {', '.join(valid_choices)}")
+        return value.strip() if value else value
+
+    def validate_address(self, value):
+        """Validate address field - allow empty values."""
         return value
+
+    def validate(self, attrs):
+        """Validate the entire data set."""
+        return attrs
 
     def update(self, instance, validated_data):
         """Update profile and user information."""
-        # Extract user data
-        user_data = validated_data.pop('user', {})
-        
+        # Extract user fields that have source='user.field_name'
+        first_name = validated_data.pop('first_name', None)
+        last_name = validated_data.pop('last_name', None)
+
         # Extract fields that should be updated in UserProfile
         phone_number = validated_data.pop('phone_number', None)
         address = validated_data.pop('address', None)
-        
+
+        # Extract individual address fields
+        address_line1 = validated_data.pop('address_line1', None)
+        address_line2 = validated_data.pop('address_line2', None)
+        city = validated_data.pop('city', None)
+        state = validated_data.pop('state', None)
+        zipcode = validated_data.pop('zipcode', None)
+        country = validated_data.pop('country', None)
+        country_code = validated_data.pop('country_code', None)
+        gender = validated_data.pop('gender', None)
+
+        # Extract many-to-many fields that need special handling
+        categories = validated_data.pop('categories', None)
+        collaboration_types = validated_data.pop('collaboration_types', None)
+
+        # Extract other profile fields
+        bio = validated_data.pop('bio', None)
+        username = validated_data.pop('username', None)
+        industry = validated_data.pop('industry', None)
+        minimum_collaboration_amount = validated_data.pop('minimum_collaboration_amount', None)
+
+        # Extract demographics fields
+        age_range = validated_data.pop('age_range', None)
+
+        # Extract campaign readiness fields
+        commerce_ready = validated_data.pop('commerce_ready', None)
+        campaign_ready = validated_data.pop('campaign_ready', None)
+        barter_ready = validated_data.pop('barter_ready', None)
+        response_time = validated_data.pop('response_time', None)
+        faster_responses = validated_data.pop('faster_responses', None)
+        contact_availability = validated_data.pop('contact_availability', None)
+
+        # Extract bank details
+        bank_account_number = validated_data.pop('bank_account_number', None)
+        bank_ifsc_code = validated_data.pop('bank_ifsc_code', None)
+        bank_account_holder_name = validated_data.pop('bank_account_holder_name', None)
         # Update user fields
-        if user_data:
-            user = instance.user
-            for attr, value in user_data.items():
-                setattr(user, attr, value)
+        user = instance.user
+        if first_name is not None:
+            user.first_name = first_name
+        if last_name is not None:
+            user.last_name = last_name
+        if first_name is not None or last_name is not None:
             user.save()
-        
+
+        if not instance.user_profile:
+            from users.models import UserProfile
+            instance.user_profile = UserProfile.objects.create(user=instance.user)
+
+        # Log UserProfile update data
+        user_profile_data = {
+            'phone_number': phone_number,
+            'gender': gender,
+            'country': country,
+            'country_code': country_code,
+            'state': state,
+            'city': city,
+            'zipcode': zipcode,
+            'address_line1': address_line1,
+            'address_line2': address_line2,
+            'address': address
+        }
+
         # Update UserProfile fields
-        if instance.user_profile:
-            if phone_number is not None:
-                instance.user_profile.phone_number = phone_number
-            if address is not None:
-                # Parse address into components (simple implementation)
-                address_parts = address.split(',')
-                instance.user_profile.address_line1 = address_parts[0].strip() if len(address_parts) > 0 else ''
-                instance.user_profile.address_line2 = address_parts[1].strip() if len(address_parts) > 1 else ''
-                instance.user_profile.city = address_parts[2].strip() if len(address_parts) > 2 else ''
-                instance.user_profile.state = address_parts[3].strip() if len(address_parts) > 3 else ''
-                instance.user_profile.zipcode = address_parts[4].strip() if len(address_parts) > 4 else ''
-            instance.user_profile.save()
-        
-        # Update profile fields
+        if phone_number is not None:
+            instance.user_profile.phone_number = phone_number
+        if gender is not None:
+            instance.user_profile.gender = gender if gender else None
+        if country is not None:
+            instance.user_profile.country = country
+        if country_code is not None:
+            instance.user_profile.country_code = country_code
+        if state is not None:
+            instance.user_profile.state = state
+        if city is not None:
+            instance.user_profile.city = city
+        if zipcode is not None:
+            instance.user_profile.zipcode = zipcode
+        if address_line1 is not None:
+            instance.user_profile.address_line1 = address_line1
+        if address_line2 is not None:
+            instance.user_profile.address_line2 = address_line2
+
+        # Handle legacy address field (comma-separated) - only if individual fields are not provided
+        if address is not None and not any([address_line1, address_line2, city, state, zipcode]):
+            # Parse address into components (simple implementation)
+            address_parts = address.split(',')
+            instance.user_profile.address_line1 = address_parts[0].strip() if len(address_parts) > 0 else ''
+            instance.user_profile.address_line2 = address_parts[1].strip() if len(address_parts) > 1 else ''
+            instance.user_profile.city = address_parts[2].strip() if len(address_parts) > 2 else ''
+            instance.user_profile.state = address_parts[3].strip() if len(address_parts) > 3 else ''
+            instance.user_profile.zipcode = address_parts[4].strip() if len(address_parts) > 4 else ''
+        elif address is not None:
+
+            # Save UserProfile if any fields were updated
+            user_profile_fields_updated = [phone_number, gender, country, country_code, state, city, zipcode,
+                                           address_line1, address_line2, address]
+            if any(user_profile_fields_updated):
+                instance.user_profile.save()
+            else:
+                print(f"No UserProfile fields to update for user {instance.user.id}")
+
+        # Update profile fields explicitly
+        if bio is not None:
+            instance.bio = bio
+        if username is not None:
+            instance.username = username
+        if industry is not None:
+            instance.industry = industry
+        if minimum_collaboration_amount is not None:
+            instance.minimum_collaboration_amount = minimum_collaboration_amount
+
+        # Update demographics fields
+        if age_range is not None:
+            instance.age_range = age_range
+        if gender is not None:
+            instance.gender = gender
+
+        # Update campaign readiness fields
+        if commerce_ready is not None:
+            instance.commerce_ready = commerce_ready
+        if campaign_ready is not None:
+            instance.campaign_ready = campaign_ready
+        if barter_ready is not None:
+            instance.barter_ready = barter_ready
+        if response_time is not None:
+            instance.response_time = response_time
+        if faster_responses is not None:
+            instance.faster_responses = faster_responses
+        if contact_availability is not None:
+            instance.contact_availability = contact_availability
+
+        # Update bank details (encrypt sensitive data)
+        if bank_account_number is not None:
+            instance.bank_account_number = BankDetailsEncryption.encrypt_bank_data(bank_account_number)
+        if bank_ifsc_code is not None:
+            instance.bank_ifsc_code = BankDetailsEncryption.encrypt_bank_data(bank_ifsc_code)
+        if bank_account_holder_name is not None:
+            instance.bank_account_holder_name = BankDetailsEncryption.encrypt_bank_data(bank_account_holder_name)
+
+        # Update collaboration_types before saving
+        if collaboration_types is not None:
+            instance.collaboration_types = collaboration_types
+
+        # Update any remaining fields that weren't explicitly handled
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
+
+        # Save the instance
         instance.save()
-        
+
+        # Handle many-to-many fields separately
+        if categories is not None:
+            instance.categories.set(categories)
+
         return instance
 
 
@@ -204,6 +474,16 @@ class SocialMediaAccountSerializer(serializers.ModelSerializer):
     Serializer for social media account management.
     """
     platform_display = serializers.CharField(source='get_platform_display', read_only=True)
+
+    followers_count = serializers.IntegerField(required=False, default=0, min_value=0)
+    engagement_rate = serializers.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        required=False,
+        default=0.0,
+        min_value=0,
+        max_value=100
+    )
 
     class Meta:
         model = SocialMediaAccount
@@ -219,17 +499,17 @@ class SocialMediaAccountSerializer(serializers.ModelSerializer):
         """Validate social media handle format."""
         if not value:
             raise serializers.ValidationError("Handle is required.")
-        
+
         # Remove @ symbol if present
         if value.startswith('@'):
             value = value[1:]
-        
+
         # Basic validation for handle format
         if not re.match(r'^[a-zA-Z0-9._]+$', value):
             raise serializers.ValidationError(
                 "Handle can only contain letters, numbers, dots, and underscores."
             )
-        
+
         return value
 
     def validate_profile_url(self, value):
@@ -250,29 +530,29 @@ class SocialMediaAccountSerializer(serializers.ModelSerializer):
         """Validate unique platform and handle combination for the influencer."""
         platform = attrs.get('platform')
         handle = attrs.get('handle')
-        
+
         if platform and handle:
             # Get the influencer from the context
             influencer = self.context.get('influencer')
             if not influencer:
                 raise serializers.ValidationError("Influencer context is required.")
-            
+
             # Check for existing account with same platform and handle
             existing_query = SocialMediaAccount.objects.filter(
                 influencer=influencer,
                 platform=platform,
                 handle=handle
             )
-            
+
             # Exclude current instance if updating
             if self.instance:
                 existing_query = existing_query.exclude(id=self.instance.id)
-            
+
             if existing_query.exists():
                 raise serializers.ValidationError(
                     f"You already have a {platform} account with handle @{handle}."
                 )
-        
+
         return attrs
 
     def create(self, validated_data):
@@ -280,7 +560,7 @@ class SocialMediaAccountSerializer(serializers.ModelSerializer):
         influencer = self.context.get('influencer')
         if not influencer:
             raise serializers.ValidationError("Influencer context is required.")
-        
+
         validated_data['influencer'] = influencer
         return super().create(validated_data)
 
@@ -290,7 +570,7 @@ class ProfileImageUploadSerializer(serializers.ModelSerializer):
     Serializer for profile image upload.
     """
     profile_image = serializers.ImageField(required=False)
-    
+
     class Meta:
         model = InfluencerProfile
         fields = ('profile_image',)
@@ -301,34 +581,34 @@ class ProfileImageUploadSerializer(serializers.ModelSerializer):
             # Check file size (max 5MB)
             if value.size > 5 * 1024 * 1024:
                 raise serializers.ValidationError("Profile image must be smaller than 5MB.")
-            
+
             # Check file type - comprehensive list of image formats
             allowed_types = [
-                'image/jpeg', 'image/jpg', 'image/png', 'image/webp', 
+                'image/jpeg', 'image/jpg', 'image/png', 'image/webp',
                 'image/gif', 'image/bmp', 'image/tiff', 'image/tif',
                 'image/svg+xml', 'image/x-icon', 'image/vnd.microsoft.icon'
             ]
-            
+
             # Also check file extension as backup validation
             allowed_extensions = ['.jpg', '.jpeg', '.png', '.webp', '.gif', '.bmp', '.tiff', '.tif', '.svg', '.ico']
             file_extension = value.name.lower().split('.')[-1] if '.' in value.name else ''
             file_extension_with_dot = f'.{file_extension}'
-            
+
             if value.content_type not in allowed_types and file_extension_with_dot not in allowed_extensions:
                 raise serializers.ValidationError(
                     "Only JPEG, JPG, PNG, WebP, GIF, BMP, TIFF, SVG, and ICO images are allowed."
                 )
-        
+
         return value
 
     def update(self, instance, validated_data):
         """Update profile image in UserProfile."""
         profile_image = validated_data.pop('profile_image', None)
-        
+
         if profile_image and instance.user_profile:
             instance.user_profile.profile_image = profile_image
             instance.user_profile.save()
-        
+
         return instance
 
 
@@ -336,6 +616,8 @@ class DocumentUploadSerializer(serializers.ModelSerializer):
     """
     Serializer for verification document upload.
     """
+    aadhar_document = serializers.FileField(required=False)
+
     class Meta:
         model = InfluencerProfile
         fields = ('aadhar_document', 'aadhar_number')
@@ -346,24 +628,24 @@ class DocumentUploadSerializer(serializers.ModelSerializer):
             # Check file size (max 10MB)
             if value.size > 10 * 1024 * 1024:
                 raise serializers.ValidationError("Document must be smaller than 10MB.")
-            
+
             # Check file type - images and PDF for documents
             allowed_types = [
-                'image/jpeg', 'image/jpg', 'image/png', 'image/webp', 
+                'image/jpeg', 'image/jpg', 'image/png', 'image/webp',
                 'image/gif', 'image/bmp', 'image/tiff', 'image/tif',
                 'application/pdf'
             ]
-            
+
             # Also check file extension as backup validation
             allowed_extensions = ['.jpg', '.jpeg', '.png', '.webp', '.gif', '.bmp', '.tiff', '.tif', '.pdf']
             file_extension = value.name.lower().split('.')[-1] if '.' in value.name else ''
             file_extension_with_dot = f'.{file_extension}'
-            
+
             if value.content_type not in allowed_types and file_extension_with_dot not in allowed_extensions:
                 raise serializers.ValidationError(
                     "Only JPEG, JPG, PNG, WebP, GIF, BMP, TIFF, and PDF files are allowed for documents."
                 )
-        
+
         return value
 
     def validate_aadhar_number(self, value):
@@ -388,6 +670,7 @@ class BankDetailsSerializer(serializers.ModelSerializer):
     """
     Serializer for bank details management.
     """
+
     class Meta:
         model = InfluencerProfile
         fields = ('bank_account_number', 'bank_ifsc_code', 'bank_account_holder_name')
@@ -421,9 +704,9 @@ class BankDetailsSerializer(serializers.ModelSerializer):
         return value
 
 
-class SocialMediaAccountSerializer(serializers.ModelSerializer):
+class SocialMediaAccountDetailSerializer(serializers.ModelSerializer):
     """Serializer for social media accounts with platform-specific data"""
-    
+
     class Meta:
         model = SocialMediaAccount
         fields = (
@@ -440,7 +723,7 @@ class SocialMediaAccountSerializer(serializers.ModelSerializer):
 
 class CategoryScoreSerializer(serializers.ModelSerializer):
     """Serializer for category scores"""
-    
+
     class Meta:
         model = InfluencerCategoryScore
         fields = ('category_name', 'score', 'is_flag', 'is_primary')
@@ -460,7 +743,7 @@ class InfluencerSearchSerializer(serializers.ModelSerializer):
     score = serializers.SerializerMethodField()
     is_verified = serializers.BooleanField()
     available_platforms = serializers.SerializerMethodField()
-    
+
     # Platform-specific data
     twitter_followers = serializers.SerializerMethodField()
     twitter_handle = serializers.SerializerMethodField()
@@ -471,14 +754,14 @@ class InfluencerSearchSerializer(serializers.ModelSerializer):
     facebook_page_likes = serializers.SerializerMethodField()
     facebook_handle = serializers.SerializerMethodField()
     facebook_profile_link = serializers.SerializerMethodField()
-    
+
     # Interaction metrics
     average_interaction = serializers.CharField(read_only=True)
     average_comments = serializers.SerializerMethodField()
     average_likes = serializers.SerializerMethodField()
     average_dislikes = serializers.CharField(read_only=True)
     average_views = serializers.CharField(read_only=True)
-    
+
     # Legacy fields for compatibility
     full_name = serializers.SerializerMethodField()
     platforms = serializers.SerializerMethodField()
@@ -509,8 +792,14 @@ class InfluencerSearchSerializer(serializers.ModelSerializer):
 
     def get_profile_image(self, obj):
         """Get profile image URL"""
-        if obj.user_profile and obj.user_profile.profile_image:
-            return obj.user_profile.profile_image.url
+        try:
+            if obj.user_profile and obj.user_profile.profile_image:
+                request = self.context.get('request')
+                if request:
+                    return request.build_absolute_uri(obj.user_profile.profile_image.url)
+                return obj.user_profile.profile_image.url
+        except Exception:
+            pass
         return None
 
     def get_original_profile_image(self, obj):
@@ -632,9 +921,9 @@ class InfluencerSearchSerializer(serializers.ModelSerializer):
     def _format_number(self, num):
         """Format number to K, M format"""
         if num >= 1000000:
-            return f"{num/1000000:.1f}m"
+            return f"{num / 1000000:.1f}m"
         elif num >= 1000:
-            return f"{num/1000:.1f}k"
+            return f"{num / 1000:.1f}k"
         return str(num)
 
     def get_engagement_rate(self, obj):
@@ -664,12 +953,23 @@ class InfluencerPublicSerializer(serializers.ModelSerializer):
     total_followers = serializers.ReadOnlyField()
     average_engagement_rate = serializers.ReadOnlyField()
     platforms = serializers.SerializerMethodField()
+    bio = serializers.CharField(read_only=True)
+    industry = serializers.CharField(source='industry.name', read_only=True)
+    categories = serializers.SerializerMethodField()
+    followers = serializers.SerializerMethodField()
+    engagement_rate = serializers.SerializerMethodField()
+    rate_per_post = serializers.SerializerMethodField()
+    avg_rating = serializers.SerializerMethodField()
+    location = serializers.SerializerMethodField()
 
     class Meta:
         model = InfluencerProfile
         fields = (
             'id', 'username', 'name', 'profile_image', 'industry', 'is_verified',
-            'total_followers', 'average_engagement_rate', 'platforms'
+            'total_followers', 'average_engagement_rate', 'platforms', 'bio',
+            'categories', 'followers', 'engagement_rate', 'rate_per_post', 'avg_rating', 'location',
+            # Collaboration details
+            'collaboration_types', 'minimum_collaboration_amount', 'barter_ready', 'commerce_ready'
         )
 
     def get_name(self, obj):
@@ -677,8 +977,334 @@ class InfluencerPublicSerializer(serializers.ModelSerializer):
 
     def get_profile_image(self, obj):
         if obj.user_profile and obj.user_profile.profile_image:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.user_profile.profile_image.url)
             return obj.user_profile.profile_image.url
         return None
 
     def get_platforms(self, obj):
         return list(obj.social_accounts.filter(is_active=True).values_list('platform', flat=True))
+
+    def get_categories(self, obj):
+        """Get influencer categories."""
+        return list(obj.categories.values_list('name', flat=True))
+
+    def get_followers(self, obj):
+        """Get total followers count."""
+        return obj.total_followers
+
+    def get_engagement_rate(self, obj):
+        """Get average engagement rate."""
+        return float(obj.average_engagement_rate) if obj.average_engagement_rate else 0.0
+
+    def get_rate_per_post(self, obj):
+        """Get rate per post (placeholder - can be enhanced later)."""
+        # This could be calculated from historical deals or set by influencer
+        return 0  # Placeholder value
+
+    def get_avg_rating(self, obj):
+        """Get average rating from completed deals."""
+        from deals.models import Deal
+        avg_rating = Deal.objects.filter(
+            influencer=obj,
+            status='completed',
+            influencer_rating__isnull=False
+        ).aggregate(avg=models.Avg('influencer_rating'))['avg']
+        return round(avg_rating, 1) if avg_rating else 0.0
+
+    def get_location(self, obj):
+        """Get influencer location."""
+        location_parts = []
+        if obj.city:
+            location_parts.append(obj.city)
+        if obj.state:
+            location_parts.append(obj.state)
+        if obj.country:
+            location_parts.append(obj.country)
+        return ', '.join(location_parts) if location_parts else 'Location not specified'
+
+
+class SocialAccountPublicSerializer(serializers.ModelSerializer):
+    """
+    Public serializer for social media accounts.
+    """
+    username = serializers.CharField(source='handle', read_only=True)
+
+    class Meta:
+        model = SocialMediaAccount
+        fields = (
+            'id', 'platform', 'handle', 'username', 'followers_count', 'following_count', 'posts_count',
+            'engagement_rate', 'average_likes', 'average_comments', 'average_shares',
+            'platform_handle', 'platform_profile_link', 'is_active', 'verified',
+            # Platform-specific metrics
+            'average_image_likes', 'average_image_comments', 'average_reel_plays', 'average_reel_likes',
+            'average_reel_comments',
+            'average_video_views', 'average_shorts_plays', 'average_shorts_likes', 'average_shorts_comments',
+            'subscribers_count',
+            'page_likes', 'page_followers', 'twitter_followers', 'twitter_following', 'tweets_count',
+            'tiktok_followers', 'tiktok_following', 'tiktok_likes', 'tiktok_videos',
+            'follower_growth_rate', 'subscriber_growth_rate', 'last_posted_at', 'post_performance_score'
+        )
+
+
+class InfluencerPublicProfileSerializer(serializers.ModelSerializer):
+    """
+    Comprehensive public profile serializer for individual influencer profile pages.
+    """
+    user_first_name = serializers.CharField(source='user.first_name', read_only=True)
+    user_last_name = serializers.CharField(source='user.last_name', read_only=True)
+    username = serializers.CharField(source='user.username', read_only=True)
+    profile_image = serializers.SerializerMethodField()
+    total_followers = serializers.ReadOnlyField()
+    average_engagement_rate = serializers.ReadOnlyField()
+    social_accounts_count = serializers.SerializerMethodField()
+    social_accounts = SocialAccountPublicSerializer(many=True, read_only=True)
+    industry = serializers.CharField(source='industry.name', read_only=True)
+    categories = serializers.SerializerMethodField()
+    recent_collaborations = serializers.SerializerMethodField()
+    brand_collaborations = serializers.SerializerMethodField()
+    content_keywords = serializers.ReadOnlyField()
+    hashtags_used = serializers.SerializerMethodField()
+    performance_metrics = serializers.SerializerMethodField()
+
+    class Meta:
+        model = InfluencerProfile
+        fields = (
+            'id', 'user_first_name', 'user_last_name', 'username', 'bio',
+            'industry', 'categories', 'profile_image', 'is_verified',
+            'total_followers', 'average_engagement_rate', 'social_accounts_count',
+            'created_at', 'social_accounts', 'recent_collaborations', 'brand_collaborations',
+            'content_keywords', 'hashtags_used', 'performance_metrics',
+            # Collaboration details
+            'collaboration_types', 'minimum_collaboration_amount', 'barter_ready', 'commerce_ready'
+        )
+
+    def get_social_accounts_count(self, obj):
+        """Get count of active social media accounts."""
+        return obj.social_accounts.filter(is_active=True).count()
+
+    def get_profile_image(self, obj):
+        """Get profile image from user profile."""
+        if obj.user_profile and obj.user_profile.profile_image:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.user_profile.profile_image.url)
+            return obj.user_profile.profile_image.url
+        return None
+
+    def get_categories(self, obj):
+        """Get influencer categories."""
+        return list(obj.categories.values_list('name', flat=True))
+
+    def get_recent_collaborations(self, obj):
+        """Get recent collaborations (deals) for this influencer."""
+        from deals.models import Deal
+        recent_deals = Deal.objects.filter(
+            influencer=obj,
+            status__in=['completed', 'active']
+        ).select_related('campaign__brand').order_by('-invited_at')[:5]
+
+        collaborations = []
+        for deal in recent_deals:
+            collaborations.append({
+                'id': deal.id,
+                'brand_name': deal.campaign.brand.name if deal.campaign.brand else 'Unknown Brand',
+                'campaign_title': deal.campaign.title,
+                'status': deal.status,
+                'created_at': deal.invited_at.isoformat(),
+                'rating': getattr(deal, 'influencer_rating', None)
+            })
+
+        return collaborations
+
+    def get_brand_collaborations(self, obj):
+        """Get unique brands this influencer has collaborated with."""
+        from deals.models import Deal
+        from django.db.models import Count
+
+        # Get unique brands from completed deals
+        brand_deals = Deal.objects.filter(
+            influencer=obj,
+            status='completed'
+        ).select_related('campaign__brand').values(
+            'campaign__brand__id',
+            'campaign__brand__name',
+            'campaign__brand__logo'
+        ).annotate(
+            collaboration_count=Count('id')
+        ).order_by('-collaboration_count')[:10]
+
+        brands = []
+        for deal in brand_deals:
+            brands.append({
+                'id': deal['campaign__brand__id'],
+                'name': deal['campaign__brand__name'],
+                'logo': deal['campaign__brand__logo'],
+                'collaboration_count': deal['collaboration_count']
+            })
+
+        return brands
+
+    def get_hashtags_used(self, obj):
+        """Get hashtags used across all content submissions."""
+        from content.models import ContentSubmission
+
+        # Get hashtags from content submissions
+        hashtag_data = ContentSubmission.objects.filter(
+            deal__influencer=obj,
+            hashtags__isnull=False
+        ).exclude(hashtags='').values_list('hashtags', flat=True)
+
+        # Parse and count hashtags
+        hashtag_counts = {}
+        for hashtags_text in hashtag_data:
+            if hashtags_text:
+                # Split by common separators and clean up
+                hashtags = [tag.strip().lower() for tag in hashtags_text.replace(',', ' ').split() if
+                            tag.strip().startswith('#')]
+                for tag in hashtags:
+                    hashtag_counts[tag] = hashtag_counts.get(tag, 0) + 1
+
+        # Sort by frequency and return top hashtags
+        sorted_hashtags = sorted(hashtag_counts.items(), key=lambda x: x[1], reverse=True)[:20]
+
+        return [{'tag': tag, 'count': count} for tag, count in sorted_hashtags]
+
+    def get_performance_metrics(self, obj):
+        """Get performance metrics for this influencer."""
+        from deals.models import Deal
+        from django.db.models import Avg
+
+        deals = Deal.objects.filter(influencer=obj)
+        completed_deals = deals.filter(status='completed')
+
+        total_campaigns = deals.count()
+        completed_campaigns = completed_deals.count()
+
+        # Calculate average rating from completed deals
+        avg_rating = completed_deals.aggregate(
+            avg_rating=Avg('influencer_rating')
+        )['avg_rating'] or 0.0
+
+        # Calculate completion rate
+        completion_rate = (completed_campaigns / total_campaigns * 100) if total_campaigns > 0 else 0
+
+        # Mock response rate for now (could be calculated from messaging data)
+        response_rate = 95  # This would need to be calculated from actual response data
+
+        return {
+            'total_campaigns': total_campaigns,
+            'completed_campaigns': completed_campaigns,
+            'average_rating': round(avg_rating, 1),
+            'response_rate': response_rate,
+            'completion_rate': round(completion_rate, 0)
+        }
+
+
+class InfluencerSearchSerializer(serializers.ModelSerializer):
+    """
+    Serializer for influencer search results with comprehensive data.
+    """
+    username = serializers.CharField(source='user.username', read_only=True)
+    full_name = serializers.SerializerMethodField()
+    industry = serializers.SerializerMethodField()
+    location = serializers.SerializerMethodField()
+    profile_image = serializers.SerializerMethodField()
+    is_verified = serializers.BooleanField(read_only=True)
+    total_followers = serializers.SerializerMethodField()
+    avg_engagement = serializers.SerializerMethodField()
+    collaboration_count = serializers.IntegerField(read_only=True)
+    avg_rating = serializers.SerializerMethodField()
+    platforms = serializers.SerializerMethodField()
+    posts_count = serializers.SerializerMethodField()
+    rate_per_post = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)
+    is_bookmarked = serializers.SerializerMethodField()
+
+    class Meta:
+        model = InfluencerProfile
+        fields = [
+            'id', 'username', 'full_name', 'industry', 'bio', 'profile_image',
+            'is_verified', 'total_followers', 'avg_engagement', 'collaboration_count',
+            'avg_rating', 'platforms', 'location', 'posts_count', 'rate_per_post',
+            'is_bookmarked'
+        ]
+
+    def get_full_name(self, obj):
+        """Get influencer's full name"""
+        first_name = obj.user.first_name or ''
+        last_name = obj.user.last_name or ''
+        full_name = f"{first_name} {last_name}".strip()
+        return full_name if full_name else obj.user.username
+
+    def get_industry(self, obj):
+        """Get industry name"""
+        if obj.industry:
+            return obj.industry.name if hasattr(obj.industry, 'name') else str(obj.industry)
+        return 'N/A'
+
+    def get_location(self, obj):
+        """Get formatted location"""
+        # Build location from individual fields
+        parts = []
+        if obj.city:
+            parts.append(obj.city)
+        if obj.state:
+            parts.append(obj.state)
+        return ', '.join(parts) if parts else 'N/A'
+
+    def get_profile_image(self, obj):
+        """Get profile image URL"""
+        if obj.user_profile and obj.user_profile.profile_image:
+            request = self.context.get('request')
+            if request and hasattr(request, 'build_absolute_uri'):
+                try:
+                    return request.build_absolute_uri(obj.user_profile.profile_image.url)
+                except:
+                    return obj.user_profile.profile_image.url
+            return obj.user_profile.profile_image.url
+        return None
+
+    def get_total_followers(self, obj):
+        """Get total followers across all platforms"""
+        # Use annotated value if available
+        if hasattr(obj, 'total_followers_annotated') and obj.total_followers_annotated:
+            return obj.total_followers_annotated
+        # Fallback to property
+        return obj.total_followers or 0
+
+    def get_avg_engagement(self, obj):
+        """Get average engagement rate"""
+        # Use annotated value if available
+        if hasattr(obj, 'average_engagement_rate_annotated') and obj.average_engagement_rate_annotated:
+            return round(float(obj.average_engagement_rate_annotated), 2)
+        # Fallback to property
+        return round(float(obj.average_engagement_rate or 0), 2)
+
+    def get_platforms(self, obj):
+        """Get list of active platforms"""
+        return list(obj.social_accounts.filter(is_active=True).values_list('platform', flat=True))
+
+    def get_avg_rating(self, obj):
+        """Get average rating as a number"""
+        if obj.avg_rating is not None:
+            return float(obj.avg_rating)
+        return 0.0
+
+    def get_posts_count(self, obj):
+        """Get total posts count across all platforms"""
+        total_posts = obj.social_accounts.filter(is_active=True).aggregate(
+            total=models.Sum('posts_count')
+        )['total']
+        return total_posts or 0
+
+    def get_is_bookmarked(self, obj):
+        """Check if influencer is bookmarked by the current brand"""
+        request = self.context.get('request')
+        if request and hasattr(request, 'user') and hasattr(request.user, 'brand_user'):
+            from brands.models import BookmarkedInfluencer
+            return BookmarkedInfluencer.objects.filter(
+                brand=request.user.brand_user.brand,
+                influencer=obj
+            ).exists()
+        return False

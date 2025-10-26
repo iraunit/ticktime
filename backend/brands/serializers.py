@@ -1,17 +1,30 @@
-from rest_framework import serializers
+from common.models import Industry
+from common.serializers import IndustrySerializer
 from django.contrib.auth.models import User
-from .models import Brand, BrandUser, BrandAuditLog, BookmarkedInfluencer
 from influencers.serializers import InfluencerPublicSerializer
+from rest_framework import serializers
+
+from .models import Brand, BrandUser, BrandAuditLog, BookmarkedInfluencer
 
 
 class BrandSerializer(serializers.ModelSerializer):
     logo = serializers.SerializerMethodField()
-    
+    industry = serializers.SlugRelatedField(
+        queryset=Industry.objects.filter(is_active=True),
+        slug_field='key'
+    )
+
     class Meta:
         model = Brand
         fields = '__all__'
         read_only_fields = ('id', 'rating', 'total_campaigns', 'is_verified')
-    
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        if instance.industry:
+            data['industry'] = instance.industry.key
+        return data
+
     def get_logo(self, obj):
         if obj.logo:
             request = self.context.get('request')
@@ -35,10 +48,20 @@ class BrandSerializer(serializers.ModelSerializer):
 
 class UserProfileSerializer(serializers.ModelSerializer):
     full_name = serializers.CharField(source='get_full_name', read_only=True)
-    
+    profile_image = serializers.SerializerMethodField()
+
     class Meta:
         model = User
-        fields = ('id', 'first_name', 'last_name', 'full_name', 'email')
+        fields = ('id', 'first_name', 'last_name', 'full_name', 'email', 'profile_image')
+
+    def get_profile_image(self, obj):
+        """Get profile image URL."""
+        if hasattr(obj, 'user_profile') and obj.user_profile.profile_image:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.user_profile.profile_image.url)
+            return obj.user_profile.profile_image.url
+        return None
 
 
 class BrandTeamSerializer(serializers.ModelSerializer):
@@ -47,7 +70,7 @@ class BrandTeamSerializer(serializers.ModelSerializer):
     can_manage_users = serializers.BooleanField(read_only=True)
     can_approve_content = serializers.BooleanField(read_only=True)
     can_view_analytics = serializers.BooleanField(read_only=True)
-    
+
     class Meta:
         model = BrandUser
         fields = (
@@ -79,17 +102,17 @@ class BrandDashboardSerializer(serializers.Serializer):
 
     def get_recent_deals(self, obj):
         from deals.serializers import DealListSerializer
-        return DealListSerializer(obj['recent_deals'], many=True).data
+        return DealListSerializer(obj['recent_deals'], many=True, context=self.context).data
 
     def get_recent_campaigns(self, obj):
         from campaigns.serializers import CampaignSerializer
-        return CampaignSerializer(obj['recent_campaigns'], many=True).data
+        return CampaignSerializer(obj['recent_campaigns'], many=True, context=self.context).data
 
 
 class BrandAuditLogSerializer(serializers.ModelSerializer):
     user = UserProfileSerializer(read_only=True)
     action_display = serializers.CharField(source='get_action_display', read_only=True)
-    
+
     class Meta:
         model = BrandAuditLog
         fields = ('id', 'user', 'action', 'action_display', 'description', 'metadata', 'created_at')
@@ -100,7 +123,7 @@ class BookmarkedInfluencerSerializer(serializers.ModelSerializer):
     bookmarked_by = UserProfileSerializer(read_only=True)
     bookmarked_at = serializers.DateTimeField(source='created_at', read_only=True)
     created_by = UserProfileSerializer(source='bookmarked_by', read_only=True)
-    
+
     class Meta:
         model = BookmarkedInfluencer
         fields = ('id', 'influencer', 'bookmarked_by', 'created_by', 'notes', 'created_at', 'bookmarked_at')

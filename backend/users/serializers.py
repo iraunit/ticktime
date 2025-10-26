@@ -1,8 +1,9 @@
-from rest_framework import serializers
-from django.contrib.auth.models import User
-from django.core.exceptions import ValidationError
-from .models import UserProfile, GENDER_CHOICES
 import re
+
+from django.contrib.auth.models import User
+from rest_framework import serializers
+
+from .models import UserProfile, GENDER_CHOICES
 
 
 class UserProfileSerializer(serializers.ModelSerializer):
@@ -13,13 +14,13 @@ class UserProfileSerializer(serializers.ModelSerializer):
     has_influencer_profile = serializers.SerializerMethodField()
     has_brand_profile = serializers.SerializerMethodField()
     account_type = serializers.SerializerMethodField()
-    
+
     # Brand profile details if user is a brand user
     brand_profile = serializers.SerializerMethodField()
-    
+
     # Influencer profile details if user is an influencer
     influencer_profile = serializers.SerializerMethodField()
-    
+
     # UserProfile fields
     profile_image = serializers.SerializerMethodField()
     phone_number = serializers.SerializerMethodField()
@@ -40,7 +41,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
             'id', 'username', 'email', 'first_name', 'last_name', 'full_name',
             'date_joined', 'last_login', 'is_active', 'has_influencer_profile',
             'has_brand_profile', 'account_type', 'brand_profile', 'influencer_profile',
-            'profile_image', 'phone_number', 'country_code', 'phone_verified', 
+            'profile_image', 'phone_number', 'country_code', 'phone_verified',
             'email_verified', 'gender', 'country', 'state', 'city', 'zipcode',
             'address_line1', 'address_line2'
         )
@@ -57,7 +58,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
     def get_has_brand_profile(self, obj):
         """Check if user has a brand profile."""
         return hasattr(obj, 'brand_user')
-    
+
     def get_account_type(self, obj):
         """Determine the primary account type for the user."""
         if hasattr(obj, 'influencer_profile'):
@@ -65,7 +66,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
         elif hasattr(obj, 'brand_user'):
             return 'brand'
         return 'user'
-    
+
     def get_brand_profile(self, obj):
         """Get brand profile information if user is a brand user."""
         if hasattr(obj, 'brand_user'):
@@ -80,7 +81,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
                 'can_view_analytics': brand_user.can_view_analytics,
             }
         return None
-    
+
     def get_influencer_profile(self, obj):
         """Get basic influencer profile information if user is an influencer."""
         if hasattr(obj, 'influencer_profile'):
@@ -92,7 +93,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
                 'is_verified': profile.is_verified,
             }
         return None
-    
+
     # UserProfile getter methods
     def get_profile_image(self, obj):
         """Get profile image URL."""
@@ -102,67 +103,67 @@ class UserProfileSerializer(serializers.ModelSerializer):
                 return request.build_absolute_uri(obj.user_profile.profile_image.url)
             return obj.user_profile.profile_image.url
         return None
-    
+
     def get_phone_number(self, obj):
         """Get phone number."""
         if hasattr(obj, 'user_profile'):
             return obj.user_profile.phone_number
         return ''
-    
+
     def get_country_code(self, obj):
         """Get country code."""
         if hasattr(obj, 'user_profile'):
             return obj.user_profile.country_code
         return '+91'
-    
+
     def get_phone_verified(self, obj):
         """Get phone verification status."""
         if hasattr(obj, 'user_profile'):
             return obj.user_profile.phone_verified
         return False
-    
+
     def get_email_verified(self, obj):
         """Get email verification status."""
         if hasattr(obj, 'user_profile'):
             return obj.user_profile.email_verified
         return False
-    
+
     def get_gender(self, obj):
         """Get gender."""
         if hasattr(obj, 'user_profile'):
             return obj.user_profile.gender
         return None
-    
+
     def get_country(self, obj):
         """Get country."""
         if hasattr(obj, 'user_profile'):
             return obj.user_profile.country
         return ''
-    
+
     def get_state(self, obj):
         """Get state."""
         if hasattr(obj, 'user_profile'):
             return obj.user_profile.state
         return ''
-    
+
     def get_city(self, obj):
         """Get city."""
         if hasattr(obj, 'user_profile'):
             return obj.user_profile.city
         return ''
-    
+
     def get_zipcode(self, obj):
         """Get zipcode."""
         if hasattr(obj, 'user_profile'):
             return obj.user_profile.zipcode
         return ''
-    
+
     def get_address_line1(self, obj):
         """Get address line 1."""
         if hasattr(obj, 'user_profile'):
             return obj.user_profile.address_line1
         return ''
-    
+
     def get_address_line2(self, obj):
         """Get address line 2."""
         if hasattr(obj, 'user_profile'):
@@ -185,11 +186,11 @@ class UserUpdateSerializer(serializers.ModelSerializer):
     address_line1 = serializers.CharField(required=False, allow_blank=True, max_length=255)
     address_line2 = serializers.CharField(required=False, allow_blank=True, max_length=255)
     profile_image = serializers.ImageField(required=False, allow_null=True)
-    
+
     class Meta:
         model = User
-        fields = ('first_name', 'last_name', 'phone_number', 'country_code', 'gender', 
-                 'country', 'state', 'city', 'zipcode', 'address_line1', 'address_line2', 'profile_image')
+        fields = ('first_name', 'last_name', 'phone_number', 'country_code', 'gender',
+                  'country', 'state', 'city', 'zipcode', 'address_line1', 'address_line2', 'profile_image')
 
     def validate_first_name(self, value):
         """Validate first name format."""
@@ -199,14 +200,14 @@ class UserUpdateSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError(
                     "First name can only contain letters, spaces, hyphens, and apostrophes."
                 )
-            
+
             # Check length
             if len(value.strip()) < 1:
                 raise serializers.ValidationError("First name cannot be empty.")
-            
+
             if len(value) > 30:
                 raise serializers.ValidationError("First name cannot be longer than 30 characters.")
-        
+
         return value.strip() if value else value
 
     def validate_last_name(self, value):
@@ -217,16 +218,16 @@ class UserUpdateSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError(
                     "Last name can only contain letters, spaces, hyphens, and apostrophes."
                 )
-            
+
             # Check length
             if len(value.strip()) < 1:
                 raise serializers.ValidationError("Last name cannot be empty.")
-            
+
             if len(value) > 30:
                 raise serializers.ValidationError("Last name cannot be longer than 30 characters.")
-        
+
         return value.strip() if value else value
-    
+
     def validate_phone_number(self, value):
         """Validate phone number format."""
         if value:
@@ -235,14 +236,14 @@ class UserUpdateSerializer(serializers.ModelSerializer):
             if len(digits_only) < 7 or len(digits_only) > 15:
                 raise serializers.ValidationError("Phone number must be between 7 and 15 digits.")
         return value
-    
+
     def validate_country_code(self, value):
         """Validate country code format."""
         if value:
             if not re.match(r'^\+[1-9]\d{0,3}$', value):
                 raise serializers.ValidationError("Country code must be in format +XXX (e.g., +1, +44, +91).")
         return value
-    
+
     def update(self, instance, validated_data):
         """Update user and user profile data."""
         # Update User model fields
@@ -250,22 +251,22 @@ class UserUpdateSerializer(serializers.ModelSerializer):
             instance.first_name = validated_data['first_name']
         if 'last_name' in validated_data:
             instance.last_name = validated_data['last_name']
-        
+
         instance.save()
-        
+
         # Get or create UserProfile
         user_profile, created = UserProfile.objects.get_or_create(user=instance)
-        
+
         # Update UserProfile fields
-        profile_fields = ['phone_number', 'country_code', 'gender', 'country', 'state', 
-                         'city', 'zipcode', 'address_line1', 'address_line2', 'profile_image']
-        
+        profile_fields = ['phone_number', 'country_code', 'gender', 'country', 'state',
+                          'city', 'zipcode', 'address_line1', 'address_line2', 'profile_image']
+
         for field in profile_fields:
             if field in validated_data:
                 setattr(user_profile, field, validated_data[field])
-        
+
         user_profile.save()
-        
+
         return instance
 
 
@@ -316,29 +317,29 @@ class PasswordChangeSerializer(serializers.Serializer):
         """Validate new password strength."""
         if len(value) < 8:
             raise serializers.ValidationError("Password must be at least 8 characters long.")
-        
+
         # Check for at least one letter and one number
         if not re.search(r'[A-Za-z]', value):
             raise serializers.ValidationError("Password must contain at least one letter.")
-        
+
         if not re.search(r'\d', value):
             raise serializers.ValidationError("Password must contain at least one number.")
-        
+
         # Check for common weak passwords
         weak_passwords = ['password', '12345678', 'qwerty123', 'abc12345']
         if value.lower() in weak_passwords:
             raise serializers.ValidationError("This password is too common. Please choose a stronger password.")
-        
+
         return value
 
     def validate(self, attrs):
         """Validate password confirmation matches."""
         new_password = attrs.get('new_password')
         confirm_password = attrs.get('confirm_password')
-        
+
         if new_password != confirm_password:
             raise serializers.ValidationError("New passwords do not match.")
-        
+
         return attrs
 
 

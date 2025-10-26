@@ -71,7 +71,7 @@ export function ResetPasswordForm({ token }: ResetPasswordFormProps) {
               You can now sign in with your new password.
             </p>
             <Button asChild className="w-full">
-              <Link href="/login">
+              <Link href="/accounts/login">
                 Continue to sign in
               </Link>
             </Button>
@@ -205,7 +205,7 @@ export function ResetPasswordForm({ token }: ResetPasswordFormProps) {
 
         <div className="text-center">
           <Link
-            href="/login"
+            href="/accounts/login"
             className="text-sm text-primary hover:underline"
           >
             Back to sign in

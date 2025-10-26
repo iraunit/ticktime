@@ -20,12 +20,7 @@ export function useAnalytics() {
     select: (response) => response.data,
   });
 
-  // Get performance metrics
-  const performanceQuery = useQuery({
-    queryKey: ['analytics', 'performance'],
-    queryFn: () => analyticsApi.getPerformanceMetrics(),
-    select: (response) => response.data,
-  });
+
 
   // Rate brand mutation
   const rateBrandMutation = useMutation({
@@ -42,7 +37,6 @@ export function useAnalytics() {
   return {
     collaborationHistory: collaborationHistoryQuery,
     earnings: earningsQuery,
-    performance: performanceQuery,
     rateBrand: rateBrandMutation,
   };
 }

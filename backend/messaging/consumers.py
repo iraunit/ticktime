@@ -1,14 +1,15 @@
 import json
-from channels.generic.websocket import AsyncWebsocketConsumer
+
 from channels.db import database_sync_to_async
-from django.contrib.auth.models import User
-from rest_framework_simplejwt.tokens import UntypedToken
-from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
+from channels.generic.websocket import AsyncWebsocketConsumer
+from deals.models import Deal
 from django.contrib.auth.models import AnonymousUser
+from influencers.models import InfluencerProfile
+from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
+from rest_framework_simplejwt.tokens import UntypedToken
+
 from .models import Conversation, Message
 from .serializers import MessageSerializer
-from influencers.models import InfluencerProfile
-from deals.models import Deal
 
 
 class MessagingConsumer(AsyncWebsocketConsumer):
@@ -22,15 +23,15 @@ class MessagingConsumer(AsyncWebsocketConsumer):
         """
         self.deal_id = self.scope['url_route']['kwargs']['deal_id']
         self.room_group_name = f'deal_{self.deal_id}'
-        
+
         # Authenticate user
         user = await self.get_user_from_token()
         if user is None or user.is_anonymous:
             await self.close()
             return
-            
+
         self.user = user
-        
+
         # Check if user has access to this deal
         has_access = await self.check_deal_access()
         if not has_access:
@@ -62,14 +63,14 @@ class MessagingConsumer(AsyncWebsocketConsumer):
         try:
             text_data_json = json.loads(text_data)
             message_type = text_data_json.get('type', 'message')
-            
+
             if message_type == 'message':
                 await self.handle_message(text_data_json)
             elif message_type == 'typing':
                 await self.handle_typing(text_data_json)
             elif message_type == 'read_status':
                 await self.handle_read_status(text_data_json)
-                
+
         except json.JSONDecodeError:
             await self.send(text_data=json.dumps({
                 'error': 'Invalid JSON format'
@@ -88,7 +89,7 @@ class MessagingConsumer(AsyncWebsocketConsumer):
         if message:
             # Serialize message
             message_data = await self.serialize_message(message)
-            
+
             # Send message to room group
             await self.channel_layer.group_send(
                 self.room_group_name,
@@ -103,7 +104,7 @@ class MessagingConsumer(AsyncWebsocketConsumer):
         Handle typing indicator.
         """
         is_typing = data.get('is_typing', False)
-        
+
         # Send typing status to room group
         await self.channel_layer.group_send(
             self.room_group_name,
@@ -122,7 +123,7 @@ class MessagingConsumer(AsyncWebsocketConsumer):
         message_id = data.get('message_id')
         if message_id:
             await self.mark_message_as_read(message_id)
-            
+
             # Send read status update to room group
             await self.channel_layer.group_send(
                 self.room_group_name,
@@ -138,7 +139,7 @@ class MessagingConsumer(AsyncWebsocketConsumer):
         Send message to WebSocket.
         """
         message = event['message']
-        
+
         await self.send(text_data=json.dumps({
             'type': 'message',
             'message': message
@@ -174,13 +175,13 @@ class MessagingConsumer(AsyncWebsocketConsumer):
         try:
             token = self.scope['query_string'].decode().split('token=')[1].split('&')[0]
             UntypedToken(token)
-            
+
             # Get user from token
             from rest_framework_simplejwt.authentication import JWTAuthentication
             jwt_auth = JWTAuthentication()
             validated_token = jwt_auth.get_validated_token(token)
             user = jwt_auth.get_user(validated_token)
-            
+
             return user
         except (IndexError, InvalidToken, TokenError):
             return AnonymousUser()
@@ -197,11 +198,11 @@ class MessagingConsumer(AsyncWebsocketConsumer):
                     id=self.deal_id,
                     influencer=self.user.influencer_profile
                 ).exists()
-            
+
             # For brands, we would check brand access here
             # This is for influencer-side implementation
             return False
-            
+
         except Exception:
             return False
 
@@ -215,21 +216,21 @@ class MessagingConsumer(AsyncWebsocketConsumer):
                 id=self.deal_id,
                 influencer=self.user.influencer_profile
             )
-            
+
             conversation, created = Conversation.objects.get_or_create(deal=deal)
-            
+
             message = Message.objects.create(
                 conversation=conversation,
                 sender_type='influencer',
                 sender_user=self.user,
                 content=content
             )
-            
+
             # Update conversation timestamp
             conversation.save()
-            
+
             return message
-            
+
         except Exception:
             return None
 

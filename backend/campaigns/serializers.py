@@ -1,38 +1,51 @@
-from rest_framework import serializers
-from .models import Campaign
-from brands.serializers import BrandSerializer
-from django.utils import timezone
 from datetime import timedelta
-from common.models import Category
+
+from common.models import Industry
+from django.utils import timezone
+from rest_framework import serializers
+
+from .models import Campaign
+
+
+class OptionalDateTimeField(serializers.DateTimeField):
+    """
+    DateTimeField that handles empty strings by converting them to None.
+    """
+
+    def to_internal_value(self, data):
+        if data == '' or data is None:
+            return None
+        return super().to_internal_value(data)
 
 
 class IndustryField(serializers.Field):
     """
-    Single Category reference field.
-    Accepts either integer ID or string key; returns the category key.
+    Single Industry reference field.
+    Accepts either integer ID or string key; returns the industry key.
     """
+
     def to_representation(self, obj):
-        # Prefer FK category key if set; fallback to legacy string
+        # Prefer FK industry key if set; fallback to legacy string
         try:
             if obj.industry_category_id:
                 return obj.industry_category.key
         except Exception:
             pass
-        return getattr(obj, 'industry', None)
+        return getattr(obj, 'industry', '')
 
     def to_internal_value(self, data):
         if isinstance(data, int):
             # Just validate the ID exists and return it
             try:
-                Category.objects.get(id=data)
+                Industry.objects.get(id=data)
                 return data
-            except Category.DoesNotExist:
-                raise serializers.ValidationError('Invalid category id.')
+            except Industry.DoesNotExist:
+                raise serializers.ValidationError('Invalid industry id.')
         if isinstance(data, str):
-            # Accept category key and return it (validation happens in update method)
+            # Accept industry key and return it (validation happens in update method)
             safe_text = data[:50] if len(data) > 50 else data
             return safe_text
-        raise serializers.ValidationError('Industry must be a category id (int) or key (str).')
+        raise serializers.ValidationError('Industry must be an industry id (int) or key (str).')
 
 
 class CampaignCreateSerializer(serializers.ModelSerializer):
@@ -40,15 +53,17 @@ class CampaignCreateSerializer(serializers.ModelSerializer):
     Serializer for creating new campaigns.
     """
     industry = IndustryField(required=True)
+    submission_deadline = OptionalDateTimeField(required=False, allow_null=True)
 
     class Meta:
         model = Campaign
         fields = (
             'title', 'description', 'objectives', 'deal_type', 'cash_amount', 'product_value',
             'products', 'platforms_required', 'content_requirements',
-            'special_instructions', 'application_deadline', 'submission_deadline', 
-            'barter_submission_after_days', 'campaign_live_date', 'target_influencers', 
-            'industry', 'execution_mode', 'application_deadline_visible_to_influencers'
+            'special_instructions', 'application_deadline', 'submission_deadline',
+            'barter_submission_after_days', 'campaign_live_date', 'target_influencers',
+            'industry', 'industries', 'content_categories', 'execution_mode',
+            'application_deadline_visible_to_influencers'
         )
         extra_kwargs = {
             'title': {'required': True},
@@ -65,7 +80,7 @@ class CampaignCreateSerializer(serializers.ModelSerializer):
     def update(self, instance, validated_data):
         # Handle industry field specially to avoid JSON serialization issues
         industry_data = validated_data.pop('industry', None)
-        
+
         # Calculate product_value from products array for barter/product deals
         deal_type = validated_data.get('deal_type', instance.deal_type)
         if deal_type in ['product', 'hybrid'] and 'products' in validated_data:
@@ -79,29 +94,29 @@ class CampaignCreateSerializer(serializers.ModelSerializer):
                         if isinstance(value, (int, float)) and isinstance(quantity, (int, float)):
                             total_product_value += value * quantity
             validated_data['product_value'] = total_product_value
-        
+
         # Update all other fields normally
         instance = super().update(instance, validated_data)
-        
+
         # Handle industry field
         if industry_data is not None:
             if isinstance(industry_data, int):
                 try:
-                    category = Category.objects.get(id=industry_data)
-                    instance.industry_category = category
-                    instance.industry = category.key
-                except Category.DoesNotExist:
+                    industry = Industry.objects.get(id=industry_data)
+                    instance.industry_category = industry
+                    instance.industry = industry.key
+                except Industry.DoesNotExist:
                     pass
             elif isinstance(industry_data, str):
                 try:
-                    category = Category.objects.get(key=industry_data)
-                    instance.industry_category = category
+                    industry = Industry.objects.get(key=industry_data)
+                    instance.industry_category = industry
                     instance.industry = industry_data
-                except Category.DoesNotExist:
+                except Industry.DoesNotExist:
                     # Just set the string value
                     instance.industry = industry_data[:50]
                     instance.industry_category = None
-        
+
         instance.save()
         return instance
 
@@ -128,10 +143,12 @@ class CampaignCreateSerializer(serializers.ModelSerializer):
         elif data.get('deal_type') == 'product':
             data['deal_type'] = 'product'
             if not data.get('products') or not isinstance(data['products'], list) or len(data['products']) == 0:
-                raise serializers.ValidationError("Provide at least one product in products list for product/barter deals.")
+                raise serializers.ValidationError(
+                    "Provide at least one product in products list for product/barter deals.")
         elif data.get('deal_type') == 'hybrid':
             cash_ok = bool(data.get('cash_amount') and data['cash_amount'] > 0)
-            products_ok = bool(data.get('products') and isinstance(data['products'], list) and len(data['products']) > 0)
+            products_ok = bool(
+                data.get('products') and isinstance(data['products'], list) and len(data['products']) > 0)
             if not (cash_ok or products_ok):
                 raise serializers.ValidationError("Provide cash_amount or at least one product for hybrid deals.")
 
@@ -139,9 +156,9 @@ class CampaignCreateSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Target influencers must be at least 1.")
 
         if data.get('campaign_live_date'):
-            min_live = timezone.now() + timedelta(days=15)
-            if data['campaign_live_date'] < min_live:
-                raise serializers.ValidationError("Campaign live date must be at least 15 days from today.")
+            # Only validate that the date is not in the past
+            if data['campaign_live_date'] < timezone.now():
+                raise serializers.ValidationError("Campaign live date cannot be in the past.")
 
         if data.get('deal_type') in ['product', 'hybrid'] and data.get('barter_submission_after_days') is not None:
             if data['barter_submission_after_days'] < 1:
@@ -152,10 +169,10 @@ class CampaignCreateSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         # Handle industry field specially to avoid JSON serialization issues
         industry_data = validated_data.pop('industry', None)
-        
+
         if not validated_data.get('submission_deadline'):
             validated_data['submission_deadline'] = timezone.now() + timedelta(days=7)
-        
+
         # Calculate product_value from products array for barter/product deals
         if validated_data.get('deal_type') in ['product', 'hybrid']:
             products = validated_data.get('products', [])
@@ -168,31 +185,31 @@ class CampaignCreateSerializer(serializers.ModelSerializer):
                         if isinstance(value, (int, float)) and isinstance(quantity, (int, float)):
                             total_product_value += value * quantity
             validated_data['product_value'] = total_product_value
-        
+
         # Create the campaign without the industry field first
         campaign = super().create(validated_data)
-        
+
         # Handle industry field
         if industry_data is not None:
             if isinstance(industry_data, int):
                 try:
-                    category = Category.objects.get(id=industry_data)
-                    campaign.industry_category = category
-                    campaign.industry = category.key
-                except Category.DoesNotExist:
+                    industry = Industry.objects.get(id=industry_data)
+                    campaign.industry_category = industry
+                    campaign.industry = industry.key
+                except Industry.DoesNotExist:
                     pass
             elif isinstance(industry_data, str):
                 try:
-                    category = Category.objects.get(key=industry_data)
-                    campaign.industry_category = category
+                    industry = Industry.objects.get(key=industry_data)
+                    campaign.industry_category = industry
                     campaign.industry = industry_data
-                except Category.DoesNotExist:
+                except Industry.DoesNotExist:
                     # Just set the string value
                     campaign.industry = industry_data[:50]
                     campaign.industry_category = None
-            
+
             campaign.save()
-        
+
         return campaign
 
 
@@ -211,11 +228,21 @@ class CampaignListSerializer(serializers.ModelSerializer):
     total_invited = serializers.SerializerMethodField()
 
     def get_industry_key(self, obj):
-        return obj.industry_category.key if obj.industry_category_id else obj.industry
+        try:
+            if obj.industry_category_id and obj.industry_category:
+                return obj.industry_category.key
+        except Exception:
+            pass
+        return obj.industry
 
     def get_industry_name(self, obj):
-        return obj.industry_category.name if obj.industry_category_id else obj.industry
-    
+        try:
+            if obj.industry_category_id and obj.industry_category:
+                return obj.industry_category.name
+        except Exception:
+            pass
+        return obj.industry
+
     def get_content_requirements(self, obj):
         if isinstance(obj.content_requirements, dict):
             return obj.content_requirements.get('description', '')
@@ -229,11 +256,12 @@ class CampaignListSerializer(serializers.ModelSerializer):
     class Meta:
         model = Campaign
         fields = (
-            'id', 'title', 'description', 'deal_type', 'deal_type_display',
+            'id', 'title', 'description', 'objectives', 'deal_type', 'deal_type_display',
             'cash_amount', 'total_value', 'application_deadline', 'campaign_live_date',
             'is_active', 'is_expired', 'days_until_deadline', 'created_at',
             'brand_name', 'platforms_required', 'content_requirements',
-            'target_influencers', 'total_invited', 'industry', 'industry_key', 'industry_name', 'execution_mode'
+            'target_influencers', 'total_invited', 'industry', 'industries', 'content_categories', 'industry_key',
+            'industry_name', 'execution_mode'
         )
         read_only_fields = ('id', 'total_value', 'is_expired', 'days_until_deadline', 'created_at')
 
@@ -242,7 +270,7 @@ class CampaignSerializer(serializers.ModelSerializer):
     """
     Serializer for campaign information in deal contexts.
     """
-    brand = BrandSerializer(read_only=True)
+    brand = serializers.SerializerMethodField()
     total_value = serializers.ReadOnlyField()
     is_expired = serializers.ReadOnlyField()
     days_until_deadline = serializers.ReadOnlyField()
@@ -256,12 +284,35 @@ class CampaignSerializer(serializers.ModelSerializer):
     industry_key = serializers.SerializerMethodField()
     industry_name = serializers.SerializerMethodField()
     industry = IndustryField(required=False)
+    submission_deadline = OptionalDateTimeField(required=False, allow_null=True)
 
     def get_industry_key(self, obj):
-        return obj.industry_category.key if obj.industry_category_id else obj.industry
+        try:
+            if obj.industry_category_id and obj.industry_category:
+                return obj.industry_category.key
+        except Exception:
+            pass
+        return obj.industry
 
     def get_industry_name(self, obj):
-        return obj.industry_category.name if obj.industry_category_id else obj.industry
+        try:
+            if obj.industry_category_id and obj.industry_category:
+                return obj.industry_category.name
+        except Exception:
+            pass
+        return obj.industry
+
+    def get_brand(self, obj):
+        """Get brand information without circular import."""
+        if obj.brand:
+            return {
+                'id': obj.brand.id,
+                'name': obj.brand.name,
+                'logo': obj.brand.logo.url if obj.brand.logo else None,
+                'industry': obj.brand.industry.key if obj.brand.industry else None,
+                'description': obj.brand.description,
+            }
+        return None
 
     def get_content_requirements(self, obj):
         if isinstance(obj.content_requirements, dict):
@@ -271,16 +322,19 @@ class CampaignSerializer(serializers.ModelSerializer):
         return ''
 
     def get_deals(self, obj):
-        # Use a lightweight serializer to avoid nested campaign serialization recursion
-        from deals.serializers import DealListLiteSerializer
-        deals = obj.deals.all().select_related('influencer').prefetch_related('conversation__messages')
-        return DealListLiteSerializer(deals, many=True, context=self.context).data
+        # Use the proper deal serializer to get full influencer information
+        from deals.serializers import DealListSerializer
+        deals = obj.deals.all()
+        return DealListSerializer(deals, many=True, context=self.context).data
 
     def get_total_invited(self, obj):
         return obj.deals.count()
 
     def get_total_accepted(self, obj):
-        return obj.deals.filter(status__in=['accepted', 'active', 'content_submitted', 'under_review', 'approved', 'completed']).count()
+        return obj.deals.filter(
+            status__in=['accepted', 'shortlisted', 'address_requested', 'address_provided', 'product_shipped',
+                        'product_delivered', 'active', 'content_submitted', 'under_review', 'revision_requested',
+                        'approved', 'completed']).count()
 
     def get_total_completed(self, obj):
         return obj.deals.filter(status='completed').count()
@@ -288,47 +342,43 @@ class CampaignSerializer(serializers.ModelSerializer):
     def get_total_rejected(self, obj):
         return obj.deals.filter(status='rejected').count()
 
+    class Meta:
+        model = Campaign
+        fields = (
+            'id', 'title', 'description', 'objectives', 'deal_type', 'deal_type_display',
+            'cash_amount', 'total_value', 'application_deadline', 'submission_deadline', 'campaign_live_date',
+            'is_active', 'is_expired', 'days_until_deadline', 'created_at',
+            'brand', 'platforms_required', 'content_requirements',
+            'target_influencers', 'deals', 'total_invited', 'total_accepted', 'total_completed', 'total_rejected',
+            'industry', 'industries', 'content_categories', 'industry_key', 'industry_name', 'execution_mode'
+        )
+        read_only_fields = ('id', 'total_value', 'is_expired', 'days_until_deadline', 'created_at')
+
     def update(self, instance, validated_data):
         # Handle industry field specially to avoid JSON serialization issues
         industry_data = validated_data.pop('industry', None)
-        
+
         # Update all other fields normally
         instance = super().update(instance, validated_data)
-        
+
         # Handle industry field
         if industry_data is not None:
             if isinstance(industry_data, int):
                 try:
-                    category = Category.objects.get(id=industry_data)
-                    instance.industry_category = category
-                    instance.industry = category.key
-                except Category.DoesNotExist:
+                    industry = Industry.objects.get(id=industry_data)
+                    instance.industry_category = industry
+                    instance.industry = industry.key
+                except Industry.DoesNotExist:
                     pass
             elif isinstance(industry_data, str):
                 try:
-                    category = Category.objects.get(key=industry_data)
-                    instance.industry_category = category
+                    industry = Industry.objects.get(key=industry_data)
+                    instance.industry_category = industry
                     instance.industry = industry_data
-                except Category.DoesNotExist:
+                except Industry.DoesNotExist:
                     # Just set the string value
                     instance.industry = industry_data[:50]
                     instance.industry_category = None
-        
+
         instance.save()
         return instance
-
-    class Meta:
-        model = Campaign
-        fields = (
-            'id', 'brand', 'title', 'description', 'objectives', 'deal_type',
-            'deal_type_display', 'cash_amount', 'total_value',
-            'products', 'content_requirements', 'platforms_required',
-            'special_instructions', 'application_deadline', 'product_delivery_date',
-            'submission_deadline', 'barter_submission_after_days',
-            'campaign_live_date',
-            'application_deadline_visible_to_influencers', 'payment_schedule', 'shipping_details', 'custom_terms', 'allows_negotiation',
-            'target_influencers', 'industry', 'industry_key', 'industry_name', 'execution_mode',
-            'is_expired', 'days_until_deadline', 'created_at', 'deals',
-            'total_invited', 'total_accepted', 'total_completed', 'total_rejected'
-        )
-        read_only_fields = ('id', 'total_value', 'is_expired', 'days_until_deadline', 'created_at')

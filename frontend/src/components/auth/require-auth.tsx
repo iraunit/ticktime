@@ -17,13 +17,13 @@ export function RequireAuth({ children }: { children: React.ReactNode }) {
       return;
     }
     // Avoid redirecting from the login page itself
-    if (pathname?.startsWith('/login')) return;
+    if (pathname?.startsWith('/accounts/login')) return;
     // Debounce rapid redirects
     if (redirectedRef.current) return;
     redirectedRef.current = true;
 
     const nextParam = encodeURIComponent(pathname || "/");
-    router.replace(`/login?next=${nextParam}`);
+    router.replace(`/accounts/login?next=${nextParam}`);
   }, [isLoading, user, pathname, router]);
 
   if (isLoading) {

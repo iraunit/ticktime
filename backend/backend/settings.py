@@ -370,6 +370,11 @@ LOGGING = {
             "level": "INFO",
             "propagate": True,
         },
+        "influencers": {
+            "handlers": ["file", "console"],
+            "level": "INFO",
+            "propagate": True,
+        },
     },
 }
 

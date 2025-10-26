@@ -1,6 +1,5 @@
-from django.db import models
-from django.utils import timezone
 from common.models import PLATFORM_CHOICES, CONTENT_TYPE_CHOICES
+from django.db import models
 
 
 class ContentReviewHistory(models.Model):
@@ -9,14 +8,14 @@ class ContentReviewHistory(models.Model):
     This preserves all review comments and decisions with timestamps.
     """
     content_submission = models.ForeignKey(
-        'ContentSubmission', 
-        on_delete=models.CASCADE, 
+        'ContentSubmission',
+        on_delete=models.CASCADE,
         related_name='review_history'
     )
     reviewed_by = models.ForeignKey(
-        'auth.User', 
-        on_delete=models.SET_NULL, 
-        null=True, 
+        'auth.User',
+        on_delete=models.SET_NULL,
+        null=True,
         blank=True,
         related_name='content_review_history'
     )
@@ -31,7 +30,7 @@ class ContentReviewHistory(models.Model):
     feedback = models.TextField(blank=True, help_text='Review feedback from brand')
     revision_notes = models.TextField(blank=True, help_text='Specific revision instructions')
     reviewed_at = models.DateTimeField(auto_now_add=True)
-    
+
     class Meta:
         db_table = 'content_review_history'
         ordering = ['-reviewed_at']
@@ -59,21 +58,21 @@ class ContentSubmission(models.Model):
     hashtags = models.TextField(blank=True)
     mention_brand = models.BooleanField(default=True)
     post_url = models.URLField(blank=True)
-    
+
     # Enhanced fields for multiple links and descriptions
     title = models.CharField(max_length=255, blank=True, help_text='Title or description of this content piece')
     description = models.TextField(blank=True, help_text='Detailed description of the content')
     additional_links = models.JSONField(
-        blank=True, 
+        blank=True,
         null=True,
         help_text='Additional links with descriptions in format: [{"url": "...", "description": "..."}]'
     )
-    
+
     # Submission and review tracking
     submitted_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     last_revision_update = models.DateTimeField(
-        null=True, 
+        null=True,
         blank=True,
         help_text='When content was last updated after a revision request'
     )
@@ -83,9 +82,9 @@ class ContentSubmission(models.Model):
     revision_notes = models.TextField(blank=True)
     approved_at = models.DateTimeField(null=True, blank=True)
     reviewed_by = models.ForeignKey(
-        'auth.User', 
-        on_delete=models.SET_NULL, 
-        null=True, 
+        'auth.User',
+        on_delete=models.SET_NULL,
+        null=True,
         blank=True,
         related_name='reviewed_content_submissions',
         help_text='Brand user who reviewed this submission'
