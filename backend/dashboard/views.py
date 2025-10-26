@@ -459,7 +459,7 @@ def analytics_collaboration_history_view(request):
                 'id': deal.campaign.brand.id,
                 'name': deal.campaign.brand.name,
             },
-            'total_value': float(deal.campaign.cash_amount or 0),
+            'total_value': float(deal.campaign.total_value),
             'status': deal.status,
             'completed_at': deal.completed_at.isoformat() if deal.completed_at else None,
             'brand_rating': deal.brand_rating,
@@ -487,10 +487,10 @@ def analytics_earnings_view(request):
     # Get completed deals (include all completed deals, not just paid ones)
     completed_deals = deals.filter(status='completed')
 
-    # Total earnings
-    total_earnings = completed_deals.aggregate(
-        total=Coalesce(Sum('campaign__cash_amount'), Decimal('0.00'))
-    )['total'] or Decimal('0.00')
+    # Total earnings - calculate manually to use total_value property
+    total_earnings = Decimal('0.00')
+    for deal in completed_deals:
+        total_earnings += Decimal(str(deal.campaign.total_value))
 
     # Monthly earnings for the last 12 months
     from datetime import timedelta
@@ -501,22 +501,24 @@ def analytics_earnings_view(request):
         month_end = month_start + timedelta(days=32)
         month_end = month_end.replace(day=1) - timedelta(days=1)
 
-        # Try completed_at first, then fallback to updated_at
-        month_earnings = completed_deals.filter(
+        # Calculate monthly earnings using total_value property
+        month_deals = completed_deals.filter(
             completed_at__gte=month_start,
             completed_at__lte=month_end
-        ).aggregate(
-            total=Coalesce(Sum('campaign__cash_amount'), Decimal('0.00'))
-        )['total'] or Decimal('0.00')
+        )
+
+        month_earnings = Decimal('0.00')
+        for deal in month_deals:
+            month_earnings += Decimal(str(deal.campaign.total_value))
 
         # If no earnings from completed_at, try accepted_at
         if month_earnings == 0:
-            month_earnings = completed_deals.filter(
+            month_deals = completed_deals.filter(
                 accepted_at__gte=month_start,
                 accepted_at__lte=month_end
-            ).aggregate(
-                total=Coalesce(Sum('campaign__cash_amount'), Decimal('0.00'))
-            )['total'] or Decimal('0.00')
+            )
+            for deal in month_deals:
+                month_earnings += Decimal(str(deal.campaign.total_value))
 
         monthly_earnings.append({
             'month': month_start.strftime('%Y-%m'),
@@ -525,16 +527,20 @@ def analytics_earnings_view(request):
 
     monthly_earnings.reverse()  # Show oldest to newest
 
-    # Earnings by brand
+    # Earnings by brand - calculate manually to use total_value property
     earnings_by_brand = []
-    brand_earnings = completed_deals.values('campaign__brand__name').annotate(
-        total_earnings=Sum('campaign__cash_amount')
-    ).order_by('-total_earnings')
+    brand_earnings_dict = {}
 
-    for brand_data in brand_earnings:
+    for deal in completed_deals:
+        brand_name = deal.campaign.brand.name
+        if brand_name not in brand_earnings_dict:
+            brand_earnings_dict[brand_name] = Decimal('0.00')
+        brand_earnings_dict[brand_name] += Decimal(str(deal.campaign.total_value))
+
+    for brand_name, total_earnings in sorted(brand_earnings_dict.items(), key=lambda x: x[1], reverse=True):
         earnings_by_brand.append({
-            'brand': {'name': brand_data['campaign__brand__name']},
-            'amount': float(brand_data['total_earnings'])
+            'brand': {'name': brand_name},
+            'amount': float(total_earnings)
         })
 
     # Top brands
@@ -547,7 +553,7 @@ def analytics_earnings_view(request):
             payment_history.append({
                 'brand_name': deal.campaign.brand.name,
                 'campaign_title': deal.campaign.title,
-                'amount': float(deal.campaign.cash_amount or 0),
+                'amount': float(deal.campaign.total_value),
                 'payment_date': deal.completed_at.isoformat()
             })
 

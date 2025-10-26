@@ -10,6 +10,7 @@ import {CollaborationHistory as CollaborationHistoryType} from "@/types";
 import {HiArrowDownTray, HiBanknotes, HiBuildingOffice2, HiCalendarDays, HiFunnel, HiStar} from "react-icons/hi2";
 import {Skeleton} from "@/components/ui/skeleton";
 import {BrandRatingDialog} from "./brand-rating-dialog";
+import {getDealTypeConfig, getPlatformConfig} from "@/lib/platform-config";
 
 export function CollaborationHistory() {
     const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -26,9 +27,9 @@ export function CollaborationHistory() {
             ...((collaborationHistory.data as any)?.results || collaborationHistory.data?.collaborations || []).map((collaboration: CollaborationHistoryType) => [
                 collaboration.brand.name,
                 collaboration.campaign_title,
-                collaboration.deal_type,
+                getDealTypeConfig(collaboration.deal_type).label,
                 collaboration.total_value,
-                collaboration.platforms.join(';'),
+                collaboration.platforms?.map(p => getPlatformConfig(p)?.label || p).join(';') || '',
                 collaboration.status,
                 collaboration.completed_at || '',
                 collaboration.rating || ''
@@ -225,11 +226,26 @@ export function CollaborationHistory() {
                                             <h3 className="text-sm sm:text-base font-bold text-gray-900 truncate">{collaboration.brand.name}</h3>
                                             <p className="text-xs sm:text-sm text-gray-600 truncate">{collaboration.campaign_title}</p>
                                             <div className="flex flex-wrap items-center gap-2 mt-1 sm:mt-2">
-                                                <span
-                                                    className="text-xs text-gray-500">{collaboration.deal_type?.replace('_', ' ') || 'N/A'}</span>
+                                                <span className="text-xs text-gray-500 flex items-center gap-1">
+                                                    <span>{getDealTypeConfig(collaboration.deal_type).icon}</span>
+                                                    <span>{getDealTypeConfig(collaboration.deal_type).label}</span>
+                                                </span>
                                                 <span className="text-xs text-gray-400">•</span>
-                                                <span
-                                                    className="text-xs text-gray-500">{collaboration.platforms?.join(', ') || 'N/A'}</span>
+                                                <span className="text-xs text-gray-500 flex items-center gap-1">
+                                                    {collaboration.platforms?.length > 0 ? (
+                                                        collaboration.platforms.map((platform, index) => {
+                                                            const config = getPlatformConfig(platform);
+                                                            const IconComponent = config?.icon;
+                                                            return (
+                                                                <span key={index} className="flex items-center gap-1">
+                                                                    {IconComponent &&
+                                                                        <IconComponent className="w-3 h-3"/>}
+                                                                    <span>{config?.label || platform}</span>
+                                                                </span>
+                                                            );
+                                                        })
+                                                    ) : 'N/A'}
+                                                </span>
                                             </div>
                                         </div>
                                     </div>
