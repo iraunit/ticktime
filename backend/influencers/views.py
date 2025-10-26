@@ -404,7 +404,7 @@ def influencer_search_view(request):
     last_posted_within = request.GET.get('last_posted_within', '')  # days
 
     # Start with all influencer profiles and annotate computed fields
-    queryset = InfluencerProfile.objects.select_related('user').prefetch_related(
+    queryset = InfluencerProfile.objects.select_related('user', 'user_profile', 'industry').prefetch_related(
         'social_accounts'
     ).filter(user__is_active=True).annotate(
         total_followers_annotated=models.Sum('social_accounts__followers_count',

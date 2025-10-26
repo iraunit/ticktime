@@ -1200,3 +1200,113 @@ class InfluencerPublicProfileSerializer(serializers.ModelSerializer):
             'response_rate': response_rate,
             'completion_rate': round(completion_rate, 0)
         }
+
+
+class InfluencerSearchSerializer(serializers.ModelSerializer):
+    """
+    Serializer for influencer search results with comprehensive data.
+    """
+    username = serializers.CharField(source='user.username', read_only=True)
+    full_name = serializers.SerializerMethodField()
+    industry = serializers.SerializerMethodField()
+    location = serializers.SerializerMethodField()
+    profile_image = serializers.SerializerMethodField()
+    is_verified = serializers.BooleanField(read_only=True)
+    total_followers = serializers.SerializerMethodField()
+    avg_engagement = serializers.SerializerMethodField()
+    collaboration_count = serializers.IntegerField(read_only=True)
+    avg_rating = serializers.SerializerMethodField()
+    platforms = serializers.SerializerMethodField()
+    posts_count = serializers.SerializerMethodField()
+    rate_per_post = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)
+    is_bookmarked = serializers.SerializerMethodField()
+
+    class Meta:
+        model = InfluencerProfile
+        fields = [
+            'id', 'username', 'full_name', 'industry', 'bio', 'profile_image',
+            'is_verified', 'total_followers', 'avg_engagement', 'collaboration_count',
+            'avg_rating', 'platforms', 'location', 'posts_count', 'rate_per_post',
+            'is_bookmarked'
+        ]
+
+    def get_full_name(self, obj):
+        """Get influencer's full name"""
+        first_name = obj.user.first_name or ''
+        last_name = obj.user.last_name or ''
+        full_name = f"{first_name} {last_name}".strip()
+        return full_name if full_name else obj.user.username
+
+    def get_industry(self, obj):
+        """Get industry name"""
+        if obj.industry:
+            return obj.industry.name if hasattr(obj.industry, 'name') else str(obj.industry)
+        return 'N/A'
+
+    def get_location(self, obj):
+        """Get formatted location"""
+        # Build location from individual fields
+        parts = []
+        if obj.city:
+            parts.append(obj.city)
+        if obj.state:
+            parts.append(obj.state)
+        if obj.country:
+            parts.append(obj.country)
+        return ', '.join(parts) if parts else 'N/A'
+
+    def get_profile_image(self, obj):
+        """Get profile image URL"""
+        if obj.user_profile and obj.user_profile.profile_image:
+            request = self.context.get('request')
+            if request and hasattr(request, 'build_absolute_uri'):
+                try:
+                    return request.build_absolute_uri(obj.user_profile.profile_image.url)
+                except:
+                    return obj.user_profile.profile_image.url
+            return obj.user_profile.profile_image.url
+        return None
+
+    def get_total_followers(self, obj):
+        """Get total followers across all platforms"""
+        # Use annotated value if available
+        if hasattr(obj, 'total_followers_annotated') and obj.total_followers_annotated:
+            return obj.total_followers_annotated
+        # Fallback to property
+        return obj.total_followers or 0
+
+    def get_avg_engagement(self, obj):
+        """Get average engagement rate"""
+        # Use annotated value if available
+        if hasattr(obj, 'average_engagement_rate_annotated') and obj.average_engagement_rate_annotated:
+            return round(float(obj.average_engagement_rate_annotated), 2)
+        # Fallback to property
+        return round(float(obj.average_engagement_rate or 0), 2)
+
+    def get_platforms(self, obj):
+        """Get list of active platforms"""
+        return list(obj.social_accounts.filter(is_active=True).values_list('platform', flat=True))
+
+    def get_avg_rating(self, obj):
+        """Get average rating as a number"""
+        if obj.avg_rating is not None:
+            return float(obj.avg_rating)
+        return 0.0
+
+    def get_posts_count(self, obj):
+        """Get total posts count across all platforms"""
+        total_posts = obj.social_accounts.filter(is_active=True).aggregate(
+            total=models.Sum('posts_count')
+        )['total']
+        return total_posts or 0
+
+    def get_is_bookmarked(self, obj):
+        """Check if influencer is bookmarked by the current brand"""
+        request = self.context.get('request')
+        if request and hasattr(request, 'user') and hasattr(request.user, 'brand_user'):
+            from brands.models import BookmarkedInfluencer
+            return BookmarkedInfluencer.objects.filter(
+                brand=request.user.brand_user.brand,
+                influencer=obj
+            ).exists()
+        return False
