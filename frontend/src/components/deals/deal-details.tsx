@@ -13,21 +13,7 @@ import {ContentSubmissionsList} from "./content-submissions-list";
 import {AddressSubmission} from "./address-submission";
 import {useDeal} from "@/hooks/use-deals";
 import {cn, getMediaUrl} from "@/lib/utils";
-import {
-    ArrowLeft,
-    Calendar,
-    Clock,
-    DollarSign,
-    Facebook,
-    Instagram,
-    MapPin,
-    Package,
-    Target,
-    Twitter,
-    Upload,
-    Youtube,
-    Zap,
-} from "@/lib/icons";
+import {ArrowLeft, Calendar, Clock, DollarSign, MapPin, Package, Target, Upload, Zap,} from "@/lib/icons";
 import {getDealTypeConfig, platformConfig} from "@/lib/platform-config";
 import Image from "next/image";
 import Link from "next/link";
@@ -39,18 +25,6 @@ interface DealDetailsProps {
     isLoading?: boolean;
     className?: string;
 }
-
-const platformIcons = {
-    instagram: Instagram,
-    youtube: Youtube,
-    twitter: Twitter,
-    facebook: Facebook,
-    Instagram: Instagram,
-    YouTube: Youtube,
-    Twitter: Twitter,
-    Facebook: Facebook,
-};
-
 
 const statusColors = {
     invited: "bg-blue-100 text-blue-800 border-blue-200 hover:bg-blue-200",

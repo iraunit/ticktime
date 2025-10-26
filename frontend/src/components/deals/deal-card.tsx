@@ -7,11 +7,12 @@ import {Badge} from "@/components/ui/badge";
 import {Button} from "@/components/ui/button";
 import {Deal} from "@/types";
 import {cn} from "@/lib/utils";
-import {HiBanknotes, HiCamera, HiClock, HiGlobeAlt, HiPlayCircle, HiShare, HiStar} from "react-icons/hi2";
+import {HiBanknotes, HiClock, HiGlobeAlt, HiStar} from "react-icons/hi2";
 import Image from "next/image";
 import {DealActions} from "./deal-actions";
 import {ContentSubmissionModal} from "./content-submission";
 import {RatingDialog} from "./rating-dialog";
+import {getPlatformLabel, platformConfig} from "@/lib/platform-config";
 
 interface DealCardProps {
     deal: Deal;
@@ -49,14 +50,21 @@ const dealTypeColors = {
     hybrid: "bg-gradient-to-r from-purple-100 to-pink-100 text-purple-800 border-purple-300",
 };
 
-const platformIcons: Record<string, any> = {
-    Instagram: HiCamera,
-    YouTube: HiPlayCircle,
-    Twitter: HiGlobeAlt,
-    Facebook: HiShare,
-    TikTok: HiPlayCircle,
-    LinkedIn: HiShare,
-    Snapchat: HiCamera,
+// Helper function to get platform icon from config
+const getPlatformIcon = (platformName: string) => {
+    for (const [key, config] of Object.entries(platformConfig)) {
+        if (config.label === platformName) {
+            return config.icon;
+        }
+    }
+
+    const normalizedKey = platformName.toLowerCase();
+    if (platformConfig[normalizedKey as keyof typeof platformConfig]) {
+        return platformConfig[normalizedKey as keyof typeof platformConfig].icon;
+    }
+
+    // Fallback
+    return HiGlobeAlt;
 };
 
 export function DealCard({
@@ -322,11 +330,11 @@ export function DealCard({
 
                                     if (platforms.length === 1) {
                                         const platform = platforms[0];
-                                        const IconComponent = platformIcons[platform];
+                                        const IconComponent = getPlatformIcon(platform);
                                         return (
                                             <div className="flex items-center">
                                                 {IconComponent && <IconComponent className="h-3 w-3 mr-1"/>}
-                                                <span>{platform}</span>
+                                                <span>{getPlatformLabel(platform) || platform}</span>
                                             </div>
                                         );
                                     }
@@ -334,9 +342,10 @@ export function DealCard({
                                     return (
                                         <div className="flex items-center space-x-1">
                                             {platforms.slice(0, 2).map((platform: string, index: number) => {
-                                                const IconComponent = platformIcons[platform];
+                                                const IconComponent = getPlatformIcon(platform);
                                                 return IconComponent ? (
-                                                    <IconComponent key={index} className="h-3 w-3" title={platform}/>
+                                                    <IconComponent key={index} className="h-3 w-3"
+                                                                   title={getPlatformLabel(platform) || platform}/>
                                                 ) : (
                                                     <span key={index} className="text-xs">{platform.slice(0, 2)}</span>
                                                 );
