@@ -7,7 +7,6 @@ import {Badge} from "@/components/ui/badge";
 import {Input} from "@/components/ui/input";
 import {Textarea} from "@/components/ui/textarea";
 import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from "@/components/ui/select";
-import ReactSelect from "react-select";
 import {Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger} from "@/components/ui/dialog";
 import {Checkbox} from "@/components/ui/checkbox";
 import {
@@ -32,7 +31,7 @@ import {
     HiUsers
 } from "react-icons/hi2";
 import {HiX} from "react-icons/hi";
-import {platformConfig} from "@/lib/platform-config";
+import {getPlatformConfig, platformConfig, platformOptions} from "@/lib/platform-config";
 import {api} from "@/lib/api";
 import {toast} from "@/lib/toast";
 import {GlobalLoader} from "@/components/ui/global-loader";
@@ -679,16 +678,44 @@ export default function InfluencerSearchPage() {
                                 <label className="text-xs font-medium text-gray-700">Platform</label>
                                 <Select value={selectedPlatform} onValueChange={setSelectedPlatform}>
                                     <SelectTrigger className="h-8 text-xs border border-gray-300">
-                                        <SelectValue placeholder="All Platforms"/>
+                                        <SelectValue placeholder="All Platforms">
+                                            {selectedPlatform === 'all' ? (
+                                                <div className="flex items-center gap-2">
+                                                    <span>🌐</span>
+                                                    <span>All Platforms</span>
+                                                </div>
+                                            ) : (() => {
+                                                const config = getPlatformConfig(selectedPlatform);
+                                                const IconComponent = config?.icon;
+                                                return (
+                                                    <div className="flex items-center gap-2">
+                                                        {IconComponent && <IconComponent
+                                                            className={`w-4 h-4 ${config?.color || 'text-gray-600'}`}/>}
+                                                        <span>{config?.label || selectedPlatform}</span>
+                                                    </div>
+                                                );
+                                            })()}
+                                        </SelectValue>
                                     </SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value="all">All Platforms</SelectItem>
-                                        <SelectItem value="instagram">Instagram</SelectItem>
-                                        <SelectItem value="youtube">YouTube</SelectItem>
-                                        <SelectItem value="tiktok">TikTok</SelectItem>
-                                        <SelectItem value="twitter">Twitter</SelectItem>
-                                        <SelectItem value="facebook">Facebook</SelectItem>
-                                        <SelectItem value="linkedin">LinkedIn</SelectItem>
+                                        <SelectItem value="all">
+                                            <div className="flex items-center gap-2">
+                                                <span>🌐</span>
+                                                <span>All Platforms</span>
+                                            </div>
+                                        </SelectItem>
+                                        {platformOptions.map((platform) => {
+                                            const IconComponent = platform.icon;
+                                            const config = getPlatformConfig(platform.value);
+                                            return (
+                                                <SelectItem key={platform.value} value={platform.value}>
+                                                    <div className="flex items-center gap-2">
+                                                        <IconComponent className={`w-4 h-4 ${config.color}`}/>
+                                                        <span>{platform.label}</span>
+                                                    </div>
+                                                </SelectItem>
+                                            );
+                                        })}
                                     </SelectContent>
                                 </Select>
                             </div>

@@ -1,4 +1,4 @@
-import {FaInstagram, FaLinkedin, FaTiktok, FaTwitter, FaYoutube} from "react-icons/fa";
+import {FaFacebook, FaInstagram, FaLinkedin, FaTiktok, FaTwitter, FaYoutube} from "react-icons/fa";
 
 // Platform configuration with proper SVG icons and brand colors
 export const platformConfig = {
@@ -41,6 +41,14 @@ export const platformConfig = {
         bg: "bg-blue-50",
         border: "border-blue-200",
         gradient: "from-blue-700 to-blue-800"
+    },
+    facebook: {
+        icon: FaFacebook,
+        label: 'Facebook',
+        color: "text-blue-600",
+        bg: "bg-blue-50",
+        border: "border-blue-200",
+        gradient: "from-blue-600 to-blue-700"
     },
 } as const;
 
