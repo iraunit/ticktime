@@ -1251,8 +1251,6 @@ class InfluencerSearchSerializer(serializers.ModelSerializer):
             parts.append(obj.city)
         if obj.state:
             parts.append(obj.state)
-        if obj.country:
-            parts.append(obj.country)
         return ', '.join(parts) if parts else 'N/A'
 
     def get_profile_image(self, obj):
