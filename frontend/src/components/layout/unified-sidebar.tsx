@@ -394,7 +394,7 @@ export function UnifiedSidebar({userType}: UnifiedSidebarProps) {
                                 <div
                                     className="absolute bottom-full left-0 right-0 mb-2 bg-white border border-gray-200 rounded-lg shadow-lg py-1 animate-in slide-in-from-bottom-2 duration-200 z-50 min-w-[200px]">
                                     <Link
-                                        href={userType === 'brand' ? '/brand/settings' : '/profile'}
+                                        href={userType === 'brand' ? '/brand/settings' : '/influencer/profile'}
                                         className="flex items-center px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
                                         onClick={() => {
                                             setIsProfileMenuOpen(false);

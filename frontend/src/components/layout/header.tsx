@@ -11,6 +11,19 @@ import {OptimizedAvatar} from "@/components/ui/optimized-image";
 import {getMediaUrl} from "@/lib/utils";
 import {getDashboardRoute} from "@/lib/redirect-utils";
 
+const getProfileRoute = (user: any) => {
+    if (!user) return '/profile';
+
+    switch (user.account_type) {
+        case 'brand':
+            return '/brand/settings';
+        case 'influencer':
+            return '/influencer/profile';
+        default:
+            return '/profile';
+    }
+};
+
 export function Header() {
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
@@ -20,6 +33,7 @@ export function Header() {
 
     const isAuthenticated = !!user;
     const dashboardUrl = getDashboardRoute(user);
+    const profileUrl = getProfileRoute(user);
 
     const isActive = (href: string) => pathname === href || pathname?.startsWith(href + "/");
 
@@ -71,8 +85,8 @@ export function Header() {
                                   className={`${linkBase} ${isActive("/influencer/deals") ? linkActive : linkInactive}`}>
                                 Deals
                             </Link>
-                            <Link href="/profile"
-                                  className={`${linkBase} ${isActive("/profile") ? linkActive : linkInactive}`}>
+                            <Link href={profileUrl}
+                                  className={`${linkBase} ${isActive(profileUrl) ? linkActive : linkInactive}`}>
                                 Profile
                             </Link>
                             <Link href="/messages"
@@ -118,7 +132,7 @@ export function Header() {
                                         <div
                                             className="absolute right-0 mt-1 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50">
                                             <Link
-                                                href="/profile"
+                                                href={profileUrl}
                                                 className="flex items-center px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
                                                 onClick={() => setIsUserMenuOpen(false)}
                                             >
@@ -179,8 +193,8 @@ export function Header() {
                                     Deals
                                 </Link>
                                 <Link
-                                    href="/profile"
-                                    className={`${linkBase} ${isActive("/profile") ? linkActive : linkInactive} py-2`}
+                                    href={profileUrl}
+                                    className={`${linkBase} ${isActive(profileUrl) ? linkActive : linkInactive} py-2`}
                                     onClick={() => setIsMobileMenuOpen(false)}
                                 >
                                     Profile
