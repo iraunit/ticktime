@@ -38,124 +38,176 @@ export default function Home() {
         <MainLayout>
             <div className="min-h-screen bg-white">
                 {/* Hero Section */}
-                <section className="relative bg-gradient-to-br from-red-50 via-white to-orange-50 pt-16 pb-20">
-                    <div className="container mx-auto px-4">
+                <section className="relative bg-gradient-to-br from-amber-50 via-orange-50 to-red-50 pt-16 pb-20 overflow-hidden">
+                    {/* Hand-drawn background elements */}
+                    <div className="absolute inset-0 overflow-hidden pointer-events-none">
+                        <div className="absolute top-20 left-10 w-32 h-32 bg-yellow-200 rounded-full opacity-20 transform rotate-12"></div>
+                        <div className="absolute top-40 right-20 w-24 h-24 bg-pink-200 rounded-full opacity-30 transform -rotate-12"></div>
+                        <div className="absolute bottom-20 left-1/4 w-16 h-16 bg-orange-200 rounded-full opacity-25 transform rotate-45"></div>
+                        <div className="absolute top-60 right-1/3 w-20 h-20 bg-red-200 rounded-full opacity-20 transform -rotate-45"></div>
+                    </div>
+                    
+                    <div className="container mx-auto px-4 relative z-10">
                         <div className="max-w-4xl mx-auto text-center">
                             <div className="mb-8">
-                <span
-                    className="inline-flex items-center px-4 py-2 rounded-full bg-red-100 text-red-700 text-sm font-medium">
-                  ✨ Join thousands of creators
-                </span>
+                                {/* Hand-drawn style logo area */}
+                                <div className="inline-block relative">
+                                    <div className="w-20 h-20 bg-gradient-to-br from-orange-400 to-red-500 rounded-full mx-auto mb-4 flex items-center justify-center transform rotate-3 hover:rotate-0 transition-transform duration-300">
+                                        <span className="text-3xl font-bold text-white">T</span>
+                                    </div>
+                                    <div className="absolute -top-2 -right-2 w-6 h-6 bg-yellow-400 rounded-full opacity-80"></div>
+                                    <div className="absolute -bottom-1 -left-1 w-4 h-4 bg-pink-400 rounded-full opacity-70"></div>
+                                </div>
                             </div>
 
                             <h1 className="text-4xl md:text-6xl font-bold text-gray-900 mb-6 leading-tight">
-                                Connect with brands,
+                                <span className="relative">
+                                    Connect with brands,
+                                    <div className="absolute -top-2 -right-4 w-8 h-8 bg-yellow-300 rounded-full opacity-60 transform rotate-12"></div>
+                                </span>
                                 <br/>
-                                <span className="text-red-600">grow your influence</span>
+                                <span className="text-red-600 relative">
+                                    grow your influence
+                                    <div className="absolute -bottom-1 left-0 w-full h-2 bg-gradient-to-r from-yellow-300 to-orange-300 opacity-40 transform -skew-y-1"></div>
+                                </span>
                             </h1>
 
-                            <p className="text-xl text-gray-600 mb-8 max-w-2xl mx-auto leading-relaxed">
+                            <p className="text-xl text-gray-700 mb-8 max-w-2xl mx-auto leading-relaxed font-medium">
                                 The easiest way for content creators to find brand partnerships, manage collaborations,
-                                and track their success. Completely free to use.
+                                and track their success. <span className="text-orange-600 font-semibold">Completely free to use.</span>
                             </p>
 
                             <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12">
                                 <Button size="lg"
-                                        className="bg-red-600 hover:bg-red-700 text-white px-8 py-4 text-lg font-semibold rounded-lg shadow-lg hover:shadow-xl transition-all duration-300"
+                                        className="bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700 text-white px-8 py-4 text-lg font-bold rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 relative overflow-hidden"
                                         asChild>
-                                    <Link href="/accounts/signup">
-                                        Get Started Free →
+                                    <Link href="/accounts/signup" className="relative z-10">
+                                        <span className="relative">
+                                            Get Started Free
+                                            <span className="absolute -top-1 -right-1 text-sm">✨</span>
+                                        </span>
                                     </Link>
                                 </Button>
                                 <Button size="lg" variant="outline"
-                                        className="border-gray-300 text-gray-700 hover:bg-gray-50 px-8 py-4 text-lg font-semibold rounded-lg transition-all duration-300"
+                                        className="border-2 border-orange-300 text-orange-700 hover:bg-orange-50 px-8 py-4 text-lg font-semibold rounded-2xl transition-all duration-300 transform hover:scale-105 relative"
                                         asChild>
-                                    <Link href="/accounts/login">
-                                        Sign In
+                                    <Link href="/accounts/login" className="relative">
+                                        <span className="relative">
+                                            Sign In
+                                            <div className="absolute -top-1 -right-1 w-3 h-3 bg-yellow-400 rounded-full opacity-80"></div>
+                                        </span>
                                     </Link>
                                 </Button>
                             </div>
 
                             {/* Social Proof */}
-                            <div className="flex flex-wrap justify-center items-center gap-6 text-sm text-gray-600">
-                                <div className="flex items-center gap-2">
+                            <div className="flex flex-wrap justify-center items-center gap-6 text-sm text-gray-700">
+                                <div className="flex items-center gap-2 bg-white/60 backdrop-blur-sm px-4 py-2 rounded-full border border-orange-200">
                                     <div className="flex -space-x-1">
-                                        <div className="w-6 h-6 bg-red-400 rounded-full border-2 border-white"></div>
-                                        <div className="w-6 h-6 bg-orange-400 rounded-full border-2 border-white"></div>
-                                        <div className="w-6 h-6 bg-yellow-400 rounded-full border-2 border-white"></div>
+                                        <div className="w-6 h-6 bg-gradient-to-br from-red-400 to-pink-500 rounded-full border-2 border-white transform rotate-12"></div>
+                                        <div className="w-6 h-6 bg-gradient-to-br from-orange-400 to-yellow-500 rounded-full border-2 border-white transform -rotate-6"></div>
+                                        <div className="w-6 h-6 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-full border-2 border-white transform rotate-6"></div>
                                     </div>
-                                    <span>1,200+ active creators</span>
+                                    <span className="font-semibold">1,200+ active creators</span>
                                 </div>
-                                <div>⭐ 4.8/5 creator satisfaction</div>
-                                <div>🏆 Featured on ProductHunt</div>
+                                <div className="bg-white/60 backdrop-blur-sm px-4 py-2 rounded-full border border-orange-200">
+                                    <span className="text-yellow-500">⭐</span> <span className="font-semibold">4.8/5 creator satisfaction</span>
+                                </div>
+                                <div className="bg-white/60 backdrop-blur-sm px-4 py-2 rounded-full border border-orange-200">
+                                    <span className="text-orange-500">🏆</span> <span className="font-semibold">Featured on ProductHunt</span>
+                                </div>
                             </div>
                         </div>
                     </div>
                 </section>
 
                 {/* Dashboard Preview */}
-                <section className="py-16 bg-gray-50">
-                    <div className="container mx-auto px-4">
+                <section className="py-16 bg-gradient-to-br from-gray-50 to-orange-50 relative overflow-hidden">
+                    {/* Organic background shapes */}
+                    <div className="absolute inset-0 overflow-hidden pointer-events-none">
+                        <div className="absolute top-10 right-10 w-40 h-40 bg-yellow-200 rounded-full opacity-10 transform rotate-45"></div>
+                        <div className="absolute bottom-10 left-10 w-32 h-32 bg-orange-200 rounded-full opacity-15 transform -rotate-12"></div>
+                        <div className="absolute top-1/2 left-1/4 w-24 h-24 bg-pink-200 rounded-full opacity-20 transform rotate-90"></div>
+                    </div>
+                    
+                    <div className="container mx-auto px-4 relative z-10">
                         <div className="max-w-5xl mx-auto">
                             <div className="text-center mb-12">
-                                <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
-                                    Everything you need in one place
+                                <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4 relative">
+                                    <span className="relative">
+                                        Everything you need in one place
+                                        <div className="absolute -top-2 -right-6 w-6 h-6 bg-yellow-300 rounded-full opacity-60 transform rotate-12"></div>
+                                    </span>
                                 </h2>
-                                <p className="text-xl text-gray-600">
-                                    Manage your brand partnerships with a clean, intuitive dashboard
+                                <p className="text-xl text-gray-700 font-medium">
+                                    Manage your brand partnerships with a <span className="text-orange-600 font-semibold">clean, intuitive dashboard</span>
                                 </p>
                             </div>
 
                             {/* Dashboard Mock */}
                             <div
-                                className="bg-white rounded-lg shadow-xl p-6 transform rotate-1 hover:rotate-0 transition-transform duration-500">
+                                className="bg-white rounded-3xl shadow-2xl p-8 transform rotate-1 hover:rotate-0 transition-transform duration-500 border-4 border-orange-100 relative overflow-hidden">
+                                {/* Hand-drawn style decorations */}
+                                <div className="absolute top-4 right-4 w-8 h-8 bg-yellow-200 rounded-full opacity-40 transform rotate-45"></div>
+                                <div className="absolute bottom-4 left-4 w-6 h-6 bg-pink-200 rounded-full opacity-50 transform -rotate-12"></div>
+                                
                                 <div className="flex items-center justify-between mb-6">
-                                    <h3 className="text-lg font-semibold text-gray-900">Creator Dashboard</h3>
+                                    <h3 className="text-xl font-bold text-gray-900 relative">
+                                        <span className="relative">
+                                            Creator Dashboard
+                                            <div className="absolute -bottom-1 left-0 w-full h-1 bg-gradient-to-r from-orange-300 to-yellow-300 opacity-60 transform -skew-y-1"></div>
+                                        </span>
+                                    </h3>
                                     <div
-                                        className="flex items-center gap-2 px-3 py-1 bg-green-100 text-green-700 rounded-full text-sm">
-                                        <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                                        className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-green-100 to-emerald-100 text-green-700 rounded-full text-sm font-semibold border-2 border-green-200">
+                                        <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
                                         Active
                                     </div>
                                 </div>
 
-                                <div className="grid grid-cols-3 gap-4 mb-6">
-                                    <div className="bg-red-50 rounded-lg p-4 text-center">
-                                        <div className="text-2xl font-bold text-red-600">$1,240</div>
-                                        <div className="text-sm text-gray-600">This month</div>
+                                <div className="grid grid-cols-3 gap-6 mb-6">
+                                    <div className="bg-gradient-to-br from-red-50 to-pink-50 rounded-2xl p-6 text-center border-2 border-red-100 transform hover:scale-105 transition-transform duration-300 relative overflow-hidden">
+                                        <div className="absolute top-2 right-2 w-4 h-4 bg-yellow-300 rounded-full opacity-60 transform rotate-45"></div>
+                                        <div className="text-3xl font-bold text-red-600 mb-1">$1,240</div>
+                                        <div className="text-sm text-gray-700 font-semibold">This month</div>
                                     </div>
-                                    <div className="bg-blue-50 rounded-lg p-4 text-center">
-                                        <div className="text-2xl font-bold text-blue-600">8</div>
-                                        <div className="text-sm text-gray-600">Active deals</div>
+                                    <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl p-6 text-center border-2 border-blue-100 transform hover:scale-105 transition-transform duration-300 relative overflow-hidden">
+                                        <div className="absolute top-2 right-2 w-4 h-4 bg-orange-300 rounded-full opacity-60 transform -rotate-12"></div>
+                                        <div className="text-3xl font-bold text-blue-600 mb-1">8</div>
+                                        <div className="text-sm text-gray-700 font-semibold">Active deals</div>
                                     </div>
-                                    <div className="bg-green-50 rounded-lg p-4 text-center">
-                                        <div className="text-2xl font-bold text-green-600">94%</div>
-                                        <div className="text-sm text-gray-600">Completion rate</div>
+                                    <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-2xl p-6 text-center border-2 border-green-100 transform hover:scale-105 transition-transform duration-300 relative overflow-hidden">
+                                        <div className="absolute top-2 right-2 w-4 h-4 bg-pink-300 rounded-full opacity-60 transform rotate-12"></div>
+                                        <div className="text-3xl font-bold text-green-600 mb-1">94%</div>
+                                        <div className="text-sm text-gray-700 font-semibold">Completion rate</div>
                                     </div>
                                 </div>
 
-                                <div className="space-y-3">
-                                    <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                                <div className="space-y-4">
+                                    <div className="flex items-center gap-4 p-4 bg-gradient-to-r from-gray-50 to-orange-50 rounded-2xl border-2 border-orange-100 transform hover:scale-105 transition-transform duration-300 relative">
+                                        <div className="absolute top-2 right-2 w-3 h-3 bg-yellow-300 rounded-full opacity-60 transform rotate-12"></div>
                                         <div
-                                            className="w-10 h-10 bg-red-500 rounded-lg flex items-center justify-center text-white font-bold">
+                                            className="w-12 h-12 bg-gradient-to-br from-red-500 to-pink-600 rounded-2xl flex items-center justify-center text-white font-bold text-lg transform rotate-2 hover:rotate-0 transition-transform duration-300">
                                             N
                                         </div>
                                         <div className="flex-1">
-                                            <div className="font-medium text-gray-900">Nike Campaign</div>
-                                            <div className="text-sm text-gray-600">Due in 3 days</div>
+                                            <div className="font-bold text-gray-900 text-lg">Nike Campaign</div>
+                                            <div className="text-sm text-gray-700 font-medium">Due in 3 days</div>
                                         </div>
-                                        <div className="text-green-600 font-semibold">$450</div>
+                                        <div className="text-green-600 font-bold text-lg">$450</div>
                                     </div>
 
-                                    <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                                    <div className="flex items-center gap-4 p-4 bg-gradient-to-r from-gray-50 to-blue-50 rounded-2xl border-2 border-blue-100 transform hover:scale-105 transition-transform duration-300 relative">
+                                        <div className="absolute top-2 right-2 w-3 h-3 bg-orange-300 rounded-full opacity-60 transform -rotate-12"></div>
                                         <div
-                                            className="w-10 h-10 bg-blue-500 rounded-lg flex items-center justify-center text-white font-bold">
+                                            className="w-12 h-12 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl flex items-center justify-center text-white font-bold text-lg transform -rotate-1 hover:rotate-0 transition-transform duration-300">
                                             A
                                         </div>
                                         <div className="flex-1">
-                                            <div className="font-medium text-gray-900">Adobe Partnership</div>
-                                            <div className="text-sm text-gray-600">In review</div>
+                                            <div className="font-bold text-gray-900 text-lg">Adobe Partnership</div>
+                                            <div className="text-sm text-gray-700 font-medium">In review</div>
                                         </div>
-                                        <div className="text-green-600 font-semibold">$800</div>
+                                        <div className="text-green-600 font-bold text-lg">$800</div>
                                     </div>
                                 </div>
                             </div>
@@ -202,108 +254,139 @@ export default function Home() {
                 </section>
 
                 {/* Features Section */}
-                <section className="py-20 bg-white">
-                    <div className="container mx-auto px-4">
+                <section className="py-20 bg-gradient-to-br from-white to-orange-50 relative overflow-hidden">
+                    {/* Organic background elements */}
+                    <div className="absolute inset-0 overflow-hidden pointer-events-none">
+                        <div className="absolute top-20 left-20 w-32 h-32 bg-yellow-200 rounded-full opacity-10 transform rotate-45"></div>
+                        <div className="absolute bottom-20 right-20 w-40 h-40 bg-pink-200 rounded-full opacity-15 transform -rotate-12"></div>
+                        <div className="absolute top-1/2 left-1/3 w-24 h-24 bg-orange-200 rounded-full opacity-20 transform rotate-90"></div>
+                    </div>
+                    
+                    <div className="container mx-auto px-4 relative z-10">
                         <div className="max-w-6xl mx-auto">
                             <div className="text-center mb-16">
-                                <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-6">
-                                    Why creators choose TickTime
+                                <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-6 relative">
+                                    <span className="relative">
+                                        Why creators choose TickTime
+                                        <div className="absolute -top-2 -right-8 w-8 h-8 bg-yellow-300 rounded-full opacity-60 transform rotate-12"></div>
+                                    </span>
                                 </h2>
-                                <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-                                    Simple tools that help you focus on what you do best - creating amazing content
+                                <p className="text-xl text-gray-700 max-w-2xl mx-auto font-medium">
+                                    Simple tools that help you focus on what you do best - <span className="text-orange-600 font-semibold">creating amazing content</span>
                                 </p>
                             </div>
 
                             <div className="grid lg:grid-cols-3 gap-8">
-                                <Card className="border-0 shadow-lg hover:shadow-xl transition-all duration-300">
-                                    <CardHeader>
+                                <Card className="border-0 shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:scale-105 rounded-3xl border-4 border-orange-100 relative overflow-hidden">
+                                    <div className="absolute top-4 right-4 w-6 h-6 bg-yellow-300 rounded-full opacity-40 transform rotate-45"></div>
+                                    <CardHeader className="pb-4">
                                         <div
-                                            className="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center mb-4">
-                                            <span className="text-2xl">🎯</span>
+                                            className="w-16 h-16 bg-gradient-to-br from-red-100 to-pink-100 rounded-2xl flex items-center justify-center mb-6 transform rotate-3 hover:rotate-0 transition-transform duration-300 relative">
+                                            <div className="w-8 h-8 bg-gradient-to-br from-red-500 to-pink-600 rounded-full flex items-center justify-center">
+                                                <div className="w-4 h-4 bg-white rounded-full"></div>
+                                            </div>
+                                            <div className="absolute -top-1 -right-1 w-4 h-4 bg-yellow-400 rounded-full opacity-80"></div>
                                         </div>
-                                        <CardTitle className="text-xl font-bold text-gray-900">
-                                            Find Perfect Matches
+                                        <CardTitle className="text-xl font-bold text-gray-900 relative">
+                                            <span className="relative">
+                                                Find Perfect Matches
+                                                <div className="absolute -bottom-1 left-0 w-full h-1 bg-gradient-to-r from-red-300 to-pink-300 opacity-60 transform -skew-y-1"></div>
+                                            </span>
                                         </CardTitle>
                                     </CardHeader>
                                     <CardContent>
-                                        <p className="text-gray-600 mb-4">
+                                        <p className="text-gray-700 mb-6 font-medium">
                                             Get matched with brands that align with your content and audience. No more
                                             endless searching.
                                         </p>
-                                        <ul className="space-y-2 text-sm text-gray-600">
-                                            <li className="flex items-center">
-                                                <span className="text-green-500 mr-2">✓</span>
+                                        <ul className="space-y-3 text-sm text-gray-700">
+                                            <li className="flex items-center font-medium">
+                                                <span className="text-green-500 mr-3 text-lg">✓</span>
                                                 Smart brand matching
                                             </li>
-                                            <li className="flex items-center">
-                                                <span className="text-green-500 mr-2">✓</span>
+                                            <li className="flex items-center font-medium">
+                                                <span className="text-green-500 mr-3 text-lg">✓</span>
                                                 Audience insights
                                             </li>
-                                            <li className="flex items-center">
-                                                <span className="text-green-500 mr-2">✓</span>
+                                            <li className="flex items-center font-medium">
+                                                <span className="text-green-500 mr-3 text-lg">✓</span>
                                                 Personalized recommendations
                                             </li>
                                         </ul>
                                     </CardContent>
                                 </Card>
 
-                                <Card className="border-0 shadow-lg hover:shadow-xl transition-all duration-300">
-                                    <CardHeader>
+                                <Card className="border-0 shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:scale-105 rounded-3xl border-4 border-blue-100 relative overflow-hidden">
+                                    <div className="absolute top-4 right-4 w-6 h-6 bg-orange-300 rounded-full opacity-40 transform -rotate-45"></div>
+                                    <CardHeader className="pb-4">
                                         <div
-                                            className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mb-4">
-                                            <span className="text-2xl">📊</span>
+                                            className="w-16 h-16 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-2xl flex items-center justify-center mb-6 transform -rotate-2 hover:rotate-0 transition-transform duration-300 relative">
+                                            <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-lg flex items-center justify-center">
+                                                <div className="w-4 h-4 bg-white rounded-sm"></div>
+                                            </div>
+                                            <div className="absolute -top-1 -right-1 w-4 h-4 bg-orange-400 rounded-full opacity-80"></div>
                                         </div>
-                                        <CardTitle className="text-xl font-bold text-gray-900">
-                                            Track Your Success
+                                        <CardTitle className="text-xl font-bold text-gray-900 relative">
+                                            <span className="relative">
+                                                Track Your Success
+                                                <div className="absolute -bottom-1 left-0 w-full h-1 bg-gradient-to-r from-blue-300 to-indigo-300 opacity-60 transform -skew-y-1"></div>
+                                            </span>
                                         </CardTitle>
                                     </CardHeader>
                                     <CardContent>
-                                        <p className="text-gray-600 mb-4">
+                                        <p className="text-gray-700 mb-6 font-medium">
                                             Monitor your earnings, campaign performance, and growth with clear
                                             analytics.
                                         </p>
-                                        <ul className="space-y-2 text-sm text-gray-600">
-                                            <li className="flex items-center">
-                                                <span className="text-green-500 mr-2">✓</span>
+                                        <ul className="space-y-3 text-sm text-gray-700">
+                                            <li className="flex items-center font-medium">
+                                                <span className="text-green-500 mr-3 text-lg">✓</span>
                                                 Earnings dashboard
                                             </li>
-                                            <li className="flex items-center">
-                                                <span className="text-green-500 mr-2">✓</span>
+                                            <li className="flex items-center font-medium">
+                                                <span className="text-green-500 mr-3 text-lg">✓</span>
                                                 Performance metrics
                                             </li>
-                                            <li className="flex items-center">
-                                                <span className="text-green-500 mr-2">✓</span>
+                                            <li className="flex items-center font-medium">
+                                                <span className="text-green-500 mr-3 text-lg">✓</span>
                                                 Growth insights
                                             </li>
                                         </ul>
                                     </CardContent>
                                 </Card>
 
-                                <Card className="border-0 shadow-lg hover:shadow-xl transition-all duration-300">
-                                    <CardHeader>
+                                <Card className="border-0 shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:scale-105 rounded-3xl border-4 border-green-100 relative overflow-hidden">
+                                    <div className="absolute top-4 right-4 w-6 h-6 bg-pink-300 rounded-full opacity-40 transform rotate-45"></div>
+                                    <CardHeader className="pb-4">
                                         <div
-                                            className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center mb-4">
-                                            <span className="text-2xl">🚀</span>
+                                            className="w-16 h-16 bg-gradient-to-br from-green-100 to-emerald-100 rounded-2xl flex items-center justify-center mb-6 transform rotate-1 hover:rotate-0 transition-transform duration-300 relative">
+                                            <div className="w-8 h-8 bg-gradient-to-br from-green-500 to-emerald-600 rounded-lg flex items-center justify-center">
+                                                <div className="w-4 h-4 bg-white rounded-sm transform rotate-45"></div>
+                                            </div>
+                                            <div className="absolute -top-1 -right-1 w-4 h-4 bg-pink-400 rounded-full opacity-80"></div>
                                         </div>
-                                        <CardTitle className="text-xl font-bold text-gray-900">
-                                            Completely Free
+                                        <CardTitle className="text-xl font-bold text-gray-900 relative">
+                                            <span className="relative">
+                                                Completely Free
+                                                <div className="absolute -bottom-1 left-0 w-full h-1 bg-gradient-to-r from-green-300 to-emerald-300 opacity-60 transform -skew-y-1"></div>
+                                            </span>
                                         </CardTitle>
                                     </CardHeader>
                                     <CardContent>
-                                        <p className="text-gray-600 mb-4">
+                                        <p className="text-gray-700 mb-6 font-medium">
                                             No hidden fees, no subscriptions. We only succeed when you do.
                                         </p>
-                                        <ul className="space-y-2 text-sm text-gray-600">
-                                            <li className="flex items-center">
-                                                <span className="text-green-500 mr-2">✓</span>
+                                        <ul className="space-y-3 text-sm text-gray-700">
+                                            <li className="flex items-center font-medium">
+                                                <span className="text-green-500 mr-3 text-lg">✓</span>
                                                 Free forever
                                             </li>
-                                            <li className="flex items-center">
-                                                <span className="text-green-500 mr-2">✓</span>
+                                            <li className="flex items-center font-medium">
+                                                <span className="text-green-500 mr-3 text-lg">✓</span>
                                                 No setup costs
                                             </li>
-                                            <li className="flex items-center">
-                                                <span className="text-green-500 mr-2">✓</span>
+                                            <li className="flex items-center font-medium">
+                                                <span className="text-green-500 mr-3 text-lg">✓</span>
                                                 Keep 100% of earnings
                                             </li>
                                         </ul>
@@ -315,26 +398,44 @@ export default function Home() {
                 </section>
 
                 {/* Testimonial */}
-                <section className="py-16 bg-gray-50">
-                    <div className="container mx-auto px-4">
+                <section className="py-16 bg-gradient-to-br from-orange-50 to-pink-50 relative overflow-hidden">
+                    {/* Organic background elements */}
+                    <div className="absolute inset-0 overflow-hidden pointer-events-none">
+                        <div className="absolute top-10 left-10 w-24 h-24 bg-yellow-200 rounded-full opacity-20 transform rotate-45"></div>
+                        <div className="absolute bottom-10 right-10 w-32 h-32 bg-pink-200 rounded-full opacity-15 transform -rotate-12"></div>
+                        <div className="absolute top-1/2 left-1/2 w-20 h-20 bg-orange-200 rounded-full opacity-25 transform rotate-90"></div>
+                    </div>
+                    
+                    <div className="container mx-auto px-4 relative z-10">
                         <div className="max-w-3xl mx-auto text-center">
-                            <div className="mb-6">
-                                <span className="text-yellow-400 text-2xl">⭐⭐⭐⭐⭐</span>
+                            <div className="mb-8">
+                                <div className="flex justify-center items-center gap-2">
+                                    <span className="text-yellow-400 text-3xl transform rotate-12">⭐</span>
+                                    <span className="text-yellow-400 text-3xl transform -rotate-6">⭐</span>
+                                    <span className="text-yellow-400 text-3xl transform rotate-6">⭐</span>
+                                    <span className="text-yellow-400 text-3xl transform -rotate-12">⭐</span>
+                                    <span className="text-yellow-400 text-3xl transform rotate-3">⭐</span>
+                                </div>
                             </div>
 
-                            <blockquote className="text-xl md:text-2xl font-medium text-gray-900 mb-8 leading-relaxed">
-                                "TickTime made it so much easier to manage my brand partnerships. I went from struggling
-                                to find collaborations to having a steady stream of opportunities."
+                            <blockquote className="text-xl md:text-2xl font-medium text-gray-900 mb-8 leading-relaxed relative">
+                                <div className="absolute -top-4 -left-4 text-6xl text-orange-200 opacity-60">"</div>
+                                <span className="relative z-10">
+                                    TickTime made it so much easier to manage my brand partnerships. I went from struggling
+                                    to find collaborations to having a <span className="text-orange-600 font-semibold">steady stream of opportunities</span>.
+                                </span>
+                                <div className="absolute -bottom-4 -right-4 text-6xl text-orange-200 opacity-60 transform rotate-180">"</div>
                             </blockquote>
 
-                            <div className="flex items-center justify-center">
+                            <div className="flex items-center justify-center bg-white/60 backdrop-blur-sm rounded-3xl p-6 border-2 border-orange-200 transform hover:scale-105 transition-transform duration-300">
                                 <div
-                                    className="w-12 h-12 bg-red-500 rounded-full flex items-center justify-center text-white font-bold mr-4">
+                                    className="w-16 h-16 bg-gradient-to-br from-red-500 to-pink-600 rounded-full flex items-center justify-center text-white font-bold text-xl mr-6 transform rotate-3 hover:rotate-0 transition-transform duration-300 relative">
                                     MJ
+                                    <div className="absolute -top-1 -right-1 w-4 h-4 bg-yellow-400 rounded-full opacity-80"></div>
                                 </div>
                                 <div className="text-left">
-                                    <p className="font-semibold text-gray-900">Maya Johnson</p>
-                                    <p className="text-gray-600">Lifestyle Creator, 45K followers</p>
+                                    <p className="font-bold text-gray-900 text-lg">Maya Johnson</p>
+                                    <p className="text-gray-700 font-medium">Lifestyle Creator, 45K followers</p>
                                 </div>
                             </div>
                         </div>
@@ -342,43 +443,62 @@ export default function Home() {
                 </section>
 
                 {/* CTA Section */}
-                <section className="py-20 bg-red-600 text-white">
-                    <div className="container mx-auto px-4">
+                <section className="py-20 bg-gradient-to-br from-red-600 via-orange-600 to-pink-600 text-white relative overflow-hidden">
+                    {/* Organic background elements */}
+                    <div className="absolute inset-0 overflow-hidden pointer-events-none">
+                        <div className="absolute top-10 left-10 w-40 h-40 bg-yellow-200 rounded-full opacity-10 transform rotate-45"></div>
+                        <div className="absolute bottom-10 right-10 w-32 h-32 bg-pink-200 rounded-full opacity-15 transform -rotate-12"></div>
+                        <div className="absolute top-1/2 left-1/4 w-24 h-24 bg-orange-200 rounded-full opacity-20 transform rotate-90"></div>
+                        <div className="absolute top-1/3 right-1/3 w-20 h-20 bg-yellow-200 rounded-full opacity-15 transform -rotate-45"></div>
+                    </div>
+                    
+                    <div className="container mx-auto px-4 relative z-10">
                         <div className="max-w-3xl mx-auto text-center">
-                            <h2 className="text-3xl md:text-4xl font-bold mb-6">
-                                Ready to grow your influence?
+                            <h2 className="text-3xl md:text-4xl font-bold mb-6 relative">
+                                <span className="relative">
+                                    Ready to grow your influence?
+                                    <div className="absolute -top-2 -right-8 w-8 h-8 bg-yellow-300 rounded-full opacity-60 transform rotate-12"></div>
+                                </span>
                             </h2>
-                            <p className="text-xl mb-8 opacity-90">
-                                Join our community of creators who are turning their passion into profit
+                            <p className="text-xl mb-8 opacity-95 font-medium">
+                                Join our community of creators who are turning their <span className="text-yellow-200 font-semibold">passion into profit</span>
                             </p>
 
                             <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12">
                                 <Button size="lg"
-                                        className="bg-white text-red-600 hover:bg-gray-100 text-lg px-8 py-4 font-semibold rounded-lg shadow-lg hover:shadow-xl transition-all duration-300"
+                                        className="bg-white text-red-600 hover:bg-gray-100 text-lg px-8 py-4 font-bold rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:scale-105 relative overflow-hidden"
                                         asChild>
-                                    <Link href="/accounts/signup">
-                                        Start Creating Today →
+                                    <Link href="/accounts/signup" className="relative z-10">
+                                        <span className="relative">
+                                            Start Creating Today
+                                            <span className="absolute -top-1 -right-1 text-sm">✨</span>
+                                        </span>
                                     </Link>
                                 </Button>
                                 <Button size="lg" variant="ghost"
-                                        className="border-2 border-white text-white hover:bg-white hover:text-red-600 text-lg px-8 py-4 font-semibold rounded-lg transition-all duration-300"
+                                        className="border-2 border-white text-white hover:bg-white hover:text-red-600 text-lg px-8 py-4 font-semibold rounded-2xl transition-all duration-300 transform hover:scale-105 relative"
                                         asChild>
-                                    <Link href="/accounts/login">Already have an account?</Link>
+                                    <Link href="/accounts/login" className="relative">
+                                        <span className="relative">
+                                            Already have an account?
+                                            <div className="absolute -top-1 -right-1 w-3 h-3 bg-yellow-300 rounded-full opacity-80"></div>
+                                        </span>
+                                    </Link>
                                 </Button>
                             </div>
 
-                            <div className="flex flex-wrap justify-center gap-6 text-sm opacity-90">
-                                <div className="flex items-center gap-2">
-                                    <span className="text-green-300">✓</span>
-                                    100% Free to use
+                            <div className="flex flex-wrap justify-center gap-6 text-sm opacity-95">
+                                <div className="flex items-center gap-2 bg-white/20 backdrop-blur-sm px-4 py-2 rounded-full border border-white/30">
+                                    <span className="text-green-300 text-lg">✓</span>
+                                    <span className="font-semibold">100% Free to use</span>
                                 </div>
-                                <div className="flex items-center gap-2">
-                                    <span className="text-green-300">✓</span>
-                                    No contracts or commitments
+                                <div className="flex items-center gap-2 bg-white/20 backdrop-blur-sm px-4 py-2 rounded-full border border-white/30">
+                                    <span className="text-green-300 text-lg">✓</span>
+                                    <span className="font-semibold">No contracts or commitments</span>
                                 </div>
-                                <div className="flex items-center gap-2">
-                                    <span className="text-green-300">✓</span>
-                                    Start earning immediately
+                                <div className="flex items-center gap-2 bg-white/20 backdrop-blur-sm px-4 py-2 rounded-full border border-white/30">
+                                    <span className="text-green-300 text-lg">✓</span>
+                                    <span className="font-semibold">Start earning immediately</span>
                                 </div>
                             </div>
                         </div>
