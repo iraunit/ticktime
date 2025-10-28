@@ -11,8 +11,9 @@ https://docs.djangoproject.com/en/4.2/ref/settings/
 """
 
 import os
-from pathlib import Path
 from datetime import timedelta
+from pathlib import Path
+
 from dotenv import load_dotenv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -20,7 +21,6 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 # Load environment variables from .env file
 load_dotenv(BASE_DIR / ".env")
-
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/4.2/howto/deployment/checklist/
@@ -59,6 +59,7 @@ INSTALLED_APPS = [
     "content",
     "messaging",
     "dashboard",
+    "communications",
 ]
 
 MIDDLEWARE = [
@@ -74,6 +75,7 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "common.middleware.SecurityHeadersMiddleware",
     "common.middleware.RateLimitMiddleware",
+    "communications.middleware.BrandAccountCheckMiddleware",
 ]
 
 ROOT_URLCONF = "backend.urls"
@@ -96,7 +98,6 @@ TEMPLATES = [
 WSGI_APPLICATION = "backend.wsgi.application"
 ASGI_APPLICATION = "backend.asgi.application"
 
-
 # Database
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
 
@@ -111,7 +112,6 @@ DATABASES = {
         "PORT": os.environ.get("DB_PORT", "5432"),
     }
 }
-
 
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
@@ -131,7 +131,6 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
-
 # Internationalization
 # https://docs.djangoproject.com/en/5.2/topics/i18n/
 
@@ -142,7 +141,6 @@ TIME_ZONE = "UTC"
 USE_I18N = True
 
 USE_TZ = True
-
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field
@@ -179,7 +177,8 @@ CORS_ALLOWED_ORIGINS = [
 
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOW_HEADERS = [
-    'accept', 'accept-encoding', 'authorization', 'content-type', 'dnt', 'origin', 'user-agent', 'x-csrftoken', 'x-requested-with'
+    'accept', 'accept-encoding', 'authorization', 'content-type', 'dnt', 'origin', 'user-agent', 'x-csrftoken',
+    'x-requested-with'
 ]
 
 # Media files
@@ -215,6 +214,26 @@ EMAIL_PORT = int(os.environ.get("EMAIL_PORT", "587"))
 EMAIL_USE_TLS = os.environ.get("EMAIL_USE_TLS", "True").lower() == "true"
 EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER", "")
 EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD", "")
+
+# Zoho Zeptomail SMTP Configuration
+ZEPTOMAIL_SMTP_HOST = os.environ.get("ZEPTOMAIL_SMTP_HOST", "smtp.zeptomail.in")
+ZEPTOMAIL_SMTP_PORT = int(os.environ.get("ZEPTOMAIL_SMTP_PORT", "587"))
+ZEPTOMAIL_SMTP_USER = os.environ.get("ZEPTOMAIL_SMTP_USER", "")
+ZEPTOMAIL_SMTP_PASSWORD = os.environ.get("ZEPTOMAIL_SMTP_PASSWORD", "")
+ZEPTOMAIL_FROM_EMAIL = os.environ.get("ZEPTOMAIL_FROM_EMAIL", "noreply@ticktime.media")
+ZEPTOMAIL_FROM_NAME = os.environ.get("ZEPTOMAIL_FROM_NAME", "TickTime")
+
+# RabbitMQ Configuration
+RABBITMQ_HOST = os.environ.get("RABBITMQ_HOST", "localhost")
+RABBITMQ_PORT = int(os.environ.get("RABBITMQ_PORT", "5672"))
+RABBITMQ_USER = os.environ.get("RABBITMQ_USER", "guest")
+RABBITMQ_PASSWORD = os.environ.get("RABBITMQ_PASSWORD", "guest")
+RABBITMQ_VHOST = os.environ.get("RABBITMQ_VHOST", "/")
+RABBITMQ_USE_SSL = os.environ.get("RABBITMQ_USE_SSL", "False").lower() == "true"
+RABBITMQ_EMAIL_QUEUE = os.environ.get("RABBITMQ_EMAIL_QUEUE", "email_notifications")
+
+# Frontend URL for email links
+FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:3000")
 
 # Celery Configuration
 CELERY_BROKER_URL = os.environ.get("CELERY_BROKER_URL", "redis://localhost:6379/0")
@@ -371,6 +390,11 @@ LOGGING = {
             "propagate": True,
         },
         "influencers": {
+            "handlers": ["file", "console"],
+            "level": "INFO",
+            "propagate": True,
+        },
+        "communications": {
             "handlers": ["file", "console"],
             "level": "INFO",
             "propagate": True,

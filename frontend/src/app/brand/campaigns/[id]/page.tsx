@@ -21,6 +21,7 @@ import {
     HiClock,
     HiCog6Tooth,
     HiDocumentText,
+    HiEnvelope,
     HiEye,
     HiMagnifyingGlass,
     HiPencilSquare,
@@ -35,6 +36,7 @@ import {platformConfig} from "@/lib/platform-config";
 import {api} from "@/lib/api";
 import {toast} from "@/lib/toast";
 import {GlobalLoader} from "@/components/ui/global-loader";
+import {EmailSender} from "@/components/communications/email-sender";
 
 interface Campaign {
     id: number;
@@ -176,6 +178,7 @@ export default function CampaignDetailPage() {
     const [isSaving, setIsSaving] = useState(false);
     const [editData, setEditData] = useState<Partial<Campaign>>({});
     const [activeTab, setActiveTab] = useState('overview');
+    const [showEmailSender, setShowEmailSender] = useState(false);
 
     useEffect(() => {
         fetchCampaign();
@@ -372,6 +375,17 @@ export default function CampaignDetailPage() {
                                     >
                                         <HiChatBubbleLeftRight className="w-3 h-3 mr-1"/>
                                         Messages
+                                    </Button>
+
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => setShowEmailSender(true)}
+                                        className="text-xs px-2 py-1"
+                                        disabled={!campaign.deals || campaign.deals.length === 0}
+                                    >
+                                        <HiEnvelope className="w-3 h-3 mr-1"/>
+                                        Notify
                                     </Button>
 
                                     <Button
@@ -1318,6 +1332,18 @@ export default function CampaignDetailPage() {
                     </TabsContent>
                 </Tabs>
             </div>
+
+            {/* Email Sender Dialog */}
+            {campaign.deals && campaign.deals.length > 0 && (
+                <EmailSender
+                    open={showEmailSender}
+                    onOpenChange={setShowEmailSender}
+                    deals={campaign.deals}
+                    onSuccess={() => {
+                        fetchCampaign();
+                    }}
+                />
+            )}
         </div>
     );
 }

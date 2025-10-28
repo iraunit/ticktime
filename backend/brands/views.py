@@ -1951,6 +1951,19 @@ def add_influencers_to_campaign_view(request, campaign_id):
                 'deal_id': deal.id
             })
 
+            # Automatically send invitation email
+            try:
+                from communications.email_service import get_email_service
+                email_service = get_email_service()
+                email_service.send_campaign_notification(
+                    influencer=influencer,
+                    campaign=campaign,
+                    deal=deal,
+                    notification_type='invitation'
+                )
+            except Exception as e:
+                logger.error(f"Failed to send invitation email to {influencer.username}: {str(e)}")
+
     # Log action
     log_brand_action(
         brand_user.brand,

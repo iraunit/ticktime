@@ -96,7 +96,7 @@ export function BrandSidebar() {
                     <div className="relative group flex-shrink-0">
                         {brandLogo ? (
                             <div
-                                className="w-9 h-9 rounded-xl overflow-hidden shadow-lg group-hover:shadow-xl transition-all duration-300 transform group-hover:scale-105">
+                                className="w-9 h-9 group-hover:scale-105 transition-all duration-300 transform">
                                 <img
                                     src={brandLogo}
                                     alt={`${brandName} logo`}
@@ -112,15 +112,21 @@ export function BrandSidebar() {
                                     }}
                                 />
                                 {/* Fallback logo */}
-                                <div
-                                    className="hidden w-full h-full bg-gradient-to-br from-red-500 via-orange-500 to-red-600 items-center justify-center">
-                                    <span className="text-white font-bold text-sm">{brandName.charAt(0)}</span>
+                                <div className="hidden w-full h-full items-center justify-center">
+                                    <img
+                                        src="/ticktime-logo.png"
+                                        alt="TickTime Logo"
+                                        className="w-full h-full object-contain"
+                                    />
                                 </div>
                             </div>
                         ) : (
-                            <div
-                                className="w-9 h-9 bg-gradient-to-br from-red-500 via-orange-500 to-red-600 rounded-xl flex items-center justify-center shadow-lg group-hover:shadow-xl transition-all duration-300 transform group-hover:scale-105">
-                                <span className="text-white font-bold text-sm">{brandName.charAt(0)}</span>
+                            <div className="w-9 h-9 group-hover:scale-105 transition-all duration-300 transform">
+                                <img
+                                    src="/ticktime-logo.png"
+                                    alt="TickTime Logo"
+                                    className="w-full h-full object-contain"
+                                />
                             </div>
                         )}
                         {/* Logo Glow Effect */}

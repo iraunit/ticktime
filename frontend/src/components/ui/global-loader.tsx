@@ -12,6 +12,13 @@ export function GlobalLoader({isVisible = true, className = ""}: GlobalLoaderPro
         <div className={`min-h-screen flex items-center justify-center ${className}`}>
             <div className="text-center">
                 <div className="mb-6">
+                    <div className="w-16 h-16 mx-auto mb-4">
+                        <img
+                            src="/ticktime-logo.png"
+                            alt="TickTime Logo"
+                            className="w-full h-full object-contain"
+                        />
+                    </div>
                     <div className="flex space-x-3 mb-4">
                         {[0, 1, 2].map((i) => (
                             <div

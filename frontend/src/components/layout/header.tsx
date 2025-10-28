@@ -66,9 +66,25 @@ export function Header() {
                 <div className="flex items-center justify-between h-12 sm:h-14">
                     {/* Logo */}
                     <Link href="/" className="flex items-center space-x-2 group">
-                        <div
-                            className="w-7 h-7 bg-gradient-to-br from-red-600 to-orange-500 rounded-lg flex items-center justify-center shadow-md group-hover:shadow-lg transition-all duration-200 transform group-hover:scale-105">
-                            <span className="text-white font-bold text-xs">TT</span>
+                        <div className="w-7 h-7 group-hover:scale-105 transition-all duration-200">
+                            <img
+                                src="/ticktime-logo.png"
+                                alt="TickTime Logo"
+                                className="w-full h-full object-contain"
+                                onError={(e) => {
+                                    // Fallback to initials if image fails to load
+                                    e.currentTarget.style.display = 'none';
+                                    const fallback = e.currentTarget.nextElementSibling as HTMLElement;
+                                    if (fallback) {
+                                        fallback.classList.remove('hidden');
+                                        fallback.classList.add('flex');
+                                    }
+                                }}
+                            />
+                            {/* Fallback logo */}
+                            <div className="hidden w-full h-full bg-gradient-to-br from-red-600 to-orange-500 items-center justify-center rounded-lg">
+                                <span className="text-white font-bold text-xs">TT</span>
+                            </div>
                         </div>
                         <span
                             className="text-lg font-semibold bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 bg-clip-text text-transparent group-hover:from-red-600 group-hover:via-orange-500 group-hover:to-red-600 transition-all duration-200">TickTime</span>
