@@ -86,7 +86,8 @@ class EmailWorker:
             msg['Subject'] = subject
             msg['From'] = from_email
             msg['To'] = to_email
-            msg.set_content(html_body)
+            msg.set_content('This message contains HTML content. Please view in an HTML-capable email client.')
+            msg.add_alternative(html_body, subtype='html')
 
             logger.info(f"Sending email to: {to_email} via SMTP")
 
