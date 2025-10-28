@@ -4,6 +4,25 @@ import {useMutation, useQuery, useQueryClient} from '@tanstack/react-query';
 import {dealsApi} from '@/lib/api-client';
 import {useAuth} from '@/hooks/use-auth';
 
+// Type definitions for API responses
+interface DealsResponse {
+    deals: any[];
+    total_count?: number;
+    pagination?: {
+        current_page: number;
+        total_pages: number;
+        total_count: number;
+    };
+}
+
+interface DealResponse {
+    deal: any;
+}
+
+interface ApiResponse<T> {
+    data: T;
+}
+
 export function useDeals(params?: {
     status?: string;
     page?: number;
@@ -16,7 +35,7 @@ export function useDeals(params?: {
     const dealsQuery = useQuery({
         queryKey: ['deals', params],
         queryFn: () => dealsApi.getDeals(params),
-        select: (response) => response.data.deals as any[] || [],
+        select: (response: ApiResponse<DealsResponse>) => response.data.deals as any[] || [],
         enabled: !isAuthLoading && isAuthenticatedState,
     });
 
@@ -130,7 +149,7 @@ export function useDeal(id: number) {
     const dealQuery = useQuery({
         queryKey: ['deal', id],
         queryFn: () => dealsApi.getDeal(id),
-        select: (response) => response.data.deal,
+        select: (response: ApiResponse<DealResponse>) => response.data.deal,
         enabled: !!id && !isAuthLoading && isAuthenticatedState,
     });
 
@@ -261,7 +280,7 @@ export function useDealMutations() {
         mutationFn: (id: number) => {
             return dealsApi.acceptDeal(id);
         },
-        onSuccess: (data, dealId) => {
+        onSuccess: (data: ApiResponse<DealResponse>, dealId) => {
             try {
                 // First, update the query data with the fresh data from the API
                 queryClient.setQueryData(['dashboard', 'recentDeals'], (old: any) => {
@@ -270,14 +289,14 @@ export function useDealMutations() {
                     // Handle different data structures
                     if (Array.isArray(old)) {
                         return old.map((deal: any) =>
-                            deal.id === dealId ? {...deal, status: 'accepted', ...data.deal} : deal
+                            deal.id === dealId ? {...deal, status: 'accepted', ...data.data.deal} : deal
                         );
                     } else if (old && typeof old === 'object' && old.recent_deals && Array.isArray(old.recent_deals)) {
                         // Handle case where data is wrapped in an object
                         return {
                             ...old,
                             recent_deals: old.recent_deals.map((deal: any) =>
-                                deal.id === dealId ? {...deal, status: 'accepted', ...data.deal} : deal
+                                deal.id === dealId ? {...deal, status: 'accepted', ...data.data.deal} : deal
                             )
                         };
                     }
@@ -303,7 +322,7 @@ export function useDealMutations() {
             console.log('useDealMutations: Calling rejectDeal API for deal:', id, 'with reason:', reason);
             return dealsApi.rejectDeal(id, reason);
         },
-        onSuccess: (data, {id: dealId}) => {
+        onSuccess: (data: ApiResponse<DealResponse>, {id: dealId}) => {
             console.log('useDealMutations: rejectDeal API call successful for deal:', dealId, 'Response:', data);
             // Update the query data with the fresh data from the API
             queryClient.setQueryData(['dashboard', 'recentDeals'], (old: any) => {
@@ -312,14 +331,14 @@ export function useDealMutations() {
                 // Handle different data structures
                 if (Array.isArray(old)) {
                     return old.map((deal: any) =>
-                        deal.id === dealId ? {...deal, status: 'rejected', ...data.deal} : deal
+                        deal.id === dealId ? {...deal, status: 'rejected', ...data.data.deal} : deal
                     );
                 } else if (old && typeof old === 'object' && old.recent_deals && Array.isArray(old.recent_deals)) {
                     // Handle case where data is wrapped in an object
                     return {
                         ...old,
                         recent_deals: old.recent_deals.map((deal: any) =>
-                            deal.id === dealId ? {...deal, status: 'rejected', ...data.deal} : deal
+                            deal.id === dealId ? {...deal, status: 'rejected', ...data.data.deal} : deal
                         )
                     };
                 }

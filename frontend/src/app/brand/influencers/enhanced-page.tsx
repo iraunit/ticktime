@@ -215,7 +215,7 @@ export default function EnhancedInfluencerSearchPage() {
         );
     };
 
-    const handleBookmark = () => {
+    const handleBookmark = (id: number) => {
         toast.success("Influencer bookmarked!");
     };
 

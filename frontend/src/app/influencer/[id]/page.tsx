@@ -48,6 +48,8 @@ interface InfluencerProfile {
     is_verified: boolean;
     total_followers: number;
     average_engagement_rate: number;
+    avg_rating?: number;
+    rating?: number;
     social_accounts_count: number;
     created_at: string;
     social_accounts: SocialAccount[];
