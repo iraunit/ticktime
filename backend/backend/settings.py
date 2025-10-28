@@ -216,7 +216,7 @@ EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER", "")
 EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD", "")
 
 # Zoho Zeptomail SMTP Configuration
-ZEPTOMAIL_SMTP_HOST = os.environ.get("ZEPTOMAIL_SMTP_HOST", "smtp.zeptomail.com")
+ZEPTOMAIL_SMTP_HOST = os.environ.get("ZEPTOMAIL_SMTP_HOST", "smtp.zeptomail.in")
 ZEPTOMAIL_SMTP_PORT = int(os.environ.get("ZEPTOMAIL_SMTP_PORT", "587"))
 ZEPTOMAIL_SMTP_USER = os.environ.get("ZEPTOMAIL_SMTP_USER", "")
 ZEPTOMAIL_SMTP_PASSWORD = os.environ.get("ZEPTOMAIL_SMTP_PASSWORD", "")
@@ -229,6 +229,7 @@ RABBITMQ_PORT = int(os.environ.get("RABBITMQ_PORT", "5672"))
 RABBITMQ_USER = os.environ.get("RABBITMQ_USER", "guest")
 RABBITMQ_PASSWORD = os.environ.get("RABBITMQ_PASSWORD", "guest")
 RABBITMQ_VHOST = os.environ.get("RABBITMQ_VHOST", "/")
+RABBITMQ_USE_SSL = os.environ.get("RABBITMQ_USE_SSL", "False").lower() == "true"
 RABBITMQ_EMAIL_QUEUE = os.environ.get("RABBITMQ_EMAIL_QUEUE", "email_notifications")
 
 # Frontend URL for email links
@@ -389,6 +390,11 @@ LOGGING = {
             "propagate": True,
         },
         "influencers": {
+            "handlers": ["file", "console"],
+            "level": "INFO",
+            "propagate": True,
+        },
+        "communications": {
             "handlers": ["file", "console"],
             "level": "INFO",
             "propagate": True,

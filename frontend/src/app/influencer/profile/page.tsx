@@ -8,6 +8,7 @@ import {DemographicsForm} from '@/components/profile/demographics-form';
 import {CampaignReadinessForm} from '@/components/profile/campaign-readiness-form';
 import {BankDetailsForm} from '@/components/profile/bank-details-form';
 import {VerificationStatus} from '@/components/profile/verification-status';
+import {EmailVerificationBanner} from '@/components/profile/email-verification-banner';
 import {useProfile, useSocialAccounts} from '@/hooks/use-profile';
 import {RequireAuth} from '@/components/auth/require-auth';
 import {Badge} from '@/components/ui/badge';
@@ -253,6 +254,11 @@ export default function ProfilePage() {
                             </p>
                         </div>
                     </div>
+
+                    {/* Email Verification Banner */}
+                    <EmailVerificationBanner
+                        emailVerified={(profile.data as any)?.email_verified || false}
+                    />
 
                     <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 sm:gap-4">
                         {/* Compact Left Sidebar */}

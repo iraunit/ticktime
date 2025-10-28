@@ -1,5 +1,6 @@
 import json
 import logging
+import ssl
 from typing import Dict, Any, Optional
 
 import pika
@@ -21,20 +22,42 @@ class RabbitMQService:
         self.user = getattr(settings, 'RABBITMQ_USER', 'guest')
         self.password = getattr(settings, 'RABBITMQ_PASSWORD', 'guest')
         self.vhost = getattr(settings, 'RABBITMQ_VHOST', '/')
+        self.use_ssl = getattr(settings, 'RABBITMQ_USE_SSL', False)
 
     def connect(self) -> bool:
         """
         Establish connection to RabbitMQ server
         """
         try:
+            ssl_mode = "with SSL" if self.use_ssl else "without SSL"
+            logger.info(
+                f"Attempting to connect to RabbitMQ at {self.host}:{self.port} {ssl_mode} with user '{self.user}'")
+
             credentials = pika.PlainCredentials(self.user, self.password)
+
+            # Configure SSL if needed
+            ssl_options = None
+            if self.use_ssl:
+                context = ssl.create_default_context()
+                # Allow self-signed certificates and skip hostname verification
+                # This is needed for certificates behind reverse proxies
+                context.check_hostname = False
+                context.verify_mode = ssl.CERT_NONE
+                # Set minimum TLS version
+                context.minimum_version = ssl.TLSVersion.TLSv1_2
+                ssl_options = pika.SSLOptions(context, server_hostname=self.host)
+                logger.info(f"SSL context configured for {self.host}")
+
             parameters = pika.ConnectionParameters(
                 host=self.host,
                 port=self.port,
                 virtual_host=self.vhost,
                 credentials=credentials,
+                ssl_options=ssl_options,
                 heartbeat=600,
                 blocked_connection_timeout=300,
+                connection_attempts=3,
+                retry_delay=2,
             )
 
             self.connection = pika.BlockingConnection(parameters)
@@ -43,17 +66,52 @@ class RabbitMQService:
             logger.info(f"Successfully connected to RabbitMQ at {self.host}:{self.port}")
             return True
 
-        except Exception as e:
-            logger.error(f"Failed to connect to RabbitMQ: {str(e)}")
+        except pika.exceptions.AMQPConnectionError as e:
+            logger.error(f"Failed to connect to RabbitMQ at {self.host}:{self.port} - Connection Error: {str(e)}")
+            if self.use_ssl:
+                logger.error(f"SSL is enabled. If connection fails, verify that:")
+                logger.error(f"  1. The RabbitMQ server supports SSL on port {self.port}")
+                logger.error(f"  2. The SSL certificate is valid")
+                logger.error(f"  3. Firewall allows SSL connections")
+            else:
+                logger.error(f"SSL is disabled. If your RabbitMQ requires SSL, set RABBITMQ_USE_SSL=True")
             return False
+        except pika.exceptions.ProbableAuthenticationError as e:
+            logger.error(f"Failed to authenticate with RabbitMQ at {self.host}:{self.port} - Auth Error: {str(e)}")
+            return False
+        except Exception as e:
+            logger.error(
+                f"Failed to connect to RabbitMQ at {self.host}:{self.port} - Error: {type(e).__name__}: {str(e)}")
+            return False
+
+    def is_connected(self) -> bool:
+        """
+        Check if connection and channel are still open
+        """
+        return (self.connection is not None and
+                not self.connection.is_closed and
+                self.channel is not None and
+                self.channel.is_open)
+
+    def ensure_connection(self) -> bool:
+        """
+        Ensure connection is established, reconnect if needed
+        """
+        if self.is_connected():
+            return True
+
+        # Connection is closed or doesn't exist, reconnect
+        logger.info("Connection is closed, attempting to reconnect...")
+        return self.connect()
 
     def declare_queue(self, queue_name: str, durable: bool = True) -> bool:
         """
         Declare a queue (create if doesn't exist)
         """
         try:
-            if not self.channel:
-                self.connect()
+            if not self.ensure_connection():
+                logger.error("Cannot declare queue: Connection failed")
+                return False
 
             self.channel.queue_declare(
                 queue=queue_name,
@@ -67,6 +125,8 @@ class RabbitMQService:
 
         except Exception as e:
             logger.error(f"Failed to declare queue '{queue_name}': {str(e)}")
+            # Try to reconnect for next attempt
+            self.close()
             return False
 
     def publish_message(
@@ -87,12 +147,15 @@ class RabbitMQService:
             message_id if successful, None otherwise
         """
         try:
-            if not self.channel:
-                if not self.connect():
-                    return None
+            # Ensure connection is active
+            if not self.ensure_connection():
+                logger.error("Cannot publish message: Connection failed")
+                return None
 
             # Ensure queue exists
-            self.declare_queue(queue_name)
+            if not self.declare_queue(queue_name):
+                logger.error("Cannot publish message: Queue declaration failed")
+                return None
 
             # Add timestamp if not present
             if 'timestamp' not in message_data:
@@ -123,6 +186,16 @@ class RabbitMQService:
             logger.info(f"Message {message_id} published to queue '{queue_name}'")
             return message_id
 
+        except pika.exceptions.AMQPChannelError as e:
+            logger.error(f"Channel error while publishing to '{queue_name}': {str(e)}")
+            # Close and reconnect for next attempt
+            self.close()
+            return None
+        except pika.exceptions.AMQPConnectionError as e:
+            logger.error(f"Connection error while publishing to '{queue_name}': {str(e)}")
+            # Close and reconnect for next attempt
+            self.close()
+            return None
         except Exception as e:
             logger.error(f"Failed to publish message to '{queue_name}': {str(e)}")
             return None
@@ -132,11 +205,19 @@ class RabbitMQService:
         Close the connection to RabbitMQ
         """
         try:
+            if self.channel and self.channel.is_open:
+                self.channel.close()
+                self.channel = None
+
             if self.connection and not self.connection.is_closed:
                 self.connection.close()
+                self.connection = None
                 logger.info("RabbitMQ connection closed")
         except Exception as e:
             logger.error(f"Error closing RabbitMQ connection: {str(e)}")
+            # Force cleanup
+            self.channel = None
+            self.connection = None
 
 
 # Singleton instance for reuse

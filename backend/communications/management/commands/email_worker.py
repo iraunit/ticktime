@@ -1,16 +1,15 @@
 import json
 import logging
+import os
 import signal
 import smtplib
+import ssl
 import sys
 import time
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
-from smtplib import SMTPException
+from email.message import EmailMessage
 
 import pika
 from communications.models import CommunicationLog
-from django.conf import settings
 from django.core.management.base import BaseCommand
 from django.utils import timezone
 
@@ -25,20 +24,23 @@ class EmailWorker:
         self.channel = None
         self.should_stop = False
 
-        # RabbitMQ settings
-        self.host = getattr(settings, 'RABBITMQ_HOST', 'localhost')
-        self.port = getattr(settings, 'RABBITMQ_PORT', 5672)
-        self.user = getattr(settings, 'RABBITMQ_USER', 'guest')
-        self.password = getattr(settings, 'RABBITMQ_PASSWORD', 'guest')
-        self.vhost = getattr(settings, 'RABBITMQ_VHOST', '/')
-        self.queue_name = getattr(settings, 'RABBITMQ_EMAIL_QUEUE', 'email_notifications')
+        self.host = os.environ.get('RABBITMQ_HOST', 'localhost')
+        self.port = int(os.environ.get('RABBITMQ_PORT', '5672'))
+        self.user = os.environ.get('RABBITMQ_USER', 'guest')
+        self.password = os.environ.get('RABBITMQ_PASSWORD', 'guest')
+        self.vhost = os.environ.get('RABBITMQ_VHOST', '/')
+        self.queue_name = os.environ.get('RABBITMQ_EMAIL_QUEUE', 'email_notifications')
 
-        # SMTP settings
-        self.smtp_host = getattr(settings, 'ZEPTOMAIL_SMTP_HOST', settings.EMAIL_HOST)
-        self.smtp_port = getattr(settings, 'ZEPTOMAIL_SMTP_PORT', settings.EMAIL_PORT)
-        self.smtp_user = getattr(settings, 'ZEPTOMAIL_SMTP_USER', settings.EMAIL_HOST_USER)
-        self.smtp_password = getattr(settings, 'ZEPTOMAIL_SMTP_PASSWORD', settings.EMAIL_HOST_PASSWORD)
-        self.use_tls = getattr(settings, 'EMAIL_USE_TLS', True)
+        self.smtp_port = int(os.environ.get('ZEPTOMAIL_SMTP_PORT', '587'))
+        self.smtp_server = os.environ.get('ZEPTOMAIL_SMTP_HOST', 'smtp.zeptomail.in')
+        self.username = os.environ.get('ZEPTOMAIL_SMTP_USER', 'emailapikey')
+        self.smtp_password = os.environ.get('ZEPTOMAIL_SMTP_PASSWORD', '')
+        self.from_email = os.environ.get('ZEPTOMAIL_FROM_EMAIL', 'noreply@ticktime.media')
+        self.from_name = os.environ.get('ZEPTOMAIL_FROM_NAME', 'TickTime')
+
+        logger.info(f"SMTP configured: {self.smtp_server}:{self.smtp_port}, user: {self.username}")
+        if not self.smtp_password:
+            logger.warning("ZEPTOMAIL_SMTP_PASSWORD not configured!")
 
     def connect_rabbitmq(self):
         """Establish connection to RabbitMQ"""
@@ -56,14 +58,12 @@ class EmailWorker:
             self.connection = pika.BlockingConnection(parameters)
             self.channel = self.connection.channel()
 
-            # Declare the queue
             self.channel.queue_declare(
                 queue=self.queue_name,
                 durable=True,
                 arguments={'x-message-ttl': 86400000}  # 24 hours
             )
 
-            # Set QoS to process one message at a time
             self.channel.basic_qos(prefetch_count=1)
 
             logger.info(f"Connected to RabbitMQ at {self.host}:{self.port}")
@@ -74,40 +74,42 @@ class EmailWorker:
             logger.error(f"Failed to connect to RabbitMQ: {str(e)}")
             return False
 
-    def send_email_smtp(self, to_email, subject, html_body, from_email, from_name):
-        """Send email using SMTP"""
+    def send_email_smtp(self, to_email, subject, html_body, from_email=None, from_name=None):
+        """Send email using Zoho Zeptomail SMTP - exact same logic as working script"""
         try:
-            # Create message
-            msg = MIMEMultipart('alternative')
+            if not self.smtp_password:
+                error_msg = "SMTP password not configured. Please set ZEPTOMAIL_SMTP_PASSWORD environment variable."
+                logger.error(error_msg)
+                return False, error_msg
+
+            msg = EmailMessage()
             msg['Subject'] = subject
-            msg['From'] = f"{from_name} <{from_email}>"
+            msg['From'] = from_email
             msg['To'] = to_email
+            msg.set_content(html_body)
 
-            # Attach HTML body
-            html_part = MIMEText(html_body, 'html')
-            msg.attach(html_part)
+            logger.info(f"Sending email to: {to_email} via SMTP")
 
-            # Connect to SMTP server
-            if self.use_tls:
-                server = smtplib.SMTP(self.smtp_host, self.smtp_port)
-                server.starttls()
+            if self.smtp_port == 465:
+                context = ssl.create_default_context()
+                with smtplib.SMTP_SSL(self.smtp_server, self.smtp_port, context=context) as server:
+                    server.login(self.username, self.smtp_password)
+                    server.send_message(msg)
+            elif self.smtp_port == 587:
+                with smtplib.SMTP(self.smtp_server, self.smtp_port) as server:
+                    server.starttls()
+                    server.login(self.username, self.smtp_password)
+                    server.send_message(msg)
             else:
-                server = smtplib.SMTP_SSL(self.smtp_host, self.smtp_port)
+                error_msg = "use 465 / 587 as port value"
+                logger.error(error_msg)
+                return False, error_msg
 
-            server.login(self.smtp_user, self.smtp_password)
-            server.send_message(msg)
-            server.quit()
-
-            logger.info(f"Email sent successfully to {to_email}")
             return True, None
 
-        except SMTPException as e:
-            error_msg = f"SMTP error sending email to {to_email}: {str(e)}"
-            logger.error(error_msg)
-            return False, error_msg
         except Exception as e:
-            error_msg = f"Error sending email to {to_email}: {str(e)}"
-            logger.error(error_msg)
+            error_msg = str(e)
+            logger.error(f"Error sending email to {to_email}: {error_msg}")
             return False, error_msg
 
     def process_message(self, ch, method, properties, body):
@@ -189,7 +191,6 @@ class EmailWorker:
             ch.basic_ack(delivery_tag=method.delivery_tag)
         except Exception as e:
             logger.error(f"Error processing message {message_id}: {str(e)}")
-            # Reject and requeue for temporary errors
             ch.basic_nack(delivery_tag=method.delivery_tag, requeue=True)
 
     def start_consuming(self):
@@ -240,7 +241,6 @@ class Command(BaseCommand):
         sys.exit(0)
 
     def handle(self, *args, **options):
-        # Register signal handlers
         signal.signal(signal.SIGINT, self.handle_shutdown)
         signal.signal(signal.SIGTERM, self.handle_shutdown)
 
@@ -248,12 +248,10 @@ class Command(BaseCommand):
 
         self.worker = EmailWorker()
 
-        # Connect to RabbitMQ
         if not self.worker.connect_rabbitmq():
             self.stdout.write(self.style.ERROR('Failed to connect to RabbitMQ'))
             return
 
-        # Start consuming messages
         try:
             self.worker.start_consuming()
         except Exception as e:
