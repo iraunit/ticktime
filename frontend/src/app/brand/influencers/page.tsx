@@ -185,19 +185,6 @@ export default function InfluencerSearchPage() {
         if (pageNum === 1) setIsLoading(true);
 
         try {
-            console.log('Fetching influencers with params:', {
-                page: pageNum,
-                search: searchTerm,
-                platform: selectedPlatform,
-                location: locationFilter !== 'All' ? locationFilter : undefined,
-                gender: genderFilter !== 'All' ? genderFilter : undefined,
-                follower_range: followerRange !== 'All Followers' ? followerRange : undefined,
-                categories: selectedCategories.length > 0 ? selectedCategories.join(',') : undefined,
-                industry: selectedIndustry !== 'All' ? selectedIndustry : undefined,
-                sort_by: sortBy,
-                sort_order: sortOrder,
-            });
-
             const response = await api.get('/influencers/search/', {
                 params: {
                     page: pageNum,
@@ -212,8 +199,6 @@ export default function InfluencerSearchPage() {
                     sort_order: sortOrder,
                 }
             });
-
-            console.log('API Response:', response.data);
 
             const newInfluencers = response.data.results || [];
             const pagination = response.data.pagination || {};
