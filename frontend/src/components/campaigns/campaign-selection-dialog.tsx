@@ -16,6 +16,8 @@ interface CampaignSelectionDialogProps {
     title?: string;
     open?: boolean;
     onOpenChange?: (open: boolean) => void;
+    onConfirm?: (selected: string | string[], campaigns?: any[]) => Promise<void> | void;
+    confirmLabel?: string;
 }
 
 export function CampaignSelectionDialog({
@@ -24,7 +26,9 @@ export function CampaignSelectionDialog({
                                             onSuccess,
                                             title = "Add to Campaigns",
                                             open,
-                                            onOpenChange
+                                            onOpenChange,
+                                            onConfirm,
+                                            confirmLabel
                                         }: CampaignSelectionDialogProps) {
     const [campaigns, setCampaigns] = useState<any[]>([]);
     const [selectedCampaigns, setSelectedCampaigns] = useState<Set<string>>(new Set());
@@ -76,6 +80,20 @@ export function CampaignSelectionDialog({
     };
 
     const handleAddToCampaigns = async () => {
+        // Selection-only mode (e.g., import filters)
+        if (onConfirm) {
+            const ids = Array.from(selectedCampaigns);
+            const firstId = ids[0];
+            try {
+                await onConfirm(ids.length <= 1 ? (firstId || '') : ids, campaigns);
+                setDialogOpen(false);
+                setSelectedCampaigns(new Set());
+            } catch (e) {
+                // onConfirm will toast on its own typically
+            }
+            return;
+        }
+
         if (selectedCampaigns.size === 0) {
             toast.error('Please select campaigns.');
             return;
@@ -239,18 +257,18 @@ export function CampaignSelectionDialog({
                         </Button>
                         <Button
                             onClick={handleAddToCampaigns}
-                            disabled={selectedCampaigns.size === 0 || influencerIds.length === 0 || isLoadingActions}
+                            disabled={selectedCampaigns.size === 0 || (!onConfirm && (influencerIds.length === 0 || isLoadingActions))}
                             className="flex-1 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white"
                         >
                             {isLoadingActions ? (
                                 <>
                                     <HiArrowPath className="w-4 h-4 mr-2 animate-spin"/>
-                                    Adding...
+                                    {onConfirm ? 'Processing...' : 'Adding...'}
                                 </>
                             ) : (
                                 <>
                                     <HiPlus className="w-4 h-4 mr-2"/>
-                                    Add to Campaigns
+                                    {confirmLabel || (onConfirm ? 'Confirm Selection' : 'Add to Campaigns')}
                                 </>
                             )}
                         </Button>

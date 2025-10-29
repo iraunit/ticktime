@@ -36,6 +36,10 @@ class Campaign(models.Model):
     special_instructions = models.TextField(blank=True)
     target_influencers = models.IntegerField(default=1, validators=[MinValueValidator(1)])
     content_count = models.IntegerField(default=0, help_text='Number of content pieces expected')
+    # Target influencer filters for discovery
+    target_influencer_age_ranges = models.JSONField(default=list, blank=True)
+    target_influencer_collaboration_preferences = models.JSONField(default=list, blank=True)
+    target_influencer_max_collab_amount = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     # Keep legacy text field to avoid destructive/complex migration; new FK holds the canonical industry
     industry = models.CharField(max_length=50, default='other')
     industry_category = models.ForeignKey('common.Industry', on_delete=models.PROTECT,

@@ -36,6 +36,7 @@ import {api} from "@/lib/api";
 import {toast} from "@/lib/toast";
 import {GlobalLoader} from "@/components/ui/global-loader";
 import {CampaignSelectionDialog} from "@/components/campaigns/campaign-selection-dialog";
+import {MultiSelectSearch} from "@/components/ui/multi-select-search";
 
 
 interface Influencer {
@@ -146,6 +147,29 @@ export default function InfluencerSearchPage() {
     const [showCampaignSelectionInMessage, setShowCampaignSelectionInMessage] = useState(false);
     const [useDropdownForCampaigns, setUseDropdownForCampaigns] = useState(false);
     const [campaignSearchTerm, setCampaignSearchTerm] = useState("");
+    const [showImportDialog, setShowImportDialog] = useState(false);
+    const importFiltersFromCampaign = async () => {
+        try {
+            const id = window.prompt('Enter Campaign ID to import filters');
+            if (!id) return;
+            const resp = await api.get(`/brands/campaigns/${id}/`);
+            const c = resp?.data?.campaign || {};
+            const ages = Array.isArray(c.target_influencer_age_ranges) ? c.target_influencer_age_ranges : [];
+            const prefs = Array.isArray(c.target_influencer_collaboration_preferences) ? c.target_influencer_collaboration_preferences : [];
+            const maxAmt = c.target_influencer_max_collab_amount;
+            setAgeRangesFilter(ages);
+            setCollabPrefsFilter(prefs);
+            setMaxCollabAmountFilter(maxAmt ? String(maxAmt) : "");
+            toast.success('Filters imported from campaign');
+            setShowFilters(true);
+            await fetchInfluencers(1, false);
+        } catch (e: any) {
+            toast.error('Failed to import filters');
+        }
+    };
+    const [ageRangesFilter, setAgeRangesFilter] = useState<string[]>([]);
+    const [collabPrefsFilter, setCollabPrefsFilter] = useState<string[]>([]);
+    const [maxCollabAmountFilter, setMaxCollabAmountFilter] = useState<string>("");
 
     // Helper to show @username consistently (fallbacks if username missing)
     const getDisplayUsername = useCallback((inf: Influencer) => {
@@ -197,6 +221,9 @@ export default function InfluencerSearchPage() {
                     industry: selectedIndustry !== 'All' ? selectedIndustry : undefined,
                     sort_by: sortBy,
                     sort_order: sortOrder,
+                    age_range: ageRangesFilter.length === 1 ? ageRangesFilter[0] : undefined,
+                    collaboration_preferences: collabPrefsFilter.length > 0 ? collabPrefsFilter.join(',') : undefined,
+                    max_collab_amount: maxCollabAmountFilter || undefined,
                 }
             });
 
@@ -224,7 +251,7 @@ export default function InfluencerSearchPage() {
         } finally {
             setIsLoading(false);
         }
-    }, [searchTerm, selectedPlatform, locationFilter, genderFilter, followerRange, selectedCategories, selectedIndustry, sortBy, sortOrder]);
+    }, [searchTerm, selectedPlatform, locationFilter, genderFilter, followerRange, selectedCategories, selectedIndustry, sortBy, sortOrder, ageRangesFilter, collabPrefsFilter, maxCollabAmountFilter]);
 
     // Sync filters and sorting to URL
     useEffect(() => {
@@ -239,12 +266,15 @@ export default function InfluencerSearchPage() {
             if (selectedIndustry && selectedIndustry !== 'All') params.set('industry', selectedIndustry);
             if (sortBy) params.set('sort_by', sortBy);
             if (sortOrder) params.set('sort_order', sortOrder);
+            if (ageRangesFilter.length === 1) params.set('age_range', ageRangesFilter[0]);
+            if (collabPrefsFilter.length > 0) params.set('collaboration_preferences', collabPrefsFilter.join(','));
+            if (maxCollabAmountFilter) params.set('max_collab_amount', maxCollabAmountFilter);
             const qs = params.toString();
             const url = qs ? `/brand/influencers?${qs}` : '/brand/influencers';
             window.history.replaceState(null, '', url);
         } catch {
         }
-    }, [searchTerm, selectedPlatform, locationFilter, genderFilter, followerRange, selectedCategories, selectedIndustry, sortBy, sortOrder]);
+    }, [searchTerm, selectedPlatform, locationFilter, genderFilter, followerRange, selectedCategories, selectedIndustry, sortBy, sortOrder, ageRangesFilter, collabPrefsFilter, maxCollabAmountFilter]);
 
     // Bookmark influencer
     const handleBookmark = async (influencerId: number) => {
@@ -495,8 +525,11 @@ export default function InfluencerSearchPage() {
             genderFilter !== "All" ||
             followerRange !== "All Followers" ||
             selectedCategories.length > 0 ||
-            selectedIndustry !== "All";
-    }, [searchTerm, selectedPlatform, locationFilter, genderFilter, followerRange, selectedCategories, selectedIndustry]);
+            selectedIndustry !== "All" ||
+            ageRangesFilter.length > 0 ||
+            collabPrefsFilter.length > 0 ||
+            !!maxCollabAmountFilter;
+    }, [searchTerm, selectedPlatform, locationFilter, genderFilter, followerRange, selectedCategories, selectedIndustry, ageRangesFilter, collabPrefsFilter, maxCollabAmountFilter]);
 
     const clearAllFilters = () => {
         setSearchTerm("");
@@ -506,6 +539,9 @@ export default function InfluencerSearchPage() {
         setFollowerRange("All Followers");
         setSelectedCategories([]);
         setSelectedIndustry("All");
+        setAgeRangesFilter([]);
+        setCollabPrefsFilter([]);
+        setMaxCollabAmountFilter("");
     };
 
     const handleCategoryToggle = (category: string) => {
@@ -594,6 +630,14 @@ export default function InfluencerSearchPage() {
                                         Active
                                     </Badge>
                                 )}
+                            </Button>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setShowImportDialog(true)}
+                                className="border border-gray-300 hover:border-gray-400"
+                            >
+                                Import from Campaign
                             </Button>
                         </div>
                     </div>
@@ -857,6 +901,45 @@ export default function InfluencerSearchPage() {
                                                 <SelectItem value="asc">Lowest First</SelectItem>
                                             </SelectContent>
                                         </Select>
+                                    </div>
+                                </div>
+
+                                {/* Extended Filters */}
+                                <div className="grid md:grid-cols-3 gap-2 mt-2">
+                                    <div className="space-y-1">
+                                        <label className="text-xs font-medium text-gray-700">Age Range</label>
+                                        <MultiSelectSearch
+                                            options={[
+                                                {value: '18-24', label: '18-24'},
+                                                {value: '25-34', label: '25-34'},
+                                                {value: '35-44', label: '35-44'},
+                                                {value: '45-54', label: '45-54'},
+                                                {value: '55+', label: '55+'},
+                                            ]}
+                                            value={ageRangesFilter}
+                                            onValueChange={(vals) => setAgeRangesFilter(vals)}
+                                            placeholder="Select age ranges"
+                                        />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <label className="text-xs font-medium text-gray-700">Collaboration
+                                            Preferences</label>
+                                        <MultiSelectSearch
+                                            options={[
+                                                {value: 'cash', label: 'Cash'},
+                                                {value: 'barter', label: 'Barter'},
+                                                {value: 'hybrid', label: 'Hybrid'},
+                                            ]}
+                                            value={collabPrefsFilter}
+                                            onValueChange={(vals) => setCollabPrefsFilter(vals)}
+                                            placeholder="Select preferences"
+                                        />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <label className="text-xs font-medium text-gray-700">Max Collab Amount
+                                            (INR)</label>
+                                        <Input type="number" placeholder="e.g., 10000" value={maxCollabAmountFilter}
+                                               onChange={(e) => setMaxCollabAmountFilter(e.target.value)}/>
                                     </div>
                                 </div>
                             </div>
@@ -1419,6 +1502,35 @@ export default function InfluencerSearchPage() {
                         setIndividualInfluencer(null);
                         setSelectedInfluencers(new Set());
                         fetchInfluencers(1, false);
+                    }}
+                />
+
+                {/* Import Filters Dialog */}
+                <CampaignSelectionDialog
+                    trigger={<div style={{display: 'none'}}/>}
+                    influencerIds={[]}
+                    title={'Import Filters from Campaign'}
+                    open={showImportDialog}
+                    onOpenChange={setShowImportDialog}
+                    confirmLabel={'Import Filters'}
+                    onConfirm={async (selected) => {
+                        try {
+                            const id = Array.isArray(selected) ? selected[0] : selected;
+                            if (!id) return;
+                            const resp = await api.get(`/brands/campaigns/${id}/`);
+                            const c = resp?.data?.campaign || {};
+                            const ages = Array.isArray(c.target_influencer_age_ranges) ? c.target_influencer_age_ranges : [];
+                            const prefs = Array.isArray(c.target_influencer_collaboration_preferences) ? c.target_influencer_collaboration_preferences : [];
+                            const maxAmt = c.target_influencer_max_collab_amount;
+                            setAgeRangesFilter(ages);
+                            setCollabPrefsFilter(prefs);
+                            setMaxCollabAmountFilter(maxAmt ? String(maxAmt) : "");
+                            toast.success('Filters imported from campaign');
+                            setShowFilters(true);
+                            await fetchInfluencers(1, false);
+                        } catch (e: any) {
+                            toast.error('Failed to import filters');
+                        }
                     }}
                 />
 

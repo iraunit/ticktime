@@ -384,6 +384,7 @@ def influencer_search_view(request):
     max_engagement = request.GET.get('max_engagement')
     min_rating = request.GET.get('min_rating')
     max_rating = request.GET.get('max_rating')
+    max_collab_amount = request.GET.get('max_collab_amount')
 
     # Location filters
     country = request.GET.get('country', '')
@@ -396,6 +397,12 @@ def influencer_search_view(request):
     audience_location = request.GET.get('audience_location', '')
     audience_interest = request.GET.get('audience_interest', '')
     audience_language = request.GET.get('audience_language', '')
+
+    # Additional filters
+    age_range = request.GET.get('age_range', '').strip()
+    collaboration_preferences_raw = request.GET.get('collaboration_preferences', '').strip()
+    collaboration_preferences = [p.strip() for p in collaboration_preferences_raw.split(',') if
+                                 p.strip()] if collaboration_preferences_raw else []
 
     # Performance filters
     min_avg_likes = request.GET.get('min_avg_likes')
@@ -447,6 +454,10 @@ def influencer_search_view(request):
     # Apply gender filter
     if gender:
         queryset = queryset.filter(gender=gender)
+
+    # Apply influencer age_range filter (profile-level categorical)
+    if age_range:
+        queryset = queryset.filter(age_range=age_range)
 
     # Apply follower range filter
     if follower_range:
@@ -517,6 +528,10 @@ def influencer_search_view(request):
     if has_youtube:
         queryset = queryset.filter(has_youtube=True)
 
+    # Apply collaboration preferences filter (list overlap)
+    if collaboration_preferences:
+        queryset = queryset.filter(collaboration_types__overlap=collaboration_preferences)
+
     # Apply content and bio keyword filters
     if caption_keywords:
         queryset = queryset.filter(content_keywords__contains=[caption_keywords])
@@ -551,6 +566,15 @@ def influencer_search_view(request):
         try:
             max_rating = float(max_rating)
             queryset = queryset.filter(avg_rating__lte=max_rating)
+        except ValueError:
+            pass
+
+    # Apply max collaboration amount filter (influencer's minimum required <= brand's max)
+    if max_collab_amount:
+        try:
+            max_collab_amount_val = float(max_collab_amount)
+            queryset = queryset.filter(minimum_collaboration_amount__isnull=False,
+                                       minimum_collaboration_amount__lte=max_collab_amount_val)
         except ValueError:
             pass
 
@@ -797,7 +821,9 @@ def influencer_filters_view(request):
             ],
             'categories': sorted(unique_categories),
             'platforms': [choice[0] for choice in PLATFORM_CHOICES],
-            'genders': ['Male', 'Female', 'Other'],
+            'genders': ['male', 'female', 'other', 'prefer_not_to_say'],
+            'age_ranges': ['18-24', '25-34', '35-44', '45-54', '55+'],
+            'collaboration_preferences': ['cash', 'barter', 'hybrid'],
             'sort_options': [
                 {'value': 'influence_score', 'label': 'Influence Score'},
                 {'value': 'subscribers', 'label': 'Subscribers'},

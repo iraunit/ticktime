@@ -9,7 +9,6 @@ import {Input} from "@/components/ui/input";
 import {Textarea} from "@/components/ui/textarea";
 
 import {Checkbox} from "@/components/ui/checkbox";
-import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from "@/components/ui/select";
 
 
 import {InlineLoader} from "@/components/ui/global-loader";
@@ -36,6 +35,7 @@ import {
     HiXMark
 } from "react-icons/hi2";
 import {platformConfig, platformDisplayNames} from "@/lib/platform-config";
+import {MultiSelectOption, MultiSelectSearch} from "@/components/ui/multi-select-search";
 
 interface CampaignData {
     title: string;
@@ -62,6 +62,9 @@ interface CampaignData {
     target_audience_gender: string;
     target_audience_location: string;
     barter_submission_after_days?: number;
+    target_influencer_age_ranges?: string[];
+    target_influencer_collaboration_preferences?: string[];
+    target_influencer_max_collab_amount?: number | null;
 }
 
 
@@ -87,6 +90,9 @@ export default function CreateCampaignPage() {
     const [selectedContentCategories, setSelectedContentCategories] = useState<string[]>([]);
     const [isEditing, setIsEditing] = useState(false);
     const [editingCampaignId, setEditingCampaignId] = useState<string | null>(null);
+    const [locationOptions, setLocationOptions] = useState<MultiSelectOption[]>([]);
+    const [selectedInfluencerLocations, setSelectedInfluencerLocations] = useState<string[]>([]);
+    const [selectedInfluencerGenders, setSelectedInfluencerGenders] = useState<string[]>([]);
 
     // Campaign form data
     const [campaignData, setCampaignData] = useState<CampaignData>({
@@ -114,6 +120,9 @@ export default function CreateCampaignPage() {
         target_audience_gender: 'all',
         target_audience_location: '',
         barter_submission_after_days: undefined,
+        target_influencer_age_ranges: [],
+        target_influencer_collaboration_preferences: [],
+        target_influencer_max_collab_amount: null,
     });
 
     const steps = [
@@ -267,6 +276,9 @@ export default function CreateCampaignPage() {
                 industries: selectedIndustries,
                 content_categories: selectedContentCategories,
                 content_requirements: campaignData.content_requirements,
+                target_influencer_age_ranges: campaignData.target_influencer_age_ranges || [],
+                target_influencer_collaboration_preferences: campaignData.target_influencer_collaboration_preferences || [],
+                target_influencer_max_collab_amount: campaignData.target_influencer_max_collab_amount ?? null,
             };
 
             let response;
@@ -521,6 +533,30 @@ export default function CreateCampaignPage() {
         });
         api.get('/common/content-categories/').then(res => setContentCategories(res.data.categories || [])).catch(() => {
         });
+        // Load influencer locations for multi-select
+        api.get('/common/influencer-locations/').then(res => {
+            const locations: Array<{ city: string; state?: string }>
+                = (res?.data?.locations || res?.data?.result?.locations || []);
+            const opts: MultiSelectOption[] = locations.map(loc => {
+                const city = (loc.city || '').trim();
+                const state = (loc.state || '').trim();
+                const label = state ? `${city}, ${state}` : city;
+                const value = `${city}||${state}`; // compact unique value
+                return {value, label};
+            });
+            // Deduplicate in case backend returns duplicates
+            const seen = new Set<string>();
+            const unique: MultiSelectOption[] = [];
+            for (const o of opts) {
+                if (!o.value || seen.has(o.value)) continue;
+                seen.add(o.value);
+                unique.push(o);
+            }
+            // Sort by label for UX
+            unique.sort((a, b) => a.label.localeCompare(b.label));
+            setLocationOptions(unique);
+        }).catch(() => {
+        });
     }, []);
 
     // Check for edit mode and load campaign data
@@ -580,6 +616,9 @@ export default function CreateCampaignPage() {
                         target_audience_gender: 'all',
                         target_audience_location: '',
                         barter_submission_after_days: campaign.barter_submission_after_days || undefined,
+                        target_influencer_age_ranges: campaign.target_influencer_age_ranges || [],
+                        target_influencer_collaboration_preferences: campaign.target_influencer_collaboration_preferences || [],
+                        target_influencer_max_collab_amount: campaign.target_influencer_max_collab_amount ?? null,
                     });
 
                     // Set selected industries if available
@@ -809,53 +848,76 @@ export default function CreateCampaignPage() {
                                         className="bg-gradient-to-br from-gray-50 to-gray-100 p-4 rounded-xl border border-gray-200">
                                         <h4 className="text-lg font-semibold text-gray-900 mb-3 flex items-center gap-2">
                                             <HiUsers className="w-5 h-5 text-indigo-600"/>
-                                            Target Audience
+                                            Target Influencer
                                         </h4>
-                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                            <div className="space-y-2">
-                                                <label className="text-sm font-medium text-gray-700">Age Range</label>
-                                                <div className="flex items-center gap-3">
-                                                    <Input
-                                                        type="number"
-                                                        placeholder="18"
-                                                        value={campaignData.target_audience_age_min}
-                                                        onChange={(e) => handleInputChange('target_audience_age_min', parseInt(e.target.value))}
-                                                        className="border-gray-300 focus:border-indigo-400 focus:ring-indigo-100"
-                                                    />
-                                                    <span className="text-gray-500 font-medium">to</span>
-                                                    <Input
-                                                        type="number"
-                                                        placeholder="65"
-                                                        value={campaignData.target_audience_age_max}
-                                                        onChange={(e) => handleInputChange('target_audience_age_max', parseInt(e.target.value))}
-                                                        className="border-gray-300 focus:border-indigo-400 focus:ring-indigo-100"
-                                                    />
-                                                </div>
-                                            </div>
-
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                             <div className="space-y-2">
                                                 <label className="text-sm font-medium text-gray-700">Gender</label>
-                                                <Select value={campaignData.target_audience_gender}
-                                                        onValueChange={(value) => handleInputChange('target_audience_gender', value)}>
-                                                    <SelectTrigger
-                                                        className="border-gray-300 focus:border-indigo-400 focus:ring-indigo-100">
-                                                        <SelectValue/>
-                                                    </SelectTrigger>
-                                                    <SelectContent>
-                                                        <SelectItem value="all">All Genders</SelectItem>
-                                                        <SelectItem value="male">Male</SelectItem>
-                                                        <SelectItem value="female">Female</SelectItem>
-                                                        <SelectItem value="other">Other</SelectItem>
-                                                    </SelectContent>
-                                                </Select>
+                                                <MultiSelectSearch
+                                                    options={[
+                                                        {value: 'male', label: 'Male'},
+                                                        {value: 'female', label: 'Female'},
+                                                        {value: 'other', label: 'Other'},
+                                                        {value: 'prefer_not_to_say', label: 'Prefer not to say'},
+                                                    ]}
+                                                    value={selectedInfluencerGenders}
+                                                    onValueChange={setSelectedInfluencerGenders}
+                                                    placeholder="Select genders"
+                                                />
                                             </div>
 
                                             <div className="space-y-2">
-                                                <label className="text-sm font-medium text-gray-700">Location</label>
+                                                <label className="text-sm font-medium text-gray-700">Location (City,
+                                                    State)</label>
+                                                <MultiSelectSearch
+                                                    options={locationOptions}
+                                                    value={selectedInfluencerLocations}
+                                                    onValueChange={setSelectedInfluencerLocations}
+                                                    placeholder="Select locations"
+                                                />
+                                            </div>
+                                        </div>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                                            <div className="space-y-2">
+                                                <label className="text-sm font-medium text-gray-700">Age Ranges</label>
+                                                <MultiSelectSearch
+                                                    options={[
+                                                        {value: '18-24', label: '18-24'},
+                                                        {value: '25-34', label: '25-34'},
+                                                        {value: '35-44', label: '35-44'},
+                                                        {value: '45-54', label: '45-54'},
+                                                        {value: '55+', label: '55+'},
+                                                    ]}
+                                                    value={campaignData.target_influencer_age_ranges || []}
+                                                    onValueChange={(vals) => handleInputChange('target_influencer_age_ranges', vals)}
+                                                    placeholder="Select age ranges"
+                                                />
+                                            </div>
+
+                                            <div className="space-y-2">
+                                                <label className="text-sm font-medium text-gray-700">Collaboration
+                                                    Preferences</label>
+                                                <MultiSelectSearch
+                                                    options={[
+                                                        {value: 'cash', label: 'Cash'},
+                                                        {value: 'barter', label: 'Barter'},
+                                                        {value: 'hybrid', label: 'Hybrid'},
+                                                    ]}
+                                                    value={campaignData.target_influencer_collaboration_preferences || []}
+                                                    onValueChange={(vals) => handleInputChange('target_influencer_collaboration_preferences', vals)}
+                                                    placeholder="Select preferences"
+                                                />
+                                            </div>
+                                        </div>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                                            <div className="space-y-2">
+                                                <label className="text-sm font-medium text-gray-700">Max Collaboration
+                                                    Amount (INR)</label>
                                                 <Input
-                                                    placeholder="e.g., India, Mumbai, Global"
-                                                    value={campaignData.target_audience_location}
-                                                    onChange={(e) => handleInputChange('target_audience_location', e.target.value)}
+                                                    type="number"
+                                                    placeholder="e.g., 10000"
+                                                    value={campaignData.target_influencer_max_collab_amount ?? ''}
+                                                    onChange={(e) => handleInputChange('target_influencer_max_collab_amount', e.target.value ? parseFloat(e.target.value) : null)}
                                                     className="border-gray-300 focus:border-indigo-400 focus:ring-indigo-100"
                                                 />
                                             </div>

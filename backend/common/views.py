@@ -1,5 +1,7 @@
 import pandas as pd
 import pgeocode
+from django.apps import apps
+from django.core.cache import cache
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
 
@@ -100,3 +102,55 @@ def get_location_from_pincode_view(request):
 
     except Exception as e:
         return api_response(False, error=f'Error fetching location data: {str(e)}', status_code=500)
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def get_influencer_locations_view(request):
+    """
+    Return distinct influencer locations (city and state) across all onboarded influencers.
+
+    Response shape:
+    {
+      "locations": [
+        {"city": "Mumbai", "state": "Maharashtra"},
+        {"city": "Bengaluru", "state": "Karnataka"},
+        ...
+      ]
+    }
+
+    Cached in Redis for 1 day.
+    """
+    cache_key = 'common:influencer_locations:v1'
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return api_response(True, result={"locations": cached})
+
+    try:
+        InfluencerProfile = apps.get_model('influencers', 'InfluencerProfile')
+        qs = (
+            InfluencerProfile.objects
+            .filter(city__isnull=False)
+            .exclude(city='')
+            .values('city', 'state')
+            .distinct()
+        )
+
+        # Normalize and sort
+        locations = []
+        for row in qs:
+            city = (row.get('city') or '').strip()
+            state = (row.get('state') or '').strip()
+            if not city:
+                continue
+            locations.append({"city": city, "state": state})
+
+        # Sort by state then city for stable UX
+        locations.sort(key=lambda x: (x.get('state') or '', x.get('city') or ''))
+
+        # Cache for 1 day (86400 seconds)
+        cache.set(cache_key, locations, 86400)
+
+        return api_response(True, result={"locations": locations})
+    except Exception as e:
+        return api_response(False, error=f"Failed to load influencer locations: {str(e)}", status_code=500)
