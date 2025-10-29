@@ -9,7 +9,7 @@ import {Input} from "@/components/ui/input";
 import {Textarea} from "@/components/ui/textarea";
 
 import {Checkbox} from "@/components/ui/checkbox";
-
+import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from "@/components/ui/select";
 
 import {InlineLoader} from "@/components/ui/global-loader";
 import {DatePicker} from "@/components/ui/date-picker";
@@ -279,6 +279,8 @@ export default function CreateCampaignPage() {
                 target_influencer_age_ranges: campaignData.target_influencer_age_ranges || [],
                 target_influencer_collaboration_preferences: campaignData.target_influencer_collaboration_preferences || [],
                 target_influencer_max_collab_amount: campaignData.target_influencer_max_collab_amount ?? null,
+                target_influencer_genders: selectedInfluencerGenders,
+                target_influencer_locations: selectedInfluencerLocations,
             };
 
             let response;
@@ -620,6 +622,14 @@ export default function CreateCampaignPage() {
                         target_influencer_collaboration_preferences: campaign.target_influencer_collaboration_preferences || [],
                         target_influencer_max_collab_amount: campaign.target_influencer_max_collab_amount ?? null,
                     });
+
+                    // Prefill gender and location multi-selects when present
+                    if (Array.isArray(campaign.target_influencer_genders)) {
+                        setSelectedInfluencerGenders(campaign.target_influencer_genders);
+                    }
+                    if (Array.isArray(campaign.target_influencer_locations)) {
+                        setSelectedInfluencerLocations(campaign.target_influencer_locations);
+                    }
 
                     // Set selected industries if available
                     if (campaign.industries && campaign.industries.length > 0) {

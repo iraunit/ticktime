@@ -65,7 +65,8 @@ class CampaignCreateSerializer(serializers.ModelSerializer):
             'industry', 'industries', 'content_categories', 'execution_mode',
             'application_deadline_visible_to_influencers',
             'target_influencer_age_ranges', 'target_influencer_collaboration_preferences',
-            'target_influencer_max_collab_amount'
+            'target_influencer_max_collab_amount',
+            'target_influencer_genders', 'target_influencer_locations'
         )
         extra_kwargs = {
             'title': {'required': True},
@@ -261,11 +262,13 @@ class CampaignListSerializer(serializers.ModelSerializer):
             'id', 'title', 'description', 'objectives', 'deal_type', 'deal_type_display',
             'cash_amount', 'total_value', 'application_deadline', 'campaign_live_date',
             'is_active', 'is_expired', 'days_until_deadline', 'created_at',
-            'brand_name', 'platforms_required', 'content_requirements',
+            'brand_name', 'platforms_required', 'content_requirements', 'special_instructions',
             'target_influencers', 'total_invited', 'industry', 'industries', 'content_categories', 'industry_key',
             'industry_name', 'execution_mode',
             'target_influencer_age_ranges', 'target_influencer_collaboration_preferences',
-            'target_influencer_max_collab_amount'
+            'target_influencer_max_collab_amount',
+            'products', 'barter_submission_after_days',
+            'target_influencer_genders', 'target_influencer_locations'
         )
         read_only_fields = ('id', 'total_value', 'is_expired', 'days_until_deadline', 'created_at')
 
@@ -352,11 +355,13 @@ class CampaignSerializer(serializers.ModelSerializer):
             'id', 'title', 'description', 'objectives', 'deal_type', 'deal_type_display',
             'cash_amount', 'total_value', 'application_deadline', 'submission_deadline', 'campaign_live_date',
             'is_active', 'is_expired', 'days_until_deadline', 'created_at',
-            'brand', 'platforms_required', 'content_requirements',
+            'brand', 'platforms_required', 'content_requirements', 'special_instructions',
             'target_influencers', 'deals', 'total_invited', 'total_accepted', 'total_completed', 'total_rejected',
             'industry', 'industries', 'content_categories', 'industry_key', 'industry_name', 'execution_mode',
             'target_influencer_age_ranges', 'target_influencer_collaboration_preferences',
-            'target_influencer_max_collab_amount'
+            'target_influencer_max_collab_amount',
+            'products', 'barter_submission_after_days',
+            'target_influencer_genders', 'target_influencer_locations'
         )
         read_only_fields = ('id', 'total_value', 'is_expired', 'days_until_deadline', 'created_at')
 
