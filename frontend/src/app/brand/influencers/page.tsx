@@ -36,7 +36,7 @@ import {api} from "@/lib/api";
 import {toast} from "@/lib/toast";
 import {GlobalLoader} from "@/components/ui/global-loader";
 import {CampaignSelectionDialog} from "@/components/campaigns/campaign-selection-dialog";
-import {MultiSelectSearch} from "@/components/ui/multi-select-search";
+import {MultiSelectOption, MultiSelectSearch} from "@/components/ui/multi-select-search";
 
 
 interface Influencer {
@@ -188,16 +188,20 @@ export default function InfluencerSearchPage() {
     });
 
     // Filter states
-    const [selectedPlatform, setSelectedPlatform] = useState("all");
-    const [locationFilter, setLocationFilter] = useState("All");
-    const [genderFilter, setGenderFilter] = useState("All");
+    const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>([]);
+    const [locationOptions, setLocationOptions] = useState<MultiSelectOption[]>([]);
+    const [selectedLocations, setSelectedLocations] = useState<string[]>([]);
+    const [genderFilters, setGenderFilters] = useState<string[]>([]);
     const [followerRange, setFollowerRange] = useState("All Followers");
     const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
-    const [categoryOptions, setCategoryOptions] = useState<string[]>([]);
-    const [selectedIndustry, setSelectedIndustry] = useState("All");
+    const [categoryOptions, setCategoryOptions] = useState<MultiSelectOption[]>([]);
+    const [pendingCampaignLocations, setPendingCampaignLocations] = useState<string[]>([]);
+    const [selectedIndustries, setSelectedIndustries] = useState<string[]>([]);
     const [industries, setIndustries] = useState<IndustryOption[]>([]);
     const [sortBy, setSortBy] = useState("followers");
     const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
+    const [sortCombined, setSortCombined] = useState<string>("followers_desc");
+    const [selectedCampaign, setSelectedCampaign] = useState<any | null>(null);
 
     // Save column visibility to localStorage
     useEffect(() => {
@@ -213,12 +217,12 @@ export default function InfluencerSearchPage() {
                 params: {
                     page: pageNum,
                     search: searchTerm,
-                    platform: selectedPlatform,
-                    location: locationFilter !== 'All' ? locationFilter : undefined,
-                    gender: genderFilter !== 'All' ? genderFilter : undefined,
+                    platforms: selectedPlatforms.length > 0 ? selectedPlatforms.join(',') : undefined,
+                    locations: selectedLocations.length > 0 ? selectedLocations.join(',') : undefined,
+                    genders: genderFilters.length > 0 ? genderFilters.join(',') : undefined,
                     follower_range: followerRange !== 'All Followers' ? followerRange : undefined,
                     categories: selectedCategories.length > 0 ? selectedCategories.join(',') : undefined,
-                    industry: selectedIndustry !== 'All' ? selectedIndustry : undefined,
+                    industries: selectedIndustries.length > 0 ? selectedIndustries.join(',') : undefined,
                     sort_by: sortBy,
                     sort_order: sortOrder,
                     age_range: ageRangesFilter.length === 1 ? ageRangesFilter[0] : undefined,
@@ -251,19 +255,19 @@ export default function InfluencerSearchPage() {
         } finally {
             setIsLoading(false);
         }
-    }, [searchTerm, selectedPlatform, locationFilter, genderFilter, followerRange, selectedCategories, selectedIndustry, sortBy, sortOrder, ageRangesFilter, collabPrefsFilter, maxCollabAmountFilter]);
+    }, [searchTerm, selectedPlatforms, selectedLocations, genderFilters, followerRange, selectedCategories, selectedIndustries, sortBy, sortOrder, ageRangesFilter, collabPrefsFilter, maxCollabAmountFilter]);
 
     // Sync filters and sorting to URL
     useEffect(() => {
         try {
             const params = new URLSearchParams();
             if (searchTerm) params.set('search', searchTerm);
-            if (selectedPlatform && selectedPlatform !== 'all') params.set('platform', selectedPlatform);
-            if (locationFilter && locationFilter !== 'All') params.set('location', locationFilter);
-            if (genderFilter && genderFilter !== 'All') params.set('gender', genderFilter);
+            if (selectedPlatforms.length > 0) params.set('platforms', selectedPlatforms.join(','));
+            if (selectedLocations.length > 0) params.set('locations', selectedLocations.join(','));
+            if (genderFilters.length > 0) params.set('genders', genderFilters.join(','));
             if (followerRange && followerRange !== 'All Followers') params.set('follower_range', followerRange);
             if (selectedCategories.length > 0) params.set('categories', selectedCategories.join(','));
-            if (selectedIndustry && selectedIndustry !== 'All') params.set('industry', selectedIndustry);
+            if (selectedIndustries.length > 0) params.set('industries', selectedIndustries.join(','));
             if (sortBy) params.set('sort_by', sortBy);
             if (sortOrder) params.set('sort_order', sortOrder);
             if (ageRangesFilter.length === 1) params.set('age_range', ageRangesFilter[0]);
@@ -274,7 +278,7 @@ export default function InfluencerSearchPage() {
             window.history.replaceState(null, '', url);
         } catch {
         }
-    }, [searchTerm, selectedPlatform, locationFilter, genderFilter, followerRange, selectedCategories, selectedIndustry, sortBy, sortOrder, ageRangesFilter, collabPrefsFilter, maxCollabAmountFilter]);
+    }, [searchTerm, selectedPlatforms, selectedLocations, genderFilters, followerRange, selectedCategories, selectedIndustries, sortBy, sortOrder, ageRangesFilter, collabPrefsFilter, maxCollabAmountFilter]);
 
     // Bookmark influencer
     const handleBookmark = async (influencerId: number) => {
@@ -480,8 +484,8 @@ export default function InfluencerSearchPage() {
         // Initialize from query params
         try {
             const params = new URLSearchParams(window.location.search);
-            const ind = params.get('industry');
-            if (ind) setSelectedIndustry(ind);
+            const inds = params.get('industries');
+            if (inds) setSelectedIndustries(inds.split(',').filter(Boolean));
             const cats = params.get('categories');
             if (cats) setSelectedCategories(cats.split(',').filter(Boolean));
         } catch {
@@ -491,7 +495,83 @@ export default function InfluencerSearchPage() {
             setIndustries(res.data?.industries || []);
         }).catch(() => {
         });
+        // Load content categories (all) from common; fallback to filters API
+        api.get('/common/content-categories/').then(res => {
+            const cats = res?.data?.result?.categories || res?.data?.categories || [];
+            const opts: MultiSelectOption[] = Array.isArray(cats)
+                ? cats.map((c: any) => {
+                    if (typeof c === 'string') return {value: c, label: c};
+                    const key = (c.key || '').toString();
+                    const label = (c.name || c.key || '').toString();
+                    return key ? {value: key, label} : null;
+                }).filter(Boolean) as MultiSelectOption[]
+                : [];
+            if (opts.length > 0) {
+                setCategoryOptions(opts);
+            } else {
+                // Fallback to filters endpoint structure
+                api.get('/influencers/filters/').then(r2 => {
+                    const cats2 = r2?.data?.filters?.categories || [];
+                    const opts2: MultiSelectOption[] = Array.isArray(cats2)
+                        ? cats2.map((n: any) => {
+                            const s = (typeof n === 'string' ? n : (n?.name || n?.key || '')) as string;
+                            return s ? {value: s, label: s} : null;
+                        }).filter(Boolean) as MultiSelectOption[]
+                        : [];
+                    setCategoryOptions(opts2);
+                }).catch(() => {
+                });
+            }
+        }).catch(() => {
+            api.get('/influencers/filters/').then(r2 => {
+                const cats2 = r2?.data?.filters?.categories || [];
+                const opts2: MultiSelectOption[] = Array.isArray(cats2)
+                    ? cats2.map((n: any) => {
+                        const s = (typeof n === 'string' ? n : (n?.name || n?.key || '')) as string;
+                        return s ? {value: s, label: s} : null;
+                    }).filter(Boolean) as MultiSelectOption[]
+                    : [];
+                setCategoryOptions(opts2);
+            }).catch(() => {
+            });
+        });
+        // Load influencer locations for multi-select
+        api.get('/common/influencer-locations/').then(res => {
+            const locations: Array<{ city: string; state?: string }>
+                = (res?.data?.locations || res?.data?.result?.locations || []);
+            const opts: MultiSelectOption[] = locations.map(loc => {
+                const city = (loc.city || '').trim();
+                const state = (loc.state || '').trim();
+                const label = state ? `${city}, ${state}` : city;
+                return {value: label, label};
+            });
+            setLocationOptions(opts);
+            // Apply pending campaign locations once options are available
+            if (pendingCampaignLocations.length > 0) {
+                const normalized = normalizeCampaignLocations(pendingCampaignLocations, opts);
+                setSelectedLocations(normalized);
+                setPendingCampaignLocations([]);
+            }
+        }).catch(() => {
+        });
     }, []);
+
+    const normalizeCampaignLocations = (rawList: string[], opts: MultiSelectOption[]) => {
+        const lowerToLabel = new Map<string, string>(opts.map(o => [o.label.toLowerCase(), o.label]));
+        const results: string[] = [];
+        for (const raw of rawList) {
+            let base = String(raw || '').trim();
+            // Support delimiter variants like "City||State" or "City, State, India"
+            base = base.replace(/\|\|/g, ', ');
+            base = base.replace(/,?\s*india$/i, '');
+            const parts = base.split(',').map(s => s.trim()).filter(Boolean);
+            let candidate = base;
+            if (parts.length >= 2) candidate = `${parts[0]}, ${parts[1]}`;
+            const match = lowerToLabel.get(candidate.toLowerCase());
+            results.push(match || candidate);
+        }
+        return results;
+    };
 
     useEffect(() => {
         setPage(1);
@@ -520,25 +600,25 @@ export default function InfluencerSearchPage() {
 
     const hasActiveFilters = useMemo(() => {
         return searchTerm !== "" ||
-            selectedPlatform !== "all" ||
-            locationFilter !== "All" ||
-            genderFilter !== "All" ||
+            selectedPlatforms.length > 0 ||
+            selectedLocations.length > 0 ||
+            genderFilters.length > 0 ||
             followerRange !== "All Followers" ||
             selectedCategories.length > 0 ||
-            selectedIndustry !== "All" ||
+            selectedIndustries.length > 0 ||
             ageRangesFilter.length > 0 ||
             collabPrefsFilter.length > 0 ||
             !!maxCollabAmountFilter;
-    }, [searchTerm, selectedPlatform, locationFilter, genderFilter, followerRange, selectedCategories, selectedIndustry, ageRangesFilter, collabPrefsFilter, maxCollabAmountFilter]);
+    }, [searchTerm, selectedPlatforms, selectedLocations, genderFilters, followerRange, selectedCategories, selectedIndustries, ageRangesFilter, collabPrefsFilter, maxCollabAmountFilter]);
 
     const clearAllFilters = () => {
         setSearchTerm("");
-        setSelectedPlatform("all");
-        setLocationFilter("All");
-        setGenderFilter("All");
+        setSelectedPlatforms([]);
+        setSelectedLocations([]);
+        setGenderFilters([]);
         setFollowerRange("All Followers");
         setSelectedCategories([]);
-        setSelectedIndustry("All");
+        setSelectedIndustries([]);
         setAgeRangesFilter([]);
         setCollabPrefsFilter([]);
         setMaxCollabAmountFilter("");
@@ -584,6 +664,8 @@ export default function InfluencerSearchPage() {
             </div>
         );
     };
+
+    const primaryPlatform = selectedPlatforms[0] || 'all';
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100">
@@ -637,7 +719,7 @@ export default function InfluencerSearchPage() {
                                 onClick={() => setShowImportDialog(true)}
                                 className="border border-gray-300 hover:border-gray-400"
                             >
-                                Import from Campaign
+                                {selectedCampaign ? `Using: ${selectedCampaign.title}` : 'Import from Campaign'}
                             </Button>
                         </div>
                     </div>
@@ -702,67 +784,41 @@ export default function InfluencerSearchPage() {
 
                         {/* Quick Filters Row */}
                         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2">
-                            {/* Platform Selector */}
+                            {/* Platforms (Multi-select) */}
                             <div className="space-y-1">
-                                <label className="text-xs font-medium text-gray-700">Platform</label>
-                                <Select value={selectedPlatform} onValueChange={setSelectedPlatform}>
-                                    <SelectTrigger className="h-8 text-xs border border-gray-300">
-                                        <SelectValue placeholder="All Platforms">
-                                            {selectedPlatform === 'all' ? (
-                                                <div className="flex items-center gap-2">
-                                                    <span>🌐</span>
-                                                    <span>All Platforms</span>
-                                                </div>
-                                            ) : (() => {
-                                                const config = getPlatformConfig(selectedPlatform);
-                                                const IconComponent = config?.icon;
-                                                return (
-                                                    <div className="flex items-center gap-2">
-                                                        {IconComponent && <IconComponent
-                                                            className={`w-4 h-4 ${config?.color || 'text-gray-600'}`}/>}
-                                                        <span>{config?.label || selectedPlatform}</span>
-                                                    </div>
-                                                );
-                                            })()}
-                                        </SelectValue>
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="all">
-                                            <div className="flex items-center gap-2">
-                                                <span>🌐</span>
-                                                <span>All Platforms</span>
-                                            </div>
-                                        </SelectItem>
-                                        {platformOptions.map((platform) => {
-                                            const IconComponent = platform.icon;
-                                            const config = getPlatformConfig(platform.value);
+                                <label className="text-xs font-medium text-gray-700">Platforms</label>
+                                <MultiSelectSearch
+                                    options={platformOptions.map(p => ({value: p.value, label: p.label}))}
+                                    value={selectedPlatforms}
+                                    onValueChange={setSelectedPlatforms}
+                                    placeholder="Select platforms"
+                                />
+                                {selectedPlatforms.length > 0 && (
+                                    <div className="flex flex-wrap gap-1 mt-1">
+                                        {selectedPlatforms.map(val => {
+                                            const cfg = getPlatformConfig(val);
+                                            const Icon = cfg?.icon;
                                             return (
-                                                <SelectItem key={platform.value} value={platform.value}>
-                                                    <div className="flex items-center gap-2">
-                                                        <IconComponent className={`w-4 h-4 ${config.color}`}/>
-                                                        <span>{platform.label}</span>
-                                                    </div>
-                                                </SelectItem>
+                                                <span key={val}
+                                                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md border text-xs bg-gray-50">
+                                                    {Icon && <Icon
+                                                        className={`w-3 h-3 ${cfg?.color || 'text-gray-600'}`}/>}<span>{cfg?.label || val}</span>
+                                                </span>
                                             );
                                         })}
-                                    </SelectContent>
-                                </Select>
+                                    </div>
+                                )}
                             </div>
 
-                            {/* Industry */}
+                            {/* Industry (Multi-select) */}
                             <div className="space-y-1">
-                                <label className="text-xs font-medium text-gray-700">Industry</label>
-                                <Select value={selectedIndustry} onValueChange={setSelectedIndustry}>
-                                    <SelectTrigger className="h-8 text-xs border border-gray-300">
-                                        <SelectValue placeholder="All Industries"/>
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="All">All Industries</SelectItem>
-                                        {industries.map((ind) => (
-                                            <SelectItem key={ind.key} value={ind.key}>{ind.name}</SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
+                                <label className="text-xs font-medium text-gray-700">Industries</label>
+                                <MultiSelectSearch
+                                    options={industries.map(ind => ({value: ind.key, label: ind.name}))}
+                                    value={selectedIndustries}
+                                    onValueChange={setSelectedIndustries}
+                                    placeholder="Select industries"
+                                />
                             </div>
 
                             {/* Followers */}
@@ -780,18 +836,27 @@ export default function InfluencerSearchPage() {
                                 </Select>
                             </div>
 
-                            {/* Sort By */}
+                            {/* Sort (combined) */}
                             <div className="space-y-1">
-                                <label className="text-xs font-medium text-gray-700">Sort By</label>
-                                <Select value={sortBy} onValueChange={setSortBy}>
+                                <label className="text-xs font-medium text-gray-700">Sort</label>
+                                <Select value={sortCombined} onValueChange={(val) => {
+                                    setSortCombined(val);
+                                    const [by, order] = val.split('_');
+                                    setSortBy(by);
+                                    setSortOrder(order as 'asc' | 'desc');
+                                }}>
                                     <SelectTrigger className="h-8 text-xs border border-gray-300">
                                         <SelectValue/>
                                     </SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value="followers">Followers</SelectItem>
-                                        <SelectItem value="engagement">Engagement</SelectItem>
-                                        <SelectItem value="rating">Rating</SelectItem>
-                                        <SelectItem value="posts">Posts</SelectItem>
+                                        <SelectItem value="followers_desc">Followers (High to Low)</SelectItem>
+                                        <SelectItem value="followers_asc">Followers (Low to High)</SelectItem>
+                                        <SelectItem value="engagement_desc">Engagement (High to Low)</SelectItem>
+                                        <SelectItem value="engagement_asc">Engagement (Low to High)</SelectItem>
+                                        <SelectItem value="rating_desc">Rating (High to Low)</SelectItem>
+                                        <SelectItem value="rating_asc">Rating (Low to High)</SelectItem>
+                                        <SelectItem value="posts_desc">Posts (High to Low)</SelectItem>
+                                        <SelectItem value="posts_asc">Posts (Low to High)</SelectItem>
                                     </SelectContent>
                                 </Select>
                             </div>
@@ -834,74 +899,46 @@ export default function InfluencerSearchPage() {
                             </div>
 
                             <div className="grid gap-3">
-                                {/* Categories */}
+                                {/* Categories (Multi-select) */}
                                 <div>
                                     <label className="block text-xs font-medium text-gray-700 mb-2">
                                         Content Categories
                                     </label>
-                                    <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
-                                        {categoryOptions.map(category => (
-                                            <div
-                                                key={category}
-                                                className={`px-2 py-1 rounded-md border cursor-pointer transition-all text-xs ${
-                                                    selectedCategories.includes(category)
-                                                        ? 'bg-indigo-50 border-indigo-300 text-indigo-700'
-                                                        : 'bg-gray-50 border-gray-200 hover:border-gray-300'
-                                                }`}
-                                                onClick={() => handleCategoryToggle(category)}
-                                            >
-                                                {category}
-                                            </div>
-                                        ))}
-                                    </div>
+                                    <MultiSelectSearch
+                                        options={categoryOptions}
+                                        value={selectedCategories}
+                                        onValueChange={setSelectedCategories}
+                                        placeholder="Select categories"
+                                    />
                                 </div>
 
                                 {/* Additional Filters */}
                                 <div className="grid md:grid-cols-3 gap-2">
                                     <div className="space-y-1">
-                                        <label className="text-xs font-medium text-gray-700">Location</label>
-                                        <Select value={locationFilter} onValueChange={setLocationFilter}>
-                                            <SelectTrigger className="h-8 text-xs border border-gray-300">
-                                                <SelectValue/>
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="All">All Locations</SelectItem>
-                                                <SelectItem value="India">India</SelectItem>
-                                                <SelectItem value="USA">USA</SelectItem>
-                                                <SelectItem value="UK">UK</SelectItem>
-                                                <SelectItem value="Canada">Canada</SelectItem>
-                                            </SelectContent>
-                                        </Select>
+                                        <label className="text-xs font-medium text-gray-700">Locations</label>
+                                        <MultiSelectSearch
+                                            options={locationOptions}
+                                            value={selectedLocations}
+                                            onValueChange={setSelectedLocations}
+                                            placeholder="Select locations"
+                                        />
                                     </div>
 
                                     <div className="space-y-1">
                                         <label className="text-xs font-medium text-gray-700">Gender</label>
-                                        <Select value={genderFilter} onValueChange={setGenderFilter}>
-                                            <SelectTrigger className="h-8 text-xs border border-gray-300">
-                                                <SelectValue/>
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="All">All</SelectItem>
-                                                <SelectItem value="Male">Male</SelectItem>
-                                                <SelectItem value="Female">Female</SelectItem>
-                                                <SelectItem value="Other">Other</SelectItem>
-                                            </SelectContent>
-                                        </Select>
+                                        <MultiSelectSearch
+                                            options={[
+                                                {value: 'male', label: 'Male'},
+                                                {value: 'female', label: 'Female'},
+                                                {value: 'other', label: 'Other'},
+                                            ]}
+                                            value={genderFilters}
+                                            onValueChange={setGenderFilters}
+                                            placeholder="Select genders"
+                                        />
                                     </div>
 
-                                    <div className="space-y-1">
-                                        <label className="text-xs font-medium text-gray-700">Sort Order</label>
-                                        <Select value={sortOrder}
-                                                onValueChange={(value: "asc" | "desc") => setSortOrder(value)}>
-                                            <SelectTrigger className="h-8 text-xs border border-gray-300">
-                                                <SelectValue/>
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="desc">Highest First</SelectItem>
-                                                <SelectItem value="asc">Lowest First</SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
+                                    <div className="space-y-1"/>
                                 </div>
 
                                 {/* Extended Filters */}
@@ -1071,7 +1108,7 @@ export default function InfluencerSearchPage() {
                                     </th>
                                 )}
                                 {/* Platform-specific columns */}
-                                {selectedPlatform === 'instagram' && (
+                                {primaryPlatform === 'instagram' && (
                                     <>
                                         <th className="px-3 py-2 text-left text-xs font-semibold text-gray-900">Avg
                                             Likes
@@ -1081,7 +1118,7 @@ export default function InfluencerSearchPage() {
                                         </th>
                                     </>
                                 )}
-                                {selectedPlatform === 'youtube' && (
+                                {primaryPlatform === 'youtube' && (
                                     <>
                                         <th className="px-3 py-2 text-left text-xs font-semibold text-gray-900">Subscribers</th>
                                         <th className="px-3 py-2 text-left text-xs font-semibold text-gray-900">Avg
@@ -1089,11 +1126,11 @@ export default function InfluencerSearchPage() {
                                         </th>
                                     </>
                                 )}
-                                {selectedPlatform === 'twitter' && (
+                                {primaryPlatform === 'twitter' && (
                                     <th className="px-3 py-2 text-left text-xs font-semibold text-gray-900">Followers
                                         (X)</th>
                                 )}
-                                {selectedPlatform === 'facebook' && (
+                                {primaryPlatform === 'facebook' && (
                                     <th className="px-3 py-2 text-left text-xs font-semibold text-gray-900">Page
                                         Likes</th>
                                 )}
@@ -1207,7 +1244,7 @@ export default function InfluencerSearchPage() {
                                         </td>
                                     )}
                                     {/* Platform-specific cells */}
-                                    {selectedPlatform === 'instagram' && (
+                                    {primaryPlatform === 'instagram' && (
                                         <>
                                             <td className="px-3 py-2"><span
                                                 className="text-gray-700 text-sm">{influencer.avg_likes || '0'}</span>
@@ -1217,7 +1254,7 @@ export default function InfluencerSearchPage() {
                                             </td>
                                         </>
                                     )}
-                                    {selectedPlatform === 'youtube' && (
+                                    {primaryPlatform === 'youtube' && (
                                         <>
                                             <td className="px-3 py-2"><span
                                                 className="text-gray-700 text-sm">{influencer.youtube_subscribers ?? '0'}</span>
@@ -1227,12 +1264,12 @@ export default function InfluencerSearchPage() {
                                             </td>
                                         </>
                                     )}
-                                    {selectedPlatform === 'twitter' && (
+                                    {primaryPlatform === 'twitter' && (
                                         <td className="px-3 py-2"><span
                                             className="text-gray-700 text-sm">{influencer.twitter_followers ?? '0'}</span>
                                         </td>
                                     )}
-                                    {selectedPlatform === 'facebook' && (
+                                    {primaryPlatform === 'facebook' && (
                                         <td className="px-3 py-2"><span
                                             className="text-gray-700 text-sm">{influencer.facebook_page_likes ?? '0'}</span>
                                         </td>
@@ -1525,9 +1562,82 @@ export default function InfluencerSearchPage() {
                             setAgeRangesFilter(ages);
                             setCollabPrefsFilter(prefs);
                             setMaxCollabAmountFilter(maxAmt ? String(maxAmt) : "");
+                            // Set preferred filters based on campaign
+                            if (Array.isArray(c.platforms_required)) setSelectedPlatforms(c.platforms_required);
+                            const inds = Array.isArray(c.industries) && c.industries.length > 0 ? c.industries : (c.industry ? [c.industry] : []);
+                            setSelectedIndustries(inds);
+                            if (Array.isArray(c.content_categories)) setSelectedCategories(c.content_categories);
+                            if (Array.isArray(c.target_influencer_genders)) setGenderFilters(c.target_influencer_genders);
+                            if (Array.isArray(c.target_influencer_locations)) {
+                                const locs: string[] = c.target_influencer_locations;
+                                setPendingCampaignLocations(locs);
+                                if (locationOptions.length > 0) {
+                                    setSelectedLocations(normalizeCampaignLocations(locs, locationOptions));
+                                    setPendingCampaignLocations([]);
+                                }
+                            }
+                            setSelectedCampaign(c);
                             toast.success('Filters imported from campaign');
                             setShowFilters(true);
-                            await fetchInfluencers(1, false);
+                            // Build params from selected campaign directly to avoid state sync timing
+                            const plat = Array.isArray(c.platforms_required) ? c.platforms_required : [];
+                            const industriesCsv = inds;
+                            const cats = Array.isArray(c.content_categories) ? c.content_categories : [];
+                            const gendersCsv = Array.isArray(c.target_influencer_genders) ? c.target_influencer_genders : [];
+                            const locationsCsv = Array.isArray(c.target_influencer_locations) ? c.target_influencer_locations : [];
+
+                            const baseParams = {
+                                search: searchTerm,
+                                platforms: plat.length > 0 ? plat.join(',') : undefined,
+                                locations: locationsCsv.length > 0 ? locationsCsv.join(',') : undefined,
+                                genders: gendersCsv.length > 0 ? gendersCsv.join(',') : undefined,
+                                follower_range: followerRange !== 'All Followers' ? followerRange : undefined,
+                                categories: cats.length > 0 ? cats.join(',') : undefined,
+                                industries: industriesCsv.length > 0 ? industriesCsv.join(',') : undefined,
+                                sort_by: sortBy,
+                                sort_order: sortOrder,
+                                age_range: ages.length === 1 ? ages[0] : undefined,
+                                collaboration_preferences: prefs.length > 0 ? prefs.join(',') : undefined,
+                                max_collab_amount: maxAmt ? String(maxAmt) : undefined,
+                            } as any;
+
+                            // Initial fetch page 1
+                            let currentPage = 1;
+                            const firstResp = await api.get('/influencers/search/', {
+                                params: {
+                                    ...baseParams,
+                                    page: currentPage
+                                }
+                            });
+                            const firstResults = firstResp.data.results || [];
+                            const firstPagination = firstResp.data.pagination || {};
+                            setInfluencers(firstResults);
+                            setHasMore(firstPagination.has_next || false);
+                            setPage(firstPagination.page || currentPage);
+                            setTotalPages(firstPagination.total_pages || 1);
+                            setTotalCount(firstPagination.total_count || 0);
+
+                            // Auto-fetch until target influencers (soft cap)
+                            const target = Number(c.target_influencers) || 0;
+                            // Avoid tight loop; cap at 50 pages
+                            while (target > 0 && firstResults.length + (currentPage - 1) * (firstPagination.page_size || 0) < target && (currentPage < (firstPagination.total_pages || 1))) {
+                                currentPage += 1;
+                                try {
+                                    const response = await api.get('/influencers/search/', {
+                                        params: {...baseParams, page: currentPage}
+                                    });
+                                    const newInfluencers = response.data.results || [];
+                                    if (newInfluencers.length === 0) break;
+                                    setInfluencers(prev => [...prev, ...newInfluencers]);
+                                    const pagination = response.data.pagination || {};
+                                    setHasMore(pagination.has_next || false);
+                                    setPage(pagination.page || currentPage);
+                                    setTotalPages(pagination.total_pages || 1);
+                                    setTotalCount(pagination.total_count || 0);
+                                } catch {
+                                    break;
+                                }
+                            }
                         } catch (e: any) {
                             toast.error('Failed to import filters');
                         }
