@@ -19,13 +19,16 @@ from common.decorators import (
 )
 from common.cache_utils import CacheManager
 
+from communications.social_scraping_service import get_social_scraping_service
+
 from .serializers import (
     InfluencerProfileSerializer,
     InfluencerProfileUpdateSerializer,
     SocialMediaAccountSerializer,
     ProfileImageUploadSerializer,
     DocumentUploadSerializer,
-    BankDetailsSerializer
+    BankDetailsSerializer,
+    InfluencerPublicProfileSerializer,
 )
 from .models import InfluencerProfile, SocialMediaAccount
 from deals.models import Deal
@@ -1060,13 +1063,40 @@ def public_influencer_profile_view(request, influencer_id):
                 'message': 'Access denied. Invalid user type.'
             }, status=status.HTTP_403_FORBIDDEN)
 
+        scraping_service = get_social_scraping_service()
+        auto_refreshed_platforms = []
+        auto_refresh_errors = {}
+
+        for account in influencer_profile.social_accounts.all():
+            try:
+                if scraping_service.needs_refresh(account):
+                    logger.info(
+                        "Auto-refresh triggered for %s/%s via public profile view",
+                        account.platform,
+                        account.handle,
+                    )
+                    scraping_service.queue_scrape_request(account)
+                    scraping_service.sync_account(account, force=True)
+                    auto_refreshed_platforms.append(account.platform)
+            except Exception as exc:
+                logger.exception(
+                    "Auto-refresh failed for %s/%s via public profile view",
+                    account.platform,
+                    account.handle,
+                )
+                auto_refresh_errors[account.platform] = str(exc)
+
         # Serialize the profile data
         from .serializers import InfluencerPublicProfileSerializer
         serializer = InfluencerPublicProfileSerializer(influencer_profile, context={'request': request})
 
         return Response({
             'status': 'success',
-            'influencer': serializer.data
+            'influencer': serializer.data,
+            'auto_refresh': {
+                'platforms': auto_refreshed_platforms,
+                'errors': auto_refresh_errors or None,
+            } if auto_refreshed_platforms or auto_refresh_errors else None,
         }, status=status.HTTP_200_OK)
 
     except InfluencerProfile.DoesNotExist:
@@ -1077,6 +1107,66 @@ def public_influencer_profile_view(request, influencer_id):
             'status': 'error',
             'message': 'Failed to load influencer profile.'
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+@user_rate_limit(requests_per_minute=10)
+@log_performance(threshold=1.0)
+def refresh_influencer_profile_view(request, influencer_id):
+    """
+    Force a fresh scrape and update for an influencer's social media accounts.
+    If an account has not been synced within the refresh threshold, a new scrape
+    request is also queued for background workers.
+    """
+    influencer_profile = get_object_or_404(InfluencerProfile, id=influencer_id, user__is_active=True)
+
+    # Permission check mirrors public profile access
+    if hasattr(request.user, 'brand_user') and request.user.brand_user:
+        pass
+    elif hasattr(request.user, 'influencer_profile') and request.user.influencer_profile:
+        if request.user.influencer_profile.id != int(influencer_id):
+            return Response({
+                'status': 'error',
+                'message': 'You can only refresh your own profile.'
+            }, status=status.HTTP_403_FORBIDDEN)
+    else:
+        return Response({
+            'status': 'error',
+            'message': 'Access denied. Invalid user type.'
+        }, status=status.HTTP_403_FORBIDDEN)
+
+    scraping_service = get_social_scraping_service()
+    queued_requests = []
+    refreshed_platforms = []
+    errors = {}
+
+    for account in influencer_profile.social_accounts.all():
+        try:
+            if scraping_service.needs_refresh(account):
+                message_id = scraping_service.queue_scrape_request(account) or ''
+                queued_requests.append({
+                    'platform': account.platform,
+                    'handle': account.handle,
+                    'message_id': message_id,
+                })
+
+            scraping_service.sync_account(account, force=True)
+            refreshed_platforms.append(account.platform)
+        except Exception as exc:
+            logger.exception("Failed to refresh account %s/%s", account.platform, account.handle)
+            errors[account.platform] = str(exc)
+
+    serializer = InfluencerPublicProfileSerializer(influencer_profile, context={'request': request})
+    response_status = status.HTTP_200_OK if not errors else status.HTTP_207_MULTI_STATUS
+
+    return Response({
+        'status': 'success' if not errors else 'partial',
+        'influencer': serializer.data,
+        'queued_requests': queued_requests,
+        'refreshed_platforms': refreshed_platforms,
+        'errors': errors or None,
+    }, status=response_status)
 
 
 @api_view(['POST'])

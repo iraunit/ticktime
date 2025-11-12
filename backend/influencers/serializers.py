@@ -713,11 +713,9 @@ class SocialMediaAccountDetailSerializer(serializers.ModelSerializer):
             'id', 'platform', 'handle', 'profile_url', 'platform_handle', 'platform_profile_link',
             'followers_count', 'following_count', 'posts_count', 'engagement_rate',
             'average_likes', 'average_comments', 'average_shares',
-            'subscribers_count', 'page_likes', 'page_followers',
-            'twitter_followers', 'twitter_following', 'tweets_count',
-            'tiktok_followers', 'tiktok_following', 'tiktok_likes', 'tiktok_videos',
-            'average_video_views', 'average_reel_plays', 'verified', 'is_active',
-            'last_posted_at', 'follower_growth_rate'
+            'average_video_views', 'average_video_likes', 'average_video_comments',
+            'engagement_snapshot', 'verified', 'is_active',
+            'last_posted_at', 'last_synced_at', 'follower_growth_rate'
         )
 
 
@@ -827,7 +825,7 @@ class InfluencerSearchSerializer(serializers.ModelSerializer):
         """Get Twitter followers count"""
         twitter_account = obj.social_accounts.filter(platform='twitter', is_active=True).first()
         if twitter_account:
-            return self._format_number(twitter_account.twitter_followers or twitter_account.followers_count)
+            return self._format_number(twitter_account.followers_count)
         return "0"
 
     def get_twitter_handle(self, obj):
@@ -844,7 +842,7 @@ class InfluencerSearchSerializer(serializers.ModelSerializer):
         """Get YouTube subscribers count"""
         youtube_account = obj.social_accounts.filter(platform='youtube', is_active=True).first()
         if youtube_account:
-            return self._format_number(youtube_account.subscribers_count or youtube_account.followers_count)
+            return self._format_number(youtube_account.followers_count)
         return "0"
 
     def get_youtube_handle(self, obj):
@@ -861,7 +859,7 @@ class InfluencerSearchSerializer(serializers.ModelSerializer):
         """Get Facebook page likes"""
         facebook_account = obj.social_accounts.filter(platform='facebook', is_active=True).first()
         if facebook_account:
-            return self._format_number(facebook_account.page_likes or facebook_account.followers_count)
+            return self._format_number(facebook_account.followers_count)
         return "0"
 
     def get_facebook_handle(self, obj):
@@ -1037,14 +1035,10 @@ class SocialAccountPublicSerializer(serializers.ModelSerializer):
             'id', 'platform', 'handle', 'username', 'followers_count', 'following_count', 'posts_count',
             'engagement_rate', 'average_likes', 'average_comments', 'average_shares',
             'platform_handle', 'platform_profile_link', 'is_active', 'verified',
-            # Platform-specific metrics
-            'average_image_likes', 'average_image_comments', 'average_reel_plays', 'average_reel_likes',
-            'average_reel_comments',
-            'average_video_views', 'average_shorts_plays', 'average_shorts_likes', 'average_shorts_comments',
-            'subscribers_count',
-            'page_likes', 'page_followers', 'twitter_followers', 'twitter_following', 'tweets_count',
-            'tiktok_followers', 'tiktok_following', 'tiktok_likes', 'tiktok_videos',
-            'follower_growth_rate', 'subscriber_growth_rate', 'last_posted_at', 'post_performance_score'
+            'average_video_views', 'average_video_likes', 'average_video_comments',
+            'engagement_snapshot', 'follower_growth_rate', 'subscriber_growth_rate',
+            'last_synced_at',
+            'last_posted_at', 'post_performance_score'
         )
 
 

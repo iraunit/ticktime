@@ -11,6 +11,7 @@ import {api} from "@/lib/api";
 import {CampaignSelectionDialog} from "@/components/campaigns/campaign-selection-dialog";
 import {
     HiArrowLeft,
+    HiArrowPath,
     HiArrowTrendingDown,
     HiArrowTrendingUp,
     HiChatBubbleLeft,
@@ -84,6 +85,22 @@ interface PerformanceMetrics {
     total_earnings: number;
 }
 
+interface EngagementSnapshot {
+    post_engagement_rate?: number;
+    video_engagement_rate?: number;
+    overall_engagement_rate?: number;
+    average_post_likes?: number;
+    average_post_comments?: number;
+    average_video_likes?: number;
+    average_video_comments?: number;
+    average_video_views?: number;
+    post_expected_comments?: number;
+    video_expected_comments?: number;
+    video_expected_views?: number;
+    posts_considered?: number;
+    videos_considered?: number;
+}
+
 interface SocialAccount {
     id: number;
     platform: string;
@@ -99,44 +116,17 @@ interface SocialAccount {
     average_likes: number;
     average_comments: number;
     average_shares: number;
+    average_video_views?: number;
+    average_video_likes?: number;
+    average_video_comments?: number;
     is_active: boolean;
     verified: boolean;
-
-    // Platform-specific metrics
-    // Instagram
-    average_image_likes?: number;
-    average_image_comments?: number;
-    average_reel_plays?: number;
-    average_reel_likes?: number;
-    average_reel_comments?: number;
-
-    // YouTube
-    average_video_views?: number;
-    average_shorts_plays?: number;
-    average_shorts_likes?: number;
-    average_shorts_comments?: number;
-    subscribers_count?: number;
-
-    // TikTok
-    tiktok_followers?: number;
-    tiktok_following?: number;
-    tiktok_likes?: number;
-    tiktok_videos?: number;
-
-    // Twitter
-    twitter_followers?: number;
-    twitter_following?: number;
-    tweets_count?: number;
-
-    // Facebook
-    page_likes?: number;
-    page_followers?: number;
-
-    // Growth metrics
     follower_growth_rate?: number;
     subscriber_growth_rate?: number;
     last_posted_at?: string;
+    last_synced_at?: string;
     post_performance_score?: number;
+    engagement_snapshot?: EngagementSnapshot;
 }
 
 interface Collaboration {
@@ -159,6 +149,7 @@ export default function InfluencerProfilePage() {
     const [error, setError] = useState<string | null>(null);
     const [isBookmarked, setIsBookmarked] = useState(false);
     const [isBookmarking, setIsBookmarking] = useState(false);
+    const [isRefreshing, setIsRefreshing] = useState(false);
 
     const fetchProfile = async () => {
         setIsLoading(true);
@@ -248,6 +239,18 @@ export default function InfluencerProfilePage() {
         });
     };
 
+    const formatDateTime = (dateString: string) => {
+        if (!dateString) return 'Unknown';
+        const date = new Date(dateString);
+        return date.toLocaleString('en-US', {
+            day: 'numeric',
+            month: 'short',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+    };
+
     const getStatusBadge = (status: string) => {
         const colors: { [key: string]: string } = {
             active: 'bg-blue-100 text-blue-800',
@@ -305,63 +308,84 @@ export default function InfluencerProfilePage() {
 
     const getPlatformSpecificMetrics = (account: SocialAccount) => {
         const metrics = [];
+        const snapshot = account.engagement_snapshot || {};
 
-        switch (account.platform) {
-            case 'instagram':
-                if (account.average_reel_plays) {
-                    metrics.push({
-                        label: 'Avg Reel Plays',
-                        value: formatFollowers(account.average_reel_plays),
-                        icon: HiPlay
-                    });
-                }
-                if (account.average_image_likes) {
-                    metrics.push({
-                        label: 'Avg Image Likes',
-                        value: formatFollowers(account.average_image_likes),
-                        icon: HiHeart
-                    });
-                }
-                break;
-            case 'youtube':
-                if (account.average_video_views) {
-                    metrics.push({
-                        label: 'Avg Video Views',
-                        value: formatFollowers(account.average_video_views),
-                        icon: HiEye
-                    });
-                }
-                if (account.subscribers_count) {
-                    metrics.push({
-                        label: 'Subscribers',
-                        value: formatFollowers(account.subscribers_count),
-                        icon: HiUsers
-                    });
-                }
-                if (account.average_shorts_plays) {
-                    metrics.push({
-                        label: 'Avg Shorts Plays',
-                        value: formatFollowers(account.average_shorts_plays),
-                        icon: HiPlay
-                    });
-                }
-                break;
-            case 'tiktok':
-                if (account.tiktok_likes) {
-                    metrics.push({label: 'Total Likes', value: formatFollowers(account.tiktok_likes), icon: HiHeart});
-                }
-                if (account.tiktok_videos) {
-                    metrics.push({label: 'Videos', value: account.tiktok_videos.toString(), icon: HiPlay});
-                }
-                break;
-            case 'twitter':
-                if (account.tweets_count) {
-                    metrics.push({label: 'Tweets', value: account.tweets_count.toString(), icon: HiChatBubbleLeft});
-                }
-                break;
+        if (snapshot.post_engagement_rate) {
+            metrics.push({
+                label: 'Post ER',
+                value: `${snapshot.post_engagement_rate.toFixed(2)}%`,
+                icon: HiArrowTrendingUp
+            });
+        }
+
+        if (snapshot.video_engagement_rate) {
+            metrics.push({
+                label: 'Video ER',
+                value: `${snapshot.video_engagement_rate.toFixed(2)}%`,
+                icon: HiPlay
+            });
+        }
+
+        if (snapshot.average_post_likes) {
+            metrics.push({
+                label: 'Avg Post Likes',
+                value: formatFollowers(Math.round(snapshot.average_post_likes)),
+                icon: HiHeart
+            });
+        }
+
+        if (snapshot.average_post_comments) {
+            metrics.push({
+                label: 'Avg Post Comments',
+                value: formatFollowers(Math.round(snapshot.average_post_comments)),
+                icon: HiChatBubbleLeft
+            });
+        }
+
+        if (account.average_video_views) {
+            metrics.push({
+                label: 'Avg Video Views',
+                value: formatFollowers(account.average_video_views),
+                icon: HiEye
+            });
+        }
+
+        if (account.average_video_likes) {
+            metrics.push({
+                label: 'Avg Video Likes',
+                value: formatFollowers(account.average_video_likes),
+                icon: HiHeart
+            });
+        }
+
+        if (account.average_video_comments) {
+            metrics.push({
+                label: 'Avg Video Comments',
+                value: formatFollowers(account.average_video_comments),
+                icon: HiChatBubbleLeft
+            });
         }
 
         return metrics;
+    };
+
+    const handleRefresh = async () => {
+        if (!influencerId) return;
+        setIsRefreshing(true);
+        try {
+            const response = await api.post(`/influencers/${influencerId}/refresh/`);
+            const updatedProfile = response.data?.influencer;
+            if (updatedProfile) {
+                setProfile(updatedProfile);
+            }
+            toast.success('Profile refreshed');
+        } catch (error: any) {
+            console.error('Failed to refresh influencer profile:', error);
+            const message = error?.response?.data?.message || 'Failed to refresh profile.';
+            toast.error(message);
+        } finally {
+            setIsRefreshing(false);
+        }
     };
 
 
@@ -410,6 +434,17 @@ export default function InfluencerProfilePage() {
                                     Verified
                                 </Badge>
                             )}
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={handleRefresh}
+                                disabled={isRefreshing}
+                                className="flex items-center gap-2"
+                            >
+                                <HiArrowPath
+                                    className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`}/>
+                                {isRefreshing ? 'Refreshing...' : 'Refresh Data'}
+                            </Button>
                         </div>
                     </div>
                 </div>
@@ -626,6 +661,12 @@ export default function InfluencerProfilePage() {
                                                         <div className="text-xs text-gray-500">Posts</div>
                                                     </div>
                                                 </div>
+
+                                                {account.last_synced_at && (
+                                                    <p className="text-xs text-gray-500 mb-3">
+                                                        Last synced: {formatDateTime(account.last_synced_at)}
+                                                    </p>
+                                                )}
 
                                                 <div className="flex gap-2">
                                                     <Button
