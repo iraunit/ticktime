@@ -1288,60 +1288,49 @@ export default function InfluencerProfilePage() {
                             </CardContent>
                         </Card>
 
-                        {/* Content Keywords & Hashtags */}
-                        {(safeArray(profile.hashtags_used).length > 0 || safeArray(profile.content_keywords).length > 0) && (
+                        {/* Recent Hashtags */}
+                        {(() => {
+                            const recentHashtags = getRecentHashtagsFromPosts(safeArray(profile.recent_posts));
+                            const hashtags =
+                                recentHashtags.length > 0 ? recentHashtags : safeArray(profile.hashtags_used);
+                            return hashtags.length > 0;
+                        })() && (
                         <Card className="border border-gray-200">
                             <CardHeader className="pb-4">
                                 <CardTitle className="text-lg font-semibold text-gray-900">
-                                    Content Analysis
+                                    Hashtag Highlights
                                 </CardTitle>
                             </CardHeader>
                             <CardContent>
-                                <div className="space-y-4">
-                                    {/* Hashtags */}
-                                    <div>
-                                        <h4 className="font-medium text-gray-900 mb-2 text-sm">Recent Hashtags</h4>
-                                        {(() => {
-                                            const recent = getRecentHashtagsFromPosts(safeArray(profile.recent_posts));
-                                            const hashtags = recent.length > 0 ? recent : safeArray(profile.hashtags_used);
-                                            return hashtags.length > 0 ? (
-                                                <div className="flex flex-wrap gap-1">
-                                                    {hashtags.slice(0, 16).map((hashtag, index) => (
-                                                        <Badge
-                                                            key={index}
-                                                            variant="outline"
-                                                            className="text-xs"
-                                                        >
-                                                            {hashtag.tag} ({hashtag.count})
-                                                        </Badge>
-                                                    ))}
-                                                </div>
-                                            ) : (
-                                                <p className="text-xs text-gray-500">No hashtags available</p>
-                                            );
-                                        })()}
-                                    </div>
+                                {(() => {
+                                    const recent = getRecentHashtagsFromPosts(safeArray(profile.recent_posts));
+                                    const hashtags = (recent.length > 0 ? recent : safeArray(profile.hashtags_used)).sort(
+                                        (a, b) => (b.count || 0) - (a.count || 0)
+                                    );
+                                    if (hashtags.length === 0) {
+                                        return <p className="text-xs text-gray-500">No hashtags available</p>;
+                                    }
 
-                                    {/* Content Keywords */}
-                                    <div>
-                                        <h4 className="font-medium text-gray-900 mb-2 text-sm">Content Keywords</h4>
-                                        {safeArray(profile.content_keywords).length > 0 ? (
-                                            <div className="flex flex-wrap gap-1">
-                                                {safeArray(profile.content_keywords).slice(0, 10).map((keyword, index) => (
-                                                    <Badge
-                                                        key={index}
-                                                        variant="secondary"
-                                                        className="text-xs"
-                                                    >
-                                                        {keyword}
-                                                    </Badge>
-                                                ))}
-                                            </div>
-                                        ) : (
-                                            <p className="text-xs text-gray-500">No keywords available</p>
-                                        )}
-                                    </div>
-                                </div>
+                                    return (
+                                        <div className="flex flex-wrap gap-2">
+                                            {hashtags.slice(0, 16).map((hashtag, index) => (
+                                                <div
+                                                    key={index}
+                                                    className="flex items-center gap-2 rounded-full border border-gray-200 bg-gray-50 px-3 py-1 text-xs text-gray-700"
+                                                >
+                                                    <span className="font-semibold text-gray-900">
+                                                        #{hashtag.tag.replace(/^#/, '')}
+                                                    </span>
+                                                    {hashtag.count !== undefined && hashtag.count !== null && (
+                                                        <span className="text-[11px] text-gray-500">
+                                                            ({hashtag.count})
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    );
+                                })()}
                             </CardContent>
                         </Card>
                         )}
@@ -1558,7 +1547,7 @@ export default function InfluencerProfilePage() {
                                         <div className="flex justify-between">
                                             <span className="text-gray-500">Platform Score:</span>
                                             <span className="font-medium">
-                                                {formatScore(platformScoreValue)}
+                                                {formatScore(platformScoreValue)}/10
                                             </span>
                                         </div>
                                     )}
@@ -1575,8 +1564,9 @@ export default function InfluencerProfilePage() {
                                     {averageRatingValue !== null && (
                                         <div className="flex justify-between">
                                             <span className="text-gray-500">Avg Rating:</span>
-                                            <span className="font-medium">
+                                            <span className="font-medium text-gray-900 inline-flex items-center gap-1">
                                                 {formatDecimal(averageRatingValue, 1)}
+                                                <HiStar className="h-4 w-4 text-yellow-500" />
                                             </span>
                                         </div>
                                     )}
