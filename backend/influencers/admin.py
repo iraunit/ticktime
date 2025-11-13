@@ -3,7 +3,13 @@ from django.db.models import Q
 from django.utils.html import format_html
 from users.models import UserProfile
 
-from .models import InfluencerProfile, SocialMediaAccount, InfluencerAudienceInsight, InfluencerCategoryScore
+from .models import (
+    InfluencerProfile,
+    SocialMediaAccount,
+    SocialMediaPost,
+    InfluencerAudienceInsight,
+    InfluencerCategoryScore,
+)
 
 
 @admin.register(InfluencerProfile)
@@ -354,6 +360,32 @@ class SocialMediaAccountInline(admin.TabularInline):
     fields = ['platform', 'handle', 'followers_count', 'engagement_rate', 'verified', 'is_active']
 
 
+class SocialMediaPostInline(admin.TabularInline):
+    model = SocialMediaPost
+    extra = 0
+    fields = [
+        'platform_post_id',
+        'platform',
+        'posted_at',
+        'post_type',
+        'likes_count',
+        'comments_count',
+        'views_count',
+        'shares_count',
+    ]
+    readonly_fields = [
+        'platform_post_id',
+        'platform',
+        'posted_at',
+        'post_type',
+        'likes_count',
+        'comments_count',
+        'views_count',
+        'shares_count',
+    ]
+    ordering = ['-posted_at']
+
+
 @admin.register(SocialMediaAccount)
 class SocialMediaAccountAdmin(admin.ModelAdmin):
     list_display = [
@@ -362,6 +394,8 @@ class SocialMediaAccountAdmin(admin.ModelAdmin):
     ]
     list_filter = ['platform', 'verified', 'is_active', 'created_at']
     search_fields = ['influencer__username', 'handle', 'profile_url']
+
+    inlines = [SocialMediaPostInline]
 
     def influencer_username(self, obj):
         return obj.influencer.username
@@ -427,5 +461,55 @@ class InfluencerCategoryScoreAdmin(admin.ModelAdmin):
 
     def influencer_username(self, obj):
         return obj.influencer.username
+
+    influencer_username.short_description = 'Influencer'
+
+
+@admin.register(SocialMediaPost)
+class SocialMediaPostAdmin(admin.ModelAdmin):
+    list_display = [
+        'platform_post_id',
+        'platform',
+        'account_handle',
+        'influencer_username',
+        'posted_at',
+        'likes_count',
+        'comments_count',
+        'views_count',
+        'shares_count',
+    ]
+    list_filter = ['platform', 'posted_at']
+    search_fields = [
+        'platform_post_id',
+        'account__handle',
+        'account__influencer__username',
+        'caption',
+    ]
+    readonly_fields = [
+        'account',
+        'platform',
+        'platform_post_id',
+        'post_url',
+        'post_type',
+        'caption',
+        'hashtags',
+        'mentions',
+        'posted_at',
+        'likes_count',
+        'comments_count',
+        'views_count',
+        'shares_count',
+        'raw_data',
+        'last_fetched_at',
+    ]
+    ordering = ['-posted_at']
+
+    def account_handle(self, obj):
+        return obj.account.handle
+
+    account_handle.short_description = 'Account'
+
+    def influencer_username(self, obj):
+        return obj.account.influencer.username
 
     influencer_username.short_description = 'Influencer'

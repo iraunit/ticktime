@@ -2,6 +2,7 @@ import logging
 
 from common.api_response import api_response, format_serializer_errors
 from django.db import models
+from django.db.models import Prefetch
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
@@ -30,7 +31,7 @@ from .serializers import (
     BankDetailsSerializer,
     InfluencerPublicProfileSerializer,
 )
-from .models import InfluencerProfile, SocialMediaAccount
+from .models import InfluencerProfile, SocialMediaAccount, SocialMediaPost
 from deals.models import Deal
 from common.models import PLATFORM_CHOICES
 
@@ -1043,7 +1044,27 @@ def public_influencer_profile_view(request, influencer_id):
     """
     try:
         # Get the requested influencer profile
-        influencer_profile = get_object_or_404(InfluencerProfile, id=influencer_id, user__is_active=True)
+        recent_posts_prefetch = Prefetch(
+            'posts',
+            queryset=SocialMediaPost.objects.order_by('-posted_at', '-last_fetched_at')[:10],
+            to_attr='recent_posts_prefetched',
+        )
+
+        social_accounts_prefetch = Prefetch(
+            'social_accounts',
+            queryset=SocialMediaAccount.objects.select_related('influencer').prefetch_related(recent_posts_prefetch),
+        )
+
+        base_queryset = InfluencerProfile.objects.select_related('user', 'industry').prefetch_related(
+            'categories',
+            social_accounts_prefetch,
+        )
+
+        influencer_profile = get_object_or_404(
+            base_queryset,
+            id=influencer_id,
+            user__is_active=True,
+        )
 
         # Check permissions based on user type
         if hasattr(request.user, 'brand_user') and request.user.brand_user:
