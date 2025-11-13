@@ -174,7 +174,7 @@ def invite_brand_user_view(request):
                 email=email,
                 first_name=first_name,
                 last_name=last_name,
-                is_active=False  # Will be activated when they accept invitation
+                is_active=True
             )
 
             # Create UserProfile for the new user
