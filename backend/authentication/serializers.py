@@ -315,36 +315,16 @@ class ForgotPasswordSerializer(serializers.Serializer):
     """
     email = serializers.EmailField()
 
-    def validate_email(self, value):
-        """Check that user exists with this email."""
-        try:
-            User.objects.get(email=value)
-        except User.DoesNotExist:
-            raise serializers.ValidationError(
-                "No account found with this email address."
-            )
-        return value
-
 
 class ResetPasswordSerializer(serializers.Serializer):
     """
     Serializer for password reset confirmation.
     """
     token = serializers.CharField()
-    uid = serializers.CharField()
-    new_password = serializers.CharField(
+    password = serializers.CharField(
         write_only=True,
         validators=[validate_password]
     )
-    confirm_password = serializers.CharField(write_only=True)
-
-    def validate(self, attrs):
-        """Validate password confirmation."""
-        if attrs['new_password'] != attrs['confirm_password']:
-            raise serializers.ValidationError(
-                "Password confirmation doesn't match."
-            )
-        return attrs
 
 
 class VerifyEmailSerializer(serializers.Serializer):

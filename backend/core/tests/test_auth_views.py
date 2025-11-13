@@ -1,4 +1,5 @@
 import pytest
+from unittest.mock import MagicMock, patch
 from django.urls import reverse
 from django.contrib.auth import get_user_model
 from django.core import mail
@@ -179,23 +180,32 @@ class TestAuthViews:
         """Test forgot password functionality."""
         url = reverse('forgot-password')
         data = {'email': user.email}
-        
-        response = api_client.post(url, data, format='json')
-        
+        success_message = 'If an account with that email exists, a password reset link has been sent.'
+
+        with patch('authentication.views.get_email_service') as mock_get_service:
+            email_service = MagicMock()
+            email_service.send_password_reset_email.return_value = True
+            mock_get_service.return_value = email_service
+
+            response = api_client.post(url, data, format='json')
+
         assert response.status_code == status.HTTP_200_OK
-        assert 'Password reset email sent' in response.data['message']
-        
-        # Check email was sent
-        assert len(mail.outbox) == 1
-        assert 'Password Reset' in mail.outbox[0].subject
+        assert response.data['message'] == success_message
+        email_service.send_password_reset_email.assert_called_once()
 
     def test_forgot_password_nonexistent_email(self, api_client):
         """Test forgot password with non-existent email."""
         url = reverse('forgot-password')
         data = {'email': 'nonexistent@example.com'}
-        
-        response = api_client.post(url, data, format='json')
-        
+        success_message = 'If an account with that email exists, a password reset link has been sent.'
+
+        with patch('authentication.views.get_email_service') as mock_get_service:
+            email_service = MagicMock()
+            mock_get_service.return_value = email_service
+
+            response = api_client.post(url, data, format='json')
+
         # Should still return success for security reasons
         assert response.status_code == status.HTTP_200_OK
-        assert len(mail.outbox) == 0
+        assert response.data['message'] == success_message
+        email_service.send_password_reset_email.assert_not_called()

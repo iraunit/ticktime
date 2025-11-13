@@ -2,8 +2,10 @@ import logging
 from typing import Optional, Dict, Any
 
 from django.conf import settings
+from django.core.mail import EmailMultiAlternatives
 from django.template.loader import render_to_string
 from django.utils import timezone
+from django.utils.html import strip_tags
 
 from .models import EmailVerificationToken
 from .rabbitmq_service import get_rabbitmq_service
@@ -135,6 +137,60 @@ class EmailService:
 
         except Exception as e:
             logger.error(f"Failed to send verification email to {user.email}: {str(e)}")
+            return False
+
+    def send_password_reset_email(
+            self,
+            user,
+            reset_url: str,
+            expires_hours: int = 24
+    ) -> bool:
+        """
+        Send password reset email with secure link.
+        """
+        try:
+            subject = 'Reset Your TickTime Password'
+            context = {
+                'user': user,
+                'reset_url': reset_url,
+                'expires_hours': expires_hours,
+            }
+            html_body = self.render_email_template('password_reset.html', context)
+
+            if not html_body:
+                logger.error(f"Failed to render password reset email for {user.email}")
+                return False
+
+            message_id = self.queue_email(
+                to_email=user.email,
+                subject=subject,
+                html_body=html_body,
+                metadata={
+                    'user_id': user.id,
+                    'trigger_event': 'password_reset',
+                },
+                priority=8  # High priority for password reset emails
+            )
+
+            if message_id is not None:
+                return True
+
+            # Fallback: send email directly if queueing fails
+            logger.warning("Queueing password reset email failed; attempting direct send via EmailBackend.")
+            plain_body = strip_tags(html_body)
+            email_message = EmailMultiAlternatives(
+                subject=subject,
+                body=plain_body,
+                from_email=f"{self.from_name} <{self.from_email}>",
+                to=[user.email],
+            )
+            email_message.attach_alternative(html_body, "text/html")
+            email_message.send()
+
+            return True
+
+        except Exception as e:
+            logger.error(f"Failed to queue password reset email to {user.email}: {str(e)}")
             return False
 
     def send_campaign_notification(

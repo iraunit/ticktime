@@ -1,8 +1,11 @@
 import logging
+from urllib.parse import urlencode
 
+from communications.email_service import get_email_service
 from django.conf import settings
 from django.contrib.auth.models import User
 from django.contrib.auth.tokens import default_token_generator
+from django.core import signing
 from django.core.signing import TimestampSigner, SignatureExpired, BadSignature
 from django.utils.encoding import force_bytes, force_str
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
@@ -129,43 +132,27 @@ def send_password_reset_email(user, request):
     """
     Send password reset email to user.
     """
-    from django.core.mail import send_mail
-    from django.contrib.sites.shortcuts import get_current_site
-
     try:
         # Generate password reset token
         uid, token = generate_password_reset_token(user)
+        signed_token = signing.dumps({'uid': uid, 'token': token})
 
-        # Build reset URL
-        current_site = get_current_site(request)
-        reset_url = f"http://{current_site.domain}/reset-password/{uid}/{token}/"
+        # Build frontend reset URL
+        reset_query = urlencode({'token': signed_token})
+        reset_url = f"{settings.FRONTEND_URL}/accounts/reset-password?{reset_query}"
 
-        subject = 'Reset your InfluencerConnect password'
-        message = f"""
-        Hi {user.first_name},
-        
-        You requested to reset your password for your InfluencerConnect account.
-        
-        Click the link below to reset your password:
-        {reset_url}
-        
-        This link will expire in 24 hours.
-        
-        If you didn't request this, please ignore this email.
-        
-        Best regards,
-        The InfluencerConnect Team
-        """
+        # Send email via email service
+        email_service = get_email_service()
+        expires_hours = getattr(settings, 'PASSWORD_RESET_TOKEN_EXPIRY_HOURS', 24)
+        if email_service.send_password_reset_email(
+                user=user,
+                reset_url=reset_url,
+                expires_hours=expires_hours
+        ):
+            return True
 
-        send_mail(
-            subject,
-            message,
-            settings.EMAIL_HOST_USER,
-            [user.email],
-            fail_silently=False,
-        )
-
-        return True
+        logger.error(f"Email service failed to send password reset email to {user.email}")
+        return False
 
     except Exception as e:
         logger.error(f"Failed to send password reset email: {str(e)}")
