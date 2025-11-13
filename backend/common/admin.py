@@ -27,15 +27,19 @@ class IndustryAdmin(admin.ModelAdmin):
 
 @admin.register(ContentCategory)
 class ContentCategoryAdmin(admin.ModelAdmin):
-    list_display = ['name', 'key', 'description', 'is_active', 'created_at']
-    list_filter = ['is_active', 'created_at']
-    search_fields = ['name', 'key', 'description']
+    list_display = ['name', 'key', 'industry', 'description', 'is_active', 'created_at']
+    list_filter = ['industry', 'is_active', 'created_at']
+    search_fields = ['name', 'key', 'description', 'industry__name']
     readonly_fields = ['created_at', 'updated_at']
-    ordering = ['name']
+    ordering = ['industry__name', 'sort_order', 'name']
 
     fieldsets = (
         ('Category Information', {
             'fields': ('key', 'name', 'description', 'icon', 'color', 'is_active', 'sort_order')
+        }),
+        ('Industry Association', {
+            'fields': ('industry',),
+            'description': 'Select the industry this content category belongs to'
         }),
         ('Timestamps', {
             'fields': ('created_at', 'updated_at'),

@@ -114,10 +114,20 @@ api.interceptors.response.use(
             }
         }
 
+        // Skip toast for authentication-related errors (401/403) on auth endpoints
+        // to avoid annoying logged-out users with error messages
+        const isAuthError = error.response.status === 401 || error.response.status === 403;
+        const isAuthEndpoint = originalRequest?.url && originalRequest.url.startsWith('/auth/');
+
+        if (isAuthError && isAuthEndpoint) {
+            const responseData = error.response?.data;
+            const errorMessage = responseData?.error || responseData?.message || getDefaultErrorMessage(error.response?.status);
+            return Promise.reject({message: errorMessage});
+        }
+
         // Handle API errors
         const responseData = error.response?.data;
         const errorMessage = responseData?.error || responseData?.message || getDefaultErrorMessage(error.response?.status);
-
         toast.error(errorMessage);
         return Promise.reject({message: errorMessage});
     }

@@ -114,7 +114,6 @@ export default function BrandReviewsPage() {
             });
 
             setResponseText("");
-            setRespondingToId(null);
             await fetchReviews();
             toast.success('Response posted successfully');
         } catch (error: any) {

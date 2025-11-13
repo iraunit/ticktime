@@ -120,7 +120,7 @@ class RabbitMQService:
                     'x-message-ttl': 86400000,  # 24 hours in milliseconds
                 }
             )
-            logger.info(f"Queue '{queue_name}' declared successfully")
+            logger.debug(f"Queue '{queue_name}' declared successfully")
             return True
 
         except Exception as e:
@@ -199,6 +199,47 @@ class RabbitMQService:
         except Exception as e:
             logger.error(f"Failed to publish message to '{queue_name}': {str(e)}")
             return None
+
+    def consume_next_message(
+            self,
+            queue_name: str,
+            auto_ack: bool = False
+    ):
+        """
+        Fetch a single message from the queue without starting a long-running consumer.
+        Returns (method_frame, header_frame, body) or None if queue is empty.
+        """
+        try:
+            if not self.ensure_connection():
+                logger.error("Cannot consume message: Connection failed")
+                return None
+
+            if not self.declare_queue(queue_name):
+                return None
+
+            method_frame, header_frame, body = self.channel.basic_get(queue=queue_name, auto_ack=auto_ack)
+            if not method_frame:
+                return None
+            return method_frame, header_frame, body
+
+        except Exception as e:
+            logger.error(f"Failed to consume message from '{queue_name}': {str(e)}")
+            self.close()
+            return None
+
+    def ack_message(self, delivery_tag: Any) -> None:
+        try:
+            if self.channel and self.channel.is_open:
+                self.channel.basic_ack(delivery_tag)
+        except Exception as e:
+            logger.error(f"Failed to ack message: {str(e)}")
+
+    def nack_message(self, delivery_tag: Any, requeue: bool = False) -> None:
+        try:
+            if self.channel and self.channel.is_open:
+                self.channel.basic_nack(delivery_tag, requeue=requeue)
+        except Exception as e:
+            logger.error(f"Failed to nack message: {str(e)}")
 
     def close(self):
         """

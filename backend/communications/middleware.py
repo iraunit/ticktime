@@ -1,7 +1,7 @@
 import logging
 
+from django.http import JsonResponse
 from rest_framework import status
-from rest_framework.response import Response
 
 logger = logging.getLogger(__name__)
 
@@ -16,7 +16,7 @@ class BrandAccountCheckMiddleware:
         '/api/communications/send-verification/',
         '/api/communications/verify-email/',
         '/api/communications/account-status/',
-        '/api/auth/logout/',
+        '/api/auth/',
         '/api/users/profile/',
         '/admin/',
         '/static/',
@@ -42,7 +42,7 @@ class BrandAccountCheckMiddleware:
                     user_profile = request.user.user_profile
 
                     if not user_profile.email_verified:
-                        return Response(
+                        return JsonResponse(
                             {
                                 'success': False,
                                 'error': 'Please verify your email address to access this feature.',
@@ -55,7 +55,7 @@ class BrandAccountCheckMiddleware:
 
                 # Check if brand is locked
                 if brand.is_locked:
-                    return Response(
+                    return JsonResponse(
                         {
                             'success': False,
                             'error': 'Your account has been locked. Please contact support for assistance.',

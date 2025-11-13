@@ -2095,10 +2095,7 @@ def get_campaigns_for_influencer_view(request):
     from campaigns.serializers import CampaignListSerializer
     serializer = CampaignListSerializer(campaigns, many=True)
 
-    return Response({
-        'status': 'success',
-        'campaigns': serializer.data
-    })
+    return api_response(True, result={'campaigns': serializer.data})
 
 
 @api_view(['DELETE'])

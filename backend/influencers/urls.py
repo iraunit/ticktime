@@ -26,6 +26,7 @@ urlpatterns = [
 
     # Public Profile endpoints
     path('<int:influencer_id>/public/', views.public_influencer_profile_view, name='public_influencer_profile'),
+    path('<int:influencer_id>/refresh/', views.refresh_influencer_profile_view, name='refresh_influencer_profile'),
 
     # Deal management endpoints
     path('deals/<int:deal_id>/address/', views.provide_shipping_address_view, name='provide_shipping_address'),

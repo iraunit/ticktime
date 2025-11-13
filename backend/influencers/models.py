@@ -309,41 +309,17 @@ class SocialMediaAccount(models.Model):
     average_likes = models.IntegerField(validators=[MinValueValidator(0)], default=0)
     average_comments = models.IntegerField(validators=[MinValueValidator(0)], default=0)
     average_shares = models.IntegerField(validators=[MinValueValidator(0)], default=0)
+    average_video_views = models.IntegerField(validators=[MinValueValidator(0)], default=0)
+    average_video_likes = models.IntegerField(validators=[MinValueValidator(0)], default=0)
+    average_video_comments = models.IntegerField(validators=[MinValueValidator(0)], default=0)
 
     # Platform-specific handles and profile links
-    platform_handle = models.CharField(max_length=100, blank=True,
-                                       help_text='Platform-specific handle (e.g., @username)')
+    platform_handle = models.CharField(
+        max_length=100,
+        blank=True,
+        help_text='Platform-specific handle (e.g., @username)'
+    )
     platform_profile_link = models.URLField(blank=True, help_text='Direct link to platform profile')
-
-    # Platform-specific metrics
-    # Instagram specific
-    average_image_likes = models.IntegerField(validators=[MinValueValidator(0)], default=0)
-    average_image_comments = models.IntegerField(validators=[MinValueValidator(0)], default=0)
-    average_reel_plays = models.IntegerField(validators=[MinValueValidator(0)], default=0)
-    average_reel_likes = models.IntegerField(validators=[MinValueValidator(0)], default=0)
-    average_reel_comments = models.IntegerField(validators=[MinValueValidator(0)], default=0)
-
-    # YouTube specific
-    average_video_views = models.IntegerField(validators=[MinValueValidator(0)], default=0)
-    average_shorts_plays = models.IntegerField(validators=[MinValueValidator(0)], default=0)
-    average_shorts_likes = models.IntegerField(validators=[MinValueValidator(0)], default=0)
-    average_shorts_comments = models.IntegerField(validators=[MinValueValidator(0)], default=0)
-    subscribers_count = models.IntegerField(validators=[MinValueValidator(0)], default=0)
-
-    # Facebook specific
-    page_likes = models.IntegerField(validators=[MinValueValidator(0)], default=0)
-    page_followers = models.IntegerField(validators=[MinValueValidator(0)], default=0)
-
-    # Twitter specific
-    twitter_followers = models.IntegerField(validators=[MinValueValidator(0)], default=0)
-    twitter_following = models.IntegerField(validators=[MinValueValidator(0)], default=0)
-    tweets_count = models.IntegerField(validators=[MinValueValidator(0)], default=0)
-
-    # TikTok specific
-    tiktok_followers = models.IntegerField(validators=[MinValueValidator(0)], default=0)
-    tiktok_following = models.IntegerField(validators=[MinValueValidator(0)], default=0)
-    tiktok_likes = models.IntegerField(validators=[MinValueValidator(0)], default=0)
-    tiktok_videos = models.IntegerField(validators=[MinValueValidator(0)], default=0)
 
     # Growth metrics
     follower_growth_rate = models.DecimalField(
@@ -363,6 +339,8 @@ class SocialMediaAccount(models.Model):
 
     # Performance metrics
     last_posted_at = models.DateTimeField(null=True, blank=True)
+    last_synced_at = models.DateTimeField(null=True, blank=True,
+                                          help_text='When this account was last synced from scraper')
     post_performance_score = models.DecimalField(
         max_digits=3,
         decimal_places=2,
@@ -378,6 +356,11 @@ class SocialMediaAccount(models.Model):
         null=True,
         blank=True,
         help_text='Average cost per mille (CPM)'
+    )
+    engagement_snapshot = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text='Cached engagement metrics computed from recent posts'
     )
 
     verified = models.BooleanField(default=False)
@@ -404,6 +387,45 @@ class SocialMediaAccount(models.Model):
         # Update platform flags on the influencer profile
         super().save(*args, **kwargs)
         self.influencer.update_platform_flags()
+
+
+class SocialMediaPost(models.Model):
+    """
+    Individual social media posts fetched from external scrapers.
+    """
+
+    account = models.ForeignKey(
+        SocialMediaAccount,
+        on_delete=models.CASCADE,
+        related_name='posts'
+    )
+    platform = models.CharField(max_length=20, choices=PLATFORM_CHOICES)
+    platform_post_id = models.CharField(max_length=128)
+    post_url = models.URLField(blank=True)
+    post_type = models.CharField(max_length=50, blank=True)
+    caption = models.TextField(blank=True)
+    hashtags = models.JSONField(default=list, blank=True)
+    mentions = models.JSONField(default=list, blank=True)
+    posted_at = models.DateTimeField(null=True, blank=True)
+
+    likes_count = models.IntegerField(validators=[MinValueValidator(0)], default=0)
+    comments_count = models.IntegerField(validators=[MinValueValidator(0)], default=0)
+    views_count = models.IntegerField(validators=[MinValueValidator(0)], default=0)
+    shares_count = models.IntegerField(validators=[MinValueValidator(0)], default=0)
+
+    raw_data = models.JSONField(default=dict, blank=True)
+    last_fetched_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'social_media_posts'
+        unique_together = ['account', 'platform_post_id']
+        indexes = [
+            models.Index(fields=['account', 'posted_at']),
+            models.Index(fields=['platform', 'posted_at']),
+        ]
+
+    def __str__(self):
+        return f"{self.account.platform}:{self.platform_post_id}"
 
 
 class InfluencerAudienceInsight(models.Model):

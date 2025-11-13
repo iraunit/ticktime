@@ -1,11 +1,10 @@
 "use client";
 
-import {useState} from "react";
+import {useEffect, useState} from "react";
 import {Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger} from "@/components/ui/dialog";
 import {Button} from "@/components/ui/button";
 import {GlobalLoader} from "@/components/ui/global-loader";
 import {HiArrowPath, HiPlus} from "react-icons/hi2";
-import {HiX} from "react-icons/hi";
 import {api} from "@/lib/api";
 import {toast} from "@/lib/toast";
 import ReactSelect from "react-select";
@@ -17,6 +16,8 @@ interface CampaignSelectionDialogProps {
     title?: string;
     open?: boolean;
     onOpenChange?: (open: boolean) => void;
+    onConfirm?: (selected: string | string[], campaigns?: any[]) => Promise<void> | void;
+    confirmLabel?: string;
 }
 
 export function CampaignSelectionDialog({
@@ -25,13 +26,16 @@ export function CampaignSelectionDialog({
                                             onSuccess,
                                             title = "Add to Campaigns",
                                             open,
-                                            onOpenChange
+                                            onOpenChange,
+                                            onConfirm,
+                                            confirmLabel
                                         }: CampaignSelectionDialogProps) {
     const [campaigns, setCampaigns] = useState<any[]>([]);
     const [selectedCampaigns, setSelectedCampaigns] = useState<Set<string>>(new Set());
     const [isLoadingCampaigns, setIsLoadingCampaigns] = useState(false);
     const [isLoadingActions, setIsLoadingActions] = useState(false);
     const [isOpen, setIsOpen] = useState(false);
+    const [lastFetchedAt, setLastFetchedAt] = useState<number | null>(null);
 
     // Use external open state if provided, otherwise use internal state
     const dialogOpen = open !== undefined ? open : isOpen;
@@ -41,8 +45,9 @@ export function CampaignSelectionDialog({
         setIsLoadingCampaigns(true);
         try {
             const response = await api.get('/brands/campaigns/for-influencers/');
-            const campaignsData = response.data.campaigns || [];
+            const campaignsData = response.data?.campaigns || [];
             setCampaigns(campaignsData);
+            setLastFetchedAt(Date.now());
         } catch (error) {
             console.error('Failed to fetch campaigns:', error);
             toast.error('Failed to load campaigns. Please try again.');
@@ -50,6 +55,17 @@ export function CampaignSelectionDialog({
             setIsLoadingCampaigns(false);
         }
     };
+
+    useEffect(() => {
+        if (dialogOpen) {
+            const shouldFetch = !lastFetchedAt || campaigns.length === 0 || (Date.now() - lastFetchedAt) > 60_000;
+            if (shouldFetch) {
+                fetchCampaigns();
+            }
+        } else {
+            setSelectedCampaigns(new Set());
+        }
+    }, [dialogOpen]);
 
     const handleCampaignSelect = (campaignId: string) => {
         setSelectedCampaigns(prev => {
@@ -64,6 +80,20 @@ export function CampaignSelectionDialog({
     };
 
     const handleAddToCampaigns = async () => {
+        // Selection-only mode (e.g., import filters)
+        if (onConfirm) {
+            const ids = Array.from(selectedCampaigns);
+            const firstId = ids[0];
+            try {
+                await onConfirm(ids.length <= 1 ? (firstId || '') : ids, campaigns);
+                setDialogOpen(false);
+                setSelectedCampaigns(new Set());
+            } catch (e) {
+                // onConfirm will toast on its own typically
+            }
+            return;
+        }
+
         if (selectedCampaigns.size === 0) {
             toast.error('Please select campaigns.');
             return;
@@ -203,48 +233,6 @@ export function CampaignSelectionDialog({
                                     hideSelectedOptions={false}
                                     isClearable={false}
                                 />
-                                {selectedCampaigns.size > 0 && (
-                                    <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                                        <p className="text-sm font-medium text-blue-800 mb-2">
-                                            Selected Campaigns ({selectedCampaigns.size}):
-                                        </p>
-                                        <div className="space-y-1">
-                                            {Array.from(selectedCampaigns).slice(0, 10).map(campaignId => {
-                                                const campaign = campaigns.find((c: any) => c.id.toString() === campaignId);
-                                                return campaign ? (
-                                                    <div key={campaignId}
-                                                         className="flex items-center justify-between text-sm">
-                                                        <div className="flex flex-col">
-                                                            <span className="text-blue-700">{campaign.title}</span>
-                                                            {(campaign.created_at || campaign.created || campaign.date_created) && (
-                                                                <span className="text-xs text-blue-500">
-                                  Created: {(() => {
-                                                                    const dateStr = campaign.created_at || campaign.created || campaign.date_created;
-                                                                    if (!dateStr) return '';
-                                                                    const date = new Date(dateStr);
-                                                                    return isNaN(date.getTime()) ? '' : date.toLocaleDateString();
-                                                                })()}
-                                </span>
-                                                            )}
-                                                        </div>
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="sm"
-                                                            onClick={() => handleCampaignSelect(campaignId)}
-                                                            className="h-4 w-4 p-0 text-blue-600 hover:text-blue-800"
-                                                        >
-                                                            <HiX className="w-3 h-3"/>
-                                                        </Button>
-                                                    </div>
-                                                ) : null;
-                                            })}
-                                            {selectedCampaigns.size > 10 && (
-                                                <div
-                                                    className="text-xs text-blue-700">and {selectedCampaigns.size - 10} more...</div>
-                                            )}
-                                        </div>
-                                    </div>
-                                )}
                             </div>
                         </div>
                     ) : (
@@ -269,18 +257,18 @@ export function CampaignSelectionDialog({
                         </Button>
                         <Button
                             onClick={handleAddToCampaigns}
-                            disabled={selectedCampaigns.size === 0 || influencerIds.length === 0 || isLoadingActions}
+                            disabled={selectedCampaigns.size === 0 || (!onConfirm && (influencerIds.length === 0 || isLoadingActions))}
                             className="flex-1 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white"
                         >
                             {isLoadingActions ? (
                                 <>
                                     <HiArrowPath className="w-4 h-4 mr-2 animate-spin"/>
-                                    Adding...
+                                    {onConfirm ? 'Processing...' : 'Adding...'}
                                 </>
                             ) : (
                                 <>
                                     <HiPlus className="w-4 h-4 mr-2"/>
-                                    Add to Campaigns
+                                    {confirmLabel || (onConfirm ? 'Confirm Selection' : 'Add to Campaigns')}
                                 </>
                             )}
                         </Button>

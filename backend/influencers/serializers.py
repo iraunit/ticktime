@@ -5,10 +5,11 @@ from common.models import (
     DEAL_TYPE_CHOICES, CONTENT_TYPE_CHOICES
 )
 from django.db import models
+from django.utils import timezone
 from rest_framework import serializers
 
 from .encryption import BankDetailsEncryption
-from .models import InfluencerProfile, SocialMediaAccount, InfluencerCategoryScore
+from .models import InfluencerProfile, SocialMediaAccount, SocialMediaPost, InfluencerCategoryScore
 
 
 class InfluencerProfileSerializer(serializers.ModelSerializer):
@@ -713,11 +714,9 @@ class SocialMediaAccountDetailSerializer(serializers.ModelSerializer):
             'id', 'platform', 'handle', 'profile_url', 'platform_handle', 'platform_profile_link',
             'followers_count', 'following_count', 'posts_count', 'engagement_rate',
             'average_likes', 'average_comments', 'average_shares',
-            'subscribers_count', 'page_likes', 'page_followers',
-            'twitter_followers', 'twitter_following', 'tweets_count',
-            'tiktok_followers', 'tiktok_following', 'tiktok_likes', 'tiktok_videos',
-            'average_video_views', 'average_reel_plays', 'verified', 'is_active',
-            'last_posted_at', 'follower_growth_rate'
+            'average_video_views', 'average_video_likes', 'average_video_comments',
+            'engagement_snapshot', 'verified', 'is_active',
+            'last_posted_at', 'last_synced_at', 'follower_growth_rate'
         )
 
 
@@ -827,7 +826,7 @@ class InfluencerSearchSerializer(serializers.ModelSerializer):
         """Get Twitter followers count"""
         twitter_account = obj.social_accounts.filter(platform='twitter', is_active=True).first()
         if twitter_account:
-            return self._format_number(twitter_account.twitter_followers or twitter_account.followers_count)
+            return self._format_number(twitter_account.followers_count)
         return "0"
 
     def get_twitter_handle(self, obj):
@@ -844,7 +843,7 @@ class InfluencerSearchSerializer(serializers.ModelSerializer):
         """Get YouTube subscribers count"""
         youtube_account = obj.social_accounts.filter(platform='youtube', is_active=True).first()
         if youtube_account:
-            return self._format_number(youtube_account.subscribers_count or youtube_account.followers_count)
+            return self._format_number(youtube_account.followers_count)
         return "0"
 
     def get_youtube_handle(self, obj):
@@ -861,7 +860,7 @@ class InfluencerSearchSerializer(serializers.ModelSerializer):
         """Get Facebook page likes"""
         facebook_account = obj.social_accounts.filter(platform='facebook', is_active=True).first()
         if facebook_account:
-            return self._format_number(facebook_account.page_likes or facebook_account.followers_count)
+            return self._format_number(facebook_account.followers_count)
         return "0"
 
     def get_facebook_handle(self, obj):
@@ -1025,11 +1024,34 @@ class InfluencerPublicSerializer(serializers.ModelSerializer):
         return ', '.join(location_parts) if location_parts else 'Location not specified'
 
 
+class SocialMediaPostPublicSerializer(serializers.ModelSerializer):
+    posted_at = serializers.DateTimeField(format='%Y-%m-%dT%H:%M:%SZ', required=False, allow_null=True)
+
+    class Meta:
+        model = SocialMediaPost
+        fields = (
+            'id',
+            'platform_post_id',
+            'platform',
+            'post_url',
+            'post_type',
+            'caption',
+            'hashtags',
+            'mentions',
+            'posted_at',
+            'likes_count',
+            'comments_count',
+            'views_count',
+            'shares_count',
+        )
+
+
 class SocialAccountPublicSerializer(serializers.ModelSerializer):
     """
     Public serializer for social media accounts.
     """
     username = serializers.CharField(source='handle', read_only=True)
+    recent_posts = serializers.SerializerMethodField()
 
     class Meta:
         model = SocialMediaAccount
@@ -1037,15 +1059,18 @@ class SocialAccountPublicSerializer(serializers.ModelSerializer):
             'id', 'platform', 'handle', 'username', 'followers_count', 'following_count', 'posts_count',
             'engagement_rate', 'average_likes', 'average_comments', 'average_shares',
             'platform_handle', 'platform_profile_link', 'is_active', 'verified',
-            # Platform-specific metrics
-            'average_image_likes', 'average_image_comments', 'average_reel_plays', 'average_reel_likes',
-            'average_reel_comments',
-            'average_video_views', 'average_shorts_plays', 'average_shorts_likes', 'average_shorts_comments',
-            'subscribers_count',
-            'page_likes', 'page_followers', 'twitter_followers', 'twitter_following', 'tweets_count',
-            'tiktok_followers', 'tiktok_following', 'tiktok_likes', 'tiktok_videos',
-            'follower_growth_rate', 'subscriber_growth_rate', 'last_posted_at', 'post_performance_score'
+            'average_video_views', 'average_video_likes', 'average_video_comments',
+            'engagement_snapshot', 'follower_growth_rate', 'subscriber_growth_rate',
+            'last_synced_at',
+            'last_posted_at', 'post_performance_score',
+            'recent_posts',
         )
+
+    def get_recent_posts(self, obj):
+        prefetched_posts = getattr(obj, 'recent_posts_prefetched', None)
+        posts = prefetched_posts if prefetched_posts is not None else obj.posts.order_by('-posted_at',
+                                                                                         '-last_fetched_at')[:10]
+        return SocialMediaPostPublicSerializer(posts, many=True, context=self.context).data
 
 
 class InfluencerPublicProfileSerializer(serializers.ModelSerializer):
@@ -1067,6 +1092,9 @@ class InfluencerPublicProfileSerializer(serializers.ModelSerializer):
     content_keywords = serializers.ReadOnlyField()
     hashtags_used = serializers.SerializerMethodField()
     performance_metrics = serializers.SerializerMethodField()
+    recent_posts = serializers.SerializerMethodField()
+    engagement_overview = serializers.SerializerMethodField()
+    location = serializers.SerializerMethodField()
 
     class Meta:
         model = InfluencerProfile
@@ -1074,8 +1102,15 @@ class InfluencerPublicProfileSerializer(serializers.ModelSerializer):
             'id', 'user_first_name', 'user_last_name', 'username', 'bio',
             'industry', 'categories', 'profile_image', 'is_verified',
             'total_followers', 'average_engagement_rate', 'social_accounts_count',
-            'created_at', 'social_accounts', 'recent_collaborations', 'brand_collaborations',
+            'average_interaction', 'average_views', 'average_dislikes',
+            'available_platforms', 'audience_gender_distribution', 'audience_age_distribution',
+            'audience_locations', 'audience_interests', 'audience_languages',
+            'influence_score', 'platform_score', 'brand_safety_score', 'content_quality_score',
+            'response_time', 'faster_responses', 'contact_availability',
+            'avg_rating', 'collaboration_count', 'total_earnings',
+            'created_at', 'location', 'social_accounts', 'recent_collaborations', 'brand_collaborations',
             'content_keywords', 'hashtags_used', 'performance_metrics',
+            'recent_posts', 'engagement_overview',
             # Collaboration details
             'collaboration_types', 'minimum_collaboration_amount', 'barter_ready', 'commerce_ready'
         )
@@ -1092,6 +1127,9 @@ class InfluencerPublicProfileSerializer(serializers.ModelSerializer):
                 return request.build_absolute_uri(obj.user_profile.profile_image.url)
             return obj.user_profile.profile_image.url
         return None
+
+    def get_location(self, obj):
+        return obj.location_display
 
     def get_categories(self, obj):
         """Get influencer categories."""
@@ -1199,6 +1237,71 @@ class InfluencerPublicProfileSerializer(serializers.ModelSerializer):
             'average_rating': round(avg_rating, 1),
             'response_rate': response_rate,
             'completion_rate': round(completion_rate, 0)
+        }
+
+    def get_recent_posts(self, obj):
+        posts = []
+        for account in obj.social_accounts.all():
+            account_posts = getattr(account, 'recent_posts_prefetched', None)
+            if account_posts is None:
+                account_posts = account.posts.order_by('-posted_at', '-last_fetched_at')[:10]
+            posts.extend(account_posts)
+
+        if not posts:
+            return []
+
+        def sort_key(post):
+            timestamp = post.posted_at or post.last_fetched_at
+            if timestamp is None:
+                timestamp = timezone.now()
+            return timestamp
+
+        posts = sorted(posts, key=sort_key, reverse=True)[:10]
+        return SocialMediaPostPublicSerializer(posts, many=True, context=self.context).data
+
+    def get_engagement_overview(self, obj):
+        accounts = [account for account in obj.social_accounts.all() if account.is_active]
+        if not accounts:
+            return {
+                'followers_total': 0,
+                'avg_followers': 0,
+                'avg_engagement_rate': 0,
+                'avg_likes': 0,
+                'avg_comments': 0,
+                'avg_views': 0,
+                'platform_breakdown': [],
+            }
+
+        followers_total = sum(account.followers_count or 0 for account in accounts)
+        avg_followers = int(followers_total / len(accounts)) if accounts else 0
+        avg_engagement_rate = float(obj.average_engagement_rate or 0)
+
+        avg_likes = int(sum(account.average_likes or 0 for account in accounts) / len(accounts))
+        avg_comments = int(sum(account.average_comments or 0 for account in accounts) / len(accounts))
+        avg_views = int(sum(account.average_video_views or 0 for account in accounts) / len(accounts))
+
+        platform_breakdown = []
+        for account in accounts:
+            platform_breakdown.append({
+                'platform': account.platform,
+                'handle': account.handle,
+                'followers': account.followers_count,
+                'engagement_rate': float(account.engagement_rate or 0),
+                'average_likes': account.average_likes,
+                'average_comments': account.average_comments,
+                'average_video_views': account.average_video_views,
+                'last_synced_at': account.last_synced_at.isoformat() if account.last_synced_at else None,
+                'last_posted_at': account.last_posted_at.isoformat() if account.last_posted_at else None,
+            })
+
+        return {
+            'followers_total': followers_total,
+            'avg_followers': avg_followers,
+            'avg_engagement_rate': avg_engagement_rate,
+            'avg_likes': avg_likes,
+            'avg_comments': avg_comments,
+            'avg_views': avg_views,
+            'platform_breakdown': platform_breakdown,
         }
 
 

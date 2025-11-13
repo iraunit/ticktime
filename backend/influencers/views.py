@@ -2,6 +2,7 @@ import logging
 
 from common.api_response import api_response, format_serializer_errors
 from django.db import models
+from django.db.models import Prefetch
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
@@ -19,15 +20,18 @@ from common.decorators import (
 )
 from common.cache_utils import CacheManager
 
+from communications.social_scraping_service import get_social_scraping_service
+
 from .serializers import (
     InfluencerProfileSerializer,
     InfluencerProfileUpdateSerializer,
     SocialMediaAccountSerializer,
     ProfileImageUploadSerializer,
     DocumentUploadSerializer,
-    BankDetailsSerializer
+    BankDetailsSerializer,
+    InfluencerPublicProfileSerializer,
 )
-from .models import InfluencerProfile, SocialMediaAccount
+from .models import InfluencerProfile, SocialMediaAccount, SocialMediaPost
 from deals.models import Deal
 from common.models import PLATFORM_CHOICES
 
@@ -352,12 +356,17 @@ def influencer_search_view(request):
 
     # Get query parameters
     search = request.GET.get('search', '').strip()
-    platform = request.GET.get('platform', 'all')
-    location = request.GET.get('location', '')
-    gender = request.GET.get('gender', '')
+    platform = request.GET.get('platform', 'all')  # legacy single platform for column view
+    # Preferred (soft) filters as CSVs
+    preferred_platforms = [p.strip() for p in request.GET.get('platforms', '').split(',') if p.strip()]
+    preferred_locations = [p.strip() for p in request.GET.get('locations', '').split(',') if p.strip()]
+    preferred_genders = [p.strip().lower() for p in request.GET.get('genders', '').split(',') if p.strip()]
+    preferred_industries = [p.strip() for p in request.GET.get('industries', '').split(',') if p.strip()]
+    location = request.GET.get('location', '')  # legacy single location
+    gender = request.GET.get('gender', '')  # legacy single gender
     follower_range = request.GET.get('follower_range', '')
     categories = request.GET.get('categories', '').split(',') if request.GET.get('categories') else []
-    industry = request.GET.get('industry', '')
+    industry = request.GET.get('industry', '')  # legacy single industry
     sort_by = request.GET.get('sort_by', 'followers')
     sort_order = request.GET.get('sort_order', 'desc')
     page = int(request.GET.get('page', 1))
@@ -384,6 +393,7 @@ def influencer_search_view(request):
     max_engagement = request.GET.get('max_engagement')
     min_rating = request.GET.get('min_rating')
     max_rating = request.GET.get('max_rating')
+    max_collab_amount = request.GET.get('max_collab_amount')
 
     # Location filters
     country = request.GET.get('country', '')
@@ -396,6 +406,12 @@ def influencer_search_view(request):
     audience_location = request.GET.get('audience_location', '')
     audience_interest = request.GET.get('audience_interest', '')
     audience_language = request.GET.get('audience_language', '')
+
+    # Additional filters
+    age_range = request.GET.get('age_range', '').strip()
+    collaboration_preferences_raw = request.GET.get('collaboration_preferences', '').strip()
+    collaboration_preferences = [p.strip() for p in collaboration_preferences_raw.split(',') if
+                                 p.strip()] if collaboration_preferences_raw else []
 
     # Performance filters
     min_avg_likes = request.GET.get('min_avg_likes')
@@ -426,11 +442,11 @@ def influencer_search_view(request):
             Q(bio_keywords__contains=[search])
         ).distinct()
 
-    # Apply platform filter
-    if platform and platform != 'all':
+    # Apply legacy single platform filter for table column adjustments only
+    if not preferred_platforms and platform and platform != 'all':
         queryset = queryset.filter(social_accounts__platform=platform, social_accounts__is_active=True)
 
-    # Apply location filters
+    # Do not hard-filter by preferred location; keep legacy params if explicitly used
     if country:
         queryset = queryset.filter(country__icontains=country)
     if state:
@@ -444,9 +460,11 @@ def influencer_search_view(request):
             Q(country__icontains=location)
         )
 
-    # Apply gender filter
+    # Do not hard-filter by preferred genders; keep legacy param if explicitly used
     if gender:
         queryset = queryset.filter(gender=gender)
+
+    # Do not hard-filter by preferred age range; use for scoring only
 
     # Apply follower range filter
     if follower_range:
@@ -480,13 +498,11 @@ def influencer_search_view(request):
         except ValueError:
             pass
 
-    # Apply industry filter
+    # Do not hard-filter by preferred industries; keep legacy param if explicitly used
     if industry:
         queryset = queryset.filter(industry=industry)
 
-    # Apply categories filter
-    if categories and categories[0]:
-        queryset = queryset.filter(categories__overlap=categories)
+    # Do not hard-filter by preferred categories; use for scoring only
 
     # Apply platform-specific filters
     if influence_score_min:
@@ -516,6 +532,8 @@ def influencer_search_view(request):
 
     if has_youtube:
         queryset = queryset.filter(has_youtube=True)
+
+    # Do not hard-filter by collaboration preferences; use for scoring only
 
     # Apply content and bio keyword filters
     if caption_keywords:
@@ -553,6 +571,14 @@ def influencer_search_view(request):
             queryset = queryset.filter(avg_rating__lte=max_rating)
         except ValueError:
             pass
+
+    # Do not hard-filter by max collaboration amount; use for scoring only
+    max_collab_amount_val = None
+    if max_collab_amount:
+        try:
+            max_collab_amount_val = float(max_collab_amount)
+        except ValueError:
+            max_collab_amount_val = None
 
     # Apply performance filters
     if min_avg_likes:
@@ -601,33 +627,139 @@ def influencer_search_view(request):
     if audience_language:
         queryset = queryset.filter(audience_languages__contains=[audience_language])
 
-    # Apply sorting
+    # Preference scoring (soft ranking)
+    preference_conditions = []
+
+    # Platform preference
+    if preferred_platforms:
+        queryset = queryset.annotate(
+            pref_platform_matches=models.Count('social_accounts', filter=Q(social_accounts__is_active=True,
+                                                                           social_accounts__platform__in=preferred_platforms))
+        )
+        queryset = queryset.annotate(pref_platform_score=models.Case(
+            models.When(pref_platform_matches__gt=0, then=models.Value(2)),
+            default=models.Value(0),
+            output_field=models.IntegerField()
+        ))
+    else:
+        queryset = queryset.annotate(pref_platform_score=models.Value(0, output_field=models.IntegerField()))
+
+    # Industry preference
+    if preferred_industries:
+        queryset = queryset.annotate(pref_industry_score=models.Case(
+            models.When(industry__in=preferred_industries, then=models.Value(2)),
+            default=models.Value(0),
+            output_field=models.IntegerField()
+        ))
+    else:
+        queryset = queryset.annotate(pref_industry_score=models.Value(0, output_field=models.IntegerField()))
+
+    # Categories preference (any overlap)
+    if categories and categories[0]:
+        # ManyToMany to ContentCategory: match by key or name
+        queryset = queryset.annotate(pref_categories_score=models.Case(
+            models.When(models.Q(categories__key__in=categories) | models.Q(categories__name__in=categories),
+                        then=models.Value(1)),
+            default=models.Value(0),
+            output_field=models.IntegerField()
+        ))
+    else:
+        queryset = queryset.annotate(pref_categories_score=models.Value(0, output_field=models.IntegerField()))
+
+    # Gender preference
+    if preferred_genders:
+        queryset = queryset.annotate(pref_gender_score=models.Case(
+            models.When(gender__in=preferred_genders, then=models.Value(1)),
+            default=models.Value(0),
+            output_field=models.IntegerField()
+        ))
+    else:
+        queryset = queryset.annotate(pref_gender_score=models.Value(0, output_field=models.IntegerField()))
+
+    # Location preference (any match in city/state/country)
+    if preferred_locations:
+        from functools import reduce
+        location_q = reduce(
+            lambda acc, loc: acc | Q(city__icontains=loc) | Q(state__icontains=loc) | Q(country__icontains=loc),
+            preferred_locations[1:],
+            Q(city__icontains=preferred_locations[0]) | Q(state__icontains=preferred_locations[0]) | Q(
+                country__icontains=preferred_locations[0]))
+        queryset = queryset.annotate(pref_location_score=models.Case(
+            models.When(location_q, then=models.Value(2)),
+            default=models.Value(0),
+            output_field=models.IntegerField()
+        ))
+    else:
+        queryset = queryset.annotate(pref_location_score=models.Value(0, output_field=models.IntegerField()))
+
+    # Age range preference
+    if age_range:
+        queryset = queryset.annotate(pref_age_score=models.Case(
+            models.When(age_range=age_range, then=models.Value(1)),
+            default=models.Value(0),
+            output_field=models.IntegerField()
+        ))
+    else:
+        queryset = queryset.annotate(pref_age_score=models.Value(0, output_field=models.IntegerField()))
+
+    # Collaboration preferences overlap
+    if collaboration_preferences:
+        queryset = queryset.annotate(pref_collab_score=models.Case(
+            models.When(collaboration_types__overlap=collaboration_preferences, then=models.Value(1)),
+            default=models.Value(0),
+            output_field=models.IntegerField()
+        ))
+    else:
+        queryset = queryset.annotate(pref_collab_score=models.Value(0, output_field=models.IntegerField()))
+
+    # Max collaboration amount preference (skip if negative or invalid)
+    if isinstance(max_collab_amount_val, (int, float)) and max_collab_amount_val >= 0:
+        queryset = queryset.annotate(pref_budget_score=models.Case(
+            models.When(minimum_collaboration_amount__isnull=False,
+                        minimum_collaboration_amount__lte=max_collab_amount_val, then=models.Value(2)),
+            default=models.Value(0),
+            output_field=models.IntegerField()
+        ))
+    else:
+        queryset = queryset.annotate(pref_budget_score=models.Value(0, output_field=models.IntegerField()))
+
+    # Total preference score
+    queryset = queryset.annotate(
+        pref_total_score=models.F('pref_platform_score') + models.F('pref_industry_score') + models.F(
+            'pref_categories_score') + models.F('pref_gender_score') + models.F('pref_location_score') + models.F(
+            'pref_age_score') + models.F('pref_collab_score') + models.F('pref_budget_score')
+    )
+
+    # Apply sorting (preference score first, then chosen sort)
     order_prefix = '' if sort_order == 'asc' else '-'
 
+    secondary_order = None
     if sort_by == 'followers':
-        queryset = queryset.order_by(f'{order_prefix}total_followers_annotated')
+        secondary_order = f'{order_prefix}total_followers_annotated'
     elif sort_by == 'subscribers':
-        queryset = queryset.order_by(f'{order_prefix}total_followers_annotated')  # Same as followers for now
+        secondary_order = f'{order_prefix}total_followers_annotated'  # Same as followers for now
     elif sort_by == 'engagement':
-        queryset = queryset.order_by(f'{order_prefix}average_engagement_rate_annotated')
+        secondary_order = f'{order_prefix}average_engagement_rate_annotated'
     elif sort_by == 'rating':
-        queryset = queryset.order_by(f'{order_prefix}avg_rating')
+        secondary_order = f'{order_prefix}avg_rating'
     elif sort_by == 'influence_score':
-        queryset = queryset.order_by(f'{order_prefix}influence_score')
+        secondary_order = f'{order_prefix}influence_score'
     elif sort_by == 'avg_likes':
-        queryset = queryset.order_by(f'{order_prefix}social_accounts__average_likes')
+        secondary_order = f'{order_prefix}social_accounts__average_likes'
     elif sort_by == 'avg_views':
-        queryset = queryset.order_by(f'{order_prefix}social_accounts__average_video_views')
+        secondary_order = f'{order_prefix}social_accounts__average_video_views'
     elif sort_by == 'avg_comments':
-        queryset = queryset.order_by(f'{order_prefix}social_accounts__average_comments')
+        secondary_order = f'{order_prefix}social_accounts__average_comments'
     elif sort_by == 'posts':
-        queryset = queryset.order_by(f'{order_prefix}social_accounts__posts_count')
+        secondary_order = f'{order_prefix}social_accounts__posts_count'
     elif sort_by == 'recently_active':
-        queryset = queryset.order_by(f'{order_prefix}social_accounts__last_posted_at')
+        secondary_order = f'{order_prefix}social_accounts__last_posted_at'
     elif sort_by == 'growth_rate':
-        queryset = queryset.order_by(f'{order_prefix}social_accounts__follower_growth_rate')
+        secondary_order = f'{order_prefix}social_accounts__follower_growth_rate'
     else:
-        queryset = queryset.order_by(f'{order_prefix}total_followers_annotated')
+        secondary_order = f'{order_prefix}total_followers_annotated'
+
+    queryset = queryset.order_by('-pref_total_score', secondary_order)
 
     # Debug logging
     logger.info(f"Influencer search query: {queryset.query}")
@@ -768,12 +900,16 @@ def influencer_filters_view(request):
         max_score=Max('influence_score')
     )
 
-    # Get unique categories
-    all_categories = []
-    for profile in InfluencerProfile.objects.filter(user__is_active=True, categories__isnull=False):
-        if profile.categories:
-            all_categories.extend(profile.categories)
-    unique_categories = list(set(all_categories))
+    # Get unique categories from ManyToMany relation
+    try:
+        from common.models import ContentCategory
+        unique_categories = list(
+            ContentCategory.objects.filter(
+                influencers__user__is_active=True
+            ).values_list('name', flat=True).distinct()
+        )
+    except Exception:
+        unique_categories = []
 
     return Response({
         'status': 'success',
@@ -797,7 +933,9 @@ def influencer_filters_view(request):
             ],
             'categories': sorted(unique_categories),
             'platforms': [choice[0] for choice in PLATFORM_CHOICES],
-            'genders': ['Male', 'Female', 'Other'],
+            'genders': ['male', 'female', 'other', 'prefer_not_to_say'],
+            'age_ranges': ['18-24', '25-34', '35-44', '45-54', '55+'],
+            'collaboration_preferences': ['cash', 'barter', 'hybrid'],
             'sort_options': [
                 {'value': 'influence_score', 'label': 'Influence Score'},
                 {'value': 'subscribers', 'label': 'Subscribers'},
@@ -906,7 +1044,27 @@ def public_influencer_profile_view(request, influencer_id):
     """
     try:
         # Get the requested influencer profile
-        influencer_profile = get_object_or_404(InfluencerProfile, id=influencer_id, user__is_active=True)
+        recent_posts_prefetch = Prefetch(
+            'posts',
+            queryset=SocialMediaPost.objects.order_by('-posted_at', '-last_fetched_at')[:10],
+            to_attr='recent_posts_prefetched',
+        )
+
+        social_accounts_prefetch = Prefetch(
+            'social_accounts',
+            queryset=SocialMediaAccount.objects.select_related('influencer').prefetch_related(recent_posts_prefetch),
+        )
+
+        base_queryset = InfluencerProfile.objects.select_related('user', 'industry').prefetch_related(
+            'categories',
+            social_accounts_prefetch,
+        )
+
+        influencer_profile = get_object_or_404(
+            base_queryset,
+            id=influencer_id,
+            user__is_active=True,
+        )
 
         # Check permissions based on user type
         if hasattr(request.user, 'brand_user') and request.user.brand_user:
@@ -926,13 +1084,40 @@ def public_influencer_profile_view(request, influencer_id):
                 'message': 'Access denied. Invalid user type.'
             }, status=status.HTTP_403_FORBIDDEN)
 
+        scraping_service = get_social_scraping_service()
+        auto_refreshed_platforms = []
+        auto_refresh_errors = {}
+
+        for account in influencer_profile.social_accounts.all():
+            try:
+                if scraping_service.needs_refresh(account):
+                    logger.info(
+                        "Auto-refresh triggered for %s/%s via public profile view",
+                        account.platform,
+                        account.handle,
+                    )
+                    scraping_service.queue_scrape_request(account)
+                    scraping_service.sync_account(account, force=True)
+                    auto_refreshed_platforms.append(account.platform)
+            except Exception as exc:
+                logger.exception(
+                    "Auto-refresh failed for %s/%s via public profile view",
+                    account.platform,
+                    account.handle,
+                )
+                auto_refresh_errors[account.platform] = str(exc)
+
         # Serialize the profile data
         from .serializers import InfluencerPublicProfileSerializer
         serializer = InfluencerPublicProfileSerializer(influencer_profile, context={'request': request})
 
         return Response({
             'status': 'success',
-            'influencer': serializer.data
+            'influencer': serializer.data,
+            'auto_refresh': {
+                'platforms': auto_refreshed_platforms,
+                'errors': auto_refresh_errors or None,
+            } if auto_refreshed_platforms or auto_refresh_errors else None,
         }, status=status.HTTP_200_OK)
 
     except InfluencerProfile.DoesNotExist:
@@ -943,6 +1128,66 @@ def public_influencer_profile_view(request, influencer_id):
             'status': 'error',
             'message': 'Failed to load influencer profile.'
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+@user_rate_limit(requests_per_minute=10)
+@log_performance(threshold=1.0)
+def refresh_influencer_profile_view(request, influencer_id):
+    """
+    Force a fresh scrape and update for an influencer's social media accounts.
+    If an account has not been synced within the refresh threshold, a new scrape
+    request is also queued for background workers.
+    """
+    influencer_profile = get_object_or_404(InfluencerProfile, id=influencer_id, user__is_active=True)
+
+    # Permission check mirrors public profile access
+    if hasattr(request.user, 'brand_user') and request.user.brand_user:
+        pass
+    elif hasattr(request.user, 'influencer_profile') and request.user.influencer_profile:
+        if request.user.influencer_profile.id != int(influencer_id):
+            return Response({
+                'status': 'error',
+                'message': 'You can only refresh your own profile.'
+            }, status=status.HTTP_403_FORBIDDEN)
+    else:
+        return Response({
+            'status': 'error',
+            'message': 'Access denied. Invalid user type.'
+        }, status=status.HTTP_403_FORBIDDEN)
+
+    scraping_service = get_social_scraping_service()
+    queued_requests = []
+    refreshed_platforms = []
+    errors = {}
+
+    for account in influencer_profile.social_accounts.all():
+        try:
+            if scraping_service.needs_refresh(account):
+                message_id = scraping_service.queue_scrape_request(account) or ''
+                queued_requests.append({
+                    'platform': account.platform,
+                    'handle': account.handle,
+                    'message_id': message_id,
+                })
+
+            scraping_service.sync_account(account, force=True)
+            refreshed_platforms.append(account.platform)
+        except Exception as exc:
+            logger.exception("Failed to refresh account %s/%s", account.platform, account.handle)
+            errors[account.platform] = str(exc)
+
+    serializer = InfluencerPublicProfileSerializer(influencer_profile, context={'request': request})
+    response_status = status.HTTP_200_OK if not errors else status.HTTP_207_MULTI_STATUS
+
+    return Response({
+        'status': 'success' if not errors else 'partial',
+        'influencer': serializer.data,
+        'queued_requests': queued_requests,
+        'refreshed_platforms': refreshed_platforms,
+        'errors': errors or None,
+    }, status=response_status)
 
 
 @api_view(['POST'])

@@ -8,6 +8,7 @@ RUN apt-get update && apt-get install -y \
     gcc \
     libpq-dev \
     netcat-traditional \
+    supervisor \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements and install Python dependencies
@@ -16,6 +17,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application code
 COPY . .
+
+# Copy supervisor configuration
+COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+RUN mkdir -p /var/log/supervisor
 
 # Set environment variables
 ARG SECRET_KEY
@@ -63,7 +68,7 @@ EXPOSE 8000
 
 # Set entrypoint
 RUN chmod +x ./entrypoint.sh
-RUN ./entrypoint.sh
+ENTRYPOINT ["./entrypoint.sh"]
 
-# Run the application (Gunicorn)
-CMD ["gunicorn", "backend.wsgi:application", "--workers=2", "--threads=2", "--bind=0.0.0.0:8000", "--timeout=300", "--log-level=info"]
+# Run the process supervisor (manages Gunicorn and workers)
+CMD ["supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
