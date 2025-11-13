@@ -912,7 +912,7 @@ export default function InfluencerProfilePage() {
                             return (
                                 <div
                                     key={tile.label}
-                                    className="rounded-2xl border border-gray-100 bg-gradient-to-br from-white to-gray-50 px-4 py-3 shadow-sm"
+                                    className="rounded-2xl border border-gray-100 bg-gradient-to-br from-white to-gray-50 px-4 py-3 shadow-sm transition-shadow hover:shadow-lg"
                                 >
                                     <div className="flex items-center justify-between">
                                         <div className="text-[11px] uppercase tracking-wide text-gray-500">
@@ -1091,10 +1091,10 @@ export default function InfluencerProfilePage() {
                                         </div>
                                     )}
 
-                                    {profile.collaboration_types && profile.collaboration_types.length > 0 && (
-                                        <div className="mb-3">
-                                            <span className="mb-2 block text-sm text-gray-600">Deal Types</span>
-                                            <div className="flex flex-wrap gap-2">
+                                    <div className="flex flex-wrap items-center gap-2">
+                                        {profile.collaboration_types && profile.collaboration_types.length > 0 && (
+                                            <div className="flex flex-wrap items-center gap-2">
+                                                <span className="text-sm text-gray-600">Deal Types:</span>
                                                 {profile.collaboration_types.map((type) => {
                                                     const config = getDealTypeConfig(type);
                                                     return (
@@ -1109,10 +1109,8 @@ export default function InfluencerProfilePage() {
                                                     );
                                                 })}
                                             </div>
-                                        </div>
-                                    )}
+                                        )}
 
-                                    <div className="flex flex-wrap gap-2">
                                         {profile.barter_ready && (
                                             <Badge
                                                 variant="outline"
@@ -1142,7 +1140,7 @@ export default function InfluencerProfilePage() {
                                 </CardTitle>
                             </CardHeader>
                             <CardContent>
-                                <div className="space-y-4">
+                                <div className="space-y-3">
                                     {safeArray(profile.social_accounts).map((account) => {
                                         const platformIcon = getPlatformIcon(account.platform);
                                         const IconComponent = platformIcon.icon;
@@ -1172,10 +1170,30 @@ export default function InfluencerProfilePage() {
                                             stat.always || (isValidNumber(stat.value) && stat.value > 0)
                                         );
 
-                                        // Trim to core stats only for concise UI
+                                        const metricChips = [
+                                            { label: 'Avg Likes', value: account.average_likes },
+                                            { label: 'Avg Comments', value: account.average_comments },
+                                            { label: 'Avg Shares', value: account.average_shares },
+                                            { label: 'Avg Video Views', value: account.average_video_views },
+                                            { label: 'Avg Video Likes', value: account.average_video_likes },
+                                            { label: 'Avg Video Comments', value: account.average_video_comments },
+                                        ].filter((metric) => isValidNumber(metric.value) && metric.value > 0);
 
                                         return (
-                                            <div key={account.id} className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+                                            <div
+                                                key={account.id}
+                                                role={platformUrl ? 'link' : 'group'}
+                                                tabIndex={platformUrl ? 0 : -1}
+                                                onClick={platformUrl ? () => window.open(platformUrl, '_blank', 'noopener,noreferrer') : undefined}
+                                                onKeyDown={(event) => {
+                                                    if (!platformUrl) return;
+                                                    if (event.key === 'Enter' || event.key === ' ') {
+                                                        event.preventDefault();
+                                                        window.open(platformUrl, '_blank', 'noopener,noreferrer');
+                                                    }
+                                                }}
+                                                className={`rounded-2xl border border-gray-200 bg-white p-5 shadow-sm transition-shadow ${platformUrl ? 'hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-primary cursor-pointer' : ''}`}
+                                            >
                                                 <div className="flex items-start justify-between">
                                                     <div className="flex items-center gap-3">
                                                         <div
@@ -1205,7 +1223,7 @@ export default function InfluencerProfilePage() {
                                                     </Badge>
                                                 </div>
 
-                                                <div className="mt-4 grid grid-cols-3 gap-3 text-center">
+                                                <div className="mt-3 grid grid-cols-3 gap-3 text-center">
                                                     {primaryStats.map((stat) => (
                                                         <div key={`${account.id}_${stat.label}`}>
                                                             <div className="text-base font-semibold text-gray-900">
@@ -1218,33 +1236,23 @@ export default function InfluencerProfilePage() {
                                                     ))}
                                                 </div>
 
-                                                {/* Last synced removed for cleaner look */}
-
-                                                <div className="mt-3">
-                                                    <Button
-                                                        size="sm"
-                                                        variant="outline"
-                                                        onClick={() => window.open(platformUrl, '_blank', 'noopener,noreferrer')}
-                                                    >
-                                                        View profile
-                                                    </Button>
+                                                <div className="mt-3 flex flex-wrap gap-2 text-xs">
+                                                    {metricChips.map((metric) => (
+                                                        <div
+                                                            key={`${account.id}_${metric.label}`}
+                                                            className="rounded-md border border-gray-100 bg-gray-50 px-2.5 py-1"
+                                                        >
+                                                            <span className="text-[10px] uppercase tracking-wide text-gray-500 mr-1">
+                                                                {metric.label}
+                                                            </span>
+                                                            <span className="font-semibold text-gray-900">
+                                                                {formatFollowers(metric.value as number)}
+                                                            </span>
+                                                        </div>
+                                                    ))}
                                                 </div>
 
-                                                {/* Compact averages */}
-                                                <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
-                                                    {isValidNumber(account.average_likes) && account.average_likes > 0 && (
-                                                        <div className="rounded-md border border-gray-100 bg-gray-50 px-2 py-1">
-                                                            <div className="text-[10px] uppercase tracking-wide text-gray-500">Avg Likes</div>
-                                                            <div className="font-semibold text-gray-900">{formatFollowers(account.average_likes)}</div>
-                                                        </div>
-                                                    )}
-                                                    {isValidNumber(account.average_comments) && account.average_comments > 0 && (
-                                                        <div className="rounded-md border border-gray-100 bg-gray-50 px-2 py-1">
-                                                            <div className="text-[10px] uppercase tracking-wide text-gray-500">Avg Comments</div>
-                                                            <div className="font-semibold text-gray-900">{formatFollowers(account.average_comments)}</div>
-                                                        </div>
-                                                    )}
-                                                </div>
+                                                {/* Clickable card removes dedicated button */}
                                             </div>
                                         );
                                     })}
@@ -1481,43 +1489,124 @@ export default function InfluencerProfilePage() {
                             <CardContent>
                                 {profile.engagement_overview ? (
                                     <div className="space-y-3 text-sm">
-                                        <div className="flex items-center justify-between">
-                                            <span className="text-gray-600">Total Followers</span>
-                                            <span className="font-semibold text-gray-900">
-                                                {formatFollowers(profile.engagement_overview.followers_total)}
-                                            </span>
+                                        <div className="space-y-2">
+                                            {(() => {
+                                                const highLevel = [
+                                                    {
+                                                        label: 'Total Followers',
+                                                        value: profile.engagement_overview?.followers_total,
+                                                        formatter: formatFollowers,
+                                                    },
+                                                    {
+                                                        label: 'Overall ER',
+                                                        value: profile.engagement_overview?.avg_engagement_rate,
+                                                        formatter: formatPercentage,
+                                                    },
+                                                ].filter(
+                                                    (item) =>
+                                                        item.value !== null &&
+                                                        item.value !== undefined &&
+                                                        !Number.isNaN(item.value) &&
+                                                        (typeof item.value === 'number' ? item.value !== 0 : true)
+                                                );
+
+                                                return highLevel.map((item) => (
+                                                    <div key={item.label} className="flex items-center justify-between">
+                                                        <span className="text-gray-600">{item.label}</span>
+                                                        <span className="font-semibold text-gray-900">
+                                                            {item.formatter(item.value as number)}
+                                                        </span>
+                                                    </div>
+                                                ));
+                                            })()}
                                         </div>
-                                        <div className="flex items-center justify-between">
-                                            <span className="text-gray-600">Overall ER</span>
-                                            <span className="font-semibold text-gray-900">
-                                                {formatPercentage(profile.engagement_overview.avg_engagement_rate)}
-                                            </span>
-                                        </div>
+
                                         <div className="grid grid-cols-3 gap-3 text-xs text-gray-600">
-                                            <div><div className="font-semibold text-gray-900">{formatFollowers(profile.engagement_overview.avg_likes)}</div><div>Likes</div></div>
-                                            <div><div className="font-semibold text-gray-900">{formatFollowers(profile.engagement_overview.avg_comments)}</div><div>Comments</div></div>
-                                            <div><div className="font-semibold text-gray-900">{formatFollowers(profile.engagement_overview.avg_views)}</div><div>Views</div></div>
+                                            {[
+                                                { label: 'Likes', value: profile.engagement_overview.avg_likes },
+                                                { label: 'Comments', value: profile.engagement_overview.avg_comments },
+                                                { label: 'Views', value: profile.engagement_overview.avg_views },
+                                            ]
+                                                .filter(
+                                                    (metric) =>
+                                                        metric.value !== null &&
+                                                        metric.value !== undefined &&
+                                                        !Number.isNaN(metric.value) &&
+                                                        metric.value > 0
+                                                )
+                                                .map((metric) => (
+                                                    <div key={metric.label}>
+                                                        <div className="font-semibold text-gray-900">
+                                                            {formatFollowers(metric.value as number)}
+                                                        </div>
+                                                        <div>{metric.label}</div>
+                                                    </div>
+                                                ))}
                                         </div>
                                         <div className="mt-4">
                                             <h4 className="text-xs font-medium text-gray-600 uppercase tracking-wide mb-2">
                                                 Platform Breakdown
                                             </h4>
                                             <div className="space-y-2">
-                                                {safeArray(profile.engagement_overview.platform_breakdown).map((platform) => (
-                                                    <div key={`${platform.platform}_${platform.handle ?? 'handle'}`}
-                                                         className="border border-gray-100 rounded-md p-2 text-xs text-gray-600">
-                                                        <div className="flex items-center justify-between">
-                                                            <span className="capitalize font-medium text-gray-900">
-                                                                {platform.platform}
-                                                            </span>
-                                                            <span>@{platform.handle ?? 'unknown'}</span>
+                                                {safeArray(profile.engagement_overview.platform_breakdown).map((platform) => {
+                                                    const platformMetrics = [
+                                                        {
+                                                            label: getFollowersLabelForPlatform(String(platform.platform)),
+                                                            value: platform.followers,
+                                                            formatter: formatFollowers,
+                                                        },
+                                                        {
+                                                            label: 'ER',
+                                                            value: platform.engagement_rate,
+                                                            formatter: formatPercentage,
+                                                        },
+                                                        {
+                                                            label: 'Avg Likes',
+                                                            value: platform.average_likes,
+                                                            formatter: formatFollowers,
+                                                        },
+                                                        {
+                                                            label: 'Avg Comments',
+                                                            value: platform.average_comments,
+                                                            formatter: formatFollowers,
+                                                        },
+                                                        {
+                                                            label: 'Avg Video Views',
+                                                            value: platform.average_video_views,
+                                                            formatter: formatFollowers,
+                                                        },
+                                                    ].filter(
+                                                        (metric) =>
+                                                            metric.value !== null &&
+                                                            metric.value !== undefined &&
+                                                            !Number.isNaN(metric.value) &&
+                                                            (typeof metric.value === 'number' ? metric.value > 0 : true)
+                                                    );
+
+                                                    return (
+                                                        <div
+                                                            key={`${platform.platform}_${platform.handle ?? 'handle'}`}
+                                                            className="border border-gray-100 rounded-md p-2 text-xs text-gray-600"
+                                                        >
+                                                            <div className="flex items-center justify-between">
+                                                                <span className="capitalize font-medium text-gray-900">
+                                                                    {platform.platform}
+                                                                </span>
+                                                                <span>@{platform.handle ?? 'unknown'}</span>
+                                                            </div>
+                                                            <div className="grid grid-cols-2 gap-2 mt-2">
+                                                                {platformMetrics.map((metric) => (
+                                                                    <span key={`${platform.platform}_${metric.label}`}>
+                                                                        {metric.label}:{' '}
+                                                                        <span className="font-semibold text-gray-900">
+                                                                            {metric.formatter(metric.value as number)}
+                                                                        </span>
+                                                                    </span>
+                                                                ))}
+                                                            </div>
                                                         </div>
-                                                        <div className="grid grid-cols-2 gap-2 mt-2">
-                                                            <span>Followers: {formatFollowers(platform.followers)}</span>
-                                                            <span>ER: {formatPercentage(platform.engagement_rate)}</span>
-                                                        </div>
-                                                    </div>
-                                                ))}
+                                                    );
+                                                })}
                                             </div>
                                         </div>
                                     </div>
