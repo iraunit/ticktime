@@ -16,7 +16,6 @@ import {
     HiArrowTrendingUp,
     HiChatBubbleLeft,
     HiCheckCircle,
-    HiArrowTopRightOnSquare,
     HiExclamationTriangle,
     HiEye,
     HiHeart,
@@ -164,6 +163,8 @@ interface SocialMediaPost {
     views_count?: number;
     shares_count?: number;
     raw_data?: Record<string, any>;
+    thumbnail_url?: string;
+    media_urls?: string[];
 }
 
 interface SocialAccount {
@@ -380,6 +381,11 @@ export default function InfluencerProfilePage() {
         const firstFrom = (arr?: unknown[]) =>
             Array.isArray(arr) ? arr.find((x) => typeof x === 'string' && x.startsWith('http')) : undefined;
 
+        const directCandidates: Array<unknown> = [
+            post.thumbnail_url,
+            Array.isArray(post.media_urls) ? post.media_urls[0] : undefined,
+        ];
+
         const candidates: Array<unknown> = [
             raw.thumbnail_url,
             raw.thumbnailUrl,
@@ -416,6 +422,7 @@ export default function InfluencerProfilePage() {
         ];
 
         const validCandidate =
+            directCandidates.find((value) => typeof value === 'string' && value.startsWith('http')) ||
             candidates.find((value) => typeof value === 'string' && value.startsWith('http')) ||
             firstFrom(get('display_resources') as unknown[]) ||
             firstFrom(get('image_versions2?.candidates') as unknown[]);
@@ -1349,40 +1356,73 @@ export default function InfluencerProfilePage() {
                                         {safeArray(profile.recent_posts).map((post) => {
                                             const thumb = getPrimaryThumbnail(post);
                                             const { icon: PIcon, color, bgColor } = getPlatformIcon(post.platform);
+                                            const openPost = () => {
+                                                if (post.post_url) {
+                                                    window.open(post.post_url, '_blank', 'noopener,noreferrer');
+                                                }
+                                            };
+                                            const handleKeyDown = (event: React.KeyboardEvent) => {
+                                                if (!post.post_url) return;
+                                                if (event.key === 'Enter' || event.key === ' ') {
+                                                    event.preventDefault();
+                                                    openPost();
+                                                }
+                                            };
                                             return (
-                                                <div key={`${post.platform}_${post.platform_post_id}`} className="flex items-center gap-3 p-3 border border-gray-200 rounded-lg">
-                                                    <div className={`h-14 w-14 rounded-md overflow-hidden flex items-center justify-center ${thumb ? '' : `${bgColor} text-white`}`}>
+                                                <div
+                                                    key={`${post.platform}_${post.platform_post_id}`}
+                                                    role={post.post_url ? 'link' : 'group'}
+                                                    tabIndex={post.post_url ? 0 : -1}
+                                                    onClick={post.post_url ? openPost : undefined}
+                                                    onKeyDown={handleKeyDown}
+                                                    className={`flex items-center gap-4 rounded-xl border border-gray-200 bg-white p-3 shadow-sm transition shadow-sm hover:shadow-lg ${
+                                                        post.post_url ? 'cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary' : ''
+                                                    }`}
+                                                >
+                                                    <div
+                                                        className={`h-16 w-16 rounded-xl overflow-hidden flex items-center justify-center ${thumb ? '' : `${bgColor} text-white`}`}
+                                                    >
                                                         {thumb ? (
-                                                            <img src={thumb} alt={post.caption || `${post.platform} post`} className="h-full w-full object-cover" />
+                                                            <img
+                                                                src={thumb}
+                                                                alt={post.caption || `${post.platform} post`}
+                                                                className="h-full w-full object-cover"
+                                                            />
                                                         ) : (
-                                                            <PIcon className="h-6 w-6" />
+                                                            <PIcon className="h-7 w-7" />
                                                         )}
                                                     </div>
-                                                    <div className="flex-1 min-w-0">
-                                                        <div className="flex items-center gap-2 text-xs text-gray-500">
-                                                            <span className={`flex items-center gap-1 ${color}`}>
+                                                    <div className="flex-1 min-w-0 space-y-1.5">
+                                                        <div className="flex flex-wrap items-center gap-2 text-xs text-gray-500">
+                                                            <span className={`flex items-center gap-1 font-medium text-gray-900 ${color}`}>
                                                                 <PIcon className="h-3.5 w-3.5" />
                                                                 {post.platform}
                                                             </span>
                                                             <span>•</span>
+                                                            <span>{post.post_type?.toUpperCase() || 'POST'}</span>
+                                                            <span>•</span>
                                                             <span>{post.posted_at ? formatDateTime(post.posted_at) : 'Unknown'}</span>
                                                         </div>
-                                                        <div className="text-sm text-gray-900 truncate">{truncate(post.caption, 120) || 'No caption'}</div>
-                                                        <div className="mt-1 flex flex-wrap gap-3 text-xs text-gray-600">
-                                                            <span>Likes: {formatFollowers(post.likes_count || 0)}</span>
-                                                            <span>Comments: {formatFollowers(post.comments_count || 0)}</span>
-                                                            <span>Views: {formatFollowers(post.views_count || 0)}</span>
+                                                        <div className="text-sm text-gray-900 line-clamp-2">
+                                                            {truncate(post.caption, 160) || 'No caption'}
+                                                        </div>
+                                                        <div className="flex flex-wrap gap-3 text-xs text-gray-600">
+                                                            <span className="inline-flex items-center gap-1">
+                                                                <HiHeart className="h-3.5 w-3.5 text-rose-500" />
+                                                                {formatFollowers(post.likes_count || 0)}
+                                                            </span>
+                                                            <span className="inline-flex items-center gap-1">
+                                                                <HiChatBubbleLeft className="h-3.5 w-3.5 text-sky-500" />
+                                                                {formatFollowers(post.comments_count || 0)}
+                                                            </span>
+                                                            {post.views_count !== undefined && post.views_count !== null && (
+                                                                <span className="inline-flex items-center gap-1">
+                                                                    <HiEye className="h-3.5 w-3.5 text-amber-500" />
+                                                                    {formatFollowers(post.views_count)}
+                                                                </span>
+                                                            )}
                                                         </div>
                                                     </div>
-                                                    <Button
-                                                        size="icon"
-                                                        variant="ghost"
-                                                        onClick={() => post.post_url && window.open(post.post_url, '_blank', 'noopener,noreferrer')}
-                                                        aria-label="Open post"
-                                                        disabled={!post.post_url}
-                                                    >
-                                                        <HiArrowTopRightOnSquare className="h-4 w-4" />
-                                                    </Button>
                                                 </div>
                                             );
                                         })}
