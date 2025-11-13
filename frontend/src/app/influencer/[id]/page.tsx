@@ -353,6 +353,14 @@ export default function InfluencerProfilePage() {
         return Number.isFinite(numeric) ? numeric : null;
     };
 
+    const getNumericValue = (value?: string | number | null): number | null => {
+        if (value === undefined || value === null) return null;
+        if (typeof value === 'number') {
+            return Number.isFinite(value) ? value : null;
+        }
+        return parseNumericValue(value);
+    };
+
     const tryFormatFollowers = (value?: string | number | null): string | null => {
         const numeric = parseNumericValue(value);
         if (numeric === null) return null;
@@ -810,6 +818,26 @@ export default function InfluencerProfilePage() {
         { label: 'Platforms', value: String(profile.social_accounts_count ?? 0), icon: HiPresentationChartBar, color: 'text-violet-600' },
     ].filter((tile) => tile.value && tile.value !== '0' && tile.value !== '0%');
 
+    const influenceScoreValue = getNumericValue(profile.influence_score);
+    const platformScoreValue = getNumericValue(profile.platform_score);
+    const contentQualityScoreValue = getNumericValue(profile.content_quality_score);
+    const averageRatingValue = (() => {
+        const candidates: Array<string | number | null | undefined> = [
+            profile.performance_metrics?.average_rating,
+            profile.avg_rating,
+            profile.rating,
+        ];
+        for (const candidate of candidates) {
+            const numeric = getNumericValue(candidate ?? null);
+            if (numeric !== null && numeric > 0) {
+                return numeric;
+            }
+        }
+        return null;
+    })();
+    const formatDecimal = (value: number | null, digits = 1) =>
+        value !== null ? value.toFixed(digits) : null;
+
     // Build compact per-platform summary for the Platforms KPI
     const platformSummary = (() => {
         const platformMap = new Map<
@@ -1260,60 +1288,6 @@ export default function InfluencerProfilePage() {
                             </CardContent>
                         </Card>
 
-                        {/* Brand Collaborations */}
-                        <Card className="border border-gray-200">
-                            <CardHeader className="pb-4">
-                                <CardTitle className="text-lg font-semibold text-gray-900">
-                                    Brand Collaborations
-                                </CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                                {safeArray(profile.brand_collaborations).length > 0 ? (
-                                    <div className="space-y-3">
-                                        {safeArray(profile.brand_collaborations).map((brand) => (
-                                            <div key={brand.id}
-                                                 className="flex items-center justify-between p-3 border border-gray-200 rounded-lg">
-                                                <div className="flex items-center gap-3">
-                                                    {brand.logo ? (
-                                                        <img
-                                                            src={brand.logo.startsWith('http') ? brand.logo : `/media/${brand.logo}`}
-                                                            alt={brand.name}
-                                                            className="w-8 h-8 rounded-full object-cover border border-gray-200"
-                                                            onError={(e) => {
-                                                                const target = e.target as HTMLImageElement;
-                                                                target.style.display = 'none';
-                                                                target.nextElementSibling?.classList.remove('hidden');
-                                                            }}
-                                                        />
-                                                    ) : null}
-                                                    <div
-                                                        className={`w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center ${brand.logo ? 'hidden' : ''}`}>
-                                                        <span className="text-gray-600 font-medium text-sm">
-                                                            {brand.name.charAt(0)}
-                                                        </span>
-                                                    </div>
-                                                    <div>
-                                                        <h4 className="font-medium text-gray-900 text-sm">{brand.name}</h4>
-                                                        <p className="text-xs text-gray-500">
-                                                            {brand.collaboration_count} collaboration{brand.collaboration_count !== 1 ? 's' : ''}
-                                                        </p>
-                                                    </div>
-                                                </div>
-                                                <Badge variant="outline" className="text-xs">
-                                                    Partner
-                                                </Badge>
-                                            </div>
-                                        ))}
-                                    </div>
-                                ) : (
-                                    <div className="text-center py-6">
-                                        <HiStar className="w-8 h-8 text-gray-300 mx-auto mb-2"/>
-                                        <p className="text-sm text-gray-500">No brand collaborations yet</p>
-                                    </div>
-                                )}
-                            </CardContent>
-                        </Card>
-
                         {/* Content Keywords & Hashtags */}
                         {(safeArray(profile.hashtags_used).length > 0 || safeArray(profile.content_keywords).length > 0) && (
                         <Card className="border border-gray-200">
@@ -1372,48 +1346,6 @@ export default function InfluencerProfilePage() {
                         </Card>
                         )}
 
-                        {/* Recent Collaborations */}
-                        <Card className="border border-gray-200">
-                            <CardHeader className="pb-4">
-                                <CardTitle className="text-lg font-semibold text-gray-900">
-                                    Recent Collaborations
-                                </CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                                {safeArray(profile.recent_collaborations).length > 0 ? (
-                                    <div className="space-y-3">
-                                        {safeArray(profile.recent_collaborations).map((collab) => (
-                                            <div key={collab.id} className="border border-gray-200 rounded-lg p-3">
-                                                <div className="flex items-center justify-between mb-2">
-                                                    <div>
-                                                        <h4 className="font-medium text-gray-900 text-sm">{collab.campaign_title}</h4>
-                                                        <p className="text-xs text-gray-600">{collab.brand_name}</p>
-                                                    </div>
-                                                    <div className="flex items-center gap-2">
-                                                        {getStatusBadge(collab.status)}
-                                                        {collab.rating && (
-                                                            <div className="flex items-center gap-1">
-                                                                <HiStar className="w-3 h-3 text-yellow-500"/>
-                                                                <span
-                                                                    className="text-xs font-medium">{collab.rating}/5</span>
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                                <p className="text-xs text-gray-500">
-                                                    {formatDate(collab.created_at)}
-                                                </p>
-                                            </div>
-                                        ))}
-                                    </div>
-                                ) : (
-                                    <div className="text-center py-6">
-                                        <HiStar className="w-8 h-8 text-gray-300 mx-auto mb-2"/>
-                                        <p className="text-sm text-gray-500">No recent collaborations</p>
-                                    </div>
-                                )}
-                            </CardContent>
-                        </Card>
                         {/* Recent Posts */}
                         <Card className="border border-gray-200">
                             <CardHeader className="pb-4">
@@ -1543,72 +1475,6 @@ export default function InfluencerProfilePage() {
                                                     </div>
                                                 ))}
                                         </div>
-                                        <div className="mt-4">
-                                            <h4 className="text-xs font-medium text-gray-600 uppercase tracking-wide mb-2">
-                                                Platform Breakdown
-                                            </h4>
-                                            <div className="space-y-2">
-                                                {safeArray(profile.engagement_overview.platform_breakdown).map((platform) => {
-                                                    const platformMetrics = [
-                                                        {
-                                                            label: getFollowersLabelForPlatform(String(platform.platform)),
-                                                            value: platform.followers,
-                                                            formatter: formatFollowers,
-                                                        },
-                                                        {
-                                                            label: 'ER',
-                                                            value: platform.engagement_rate,
-                                                            formatter: formatPercentage,
-                                                        },
-                                                        {
-                                                            label: 'Avg Likes',
-                                                            value: platform.average_likes,
-                                                            formatter: formatFollowers,
-                                                        },
-                                                        {
-                                                            label: 'Avg Comments',
-                                                            value: platform.average_comments,
-                                                            formatter: formatFollowers,
-                                                        },
-                                                        {
-                                                            label: 'Avg Video Views',
-                                                            value: platform.average_video_views,
-                                                            formatter: formatFollowers,
-                                                        },
-                                                    ].filter(
-                                                        (metric) =>
-                                                            metric.value !== null &&
-                                                            metric.value !== undefined &&
-                                                            !Number.isNaN(metric.value) &&
-                                                            (typeof metric.value === 'number' ? metric.value > 0 : true)
-                                                    );
-
-                                                    return (
-                                                        <div
-                                                            key={`${platform.platform}_${platform.handle ?? 'handle'}`}
-                                                            className="border border-gray-100 rounded-md p-2 text-xs text-gray-600"
-                                                        >
-                                                            <div className="flex items-center justify-between">
-                                                                <span className="capitalize font-medium text-gray-900">
-                                                                    {platform.platform}
-                                                                </span>
-                                                                <span>@{platform.handle ?? 'unknown'}</span>
-                                                            </div>
-                                                            <div className="grid grid-cols-2 gap-2 mt-2">
-                                                                {platformMetrics.map((metric) => (
-                                                                    <span key={`${platform.platform}_${metric.label}`}>
-                                                                        {metric.label}:{' '}
-                                                                        <span className="font-semibold text-gray-900">
-                                                                            {metric.formatter(metric.value as number)}
-                                                                        </span>
-                                                                    </span>
-                                                                ))}
-                                                            </div>
-                                                        </div>
-                                                    );
-                                                })}
-                                            </div>
-                                        </div>
                                     </div>
                                 ) : (
                                     <p className="text-sm text-gray-500">Engagement metrics unavailable</p>
@@ -1679,19 +1545,41 @@ export default function InfluencerProfilePage() {
                                         </Badge>
                                     </div>
 
-                                    <div className="flex justify-between">
-                                        <span className="text-gray-500">Platform Score:</span>
-                                        <span className="font-medium">
-                                            {formatScore(profile.platform_score)}
-                                        </span>
-                                    </div>
+                                    {influenceScoreValue !== null && (
+                                        <div className="flex justify-between">
+                                            <span className="text-gray-500">Influence Score:</span>
+                                            <span className="font-medium">
+                                                {formatScore(influenceScoreValue)}
+                                            </span>
+                                        </div>
+                                    )}
 
-                                    <div className="flex justify-between">
-                                        <span className="text-gray-500">Content Quality:</span>
-                                        <span className="font-medium">
-                                            {formatScore(profile.content_quality_score)}
-                                        </span>
-                                    </div>
+                                    {platformScoreValue !== null && (
+                                        <div className="flex justify-between">
+                                            <span className="text-gray-500">Platform Score:</span>
+                                            <span className="font-medium">
+                                                {formatScore(platformScoreValue)}
+                                            </span>
+                                        </div>
+                                    )}
+
+                                    {contentQualityScoreValue !== null && (
+                                        <div className="flex justify-between">
+                                            <span className="text-gray-500">Content Quality:</span>
+                                            <span className="font-medium">
+                                                {formatScore(contentQualityScoreValue)}
+                                            </span>
+                                        </div>
+                                    )}
+
+                                    {averageRatingValue !== null && (
+                                        <div className="flex justify-between">
+                                            <span className="text-gray-500">Avg Rating:</span>
+                                            <span className="font-medium">
+                                                {formatDecimal(averageRatingValue, 1)}
+                                            </span>
+                                        </div>
+                                    )}
                                 </div>
                             </CardContent>
                         </Card>
