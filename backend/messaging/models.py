@@ -1,6 +1,8 @@
 from django.db import models
 from django.utils import timezone
 
+from backend.storage_backends import private_media_storage
+
 
 class Conversation(models.Model):
     """
@@ -57,7 +59,12 @@ class Message(models.Model):
     sender_type = models.CharField(max_length=20, choices=SENDER_TYPE_CHOICES)
     sender_user = models.ForeignKey('auth.User', on_delete=models.CASCADE, related_name='sent_messages')
     content = models.TextField()
-    file_attachment = models.FileField(upload_to='message_attachments/', blank=True, null=True)
+    file_attachment = models.FileField(
+        upload_to='message_attachments/',
+        blank=True,
+        null=True,
+        storage=private_media_storage,
+    )
     file_name = models.CharField(max_length=255, blank=True)
     file_size = models.IntegerField(null=True, blank=True)
     read_by_influencer = models.BooleanField(default=False)

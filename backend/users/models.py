@@ -1,6 +1,8 @@
 from django.contrib.auth.models import User
 from django.db import models
 
+from backend.storage_backends import public_media_storage
+
 # Gender choices
 GENDER_CHOICES = [
     ('male', 'Male'),
@@ -32,7 +34,12 @@ class UserProfile(models.Model):
     address_line2 = models.CharField(max_length=255, blank=True, default='')
 
     # Profile image shared between all users
-    profile_image = models.ImageField(upload_to='profiles/', blank=True, null=True)
+    profile_image = models.ImageField(
+        upload_to='profiles/',
+        blank=True,
+        null=True,
+        storage=public_media_storage,
+    )
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

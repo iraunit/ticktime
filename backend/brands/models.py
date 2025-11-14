@@ -3,6 +3,8 @@ from django.contrib.auth.models import User
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.db import models
 
+from backend.storage_backends import public_media_storage
+
 
 class Brand(models.Model):
     """
@@ -12,7 +14,12 @@ class Brand(models.Model):
     name = models.CharField(max_length=200)
     domain = models.CharField(max_length=255, unique=True, default='example.com',
                               help_text="Company domain (e.g., google.com)")
-    logo = models.ImageField(upload_to='brands/', blank=True, null=True)
+    logo = models.ImageField(
+        upload_to='brands/',
+        blank=True,
+        null=True,
+        storage=public_media_storage,
+    )
     description = models.TextField(blank=True, default='')
     website = models.URLField(blank=True, default='')
     industry = models.ForeignKey(Industry, on_delete=models.PROTECT, related_name='brands')
