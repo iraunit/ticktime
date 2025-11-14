@@ -56,16 +56,41 @@ def _extract_email_slug(instance):
     return slug or "anonymous"
 
 
-def private_upload_path(base_dir):
-    base_dir = base_dir.strip("/ ")
+class PrivateUploadPath:
+    """
+    Serializable callable for upload_to fields that nests files under a per-user slug.
+    """
 
-    def _uploader(instance, filename):
+    def __init__(self, base_dir: str):
+        self.base_dir = (base_dir or "").strip("/ ")
+
+    def __call__(self, instance, filename):
         email_slug = _extract_email_slug(instance)
         clean_name = _sanitize_filename(filename)
-        parts = [part for part in (base_dir, email_slug, clean_name) if part]
+        parts = [part for part in (self.base_dir, email_slug, clean_name) if part]
         return "/".join(parts)
 
-    return _uploader
+    def deconstruct(self):
+        return (
+            "backend.storage_backends.PrivateUploadPath",
+            [self.base_dir],
+            {},
+        )
+
+
+def private_upload_path(base_dir):
+    """
+    Backwards-compatible helper that returns a serializable upload_to callable.
+    """
+    return PrivateUploadPath(base_dir)
+
+
+def brand_verification_upload_to(instance, filename):
+    """
+    Dedicated upload_to callable for brand verification documents to keep migrations serializable.
+    """
+    uploader = PrivateUploadPath('brands/verification')
+    return uploader(instance, filename)
 
 
 class LocalMediaStorage(FileSystemStorage):

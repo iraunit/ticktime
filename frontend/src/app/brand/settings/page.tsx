@@ -28,6 +28,7 @@ import {usePincodeLookup} from "@/hooks/use-pincode-lookup";
 import {useIndustries} from "@/hooks/use-industries";
 import {getMediaUrl} from "@/lib/utils";
 import {OptimizedAvatar} from "@/components/ui";
+import {BrandVerificationUploader} from "@/components/brand/brand-verification-uploader";
 import {UnifiedCountrySelect} from "@/components/ui/unified-country-select";
 
 interface TeamMember {
@@ -73,6 +74,11 @@ interface Brand {
     industry: string;
     contact_email: string;
     is_verified: boolean;
+    gstin?: string;
+    verification_document_url?: string | null;
+    has_verification_document?: boolean;
+    verification_document_uploaded_at?: string | null;
+    verification_document_original_name?: string;
     rating: number;
     total_campaigns: number;
     created_at: string;
@@ -125,6 +131,7 @@ export default function BrandSettingsPage() {
     const [brandDescription, setBrandDescription] = useState("");
     const [brandWebsite, setBrandWebsite] = useState("");
     const [brandContactEmail, setBrandContactEmail] = useState("");
+    const [brandGstin, setBrandGstin] = useState("");
 
     // Role update state
     const [newRole, setNewRole] = useState("");
@@ -205,6 +212,7 @@ export default function BrandSettingsPage() {
                 setBrandDescription(response.data.brand.description);
                 setBrandWebsite(response.data.brand.website);
                 setBrandContactEmail(response.data.brand.contact_email);
+                setBrandGstin(response.data.brand.gstin || "");
             }
         } catch (error) {
             console.error('Error fetching brand settings:', error);
@@ -243,6 +251,15 @@ export default function BrandSettingsPage() {
         } finally {
             setIsLoadingDomainUsers(false);
         }
+    };
+
+    const handleVerificationUploadSuccess = (updatedBrand?: Brand) => {
+        if (updatedBrand) {
+            setBrand(updatedBrand);
+            setBrandGstin(updatedBrand.gstin || "");
+            return;
+        }
+        fetchBrandSettings();
     };
 
     const handleInviteExistingUser = async (user: any, role: string) => {
@@ -388,6 +405,7 @@ export default function BrandSettingsPage() {
             formData.append('description', brandDescription);
             formData.append('website', brandWebsite);
             formData.append('contact_email', brandContactEmail);
+            formData.append('gstin', brandGstin || '');
 
             if (logoFile) {
                 formData.append('logo', logoFile);
@@ -409,6 +427,7 @@ export default function BrandSettingsPage() {
                         description: brandDescription,
                         website: brandWebsite,
                         contact_email: brandContactEmail,
+                        gstin: brandGstin || '',
                         ...(response.data.brand.logo && {logo: response.data.brand.logo})
                     };
                     setBrand(updatedBrand);
@@ -433,6 +452,7 @@ export default function BrandSettingsPage() {
             setBrandDescription(brand.description);
             setBrandWebsite(brand.website);
             setBrandContactEmail(brand.contact_email);
+            setBrandGstin(brand.gstin || "");
         }
         setLogoFile(null);
         setIsEditingBrand(false);
@@ -1151,7 +1171,7 @@ export default function BrandSettingsPage() {
                                 )}
                             </div>
 
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-2">
                                         Website
@@ -1205,6 +1225,36 @@ export default function BrandSettingsPage() {
                                         </div>
                                     )}
                                 </div>
+
+                                <div>
+                                    <label
+                                        className="block text-sm font-medium text-gray-700 mb-2 flex items-center justify-between">
+                                        GSTIN
+                                        <span className="text-xs text-gray-500">Optional</span>
+                                    </label>
+                                    {isEditingBrand ? (
+                                        <Input
+                                            value={brandGstin}
+                                            onChange={(e) => setBrandGstin(e.target.value.replace(/\s/g, '').toUpperCase())}
+                                            placeholder="15-character GSTIN"
+                                            maxLength={15}
+                                            className="tracking-wide uppercase"
+                                        />
+                                    ) : (
+                                        <div className="p-3 bg-gray-50 rounded-md border">
+                                            {brand?.gstin ? (
+                                                <span className="font-mono text-gray-900">{brand.gstin}</span>
+                                            ) : (
+                                                <span className="text-gray-500">Not provided</span>
+                                            )}
+                                        </div>
+                                    )}
+                                    {!brand?.gstin && !isEditingBrand && (
+                                        <p className="text-xs text-amber-600 mt-1">
+                                            Add GSTIN to speed up verification.
+                                        </p>
+                                    )}
+                                </div>
                             </div>
 
                             {/* Read-only sensitive fields */}
@@ -1235,6 +1285,66 @@ export default function BrandSettingsPage() {
                                     </Button>
                                 </div>
                             )}
+                        </div>
+                    </Card>
+
+                    <Card className="p-6">
+                        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                            <div>
+                                <h3 className="text-lg font-semibold text-gray-900">Brand Verification</h3>
+                                <p className="text-gray-600">
+                                    Upload legal documents so our compliance team can unlock full access for your brand.
+                                </p>
+                            </div>
+                            <Badge
+                                variant={brand?.is_verified ? "default" : brand?.has_verification_document ? "secondary" : "outline"}
+                                className={
+                                    brand?.is_verified
+                                        ? "bg-green-100 text-green-800"
+                                        : brand?.has_verification_document
+                                            ? "bg-yellow-100 text-yellow-800"
+                                            : "bg-gray-100 text-gray-800"
+                                }
+                            >
+                                {brand?.is_verified
+                                    ? "Verified"
+                                    : brand?.has_verification_document
+                                        ? "Under Review"
+                                        : "Not Submitted"}
+                            </Badge>
+                        </div>
+
+                        <div className="mt-6 space-y-4">
+                            {!brand?.is_verified && (
+                                <div
+                                    className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-sm text-yellow-900">
+                                    <p className="font-semibold mb-1">Heads up</p>
+                                    <p>
+                                        {brand?.has_verification_document
+                                            ? "We've received your document. Verification typically completes within 1-2 business days."
+                                            : "Upload PAN, Aadhaar, GST certificate, or incorporation document to begin manual verification."}
+                                    </p>
+                                    {!brand?.gstin && (
+                                        <p className="mt-2">
+                                            No GSTIN on file yet. Adding one helps us verify faster.
+                                        </p>
+                                    )}
+                                </div>
+                            )}
+
+                            {brand?.verification_document_uploaded_at && (
+                                <p className="text-sm text-gray-600">
+                                    Last uploaded on{" "}
+                                    {new Date(brand.verification_document_uploaded_at).toLocaleString()}
+                                </p>
+                            )}
+
+                            <BrandVerificationUploader
+                                hasDocument={brand?.has_verification_document}
+                                uploadedAt={brand?.verification_document_uploaded_at}
+                                existingDocumentName={brand?.verification_document_original_name}
+                                onUploaded={handleVerificationUploadSuccess}
+                            />
                         </div>
                     </Card>
                 </TabsContent>

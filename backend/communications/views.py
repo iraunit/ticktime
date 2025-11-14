@@ -211,6 +211,11 @@ def check_account_status(request):
     can_access = True
     lock_reason = None
     message = None
+    brand_verified = True
+    requires_brand_verification = False
+    has_verification_document = False
+    verification_document_uploaded_at = None
+    gstin_provided = False
 
     # Check for brand user
     if hasattr(user, 'brand_user'):
@@ -233,12 +238,32 @@ def check_account_status(request):
             lock_reason = 'payment_required'
             message = 'Your account has been locked. Please contact support.'
 
+        brand_verified = brand.is_verified
+        has_verification_document = bool(brand.verification_document)
+        verification_document_uploaded_at = brand.verification_document_uploaded_at
+        gstin_provided = bool(brand.gstin)
+
+        if (
+                email_verified
+                and not is_locked
+                and not brand_verified
+        ):
+            requires_brand_verification = True
+            can_access = False
+            lock_reason = 'brand_not_verified'
+            message = 'Please upload a verification document to unlock your brand account.'
+
     serializer = AccountStatusSerializer({
         'email_verified': email_verified,
         'is_locked': is_locked,
         'can_access': can_access,
         'lock_reason': lock_reason,
-        'message': message
+        'message': message,
+        'brand_verified': brand_verified,
+        'requires_brand_verification': requires_brand_verification,
+        'has_verification_document': has_verification_document,
+        'verification_document_uploaded_at': verification_document_uploaded_at,
+        'gstin_provided': gstin_provided,
     })
 
     return api_response(

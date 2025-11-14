@@ -11,6 +11,7 @@ urlpatterns = [
     # Brand Profile
     path('profile/', views.brand_profile_view, name='brand-profile'),
     path('profile/update/', views.update_brand_profile_view, name='update-brand-profile'),
+    path('verification/document/', views.upload_brand_verification_document_view, name='brand-verification-document'),
 
     # Team Management
     path('team/', views.brand_team_view, name='brand-team'),

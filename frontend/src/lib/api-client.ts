@@ -25,8 +25,10 @@ export const authApi = {
         name: string;
         industry: string;
         website?: string;
-        contact_phone?: string;
+        country_code: string;
+        contact_phone: string;
         description?: string;
+        gstin?: string;
     }) => api.post('/auth/brand-signup/', data),
 
     logout: () => api.post('/auth/logout/'),
@@ -422,4 +424,16 @@ export const brandApi = {
         tracking_number: string;
         tracking_url?: string;
     }) => api.patch(`/brands/deals/${dealId}/tracking/`, data),
+
+    uploadVerificationDocument: (file: File) => {
+        const formData = new FormData();
+        formData.append('document', file);
+
+        return api.post('/brands/verification/document/', formData, {
+            headers: {
+                'Content-Type': undefined,
+            },
+            transformRequest: [(data) => data],
+        });
+    },
 };

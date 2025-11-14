@@ -1,3 +1,4 @@
+import re
 from urllib.parse import urlparse
 
 from common.models import Industry
@@ -127,6 +128,7 @@ class BrandRegistrationSerializer(serializers.Serializer):
     country_code = serializers.CharField(max_length=5)
     contact_phone = serializers.CharField(max_length=15)
     description = serializers.CharField()
+    gstin = serializers.CharField(max_length=15, required=False, allow_blank=True)
 
     def validate_email(self, value):
         """Validate email is unique and extract domain."""
@@ -199,6 +201,17 @@ class BrandRegistrationSerializer(serializers.Serializer):
 
         return attrs
 
+    def validate_gstin(self, value):
+        """Basic GSTIN format validation (optional field)."""
+        gstin = value.strip().upper()
+        if not gstin:
+            return ''
+
+        if len(gstin) != 15 or not re.match(r'^[0-9A-Z]{15}$', gstin):
+            raise serializers.ValidationError("Please enter a valid 15-character GSTIN.")
+
+        return gstin
+
     def create(self, validated_data):
         from brands.models import Brand, BrandUser
 
@@ -213,6 +226,7 @@ class BrandRegistrationSerializer(serializers.Serializer):
         country_code = validated_data.pop('country_code')
         contact_phone = validated_data.pop('contact_phone')
         description = validated_data.pop('description')
+        gstin = validated_data.pop('gstin', '')
 
         with transaction.atomic():
             # Create user
@@ -242,6 +256,7 @@ class BrandRegistrationSerializer(serializers.Serializer):
                 website=website,
                 contact_email=user.email,
                 description=description,
+                gstin=gstin,
             )
 
             # Create brand user association (owner role)

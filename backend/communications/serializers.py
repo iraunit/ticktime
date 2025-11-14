@@ -38,6 +38,11 @@ class AccountStatusSerializer(serializers.Serializer):
     can_access = serializers.BooleanField()
     lock_reason = serializers.CharField(required=False, allow_null=True)
     message = serializers.CharField(required=False, allow_null=True)
+    brand_verified = serializers.BooleanField(required=False, default=True)
+    requires_brand_verification = serializers.BooleanField(required=False, default=False)
+    has_verification_document = serializers.BooleanField(required=False, default=False)
+    verification_document_uploaded_at = serializers.DateTimeField(required=False, allow_null=True)
+    gstin_provided = serializers.BooleanField(required=False, default=False)
 
 
 class EmailVerificationResponseSerializer(serializers.Serializer):
