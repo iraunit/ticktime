@@ -18,6 +18,7 @@ import {api} from '@/lib/api';
 import {InfluencerProfile} from '@/types';
 import {getMediaUrl} from '@/lib/utils';
 import {AlertCircle, Briefcase, Camera, MapPin, Phone, Save, Settings, User} from '@/lib/icons';
+import {HiInformationCircle} from "react-icons/hi2";
 import {InfluencerCategories} from '@/components/profile/influencer-categories';
 import {UnifiedCountrySelect} from '@/components/ui/unified-country-select';
 import {UnifiedCountryCodeSelect} from '@/components/ui/unified-country-code-select';
@@ -491,7 +492,29 @@ export function ProfileForm({profile}: ProfileFormProps) {
                         </CardHeader>
                         <CardContent className="space-y-4">
                             <div className="space-y-2">
-                                <label className="text-sm font-medium text-gray-700">Email Address</label>
+                                <div className="flex items-center gap-2 text-sm font-medium text-gray-700">
+                                    <span>Email Address</span>
+                                    <div className="relative group inline-flex">
+                                        <button
+                                            type="button"
+                                            className="text-gray-400 hover:text-gray-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500 rounded-full p-0.5"
+                                            aria-label="How to change email"
+                                        >
+                                            <HiInformationCircle className="h-4 w-4"/>
+                                        </button>
+                                        <div
+                                            className="pointer-events-auto absolute left-1/2 top-full z-10 mt-2 w-56 -translate-x-1/2 rounded-md bg-gray-900 px-3 py-2 text-xs text-white opacity-0 shadow-lg transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100">
+                                            Need to change your email? Write to{" "}
+                                            <a
+                                                className="underline text-blue-200"
+                                                href="mailto:support@ticktime.media"
+                                            >
+                                                support@ticktime.media
+                                            </a>
+                                            .
+                                        </div>
+                                    </div>
+                                </div>
                                 <div className="flex items-center gap-2 p-3 bg-gray-50 rounded-lg border">
                                     <span
                                         className="text-sm text-gray-600">{profile?.user?.email || 'No email set'}</span>
