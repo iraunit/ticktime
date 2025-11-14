@@ -33,7 +33,7 @@ export function ProfileForm({profile}: ProfileFormProps) {
     const [profileImage, setProfileImage] = useState<File | null>(null);
 
     // Hooks
-    const {updateProfile, uploadProfileImage} = useProfile();
+    const {profile: profileQuery, updateProfile, uploadProfileImage} = useProfile();
     const {industries, loading: industriesLoading} = useIndustries();
     const {loading: pincodeLoading, error: pincodeError, lookupPincode} = usePincodeLookup();
 
@@ -98,8 +98,8 @@ export function ProfileForm({profile}: ProfileFormProps) {
     }, [isEditing, form]);
 
     const handleImageSelect = useCallback((file: File) => {
-        if (file.size > 5 * 1024 * 1024) {
-            toast.error('File size must be less than 5MB');
+        if (file.size > 200 * 1024) {
+            toast.error('File size must be less than 200KB');
             return;
         }
         if (!['image/jpeg', 'image/png', 'image/webp', 'image/gif'].includes(file.type)) {
@@ -114,12 +114,13 @@ export function ProfileForm({profile}: ProfileFormProps) {
 
         try {
             await uploadProfileImage.mutateAsync(profileImage);
+            await profileQuery?.refetch?.();
             setProfileImage(null);
             toast.success('Profile image updated successfully!');
         } catch (error: any) {
             toast.error(error?.response?.data?.message || 'Failed to upload image');
         }
-    }, [profileImage, uploadProfileImage]);
+    }, [profileImage, uploadProfileImage, profileQuery]);
 
     const handleSubmit = useCallback(async (data: InfluencerProfile) => {
         setIsSubmitting(true);
@@ -153,6 +154,7 @@ export function ProfileForm({profile}: ProfileFormProps) {
 
             if (profileImage) {
                 await uploadProfileImage.mutateAsync(profileImage);
+                await profileQuery?.refetch?.();
                 setProfileImage(null);
             }
 
@@ -182,7 +184,7 @@ export function ProfileForm({profile}: ProfileFormProps) {
         } finally {
             setIsSubmitting(false);
         }
-    }, [updateProfile, uploadProfileImage, profileImage]);
+    }, [updateProfile, uploadProfileImage, profileImage, profileQuery]);
 
     const debouncedPincodeLookup = useCallback(async (pincode: string) => {
         console.log('Pincode lookup triggered:', pincode);
@@ -253,6 +255,8 @@ export function ProfileForm({profile}: ProfileFormProps) {
             }
         };
     }, []);
+
+    const isImageUploading = uploadProfileImage.isPending;
 
     return (
         <div className="space-y-6">
@@ -337,18 +341,7 @@ export function ProfileForm({profile}: ProfileFormProps) {
                                         )}
                                     </div>
 
-                                    {(profile?.user_profile?.profile_image || profileImage) && isEditing && (
-                                        <button
-                                            type="button"
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                setProfileImage(null);
-                                            }}
-                                            className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm hover:bg-red-600 transition-colors shadow-sm"
-                                        >
-                                            ×
-                                        </button>
-                                    )}
+                                    {/* Cross button intentionally removed per requirements */}
                                 </div>
 
                                 <div className="flex-1">
@@ -360,7 +353,7 @@ export function ProfileForm({profile}: ProfileFormProps) {
                                     </p>
                                     {isEditing && (
                                         <p className="text-xs text-gray-500">
-                                            PNG, JPG, WebP or GIF up to 5MB
+                                            PNG, JPG, WebP or GIF up to 200KB
                                         </p>
                                     )}
                                 </div>
@@ -368,8 +361,32 @@ export function ProfileForm({profile}: ProfileFormProps) {
 
                             {profileImage && isEditing && (
                                 <div className="flex items-center gap-3 mt-4">
-                                    <Button type="button" size="sm" onClick={handleImageUpload} disabled={isSubmitting}>
-                                        {isSubmitting ? 'Uploading...' : 'Save Image'}
+                                    <Button
+                                        type="button"
+                                        size="sm"
+                                        onClick={handleImageUpload}
+                                        disabled={isImageUploading}
+                                        className="min-w-[110px]"
+                                    >
+                                        {isImageUploading ? (
+                                            <>
+                                                <div className="flex space-x-1 mr-2">
+                                                    {[0, 1, 2].map((i) => (
+                                                        <div
+                                                            key={i}
+                                                            className="w-1.5 h-1.5 rounded-full bg-white animate-pulse"
+                                                            style={{
+                                                                animationDelay: `${i * 0.2}s`,
+                                                                animationDuration: '1.4s'
+                                                            }}
+                                                        />
+                                                    ))}
+                                                </div>
+                                                Saving...
+                                            </>
+                                        ) : (
+                                            'Save Image'
+                                        )}
                                     </Button>
                                     <span className="text-xs text-gray-500">Click to save your new profile image</span>
                                 </div>
