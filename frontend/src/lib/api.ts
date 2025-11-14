@@ -32,7 +32,7 @@ export const api = axios.create({
     withCredentials: true,
     xsrfCookieName: 'csrftoken',
     xsrfHeaderName: 'X-CSRFToken',
-    timeout: 8000,
+    timeout: 60000,
 });
 
 api.interceptors.request.use(
