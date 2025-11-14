@@ -38,7 +38,7 @@ import {getContentTypeConfig} from "@/lib/icon-config";
 // Extended interface for brand deal management
 export interface ContentReviewDeal {
     id: number;
-    campaign?: Deal['campaign'];
+    campaign?: Partial<Deal['campaign']>;
     influencer?: {
         id?: number;
         username?: string;

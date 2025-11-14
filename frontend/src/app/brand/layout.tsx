@@ -56,14 +56,14 @@ export default function BrandLayout({
             <BrandDashboardLayout>
                 {showEmailLock && (
                     <AccountLockedBanner
-                        lockReason={accountStatus.lock_reason}
-                        message={accountStatus.message}
+                        lockReason="email_not_verified"
+                        message={accountStatus?.message}
                     />
                 )}
                 {showPaymentLock && (
                     <AccountLockedBanner
-                        lockReason={accountStatus.lock_reason}
-                        message={accountStatus.message}
+                        lockReason="payment_required"
+                        message={accountStatus?.message}
                     />
                 )}
                 {showBrandVerification && accountStatus && (

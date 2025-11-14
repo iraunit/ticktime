@@ -48,8 +48,7 @@ const brandSignupSchema = z.object({
             if (!value) return true;
             const trimmed = value.replace(/\s/g, '').toUpperCase();
             return trimmed.length === 15 && /^[0-9A-Z]{15}$/.test(trimmed);
-        }, "GSTIN must be a 15-character alphanumeric value")
-        .transform((value) => value ? value.replace(/\s/g, '').toUpperCase() : ""),
+        }, "GSTIN must be a 15-character alphanumeric value"),
 }).refine((data) => data.password === data.password_confirm, {
     message: "Passwords don't match",
     path: ["password_confirm"],
@@ -94,9 +93,12 @@ export function BrandSignupForm() {
 
     const onSubmit = async (data: BrandSignupFormData) => {
         try {
+            const cleanedGstin = data.gstin
+                ? data.gstin.replace(/\s/g, '').toUpperCase()
+                : undefined;
             await brandSignup.mutateAsync({
                 ...data,
-                gstin: data.gstin || undefined,
+                gstin: cleanedGstin,
             });
         } catch (error: any) {
             // Error toast is already handled in the useAuth hook

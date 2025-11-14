@@ -52,6 +52,7 @@ interface ContentSubmission {
     title?: string;
     description?: string;
     file_url?: string;
+    file_upload?: string;
     post_url?: string;
     caption?: string;
     hashtags?: string;
