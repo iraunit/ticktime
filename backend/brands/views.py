@@ -546,6 +546,7 @@ def brand_deals_view(request):
     deals = (
         Deal.objects.filter(campaign__brand=brand_user.brand)
         .select_related('campaign__brand', 'influencer__user')
+        .prefetch_related('content_submissions')
     )
 
     # Apply filters
