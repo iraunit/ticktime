@@ -333,7 +333,11 @@ class DealDetailSerializer(serializers.ModelSerializer):
     def get_submitted_content(self, obj):
         """Get submitted content for this deal."""
         from content.serializers import ContentSubmissionSerializer
-        return ContentSubmissionSerializer(obj.content_submissions.all(), many=True).data
+        return ContentSubmissionSerializer(
+            obj.content_submissions.all(),
+            many=True,
+            context=self.context,
+        ).data
 
     def get_campaign(self, obj):
         """Get campaign information without circular import."""

@@ -151,6 +151,53 @@ const appendAdditionalLinksToFormData = (
     });
 };
 
+const toJsonPayload = (
+    data: {
+        platform: string;
+        content_type: string;
+        title?: string;
+        description?: string;
+        caption?: string;
+        hashtags?: string;
+        mention_brand?: boolean;
+        post_url?: string;
+        file_url?: string;
+        additional_links?: Array<{ url: string; description: string }>;
+    },
+    filteredLinks: Array<{ url: string; description: string }>,
+    includeNullFileUpload = false,
+) => {
+    const payload: Record<string, any> = {
+        platform: data.platform,
+        content_type: data.content_type,
+        title: data.title,
+        description: data.description,
+        caption: data.caption,
+        hashtags: data.hashtags,
+        mention_brand: data.mention_brand,
+        post_url: data.post_url,
+        file_url: data.file_url,
+        additional_links: filteredLinks,
+    };
+
+    if (includeNullFileUpload) {
+        payload.file_upload = undefined;
+    }
+
+    Object.keys(payload).forEach((key) => {
+        if (payload[key] === undefined) {
+            delete payload[key];
+        }
+    });
+
+    return payload;
+};
+
+const hasValidFile = (file?: File) => {
+    if (!file) return false;
+    return typeof window !== "undefined" ? file instanceof File : true;
+};
+
 export const dealsApi = {
     getDeals: (params?: {
         status?: string;
@@ -190,13 +237,16 @@ export const dealsApi = {
             (link) => link && link.url && link.description
         );
 
-        if (data.file) {
+        if (hasValidFile(data.file)) {
             const formData = new FormData();
             appendCommonContentFields(formData, data);
             appendAdditionalLinksToFormData(formData, filteredLinks);
-            formData.append('file_upload', data.file);
+            formData.append('file_upload', data.file as File);
 
             return api.post(`/content/deals/${id}/content-submissions/`, formData, {
+                headers: {
+                    'Content-Type': undefined,
+                },
                 signal,
                 onUploadProgress: (progressEvent: any) => {
                     if (onProgress && progressEvent.total) {
@@ -211,19 +261,7 @@ export const dealsApi = {
             });
         }
 
-        const payload = {
-            platform: data.platform,
-            content_type: data.content_type,
-            title: data.title,
-            description: data.description,
-            caption: data.caption,
-            hashtags: data.hashtags,
-            mention_brand: data.mention_brand,
-            post_url: data.post_url,
-            file_url: data.file_url,
-            additional_links: filteredLinks,
-        };
-
+        const payload = toJsonPayload(data, filteredLinks, true);
         return api.post(`/content/deals/${id}/content-submissions/`, payload, {signal});
     },
 
@@ -255,13 +293,16 @@ export const dealsApi = {
             (link) => link && link.url && link.description
         );
 
-        if (data.file) {
+        if (hasValidFile(data.file)) {
             const formData = new FormData();
             appendCommonContentFields(formData, data);
             appendAdditionalLinksToFormData(formData, filteredLinks);
-            formData.append('file_upload', data.file);
+            formData.append('file_upload', data.file as File);
 
             return api.put(`/content/deals/${dealId}/content-submissions/${submissionId}/`, formData, {
+                headers: {
+                    'Content-Type': undefined,
+                },
                 signal,
                 onUploadProgress: (progressEvent: any) => {
                     if (onProgress && progressEvent.total) {
@@ -276,19 +317,7 @@ export const dealsApi = {
             });
         }
 
-        const payload = {
-            platform: data.platform,
-            content_type: data.content_type,
-            title: data.title,
-            description: data.description,
-            caption: data.caption,
-            hashtags: data.hashtags,
-            mention_brand: data.mention_brand,
-            post_url: data.post_url,
-            file_url: data.file_url,
-            additional_links: filteredLinks,
-        };
-
+        const payload = toJsonPayload(data, filteredLinks, true);
         return api.put(
             `/content/deals/${dealId}/content-submissions/${submissionId}/`,
             payload,

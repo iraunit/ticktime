@@ -134,6 +134,19 @@ export function ContentStatus({deal, submissions = [], onResubmit, className}: C
                                                 <p className="text-xs text-muted-foreground">
                                                     Submitted {formatDate(submission.submitted_at)}
                                                 </p>
+                                                {submission.file_url && (
+                                                    <p className="text-[11px] text-blue-600 truncate max-w-[220px]">
+                                                        <span className="text-gray-500 mr-1">Link:</span>
+                                                        <a
+                                                            href={submission.file_url}
+                                                            target="_blank"
+                                                            rel="noreferrer"
+                                                            className="underline"
+                                                        >
+                                                            {submission.file_url}
+                                                        </a>
+                                                    </p>
+                                                )}
                                             </div>
                                         </div>
 
@@ -177,25 +190,35 @@ export function ContentStatus({deal, submissions = [], onResubmit, className}: C
                                     )}
 
                                     {/* File Actions */}
-                                    <div className="flex items-center space-x-2">
-                                        {submission.file_upload && submission.file_url && (
+                                    <div className="flex flex-wrap items-center gap-2">
+                                        {submission.file_upload && (
                                             <Button
                                                 variant="outline"
                                                 size="sm"
                                                 onClick={() => setSelectedSubmission(submission)}
                                             >
                                                 <Eye className="h-4 w-4 mr-1"/>
-                                                Preview
+                                                Preview Upload
                                             </Button>
                                         )}
-                                        {submission.file_url && (
+                                        {submission.file_upload && (
                                             <Button
                                                 variant="outline"
                                                 size="sm"
-                                                onClick={() => window.open(submission.file_url, '_blank')}
+                                                onClick={() => window.open(submission.file_upload!, '_blank')}
                                             >
                                                 <Download className="h-4 w-4 mr-1"/>
-                                                {submission.file_upload ? "Download" : "Open Link"}
+                                                Download Upload
+                                            </Button>
+                                        )}
+                                        {submission.file_url && (!submission.file_upload || submission.file_url !== submission.file_upload) && (
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={() => window.open(submission.file_url!, '_blank')}
+                                            >
+                                                <Download className="h-4 w-4 mr-1"/>
+                                                {submission.file_upload ? "Open File URL" : "Open Link"}
                                             </Button>
                                         )}
                                     </div>
@@ -214,7 +237,7 @@ export function ContentStatus({deal, submissions = [], onResubmit, className}: C
             )}
 
             {/* File Preview Modal */}
-            {selectedSubmission && selectedSubmission.file_upload && selectedSubmission.file_url && (
+            {selectedSubmission && (selectedSubmission.file_upload || selectedSubmission.file_url) && (
                 <div
                     className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
                     onClick={() => setSelectedSubmission(null)}
@@ -236,21 +259,32 @@ export function ContentStatus({deal, submissions = [], onResubmit, className}: C
                             </Button>
                         </div>
                         <div className="p-4">
-                            {selectedSubmission.content_type.includes('video') || selectedSubmission.content_type === 'reel' ? (
-                                <video
-                                    src={selectedSubmission.file_url}
-                                    controls
-                                    className="max-w-full max-h-[70vh]"
-                                />
-                            ) : (
-                                <Image
-                                    src={selectedSubmission.file_url}
-                                    alt={`${selectedSubmission.platform} ${selectedSubmission.content_type}`}
-                                    width={800}
-                                    height={600}
-                                    className="max-w-full max-h-[70vh] object-contain"
-                                />
-                            )}
+                            {(() => {
+                                const previewSrc = selectedSubmission.file_upload || selectedSubmission.file_url || "";
+                                if (!previewSrc) {
+                                    return (
+                                        <div className="p-6 text-center text-sm text-gray-500 border rounded">
+                                            Unable to preview this submission.
+                                        </div>
+                                    );
+                                }
+                                const isVideo = selectedSubmission.content_type.includes('video') || selectedSubmission.content_type === 'reel';
+                                return isVideo ? (
+                                    <video
+                                        src={previewSrc}
+                                        controls
+                                        className="max-w-full max-h-[70vh]"
+                                    />
+                                ) : (
+                                    <Image
+                                        src={previewSrc}
+                                        alt={`${selectedSubmission.platform} ${selectedSubmission.content_type}`}
+                                        width={800}
+                                        height={600}
+                                        className="max-w-full max-h-[70vh] object-contain"
+                                    />
+                                );
+                            })()}
                             {selectedSubmission.caption && (
                                 <div className="mt-4 p-3 bg-gray-50 rounded">
                                     <p className="text-sm font-medium mb-1">Caption:</p>

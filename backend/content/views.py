@@ -1,14 +1,12 @@
 from brands.models import BrandUser
+from common.api_response import api_response, format_serializer_errors
 from deals.models import Deal
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from influencers.models import InfluencerProfile
-from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
-from rest_framework.response import Response
 
-from common.api_response import api_response, format_serializer_errors
 from .models import ContentSubmission
 from .serializers import (
     ContentSubmissionSerializer,
@@ -35,7 +33,7 @@ def content_submissions_view(request, deal_id):
 
     if request.method == 'GET':
         submissions = deal.content_submissions.all().order_by('-submitted_at')
-        serializer = ContentSubmissionSerializer(submissions, many=True)
+        serializer = ContentSubmissionSerializer(submissions, many=True, context={'request': request})
 
         return api_response(True, result={
             'submissions': serializer.data,
@@ -46,13 +44,15 @@ def content_submissions_view(request, deal_id):
         # Check if deal allows content submission
         # Content can be submitted after product delivery or during active status
         if deal.status not in ['product_delivered', 'active', 'accepted', 'revision_requested']:
-            return api_response(False, error=f'Content cannot be submitted for this deal in its current status: {deal.get_status_display()}.', status_code=400)
+            return api_response(False,
+                                error=f'Content cannot be submitted for this deal in its current status: {deal.get_status_display()}.',
+                                status_code=400)
 
         # Add deal to the data
         data = request.data.copy()
         data['deal'] = deal.id
 
-        serializer = ContentSubmissionSerializer(data=data)
+        serializer = ContentSubmissionSerializer(data=data, context={'request': request})
 
         if serializer.is_valid():
             submission = serializer.save()
@@ -67,10 +67,11 @@ def content_submissions_view(request, deal_id):
 
             return api_response(True, result={
                 'message': 'Content submitted successfully.',
-                'submission': ContentSubmissionSerializer(submission).data
+                'submission': ContentSubmissionSerializer(submission, context={'request': request}).data
             }, status_code=201)
 
-        return api_response(False, error=f'Invalid submission data. {format_serializer_errors(serializer.errors)}', status_code=400)
+        return api_response(False, error=f'Invalid submission data. {format_serializer_errors(serializer.errors)}',
+                            status_code=400)
 
 
 @api_view(['GET', 'PUT', 'DELETE'])
@@ -97,7 +98,7 @@ def content_submission_detail_view(request, deal_id, submission_id):
     )
 
     if request.method == 'GET':
-        serializer = ContentSubmissionSerializer(submission)
+        serializer = ContentSubmissionSerializer(submission, context={'request': request})
         return api_response(True, result={'submission': serializer.data})
 
     elif request.method == 'PUT':
@@ -108,7 +109,8 @@ def content_submission_detail_view(request, deal_id, submission_id):
         # Check if this is an update after revision request
         was_revision_requested = submission.revision_requested
 
-        serializer = ContentSubmissionSerializer(submission, data=request.data, partial=True)
+        serializer = ContentSubmissionSerializer(submission, data=request.data, partial=True,
+                                                 context={'request': request})
 
         if serializer.is_valid():
             updated_submission = serializer.save()
@@ -141,7 +143,8 @@ def content_submission_detail_view(request, deal_id, submission_id):
                 'submission': serializer.data
             })
 
-        return api_response(False, error=f'Invalid submission data. {format_serializer_errors(serializer.errors)}', status_code=400)
+        return api_response(False, error=f'Invalid submission data. {format_serializer_errors(serializer.errors)}',
+                            status_code=400)
 
     elif request.method == 'DELETE':
         # Check if submission can be deleted
@@ -234,10 +237,11 @@ def content_review_view(request, deal_id, submission_id):
 
         return api_response(True, result={
             'message': message,
-            'submission': ContentSubmissionSerializer(submission).data
+            'submission': ContentSubmissionSerializer(submission, context={'request': request}).data
         })
 
-    return api_response(False, error=f'Invalid review data. {format_serializer_errors(serializer.errors)}', status_code=400)
+    return api_response(False, error=f'Invalid review data. {format_serializer_errors(serializer.errors)}',
+                        status_code=400)
 
 
 @api_view(['GET'])
@@ -274,7 +278,7 @@ def brand_content_review_list(request, deal_id):
         elif status_filter == 'revision_requested':
             submissions = submissions.filter(revision_requested=True)
 
-    serializer = ContentSubmissionSerializer(submissions, many=True)
+    serializer = ContentSubmissionSerializer(submissions, many=True, context={'request': request})
 
     return api_response(True, result={
         'deal': {
