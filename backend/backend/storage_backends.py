@@ -1,12 +1,71 @@
+import os
+import uuid
 from pathlib import Path
 
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
 from django.core.files.storage import FileSystemStorage
+from django.utils.text import slugify
 
 
 def _ensure_directory(path):
     Path(path).mkdir(parents=True, exist_ok=True)
+
+
+def _sanitize_filename(filename):
+    filename = os.path.basename(filename)
+    return filename.replace(" ", "_")
+
+
+def _with_unique_prefix(name):
+    directory, fname = os.path.split(name)
+    fname = _sanitize_filename(fname)
+    unique_prefix = uuid.uuid4().hex[:12]
+    new_name = f"{unique_prefix}_{fname}"
+    return os.path.join(directory, new_name) if directory else new_name
+
+
+def _extract_email_slug(instance):
+    def add_email_from_user(user):
+        if user and getattr(user, "email", ""):
+            emails.append(user.email)
+
+    emails = []
+    add_email_from_user(getattr(instance, "user", None))
+    add_email_from_user(getattr(instance, "sender_user", None))
+
+    user_profile = getattr(instance, "user_profile", None)
+    if user_profile:
+        add_email_from_user(getattr(user_profile, "user", None))
+
+    deal = getattr(instance, "deal", None)
+    if deal:
+        influencer = getattr(deal, "influencer", None)
+        if influencer:
+            add_email_from_user(getattr(influencer, "user", None))
+        brand_user = getattr(deal, "brand_user", None)
+        if brand_user:
+            add_email_from_user(getattr(brand_user, "user", None))
+
+    email = next((e for e in emails if e), None)
+    if not email:
+        return "anonymous"
+
+    local_part = email.split("@")[0]
+    slug = slugify(local_part)
+    return slug or "anonymous"
+
+
+def private_upload_path(base_dir):
+    base_dir = base_dir.strip("/ ")
+
+    def _uploader(instance, filename):
+        email_slug = _extract_email_slug(instance)
+        clean_name = _sanitize_filename(filename)
+        parts = [part for part in (base_dir, email_slug, clean_name) if part]
+        return "/".join(parts)
+
+    return _uploader
 
 
 class LocalMediaStorage(FileSystemStorage):
@@ -24,6 +83,10 @@ class LocalMediaStorage(FileSystemStorage):
 class LocalPublicMediaStorage(LocalMediaStorage):
     """Public assets stored on the local filesystem."""
 
+    def _save(self, name, content):
+        name = _with_unique_prefix(name)
+        return super()._save(name, content)
+
 
 class LocalPrivateMediaStorage(LocalMediaStorage):
     """Private assets stored on the local filesystem."""
@@ -40,6 +103,7 @@ if USE_R2_STORAGE:
             "django-storages is required when USE_R2_STORAGE is enabled."
         ) from exc
 
+
     def _validate_r2_settings():
         required = [
             "R2_ACCESS_KEY_ID",
@@ -54,7 +118,9 @@ if USE_R2_STORAGE:
         if not getattr(settings, "R2_ENDPOINT_URL", ""):
             raise ImproperlyConfigured("R2_ENDPOINT_URL is required for R2 storage.")
 
+
     _validate_r2_settings()
+
 
     class R2BaseStorage(S3Boto3Storage):
         location = ""
@@ -68,6 +134,7 @@ if USE_R2_STORAGE:
             kwargs.setdefault("verify", True)
             super().__init__(*args, **kwargs)
 
+
     class R2PublicMediaStorage(R2BaseStorage):
         """
         Storage backed by Cloudflare R2 for public assets.
@@ -76,6 +143,11 @@ if USE_R2_STORAGE:
         bucket_name = settings.R2_PUBLIC_BUCKET or settings.R2_PRIVATE_BUCKET
         custom_domain = settings.R2_PUBLIC_DOMAIN or None
         querystring_auth = False
+
+        def _save(self, name, content):
+            name = _with_unique_prefix(name)
+            return super()._save(name, content)
+
 
     class R2PrivateMediaStorage(R2BaseStorage):
         """
@@ -86,12 +158,12 @@ if USE_R2_STORAGE:
         custom_domain = None
         querystring_auth = True
 
+
     PublicStorageClass = R2PublicMediaStorage
     PrivateStorageClass = R2PrivateMediaStorage
 else:
     PublicStorageClass = LocalPublicMediaStorage
     PrivateStorageClass = LocalPrivateMediaStorage
-
 
 public_media_storage = PublicStorageClass()
 private_media_storage = PrivateStorageClass()
@@ -111,4 +183,3 @@ def generate_private_media_url(name, expires_in=None):
 
     # Local storage fallback
     return private_media_storage.url(name)
-

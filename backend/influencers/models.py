@@ -2,7 +2,7 @@ from common.models import Industry, ContentCategory, PLATFORM_CHOICES
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.db import models
 
-from backend.storage_backends import private_media_storage
+from backend.storage_backends import private_media_storage, private_upload_path
 
 
 class InfluencerProfile(models.Model):
@@ -28,7 +28,7 @@ class InfluencerProfile(models.Model):
     bio = models.TextField(blank=True, default='')
     aadhar_number = models.CharField(max_length=12, blank=True, default='')
     aadhar_document = models.FileField(
-        upload_to='documents/',
+        upload_to=private_upload_path('documents'),
         blank=True,
         null=True,
         storage=private_media_storage,

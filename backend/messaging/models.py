@@ -1,7 +1,7 @@
 from django.db import models
 from django.utils import timezone
 
-from backend.storage_backends import private_media_storage
+from backend.storage_backends import private_media_storage, private_upload_path
 
 
 class Conversation(models.Model):
@@ -60,7 +60,7 @@ class Message(models.Model):
     sender_user = models.ForeignKey('auth.User', on_delete=models.CASCADE, related_name='sent_messages')
     content = models.TextField()
     file_attachment = models.FileField(
-        upload_to='message_attachments/',
+        upload_to=private_upload_path('message_attachments'),
         blank=True,
         null=True,
         storage=private_media_storage,
