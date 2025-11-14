@@ -97,6 +97,15 @@ const contentSubmissionSchema = z.object({
     message: "Either file upload or post URL must be provided",
 });
 
+const MAX_CONTENT_FILE_SIZE = 50 * 1024 * 1024; // 50MB
+
+const hasValidExternalLinks = (links?: Array<{ url?: string; description?: string }>) => {
+    return (links || []).some(link =>
+        !!link.url?.trim() &&
+        !!link.description?.trim()
+    );
+};
+
 type ContentSubmissionFormData = z.infer<typeof contentSubmissionSchema>;
 
 export function ContentSubmission({deal, isOpen, onClose, onSuccess, editingSubmission}: ContentSubmissionProps) {
@@ -159,10 +168,16 @@ export function ContentSubmission({deal, isOpen, onClose, onSuccess, editingSubm
     }, [editingSubmission, form]);
 
     const handleFileSelect = useCallback((file: File) => {
+        if (file.size > MAX_CONTENT_FILE_SIZE) {
+            toast.error("File size must be less than 50MB. Please compress it or share a Google Drive link with public access.");
+            return false;
+        }
+
         setSelectedFile(file);
         clearError();
         setUploadComplete(false);
         setUploadProgress(0);
+        return true;
     }, [clearError]);
 
     const handleFileRemove = useCallback(() => {
@@ -179,9 +194,19 @@ export function ContentSubmission({deal, isOpen, onClose, onSuccess, editingSubm
     }, [abortController]);
 
     const onSubmit = async (data: ContentSubmissionFormData) => {
-        // Validate that either file or post_url is provided
-        if (!selectedFile && !data.post_url) {
-            setError(new Error("Please either upload a file or provide a post URL"));
+        const hasExternalLink = hasValidExternalLinks(data.additional_links);
+        const filteredLinks = (data.additional_links || []).filter(
+            (link) => link && link.url?.trim() && link.description?.trim()
+        );
+        const fallbackFileUrl = !selectedFile && !data.post_url && filteredLinks.length > 0
+            ? filteredLinks[0].url.trim()
+            : undefined;
+        const existingFileUrl = editingSubmission?.file_url;
+        const computedFileUrl = fallbackFileUrl ?? existingFileUrl ?? undefined;
+
+        // Validate that either file, post URL, or external link is provided
+        if (!selectedFile && !data.post_url && !hasExternalLink) {
+            setError(new Error("Please upload a file, add a post URL, or include an external link (e.g., Google Drive)."));
             return;
         }
 
@@ -206,7 +231,8 @@ export function ContentSubmission({deal, isOpen, onClose, onSuccess, editingSubm
                 post_url: data.post_url,
                 hashtags: data.hashtags,
                 mention_brand: data.mention_brand,
-                additional_links: (data.additional_links || []).filter(link => link.url && link.description),
+                additional_links: filteredLinks,
+                file_url: computedFileUrl,
                 file: selectedFile ?? undefined,
                 onProgress: progressCallback,
                 signal: controller.signal,
@@ -303,14 +329,17 @@ export function ContentSubmission({deal, isOpen, onClose, onSuccess, editingSubm
                                 onChange={(e) => {
                                     const file = e.target.files?.[0];
                                     if (file) {
-                                        handleFileSelect(file);
+                                        const accepted = handleFileSelect(file);
+                                        if (!accepted) {
+                                            e.target.value = "";
+                                        }
                                     }
                                 }}
                                 disabled={isUploading}
                             />
                         </label>
                         <p className="mt-1 text-xs text-gray-500">
-                            PNG, JPG, MP4 up to 100MB
+                            PNG, JPG, MP4 up to 50MB (use Google Drive link if larger)
                         </p>
                     </div>
                 </div>
@@ -331,6 +360,12 @@ export function ContentSubmission({deal, isOpen, onClose, onSuccess, editingSubm
             </div>
         );
     };
+
+    const watchedPostUrl = form.watch("post_url");
+    const watchedAdditionalLinks = form.watch("additional_links");
+    const hasPostUrl = typeof watchedPostUrl === "string" && watchedPostUrl.trim().length > 0;
+    const hasExternalLink = hasValidExternalLinks(watchedAdditionalLinks as any);
+    const canSubmit = !!selectedFile || hasPostUrl || hasExternalLink;
 
     return (
         <Dialog open={isOpen} onOpenChange={handleClose}>
@@ -523,19 +558,22 @@ export function ContentSubmission({deal, isOpen, onClose, onSuccess, editingSubm
                                 )}
                             />
 
-                            {/* File Upload or Post URL */}
-                            <div className="space-y-4">
-                                <div className="space-y-2">
-                                    <label className="text-sm font-medium">
-                                        Content File
-                                    </label>
-                                    <p className="text-xs text-gray-600">
-                                        Upload a file or provide a post URL below
-                                    </p>
-                                    {getFileUploadComponent()}
+                            {/* Link Submission (Recommended) */}
+                            <div className="space-y-4 rounded-lg border border-blue-200 bg-blue-50/80 p-4">
+                                <div className="flex items-start gap-3">
+                                    <div
+                                        className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-100 text-blue-600">
+                                        <LinkIcon className="h-5 w-5"/>
+                                    </div>
+                                    <div>
+                                        <p className="text-sm font-semibold text-blue-900">Share a link
+                                            (recommended)</p>
+                                        <p className="text-xs text-blue-700">
+                                            Submit the live post URL or add Google Drive links with public access to
+                                            avoid storage costs.
+                                        </p>
+                                    </div>
                                 </div>
-
-                                <div className="text-center text-sm text-gray-500">OR</div>
 
                                 {/* Post URL */}
                                 <FormField
@@ -547,7 +585,7 @@ export function ContentSubmission({deal, isOpen, onClose, onSuccess, editingSubm
                                             <FormControl>
                                                 <div className="relative">
                                                     <LinkIcon
-                                                        className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400"/>
+                                                        className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400"/>
                                                     <Input
                                                         {...field}
                                                         placeholder="https://instagram.com/p/..."
@@ -560,6 +598,103 @@ export function ContentSubmission({deal, isOpen, onClose, onSuccess, editingSubm
                                         </FormItem>
                                     )}
                                 />
+
+                                {/* Additional Links */}
+                                <div className="space-y-3">
+                                    <div className="flex items-center justify-between">
+                                        <FormLabel className="text-sm font-medium text-blue-900">
+                                            Google Drive / External Links
+                                        </FormLabel>
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => append({url: "", description: ""})}
+                                            disabled={isUploading}
+                                        >
+                                            <Plus className="h-4 w-4 mr-2"/>
+                                            Add Link
+                                        </Button>
+                                    </div>
+                                    <p className="text-xs text-blue-700">
+                                        Recommended: Google Drive folders set to "Anyone with the link".
+                                    </p>
+
+                                    {fields.length === 0 && (
+                                        <div
+                                            className="rounded-md border border-dashed border-blue-200 bg-white/70 p-3 text-xs text-blue-700">
+                                            Add Google Drive, Dropbox, or other hosting links plus a short description.
+                                        </div>
+                                    )}
+
+                                    {fields.map((field, index) => (
+                                        <Card key={field.id} className="p-4 bg-white border border-blue-100 rounded-lg">
+                                            <div className="flex items-start space-x-2">
+                                                <div className="flex-1 space-y-2">
+                                                    <FormField
+                                                        control={form.control}
+                                                        name={`additional_links.${index}.url`}
+                                                        render={({field}) => (
+                                                            <FormItem>
+                                                                <FormControl>
+                                                                    <div className="relative">
+                                                                        <ExternalLink
+                                                                            className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400"/>
+                                                                        <Input
+                                                                            {...field}
+                                                                            placeholder="https://drive.google.com/..."
+                                                                            className="pl-10"
+                                                                            disabled={isUploading}
+                                                                        />
+                                                                    </div>
+                                                                </FormControl>
+                                                                <FormMessage/>
+                                                            </FormItem>
+                                                        )}
+                                                    />
+                                                    <FormField
+                                                        control={form.control}
+                                                        name={`additional_links.${index}.description`}
+                                                        render={({field}) => (
+                                                            <FormItem>
+                                                                <FormControl>
+                                                                    <Input
+                                                                        {...field}
+                                                                        placeholder="e.g., Drive folder with raw footage"
+                                                                        disabled={isUploading}
+                                                                    />
+                                                                </FormControl>
+                                                                <FormMessage/>
+                                                            </FormItem>
+                                                        )}
+                                                    />
+                                                </div>
+                                                <Button
+                                                    type="button"
+                                                    variant="outline"
+                                                    size="sm"
+                                                    onClick={() => remove(index)}
+                                                    disabled={isUploading}
+                                                    className="mt-0"
+                                                >
+                                                    <Trash2 className="h-4 w-4"/>
+                                                </Button>
+                                            </div>
+                                        </Card>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Content File Upload */}
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium flex items-center gap-2">
+                                    Content File Upload
+                                    <span className="text-xs font-normal text-gray-500">(use only if a link isn&apos;t available)</span>
+                                </label>
+                                <p className="text-xs text-gray-600">
+                                    PNG, JPG, MP4 up to 50MB. Larger files? Share a Google Drive link above.
+                                </p>
+                                {getFileUploadComponent()}
                             </div>
 
                             {/* Caption */}
@@ -601,79 +736,6 @@ export function ContentSubmission({deal, isOpen, onClose, onSuccess, editingSubm
                                 )}
                             />
 
-                            {/* Additional Links */}
-                            <div className="space-y-4">
-                                <div className="flex items-center justify-between">
-                                    <FormLabel>Additional Links</FormLabel>
-                                    <Button
-                                        type="button"
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={() => append({url: "", description: ""})}
-                                        disabled={isUploading}
-                                    >
-                                        <Plus className="h-4 w-4 mr-2"/>
-                                        Add Link
-                                    </Button>
-                                </div>
-
-                                {fields.map((field, index) => (
-                                    <Card key={field.id} className="p-4">
-                                        <div className="flex items-start space-x-2">
-                                            <div className="flex-1 space-y-2">
-                                                <FormField
-                                                    control={form.control}
-                                                    name={`additional_links.${index}.url`}
-                                                    render={({field}) => (
-                                                        <FormItem>
-                                                            <FormControl>
-                                                                <div className="relative">
-                                                                    <ExternalLink
-                                                                        className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400"/>
-                                                                    <Input
-                                                                        {...field}
-                                                                        placeholder="https://..."
-                                                                        className="pl-10"
-                                                                        disabled={isUploading}
-                                                                    />
-                                                                </div>
-                                                            </FormControl>
-                                                            <FormMessage/>
-                                                        </FormItem>
-                                                    )}
-                                                />
-                                                <FormField
-                                                    control={form.control}
-                                                    name={`additional_links.${index}.description`}
-                                                    render={({field}) => (
-                                                        <FormItem>
-                                                            <FormControl>
-                                                                <Input
-                                                                    {...field}
-                                                                    placeholder="Description of this link..."
-                                                                    disabled={isUploading}
-                                                                />
-                                                            </FormControl>
-                                                            <FormMessage/>
-                                                        </FormItem>
-                                                    )}
-                                                />
-                                            </div>
-                                            <Button
-                                                type="button"
-                                                variant="outline"
-                                                size="sm"
-                                                onClick={() => remove(index)}
-                                                disabled={isUploading}
-                                                className="mt-0"
-                                            >
-                                                <Trash2 className="h-4 w-4"/>
-                                            </Button>
-                                        </div>
-                                    </Card>
-                                ))}
-                            </div>
-
                             {/* Upload Progress */}
                             {isUploading && (
                                 <div className="space-y-2">
@@ -700,7 +762,7 @@ export function ContentSubmission({deal, isOpen, onClose, onSuccess, editingSubm
                     <Button
                         type="submit"
                         onClick={form.handleSubmit(onSubmit)}
-                        disabled={isUploading || (!selectedFile && !form.watch("post_url")) || uploadComplete}
+                        disabled={isUploading || !canSubmit || uploadComplete}
                     >
                         {isUploading ? (
                             <>
