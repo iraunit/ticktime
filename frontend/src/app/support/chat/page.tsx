@@ -10,12 +10,22 @@ import Link from "next/link";
 import {communicationApi, handleApiError} from "@/lib/api";
 import {toast} from "sonner";
 import {useUserContext} from "@/components/providers/app-providers";
+import {useSearchParams} from "next/navigation";
 
 export default function ChatPage() {
     const {user} = useUserContext();
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const searchParams = useSearchParams();
 
-    const defaultValues = useMemo(() => {
+    const queryDefaults = useMemo(() => ({
+        name: searchParams.get("name") ?? "",
+        email: searchParams.get("email") ?? "",
+        phone: searchParams.get("phone") ?? "",
+        subject: searchParams.get("subject") ?? "",
+        message: searchParams.get("message") ?? "",
+    }), [searchParams]);
+
+    const userDefaults = useMemo(() => {
         const name = user?.full_name || `${user?.first_name || ""} ${user?.last_name || ""}`.trim() || user?.username || "";
         const phoneNumber = user?.phone_number
             ? `${user?.country_code || ""} ${user.phone_number}`.trim()
@@ -28,6 +38,14 @@ export default function ChatPage() {
             message: "",
         };
     }, [user]);
+
+    const defaultValues = useMemo(() => ({
+        name: queryDefaults.name || userDefaults.name,
+        email: queryDefaults.email || userDefaults.email,
+        phone: queryDefaults.phone || userDefaults.phone,
+        subject: queryDefaults.subject || userDefaults.subject,
+        message: queryDefaults.message || userDefaults.message,
+    }), [queryDefaults, userDefaults]);
 
     const handleSubmit: FormEventHandler<HTMLFormElement> = async (event) => {
         event.preventDefault();
@@ -46,7 +64,7 @@ export default function ChatPage() {
         try {
             await communicationApi.sendSupportMessage(payload);
             toast.success("Your message has been sent to our support team.");
-            form.reset();
+            form?.reset();
         } catch (error) {
             toast.error(handleApiError(error));
         } finally {

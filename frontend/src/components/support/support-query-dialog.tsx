@@ -62,7 +62,7 @@ export function SupportQueryDialog({
         try {
             await communicationApi.sendSupportMessage(payload);
             toast.success("Your message has been sent to the support team.");
-            form.reset();
+            form?.reset();
             setOpen(false);
         } catch (error) {
             toast.error(handleApiError(error));
