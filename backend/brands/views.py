@@ -983,6 +983,12 @@ def bookmark_influencer_view(request, influencer_id):
     if not brand_user:
         return api_response(False, error='Brand profile not found.', status_code=404)
 
+    if brand_user.brand.is_locked:
+        return Response({
+            'status': 'error',
+            'message': 'Messaging is unavailable while your brand account is locked. Please upgrade or contact support.'
+        }, status=status.HTTP_403_FORBIDDEN)
+
     try:
         influencer = InfluencerProfile.objects.get(id=influencer_id)
     except InfluencerProfile.DoesNotExist:
@@ -2063,6 +2069,12 @@ def send_message_to_influencer_view(request, influencer_id):
     brand_user = get_brand_user_or_403(request)
     if not brand_user:
         return api_response(False, error='Brand profile not found.', status_code=404)
+
+    if brand_user.brand.is_locked:
+        return Response({
+            'status': 'error',
+            'message': 'Messaging is unavailable while your brand account is locked. Please upgrade or contact support.'
+        }, status=status.HTTP_403_FORBIDDEN)
 
     try:
         influencer = InfluencerProfile.objects.get(id=influencer_id)

@@ -106,7 +106,7 @@ export function AccountLockedBanner({lockReason, message}: AccountLockedBannerPr
                         ) : (
                             <>
                                 <Button
-                                    onClick={() => window.open('mailto:support@ticktime.media', '_blank')}
+                                    onClick={() => router.push('/support')}
                                     className="w-full gap-2"
                                     size="lg"
                                 >

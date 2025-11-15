@@ -153,6 +153,13 @@ def send_campaign_notification(request):
     brand_user = request.user.brand_user
     brand = brand_user.brand
 
+    if brand.is_locked:
+        return api_response(
+            False,
+            error='Email notifications are unavailable while your brand account is locked. Please upgrade or contact support.',
+            status_code=status.HTTP_403_FORBIDDEN
+        )
+
     # Fetch deals
     deals = Deal.objects.filter(
         id__in=deal_ids,

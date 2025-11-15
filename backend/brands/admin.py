@@ -9,15 +9,18 @@ class BrandAdmin(admin.ModelAdmin):
         'name',
         'domain',
         'industry',
+        'contact_email',
+        'website',
         'gstin',
         'is_verified',
+        'is_locked',
         'has_verification_document',
         'rating',
         'total_campaigns',
         'created_at'
     )
-    list_filter = ('industry', 'is_verified', 'created_at')
-    search_fields = ('name', 'domain', 'contact_email', 'description', 'gstin')
+    list_filter = ('industry', 'is_verified', 'is_locked', 'created_at')
+    search_fields = ('name', 'domain', 'contact_email', 'description', 'gstin', 'website')
     readonly_fields = (
         'created_at',
         'updated_at',
@@ -40,6 +43,7 @@ class BrandAdmin(admin.ModelAdmin):
                 'verification_document_original_name',
                 'verification_document_uploaded_at',
                 'is_verified',
+                'is_locked',
             )
         }),
         ('Metrics', {
