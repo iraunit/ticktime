@@ -69,13 +69,13 @@ def login_view(request):
     """
     serializer = UserLoginSerializer(data=request.data)
     if serializer.is_valid():
-        email = serializer.validated_data.get('email')
+        email = (serializer.validated_data.get('email') or '').strip().lower()
         password = serializer.validated_data.get('password')
         remember_me = serializer.validated_data.get('remember_me', False)
 
         # Allow login via email (map to username)
         try:
-            user_obj = User.objects.get(email=email)
+            user_obj = User.objects.get(email__iexact=email)
             username = user_obj.username
         except User.DoesNotExist:
             username = email  # fallback if username is email
@@ -303,8 +303,8 @@ def forgot_password_view(request):
     serializer = ForgotPasswordSerializer(data=request.data)
 
     if serializer.is_valid():
-        email = serializer.validated_data['email']
-        user = User.objects.filter(email=email).first()
+        email = (serializer.validated_data['email'] or '').strip().lower()
+        user = User.objects.filter(email__iexact=email).first()
 
         success_message = 'If an account with that email exists, a password reset link has been sent.'
 

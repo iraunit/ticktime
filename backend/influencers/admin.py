@@ -126,7 +126,7 @@ class InfluencerProfileAdmin(admin.ModelAdmin):
 
     def phone_number_display(self, obj):
         """Display phone number from user profile"""
-        return obj.user_profile.phone_number if obj.user_profile else 'N/A'
+        return (obj.user_profile.phone_number or 'N/A') if obj.user_profile else 'N/A'
 
     phone_number_display.short_description = 'Phone Number'
 

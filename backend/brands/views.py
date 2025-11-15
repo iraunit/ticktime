@@ -172,7 +172,7 @@ def invite_brand_user_view(request):
 
         # Check if user already exists
         try:
-            user = User.objects.get(email=email)
+            user = User.objects.get(email__iexact=email)
             if BrandUser.objects.filter(user=user, brand=brand_user.brand).exists():
                 return api_response(False, error='User is already associated with this brand.', status_code=400)
         except User.DoesNotExist:

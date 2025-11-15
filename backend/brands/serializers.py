@@ -134,6 +134,10 @@ class BrandUserInviteSerializer(serializers.Serializer):
     last_name = serializers.CharField(max_length=150, required=False)
     role = serializers.ChoiceField(choices=BrandUser.ROLE_CHOICES)
 
+    def validate_email(self, value):
+        """Normalize invited email."""
+        return value.strip().lower()
+
     def validate_role(self, value):
         """Ensure only owner/admin can invite owners/admins"""
         if value in ['owner', 'admin']:

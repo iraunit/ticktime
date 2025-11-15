@@ -107,7 +107,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
     def get_phone_number(self, obj):
         """Get phone number."""
         if hasattr(obj, 'user_profile'):
-            return obj.user_profile.phone_number
+            return obj.user_profile.phone_number or ''
         return ''
 
     def get_country_code(self, obj):
@@ -229,12 +229,21 @@ class UserUpdateSerializer(serializers.ModelSerializer):
         return value.strip() if value else value
 
     def validate_phone_number(self, value):
-        """Validate phone number format."""
+        """Validate phone number format and uniqueness."""
         if value:
+            value = value.strip()
             # Remove all non-digit characters
             digits_only = re.sub(r'\D', '', value)
             if len(digits_only) < 7 or len(digits_only) > 15:
                 raise serializers.ValidationError("Phone number must be between 7 and 15 digits.")
+
+            user_profile = getattr(self.instance, 'user_profile', None) if self.instance else None
+            existing = UserProfile.objects.filter(phone_number=value)
+            if user_profile:
+                existing = existing.exclude(pk=user_profile.pk)
+            if existing.exists():
+                raise serializers.ValidationError("This phone number is already in use.")
+
         return value
 
     def validate_country_code(self, value):
@@ -263,7 +272,12 @@ class UserUpdateSerializer(serializers.ModelSerializer):
 
         for field in profile_fields:
             if field in validated_data:
-                setattr(user_profile, field, validated_data[field])
+                value = validated_data[field]
+                if field == 'phone_number':
+                    cleaned_value = value.strip() if isinstance(value, str) else value
+                    setattr(user_profile, field, cleaned_value or None)
+                else:
+                    setattr(user_profile, field, value)
 
         user_profile.save()
 

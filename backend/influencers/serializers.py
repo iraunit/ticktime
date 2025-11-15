@@ -7,6 +7,7 @@ from common.models import (
 from django.db import models
 from django.utils import timezone
 from rest_framework import serializers
+from users.models import UserProfile
 
 from .encryption import BankDetailsEncryption
 from .models import InfluencerProfile, SocialMediaAccount, SocialMediaPost, InfluencerCategoryScore
@@ -66,7 +67,7 @@ class InfluencerProfileSerializer(serializers.ModelSerializer):
 
     def get_phone_number(self, obj):
         """Get phone number from user profile."""
-        return obj.user_profile.phone_number if obj.user_profile else ''
+        return (obj.user_profile.phone_number or '') if obj.user_profile else ''
 
     def get_profile_image(self, obj):
         """Get profile image from user profile."""
@@ -169,11 +170,20 @@ class InfluencerProfileSerializer(serializers.ModelSerializer):
         return value
 
     def validate_phone_number(self, value):
-        """Validate phone number format."""
+        """Validate phone number format and uniqueness."""
         if value:  # Only validate if phone number is provided
+            value = value.strip()
             phone_pattern = r'^\+?[\d\s\-\(\)]{10,15}$'
             if not re.match(phone_pattern, value):
                 raise serializers.ValidationError("Please enter a valid phone number.")
+
+            user_profile = self.instance.user_profile if self.instance and self.instance.user_profile else None
+            existing = UserProfile.objects.filter(phone_number=value)
+            if user_profile:
+                existing = existing.exclude(pk=user_profile.pk)
+            if existing.exists():
+                raise serializers.ValidationError("This phone number is already in use.")
+
         return value
 
     def validate_aadhar_number(self, value):
@@ -279,12 +289,22 @@ class InfluencerProfileUpdateSerializer(serializers.ModelSerializer):
         return value
 
     def validate_phone_number(self, value):
-        """Validate phone number format."""
+        """Validate phone number format and uniqueness."""
         if value and value.strip():
+            cleaned_value = value.strip()
             # More flexible phone number validation - allow digits, spaces, dashes, parentheses, and plus
             phone_pattern = r'^\+?[\d\s\-\(\)\.]{7,20}$'
-            if not re.match(phone_pattern, value.strip()):
+            if not re.match(phone_pattern, cleaned_value):
                 raise serializers.ValidationError("Please enter a valid phone number.")
+
+            user_profile = self.instance.user_profile if self.instance and self.instance.user_profile else None
+            existing = UserProfile.objects.filter(phone_number=cleaned_value)
+            if user_profile:
+                existing = existing.exclude(pk=user_profile.pk)
+            if existing.exists():
+                raise serializers.ValidationError("This phone number is already in use.")
+
+            return cleaned_value
         return value.strip() if value else value
 
     def validate_gender(self, value):
@@ -358,12 +378,11 @@ class InfluencerProfileUpdateSerializer(serializers.ModelSerializer):
             user.save()
 
         if not instance.user_profile:
-            from users.models import UserProfile
             instance.user_profile = UserProfile.objects.create(user=instance.user)
 
         # Log UserProfile update data
         user_profile_data = {
-            'phone_number': phone_number,
+            'phone_number': phone_number.strip() if isinstance(phone_number, str) else phone_number,
             'gender': gender,
             'country': country,
             'country_code': country_code,
@@ -377,7 +396,8 @@ class InfluencerProfileUpdateSerializer(serializers.ModelSerializer):
 
         # Update UserProfile fields
         if phone_number is not None:
-            instance.user_profile.phone_number = phone_number
+            cleaned_phone = phone_number.strip() if isinstance(phone_number, str) else phone_number
+            instance.user_profile.phone_number = cleaned_phone or None
         if gender is not None:
             instance.user_profile.gender = gender if gender else None
         if country is not None:
