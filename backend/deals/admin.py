@@ -6,17 +6,54 @@ from .models import Deal
 @admin.register(Deal)
 class DealAdmin(admin.ModelAdmin):
     list_display = [
-        'campaign_title', 'influencer_username', 'status', 'payment_status',
-        'invited_at', 'completed_at'
+        'campaign_title',
+        'influencer_username',
+        'status',
+        'payment_status',
+        'address_requested_at',
+        'address_provided_at',
+        'shipped_at',
+        'delivered_at',
+        'invited_at',
+        'completed_at',
     ]
-    list_filter = ['status', 'payment_status', 'invited_at', 'completed_at']
-    search_fields = ['campaign__title', 'influencer__username', 'campaign__brand__name']
-    readonly_fields = ['is_active', 'response_deadline_passed', 'invited_at']
+    list_filter = [
+        'status',
+        'payment_status',
+        'invited_at',
+        'completed_at',
+        'address_requested_at',
+        'address_provided_at',
+        'shipped_at',
+        'delivered_at',
+    ]
+    search_fields = [
+        'campaign__title',
+        'campaign__brand__name',
+        'influencer__username',
+        'influencer__user__email',
+        'tracking_number',
+        'tracking_url',
+    ]
+    readonly_fields = [
+        'is_active',
+        'response_deadline_passed',
+        'invited_at',
+        'responded_at',
+        'accepted_at',
+        'shortlisted_at',
+        'completed_at',
+        'payment_date',
+        'address_requested_at',
+        'address_provided_at',
+        'shipped_at',
+        'delivered_at',
+    ]
     date_hierarchy = 'invited_at'
 
     fieldsets = (
         ('Deal Information', {
-            'fields': ('campaign', 'influencer', 'status', 'payment_status')
+            'fields': ('campaign', 'influencer', 'status', 'payment_status', 'notes')
         }),
         ('Deal Terms', {
             'fields': ('negotiation_notes', 'custom_terms_agreed'),
@@ -28,8 +65,23 @@ class DealAdmin(admin.ModelAdmin):
         }),
         ('Timeline', {
             'fields': (
-                'invited_at', 'responded_at', 'accepted_at', 'completed_at',
-                'payment_date'
+                'invited_at',
+                'responded_at',
+                'accepted_at',
+                'shortlisted_at',
+                'completed_at',
+                'payment_date',
+            )
+        }),
+        ('Shipping & Logistics', {
+            'fields': (
+                'shipping_address',
+                'address_requested_at',
+                'address_provided_at',
+                'tracking_number',
+                'tracking_url',
+                'shipped_at',
+                'delivered_at',
             )
         }),
         ('Reviews & Ratings', {
