@@ -11,6 +11,7 @@ import {communicationApi, handleApiError} from "@/lib/api";
 import {toast} from "sonner";
 import {useUserContext} from "@/components/providers/app-providers";
 import {useSearchParams} from "next/navigation";
+import {SUPPORT_CONTACT, SUPPORT_LINKS} from "@/constants/support";
 
 export default function ChatPage() {
     return (
@@ -130,9 +131,9 @@ function ChatPageContent() {
                                         Call us for immediate assistance with your account or technical issues.
                                     </p>
                                     <div className="space-y-2">
-                                        <p className="text-lg font-bold text-gray-900">+91 98765 43210</p>
-                                        <p className="text-sm text-gray-600">Mon-Fri: 9 AM - 6 PM IST</p>
-                                        <p className="text-sm text-gray-600">Sat: 10 AM - 4 PM IST</p>
+                                        <p className="text-lg font-bold text-gray-900">{SUPPORT_CONTACT.phoneDisplay}</p>
+                                        <p className="text-sm text-gray-600">{SUPPORT_CONTACT.phoneHoursWeekday}</p>
+                                        <p className="text-sm text-gray-600">{SUPPORT_CONTACT.phoneHoursWeekend}</p>
                                     </div>
                                 </CardContent>
                             </Card>
@@ -152,9 +153,9 @@ function ChatPageContent() {
                                         Send us an email and we'll get back to you within 24 hours.
                                     </p>
                                     <div className="space-y-2">
-                                        <p className="text-lg font-bold text-gray-900">support@ticktime.in</p>
-                                        <p className="text-sm text-gray-600">Response time: Within 24 hours</p>
-                                        <p className="text-sm text-gray-600">Available 24/7</p>
+                                        <p className="text-lg font-bold text-gray-900">{SUPPORT_CONTACT.email}</p>
+                                        <p className="text-sm text-gray-600">{SUPPORT_CONTACT.emailResponseTime}</p>
+                                        <p className="text-sm text-gray-600">{SUPPORT_CONTACT.emailAvailability}</p>
                                     </div>
                                 </CardContent>
                             </Card>
@@ -194,13 +195,16 @@ function ChatPageContent() {
                             </p>
                             <div className="flex flex-col sm:flex-row gap-4 justify-center">
                                 <Button size="lg" variant="secondary"
-                                        className="bg-white text-orange-600 hover:bg-gray-100">
-                                    Call +91 98765 43210
+                                        className="bg-white text-orange-600 hover:bg-gray-100"
+                                        asChild>
+                                    <Link href={`tel:${SUPPORT_CONTACT.phoneDial}`}>
+                                        Call {SUPPORT_CONTACT.phoneDisplay}
+                                    </Link>
                                 </Button>
                                 <Button size="lg" variant="outline"
                                         className="border-2 border-white text-white hover:bg-white hover:text-orange-600 bg-transparent"
                                         asChild>
-                                    <Link href="/support/faq">View FAQ</Link>
+                                    <Link href={SUPPORT_LINKS.faq}>View FAQ</Link>
                                 </Button>
                             </div>
                         </div>
