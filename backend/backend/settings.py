@@ -269,6 +269,7 @@ FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:3000")
 # Support / communications channels
 DISCORD_SUPPORT_CHANNEL_ID = os.environ.get("SUPPORT_CHANNEL_ID", "")
 DISCORD_SUPPORT_BOT_TOKEN = os.environ.get("SUPPORT_CHANNEL_BOT_TOKEN", "")
+BRANDS_ONBOARDING_CHANNEL_ID = os.environ.get("BRANDS_ONBOARDING_CHANNEL_ID", "")
 
 # Celery Configuration
 CELERY_BROKER_URL = os.environ.get("CELERY_BROKER_URL", "redis://localhost:6379/0")

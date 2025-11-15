@@ -1,6 +1,7 @@
 import logging
 from urllib.parse import urlencode
 
+from brands.notifications import send_brand_onboarding_discord_notification
 from common.api_response import api_response, format_serializer_errors
 from common.decorators import (
     auth_rate_limit,
@@ -238,6 +239,17 @@ def brand_signup_view(request):
     if serializer.is_valid():
         try:
             user = serializer.save()
+
+            brand_user = getattr(user, 'brand_user', None)
+            brand = getattr(brand_user, 'brand', None) if brand_user else None
+            if brand:
+                try:
+                    send_brand_onboarding_discord_notification(brand, user)
+                except Exception:
+                    logger.exception(
+                        "Failed to send Discord notification for brand onboarding (brand_id=%s)",
+                        brand.id,
+                    )
 
             # Automatically log in the user
             login(request, user)
