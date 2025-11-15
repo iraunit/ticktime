@@ -6,7 +6,7 @@ from django.conf import settings
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import AllowAny, IsAuthenticated
 
 from .decorators import rate_limit, require_verified_brand
 from .email_service import get_email_service
@@ -278,7 +278,7 @@ def check_account_status(request):
 
 
 @api_view(['POST'])
-@permission_classes([IsAuthenticated])
+@permission_classes([AllowAny])
 def submit_support_query(request):
     """
     Accept a support query and forward it to the configured communications channels.
@@ -293,31 +293,38 @@ def submit_support_query(request):
         )
 
     data = serializer.validated_data
-    user = request.user
-    user_profile = getattr(user, 'user_profile', None)
+    authenticated_user = request.user if request.user.is_authenticated else None
+    user_profile = getattr(authenticated_user, 'user_profile', None) if authenticated_user else None
 
-    name = data.get('name') or user.get_full_name() or user.username
-    email = data.get('email') or user.email
+    name = data.get('name') or (
+        (authenticated_user.get_full_name() or authenticated_user.username)
+        if authenticated_user else ''
+    ) or 'Guest User'
+    email = data.get('email') or (authenticated_user.email if authenticated_user else '')
     phone_number = data.get('phone_number') or getattr(user_profile, 'phone_number', '')
     source = data.get('source') or 'app'
 
     metadata = {
-        'user_id': user.id,
-        'username': user.username,
-        'account_type': 'brand' if hasattr(user, 'brand_user') else (
-            'influencer' if hasattr(user, 'influencer_profile') else 'user'
+        'user_authenticated': bool(authenticated_user),
+        'user_id': getattr(authenticated_user, 'id', None),
+        'username': getattr(authenticated_user, 'username', None),
+        'account_type': (
+            'brand' if authenticated_user and hasattr(authenticated_user, 'brand_user') else
+            'influencer' if authenticated_user and hasattr(authenticated_user, 'influencer_profile') else
+            'guest'
         ),
+        'source_ip': request.META.get('REMOTE_ADDR'),
     }
 
-    if hasattr(user, 'brand_user'):
-        brand = user.brand_user.brand
+    if authenticated_user and hasattr(authenticated_user, 'brand_user'):
+        brand = authenticated_user.brand_user.brand
         metadata.update({
             'brand_id': brand.id,
             'brand_name': brand.name,
         })
 
-    if hasattr(user, 'influencer_profile'):
-        influencer = user.influencer_profile
+    if authenticated_user and hasattr(authenticated_user, 'influencer_profile'):
+        influencer = authenticated_user.influencer_profile
         metadata.update({
             'influencer_username': getattr(influencer, 'username', None),
             'influencer_name': getattr(influencer, 'full_name', None),
