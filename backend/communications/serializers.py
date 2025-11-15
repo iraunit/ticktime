@@ -52,3 +52,15 @@ class EmailVerificationResponseSerializer(serializers.Serializer):
     success = serializers.BooleanField()
     message = serializers.CharField()
     email_verified = serializers.BooleanField(required=False)
+
+
+class SupportMessageSerializer(serializers.Serializer):
+    """
+    Serializer for support or contact-us submissions
+    """
+    name = serializers.CharField(max_length=120, required=False, allow_blank=True)
+    email = serializers.EmailField(required=False, allow_blank=True)
+    phone_number = serializers.CharField(max_length=32, required=False, allow_blank=True)
+    subject = serializers.CharField(max_length=200)
+    message = serializers.CharField(max_length=2000)
+    source = serializers.CharField(max_length=64, required=False, allow_blank=True)

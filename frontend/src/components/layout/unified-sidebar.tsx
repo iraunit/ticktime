@@ -26,6 +26,7 @@ import {api} from "@/lib/api";
 import {Button} from "@/components/ui/button";
 import {OptimizedAvatar} from "@/components/ui/optimized-image";
 import {useUnreadCount} from "@/hooks/use-messaging";
+import {SupportQueryDialog} from "@/components/support/support-query-dialog";
 
 // Navigation items for different user types
 const brandNavigation = [
@@ -354,6 +355,38 @@ export function UnifiedSidebar({userType}: UnifiedSidebarProps) {
                             );
                         })}
                     </nav>
+
+                    {/* Support CTA */}
+                    <div className="px-2 pb-4">
+                        <SupportQueryDialog
+                            source={`${userType}_sidebar`}
+                            trigger={
+                                <button
+                                    type="button"
+                                    className={`group flex items-center w-full px-3 py-2.5 text-sm font-medium rounded-xl transition-all duration-300 relative overflow-hidden ${
+                                        isExpanded
+                                            ? 'bg-gradient-to-r from-green-50 to-emerald-50 text-green-700 border border-green-100 shadow-sm hover:shadow-md'
+                                            : 'text-gray-700 hover:bg-gradient-to-r hover:from-gray-50 hover:to-gray-100 hover:text-gray-900'
+                                    }`}
+                                    title={!isExpanded ? 'Contact Support' : undefined}
+                                >
+                                    <div
+                                        className={`relative h-5 w-5 p-0.5 rounded-lg transition-all duration-300 flex-shrink-0 ${
+                                            isExpanded
+                                                ? 'bg-gradient-to-r from-green-500 to-emerald-500 text-white shadow-md'
+                                                : 'text-gray-400 group-hover:text-gray-600 group-hover:bg-gray-100'
+                                        } ${isExpanded ? 'mr-3' : ''}`}>
+                                        <HiChatBubbleLeftRight className="w-full h-full"/>
+                                    </div>
+                                    {isExpanded && (
+                                        <span className="transition-all duration-300 font-medium whitespace-nowrap">
+                                            Contact Support
+                                        </span>
+                                    )}
+                                </button>
+                            }
+                        />
+                    </div>
 
                     {/* Enhanced User Profile Section with Logout */}
                     <div

@@ -1,7 +1,8 @@
 import logging
 
-from common.api_response import api_response
+from common.api_response import api_response, format_serializer_errors
 from deals.models import Deal
+from django.conf import settings
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
@@ -12,10 +13,13 @@ from .email_service import get_email_service
 from .models import EmailVerificationToken
 from .serializers import (
     SendCampaignNotificationSerializer,
-    AccountStatusSerializer
+    AccountStatusSerializer,
+    SupportMessageSerializer,
 )
+from .support_channels import SupportChannelDispatcher, SupportMessagePayload
 
 logger = logging.getLogger(__name__)
+support_dispatcher = SupportChannelDispatcher()
 
 
 @api_view(['POST'])
@@ -270,4 +274,92 @@ def check_account_status(request):
         True,
         result=serializer.data,
         status_code=status.HTTP_200_OK
+    )
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def submit_support_query(request):
+    """
+    Accept a support query and forward it to the configured communications channels.
+    """
+    serializer = SupportMessageSerializer(data=request.data)
+    if not serializer.is_valid():
+        error_message = format_serializer_errors(serializer.errors)
+        return api_response(
+            False,
+            error=error_message,
+            status_code=status.HTTP_400_BAD_REQUEST
+        )
+
+    data = serializer.validated_data
+    user = request.user
+    user_profile = getattr(user, 'user_profile', None)
+
+    name = data.get('name') or user.get_full_name() or user.username
+    email = data.get('email') or user.email
+    phone_number = data.get('phone_number') or getattr(user_profile, 'phone_number', '')
+    source = data.get('source') or 'app'
+
+    metadata = {
+        'user_id': user.id,
+        'username': user.username,
+        'account_type': 'brand' if hasattr(user, 'brand_user') else (
+            'influencer' if hasattr(user, 'influencer_profile') else 'user'
+        ),
+    }
+
+    if hasattr(user, 'brand_user'):
+        brand = user.brand_user.brand
+        metadata.update({
+            'brand_id': brand.id,
+            'brand_name': brand.name,
+        })
+
+    if hasattr(user, 'influencer_profile'):
+        influencer = user.influencer_profile
+        metadata.update({
+            'influencer_username': getattr(influencer, 'username', None),
+            'influencer_name': getattr(influencer, 'full_name', None),
+        })
+
+    payload = SupportMessagePayload(
+        name=name,
+        email=email,
+        phone_number=phone_number,
+        subject=data['subject'],
+        message=data['message'],
+        source=source,
+        metadata=metadata,
+    )
+
+    channel_configs = []
+    if settings.DISCORD_SUPPORT_CHANNEL_ID and settings.DISCORD_SUPPORT_BOT_TOKEN:
+        channel_configs.append({
+            'name': 'discord',
+            'options': {
+                'channel_id': settings.DISCORD_SUPPORT_CHANNEL_ID,
+                'bot_token': settings.DISCORD_SUPPORT_BOT_TOKEN,
+            }
+        })
+
+    channel_configs.append({'name': 'log'})
+
+    results = support_dispatcher.dispatch(payload, channel_configs)
+    success = any(result.get('success') for result in results)
+
+    if success:
+        return api_response(
+            True,
+            result={
+                'message': 'Your message has been sent to our support team.',
+                'channels': results,
+            },
+            status_code=status.HTTP_200_OK
+        )
+
+    return api_response(
+        False,
+        error='We could not deliver your message. Please try again later.',
+        status_code=status.HTTP_502_BAD_GATEWAY
     )

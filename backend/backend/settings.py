@@ -266,6 +266,10 @@ RABBITMQ_EMAIL_QUEUE = os.environ.get("RABBITMQ_EMAIL_QUEUE", "email_notificatio
 # Frontend URL for email links
 FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:3000")
 
+# Support / communications channels
+DISCORD_SUPPORT_CHANNEL_ID = os.environ.get("SUPPORT_CHANNEL_ID", "")
+DISCORD_SUPPORT_BOT_TOKEN = os.environ.get("SUPPORT_CHANNEL_BOT_TOKEN", "")
+
 # Celery Configuration
 CELERY_BROKER_URL = os.environ.get("CELERY_BROKER_URL", "redis://localhost:6379/0")
 CELERY_RESULT_BACKEND = os.environ.get(

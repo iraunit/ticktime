@@ -251,6 +251,20 @@ export const communicationApi = {
     checkAccountStatus: async () => {
         return api.get('/communications/account-status/');
     },
+
+    /**
+     * Submit a support query to TickTime support desk
+     */
+    sendSupportMessage: async (data: {
+        name: string;
+        email: string;
+        phone_number: string;
+        subject: string;
+        message: string;
+        source?: string;
+    }) => {
+        return api.post('/communications/support-query/', data);
+    },
 };
 
 export default api;
