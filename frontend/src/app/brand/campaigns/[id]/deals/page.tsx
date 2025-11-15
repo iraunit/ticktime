@@ -48,6 +48,21 @@ type DealStatus =
     | "cancelled"
     | "dispute";
 
+interface ShippingAddress {
+    address_line1?: string;
+    address_line_1?: string;
+    address_line2?: string;
+    address_line_2?: string;
+    city?: string;
+    state?: string;
+    zipcode?: string;
+    postal_code?: string;
+    country?: string;
+    country_code?: string;
+    phone_number?: string;
+    phone?: string;
+}
+
 interface DealItem {
     id: number;
     status: DealStatus;
@@ -65,6 +80,7 @@ interface DealItem {
         id: number;
         title: string;
     };
+    shipping_address?: ShippingAddress | null;
 }
 
 interface PaginationInfo {
@@ -272,6 +288,40 @@ export default function CampaignDealsPage() {
         }
     }, [deals, sortKey]);
 
+    const normalizeAddress = (address?: ShippingAddress | null) => {
+        if (!address) return null;
+        const pickValue = (...keys: (keyof ShippingAddress)[]) => {
+            for (const key of keys) {
+                const value = address[key];
+                if (value) return String(value);
+            }
+            return "";
+        };
+
+        const line1 = pickValue("address_line1", "address_line_1");
+        const line2 = pickValue("address_line2", "address_line_2");
+        const city = pickValue("city");
+        const state = pickValue("state");
+        const postalCode = pickValue("zipcode", "postal_code");
+        const country = pickValue("country");
+        const countryCode = pickValue("country_code");
+        const phoneNumber = pickValue("phone_number", "phone");
+
+        const hasValues = [line1, line2, city, state, postalCode, country, countryCode, phoneNumber].some(Boolean);
+        if (!hasValues) return null;
+
+        return {
+            line1,
+            line2,
+            city,
+            state,
+            postalCode,
+            country,
+            countryCode,
+            phoneNumber,
+        };
+    };
+
     const exportCsv = () => {
         const headers = [
             "Deal ID",
@@ -285,6 +335,14 @@ export default function CampaignDealsPage() {
             "Invited At",
             "Accepted At",
             "Completed At",
+            "Address Line 1",
+            "Address Line 2",
+            "City",
+            "State",
+            "Postal/Zip Code",
+            "Country",
+            "Country Code",
+            "Phone Number",
         ];
         const formatTs = (ts?: string) =>
             ts
@@ -296,19 +354,36 @@ export default function CampaignDealsPage() {
                     minute: "2-digit",
                 })
                 : "";
-        const rows = deals.map((d) => [
-            d.id,
-            d.campaign?.id ?? "",
-            d.campaign?.title ?? "",
-            d.influencer?.id ?? "",
-            d.influencer?.full_name || "",
-            d.influencer?.username || "",
-            d.status,
-            d.payment_status || "",
-            formatTs(d.invited_at),
-            formatTs(d.accepted_at),
-            formatTs(d.completed_at),
-        ]);
+        const rows = deals.map((d) => {
+            const normalizedAddress = normalizeAddress(d.shipping_address);
+            const addressCells = normalizedAddress
+                ? [
+                    normalizedAddress.line1,
+                    normalizedAddress.line2,
+                    normalizedAddress.city,
+                    normalizedAddress.state,
+                    normalizedAddress.postalCode,
+                    normalizedAddress.country,
+                    normalizedAddress.countryCode,
+                    normalizedAddress.phoneNumber,
+                ]
+                : Array(9).fill("");
+
+            return [
+                d.id,
+                d.campaign?.id ?? "",
+                d.campaign?.title ?? "",
+                d.influencer?.id ?? "",
+                d.influencer?.full_name || "",
+                d.influencer?.username || "",
+                d.status,
+                d.payment_status || "",
+                formatTs(d.invited_at),
+                formatTs(d.accepted_at),
+                formatTs(d.completed_at),
+                ...addressCells,
+            ];
+        });
         const csv = [headers, ...rows]
             .map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(","))
             .join("\n");
@@ -614,41 +689,42 @@ export default function CampaignDealsPage() {
                                                 key={d.id}
                                                 className={`border-b ${highlightRow ? 'bg-emerald-50/70 hover:bg-emerald-100' : 'hover:bg-gray-50'}`}
                                             >
-                                            <td className="px-2 py-2">
-                                                <Checkbox checked={selected.has(d.id)}
-                                                          onCheckedChange={(v: boolean) => toggleOne(d.id, !!v)}/>
-                                            </td>
-                                            <td className="px-2 py-2 font-medium text-gray-900">{d.influencer?.full_name || "—"}</td>
-                                            <td className="px-2 py-2 text-gray-600">@{d.influencer?.username}</td>
-                                            <td className="px-2 py-2">{statusBadge(d.status)}</td>
-                                            <td className="px-2 py-2 text-gray-600">{new Date(d.invited_at).toLocaleDateString("en-IN", {
-                                                day: "numeric",
-                                                month: "short",
-                                                year: "numeric"
-                                            })}</td>
-                                            <td className="px-2 py-2 text-right">
-                                                <div className="flex justify-end gap-2">
-                                                    {showViewSubmissions && (
-                                                        <Button
-                                                            variant="outline"
-                                                            size="sm"
-                                                            onClick={() => openContentReviewDialog(d)}
-                                                            disabled={contentDialogTriggerId === d.id}
-                                                        >
-                                                            {contentDialogTriggerId === d.id && <InlineLoader className="mr-2"/>}
-                                                            View Submissions
+                                                <td className="px-2 py-2">
+                                                    <Checkbox checked={selected.has(d.id)}
+                                                              onCheckedChange={(v: boolean) => toggleOne(d.id, !!v)}/>
+                                                </td>
+                                                <td className="px-2 py-2 font-medium text-gray-900">{d.influencer?.full_name || "—"}</td>
+                                                <td className="px-2 py-2 text-gray-600">@{d.influencer?.username}</td>
+                                                <td className="px-2 py-2">{statusBadge(d.status)}</td>
+                                                <td className="px-2 py-2 text-gray-600">{new Date(d.invited_at).toLocaleDateString("en-IN", {
+                                                    day: "numeric",
+                                                    month: "short",
+                                                    year: "numeric"
+                                                })}</td>
+                                                <td className="px-2 py-2 text-right">
+                                                    <div className="flex justify-end gap-2">
+                                                        {showViewSubmissions && (
+                                                            <Button
+                                                                variant="outline"
+                                                                size="sm"
+                                                                onClick={() => openContentReviewDialog(d)}
+                                                                disabled={contentDialogTriggerId === d.id}
+                                                            >
+                                                                {contentDialogTriggerId === d.id &&
+                                                                    <InlineLoader className="mr-2"/>}
+                                                                View Submissions
+                                                            </Button>
+                                                        )}
+                                                        <Button variant="outline" size="sm"
+                                                                onClick={() => window.open(`/brand/deals/${d.id}?campaign=${campaignId}`, "_blank")}>
+                                                            View
                                                         </Button>
-                                                    )}
-                                                    <Button variant="outline" size="sm"
-                                                            onClick={() => window.open(`/brand/deals/${d.id}?campaign=${campaignId}`, "_blank")}>
-                                                        View
-                                                    </Button>
-                                                    <Button variant="outline" size="sm"
-                                                            onClick={() => window.open(`/brand/messages?influencer=${d.influencer?.id}`, "_blank")}>
-                                                        Message
-                                                    </Button>
-                                                </div>
-                                            </td>
+                                                        <Button variant="outline" size="sm"
+                                                                onClick={() => window.open(`/brand/messages?influencer=${d.influencer?.id}`, "_blank")}>
+                                                            Message
+                                                        </Button>
+                                                    </div>
+                                                </td>
                                             </tr>
                                         );
                                     })

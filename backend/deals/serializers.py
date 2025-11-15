@@ -108,7 +108,7 @@ class DealListSerializer(serializers.ModelSerializer):
             'invited_at', 'responded_at', 'accepted_at', 'completed_at',
             'payment_status', 'payment_date', 'brand_rating', 'brand_review',
             'influencer_rating', 'influencer_review', 'rejection_reason',
-            'negotiation_notes', 'custom_terms_agreed', 'conversation',
+            'negotiation_notes', 'custom_terms_agreed', 'shipping_address', 'conversation',
             'last_message', 'unread_count', 'content_submissions_count'
         )
         read_only_fields = ('id', 'invited_at', 'responded_at', 'accepted_at', 'completed_at')
