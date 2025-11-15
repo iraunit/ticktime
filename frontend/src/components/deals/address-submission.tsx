@@ -1,6 +1,6 @@
 "use client";
 
-import {useState} from "react";
+import {useCallback, useEffect, useState} from "react";
 import {useForm} from "react-hook-form";
 import {zodResolver} from "@hookform/resolvers/zod";
 import {z} from "zod";
@@ -19,6 +19,7 @@ import {Deal} from "@/types";
 import {MapPin, Phone, Save} from "@/lib/icons";
 import {toast} from "sonner";
 import {api, handleApiError} from "@/lib/api";
+import {useProfile} from "@/hooks/use-profile";
 
 const addressSchema = z.object({
     address_line1: z.string().min(1, "Address line 1 is required"),
@@ -42,20 +43,48 @@ interface AddressSubmissionProps {
 
 export function AddressSubmission({deal, isOpen, onClose, onSuccess}: AddressSubmissionProps) {
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const {profile} = useProfile();
+    const profileData = profile.data;
+
+    const buildDefaultValues = useCallback((): AddressFormData => {
+        const shippingAddress = deal.shipping_address || {};
+        const profileAddress = profileData?.user_profile || {};
+
+        const pickAddressValue = (
+            address: Record<string, unknown>,
+            ...keys: string[]
+        ) => {
+            for (const key of keys) {
+                const value = address?.[key];
+                if (typeof value === "string" && value.trim().length > 0) {
+                    return value;
+                }
+            }
+            return "";
+        };
+
+        return {
+            address_line1: pickAddressValue(shippingAddress, "address_line1", "address_line_1") || profileAddress?.address_line1 || "",
+            address_line2: pickAddressValue(shippingAddress, "address_line2", "address_line_2") || profileAddress?.address_line2 || "",
+            city: pickAddressValue(shippingAddress, "city") || profileAddress?.city || "",
+            state: pickAddressValue(shippingAddress, "state") || profileAddress?.state || "",
+            country: pickAddressValue(shippingAddress, "country") || profileAddress?.country || "India",
+            zipcode: pickAddressValue(shippingAddress, "zipcode", "postal_code") || profileAddress?.zipcode || "",
+            country_code: pickAddressValue(shippingAddress, "country_code") || profileAddress?.country_code || "+91",
+            phone_number: pickAddressValue(shippingAddress, "phone_number") || profileAddress?.phone_number || "",
+        };
+    }, [deal.shipping_address, profileData]);
 
     const form = useForm<AddressFormData>({
         resolver: zodResolver(addressSchema),
-        defaultValues: {
-            address_line1: deal.shipping_address?.address_line1 || "",
-            address_line2: deal.shipping_address?.address_line2 || "",
-            city: deal.shipping_address?.city || "",
-            state: deal.shipping_address?.state || "",
-            country: deal.shipping_address?.country || "India",
-            zipcode: deal.shipping_address?.zipcode || "",
-            country_code: deal.shipping_address?.country_code || "+91",
-            phone_number: deal.shipping_address?.phone_number || "",
-        },
+        defaultValues: buildDefaultValues(),
     });
+
+    useEffect(() => {
+        if (!isOpen) return;
+        if (form.formState.isDirty) return;
+        form.reset(buildDefaultValues());
+    }, [isOpen, buildDefaultValues, form, form.formState.isDirty]);
 
     const handleSubmit = async (data: AddressFormData) => {
         setIsSubmitting(true);
