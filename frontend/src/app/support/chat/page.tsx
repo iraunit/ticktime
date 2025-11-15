@@ -1,6 +1,6 @@
 "use client";
 
-import {type FormEventHandler, useMemo, useState} from "react";
+import {type FormEventHandler, Suspense, useMemo, useState} from "react";
 import {Card, CardContent, CardHeader, CardTitle} from "@/components/ui/card";
 import {MainLayout} from "@/components/layout/main-layout";
 import {Button} from "@/components/ui/button";
@@ -13,6 +13,21 @@ import {useUserContext} from "@/components/providers/app-providers";
 import {useSearchParams} from "next/navigation";
 
 export default function ChatPage() {
+    return (
+        <Suspense fallback={
+            <MainLayout>
+                <div
+                    className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-orange-50">
+                    <p className="text-lg text-gray-600">Loading support chat...</p>
+                </div>
+            </MainLayout>
+        }>
+            <ChatPageContent/>
+        </Suspense>
+    );
+}
+
+function ChatPageContent() {
     const {user} = useUserContext();
     const [isSubmitting, setIsSubmitting] = useState(false);
     const searchParams = useSearchParams();
