@@ -98,6 +98,7 @@ class DealListSerializer(serializers.ModelSerializer):
     conversation = serializers.SerializerMethodField()
     last_message = serializers.SerializerMethodField()
     unread_count = serializers.SerializerMethodField()
+    content_submissions_count = serializers.SerializerMethodField()
 
     class Meta:
         model = Deal
@@ -107,8 +108,8 @@ class DealListSerializer(serializers.ModelSerializer):
             'invited_at', 'responded_at', 'accepted_at', 'completed_at',
             'payment_status', 'payment_date', 'brand_rating', 'brand_review',
             'influencer_rating', 'influencer_review', 'rejection_reason',
-            'negotiation_notes', 'custom_terms_agreed', 'conversation',
-            'last_message', 'unread_count'
+            'negotiation_notes', 'custom_terms_agreed', 'shipping_address', 'conversation',
+            'last_message', 'unread_count', 'content_submissions_count'
         )
         read_only_fields = ('id', 'invited_at', 'responded_at', 'accepted_at', 'completed_at')
 
@@ -165,6 +166,13 @@ class DealListSerializer(serializers.ModelSerializer):
         """Get unread message count for the brand."""
         try:
             return obj.conversation.unread_count_for_brand
+        except:
+            return 0
+
+    def get_content_submissions_count(self, obj):
+        """Return number of content submissions linked to this deal."""
+        try:
+            return obj.content_submissions.count()
         except:
             return 0
 
@@ -333,7 +341,11 @@ class DealDetailSerializer(serializers.ModelSerializer):
     def get_submitted_content(self, obj):
         """Get submitted content for this deal."""
         from content.serializers import ContentSubmissionSerializer
-        return ContentSubmissionSerializer(obj.content_submissions.all(), many=True).data
+        return ContentSubmissionSerializer(
+            obj.content_submissions.all(),
+            many=True,
+            context=self.context,
+        ).data
 
     def get_campaign(self, obj):
         """Get campaign information without circular import."""

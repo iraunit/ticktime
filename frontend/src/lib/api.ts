@@ -32,7 +32,7 @@ export const api = axios.create({
     withCredentials: true,
     xsrfCookieName: 'csrftoken',
     xsrfHeaderName: 'X-CSRFToken',
-    timeout: 8000,
+    timeout: 60000,
 });
 
 api.interceptors.request.use(
@@ -250,6 +250,20 @@ export const communicationApi = {
      */
     checkAccountStatus: async () => {
         return api.get('/communications/account-status/');
+    },
+
+    /**
+     * Submit a support query to TickTime support desk
+     */
+    sendSupportMessage: async (data: {
+        name: string;
+        email: string;
+        phone_number: string;
+        subject: string;
+        message: string;
+        source?: string;
+    }) => {
+        return api.post('/communications/support-query/', data);
     },
 };
 

@@ -4,8 +4,10 @@ import {useState} from "react";
 import {Card, CardContent, CardHeader, CardTitle} from "@/components/ui/card";
 import {MainLayout} from "@/components/layout/main-layout";
 import {Button} from "@/components/ui/button";
-import {HiChevronDown, HiChevronUp, HiArrowLeft, HiQuestionMarkCircle} from "react-icons/hi2";
+import {HiArrowLeft, HiChevronDown, HiChevronUp, HiQuestionMarkCircle} from "react-icons/hi2";
 import Link from "next/link";
+import {SupportQueryDialog} from "@/components/support/support-query-dialog";
+import {SUPPORT_CONTACT} from "@/constants/support";
 
 interface FAQItem {
     question: string;
@@ -30,7 +32,7 @@ const faqData: FAQItem[] = [
         answer: "For influencers: Basic profile info, social media handles, follower counts, and content categories. For brands: Company details, industry, and campaign preferences. We keep all information secure and private.",
         category: "Getting Started"
     },
-    
+
     // For Influencers
     {
         question: "How do I find campaigns that match my content?",
@@ -52,7 +54,7 @@ const faqData: FAQItem[] = [
         answer: "Your dashboard shows detailed analytics including total earnings, campaign performance, engagement rates, and growth trends. You can view monthly, quarterly, and yearly reports to track your progress.",
         category: "For Influencers"
     },
-    
+
     // For Brands
     {
         question: "How do I create a campaign?",
@@ -74,11 +76,11 @@ const faqData: FAQItem[] = [
         answer: "Our analytics dashboard provides detailed insights into campaign reach, engagement, conversions, and ROI. You can track individual influencer performance and overall campaign success in real-time.",
         category: "For Brands"
     },
-    
+
     // Technical Support
     {
         question: "I'm having trouble logging in. What should I do?",
-        answer: "First, make sure you're using the correct email and password. If you've forgotten your password, use the 'Forgot Password' link. If you're still having issues, contact our support team at support@ticktime.in",
+        answer: `First, make sure you're using the correct email and password. If you've forgotten your password, use the 'Forgot Password' link. If you're still having issues, contact our support team at ${SUPPORT_CONTACT.email}`,
         category: "Technical Support"
     },
     {
@@ -91,7 +93,7 @@ const faqData: FAQItem[] = [
         answer: "TickTime works on all modern browsers including Chrome, Firefox, Safari, and Edge. We recommend using the latest version of your preferred browser for the best experience.",
         category: "Technical Support"
     },
-    
+
     // Account & Billing
     {
         question: "How do I update my payment information?",
@@ -116,13 +118,13 @@ export default function FAQPage() {
     const [selectedCategory, setSelectedCategory] = useState("All");
     const [expandedItems, setExpandedItems] = useState<number[]>([]);
 
-    const filteredFAQs = selectedCategory === "All" 
-        ? faqData 
+    const filteredFAQs = selectedCategory === "All"
+        ? faqData
         : faqData.filter(item => item.category === selectedCategory);
 
     const toggleExpanded = (index: number) => {
-        setExpandedItems(prev => 
-            prev.includes(index) 
+        setExpandedItems(prev =>
+            prev.includes(index)
                 ? prev.filter(i => i !== index)
                 : [...prev, index]
         );
@@ -137,15 +139,16 @@ export default function FAQPage() {
                         <div className="mb-8">
                             <Button variant="ghost" asChild className="mb-6">
                                 <Link href="/support" className="flex items-center gap-2">
-                                    <HiArrowLeft className="w-4 h-4" />
+                                    <HiArrowLeft className="w-4 h-4"/>
                                     Back to Support
                                 </Link>
                             </Button>
-                            
+
                             <h1 className="text-4xl md:text-5xl font-bold text-gray-900 mb-6 relative">
                                 <span className="relative">
                                     Frequently Asked Questions
-                                    <div className="absolute -top-2 -right-8 w-8 h-8 bg-yellow-300 rounded-full opacity-60 transform rotate-12"></div>
+                                    <div
+                                        className="absolute -top-2 -right-8 w-8 h-8 bg-yellow-300 rounded-full opacity-60 transform rotate-12"></div>
                                 </span>
                             </h1>
                             <p className="text-xl text-gray-700 font-medium">
@@ -162,8 +165,8 @@ export default function FAQPage() {
                                         variant={selectedCategory === category ? "default" : "outline"}
                                         onClick={() => setSelectedCategory(category)}
                                         className={`rounded-full ${
-                                            selectedCategory === category 
-                                                ? "bg-orange-600 hover:bg-orange-700" 
+                                            selectedCategory === category
+                                                ? "bg-orange-600 hover:bg-orange-700"
                                                 : "border-orange-300 text-orange-700 hover:bg-orange-50"
                                         }`}
                                     >
@@ -176,20 +179,22 @@ export default function FAQPage() {
                         {/* FAQ Items */}
                         <div className="space-y-4">
                             {filteredFAQs.map((faq, index) => (
-                                <Card key={index} className="border-0 shadow-lg hover:shadow-xl transition-all duration-300 rounded-2xl border-2 border-gray-100">
-                                    <CardHeader 
+                                <Card key={index}
+                                      className="border-0 shadow-lg hover:shadow-xl transition-all duration-300 rounded-2xl border-2 border-gray-100">
+                                    <CardHeader
                                         className="cursor-pointer"
                                         onClick={() => toggleExpanded(index)}
                                     >
-                                        <CardTitle className="text-lg font-bold text-gray-900 flex items-center justify-between">
+                                        <CardTitle
+                                            className="text-lg font-bold text-gray-900 flex items-center justify-between">
                                             <span className="flex items-center gap-3">
-                                                <HiQuestionMarkCircle className="w-5 h-5 text-orange-600" />
+                                                <HiQuestionMarkCircle className="w-5 h-5 text-orange-600"/>
                                                 {faq.question}
                                             </span>
                                             {expandedItems.includes(index) ? (
-                                                <HiChevronUp className="w-5 h-5 text-gray-500" />
+                                                <HiChevronUp className="w-5 h-5 text-gray-500"/>
                                             ) : (
-                                                <HiChevronDown className="w-5 h-5 text-gray-500" />
+                                                <HiChevronDown className="w-5 h-5 text-gray-500"/>
                                             )}
                                         </CardTitle>
                                     </CardHeader>
@@ -203,18 +208,38 @@ export default function FAQPage() {
                         </div>
 
                         {/* Still Need Help */}
-                        <div className="mt-12 text-center bg-gradient-to-r from-orange-500 to-red-600 rounded-3xl p-8 text-white">
+                        <div
+                            className="mt-12 text-center bg-gradient-to-r from-orange-500 to-red-600 rounded-3xl p-8 text-white">
                             <h2 className="text-3xl font-bold mb-4">Still have questions?</h2>
                             <p className="text-xl mb-6 opacity-95">
                                 Can't find what you're looking for? Our support team is here to help.
                             </p>
                             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                                <Button size="lg" variant="secondary" className="bg-white text-orange-600 hover:bg-gray-100">
-                                    Contact Support
+                                <Button
+                                    asChild
+                                    size="lg"
+                                    variant="secondary"
+                                    className="bg-white text-orange-600 hover:bg-gray-100"
+                                >
+                                    <Link href="/support/chat">
+                                        Contact Support
+                                    </Link>
                                 </Button>
-                                <Button size="lg" variant="outline" className="border-2 border-white text-white hover:bg-white hover:text-orange-600 bg-transparent">
-                                    Live Chat
-                                </Button>
+                                <SupportQueryDialog
+                                    source="support_faq"
+                                    title="Chat with Support"
+                                    description="Tell us more about your question and we'll respond shortly."
+                                    trigger={
+                                        <Button
+                                            type="button"
+                                            size="lg"
+                                            variant="outline"
+                                            className="border-2 border-white text-white hover:bg-white hover:text-orange-600 bg-transparent"
+                                        >
+                                            Live Chat
+                                        </Button>
+                                    }
+                                />
                             </div>
                         </div>
                     </div>

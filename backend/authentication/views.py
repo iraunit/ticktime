@@ -1,17 +1,19 @@
 import logging
+from urllib.parse import urlencode
 
+from brands.notifications import send_brand_onboarding_discord_notification
 from common.api_response import api_response, format_serializer_errors
 from common.decorators import (
     auth_rate_limit,
     log_performance
 )
 from common.utils import generate_email_verification_token, verify_email_verification_token
+from communications.email_service import get_email_service
 from django.conf import settings
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.models import User
 from django.contrib.auth.tokens import default_token_generator
-from django.contrib.sites.shortcuts import get_current_site
-from django.core.mail import send_mail
+from django.core import signing
 from django.middleware.csrf import get_token
 from django.utils.encoding import force_bytes, force_str
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
@@ -68,13 +70,13 @@ def login_view(request):
     """
     serializer = UserLoginSerializer(data=request.data)
     if serializer.is_valid():
-        email = serializer.validated_data.get('email')
+        email = (serializer.validated_data.get('email') or '').strip().lower()
         password = serializer.validated_data.get('password')
         remember_me = serializer.validated_data.get('remember_me', False)
 
         # Allow login via email (map to username)
         try:
-            user_obj = User.objects.get(email=email)
+            user_obj = User.objects.get(email__iexact=email)
             username = user_obj.username
         except User.DoesNotExist:
             username = email  # fallback if username is email
@@ -238,6 +240,17 @@ def brand_signup_view(request):
         try:
             user = serializer.save()
 
+            brand_user = getattr(user, 'brand_user', None)
+            brand = getattr(brand_user, 'brand', None) if brand_user else None
+            if brand:
+                try:
+                    send_brand_onboarding_discord_notification(brand, user)
+                except Exception:
+                    logger.exception(
+                        "Failed to send Discord notification for brand onboarding (brand_id=%s)",
+                        brand.id,
+                    )
+
             # Automatically log in the user
             login(request, user)
 
@@ -302,45 +315,41 @@ def forgot_password_view(request):
     serializer = ForgotPasswordSerializer(data=request.data)
 
     if serializer.is_valid():
-        email = serializer.validated_data['email']
-        user = User.objects.get(email=email)
+        email = (serializer.validated_data['email'] or '').strip().lower()
+        user = User.objects.filter(email__iexact=email).first()
 
-        # Generate password reset token
+        success_message = 'If an account with that email exists, a password reset link has been sent.'
+
+        if not user:
+            logger.info(f"Password reset requested for non-existent email: {email}")
+            return api_response(True, result={'message': success_message})
+
+        # Generate password reset token payload
         token = default_token_generator.make_token(user)
         uid = urlsafe_base64_encode(force_bytes(user.pk))
+        signed_token = signing.dumps({'uid': uid, 'token': token})
 
-        # Send password reset email
-        current_site = get_current_site(request)
-        reset_url = f"http://{current_site.domain}/reset-password/{uid}/{token}/"
+        # Build frontend reset URL with token
+        reset_query = urlencode({'token': signed_token})
+        reset_url = f"{settings.FRONTEND_URL}/accounts/reset-password?{reset_query}"
 
-        subject = 'Reset your InfluencerConnect password'
-        message = f"""
-        Hi {user.first_name},
-        
-        You requested to reset your password for your InfluencerConnect account.
-        
-        Click the link below to reset your password:
-        {reset_url}
-        
-        If you didn't request this, please ignore this email.
-        
-        Best regards,
-        The InfluencerConnect Team
-        """
-
+        # Send password reset email via email service
         try:
-            send_mail(
-                subject,
-                message,
-                settings.EMAIL_HOST_USER,
-                [user.email],
-                fail_silently=False,
+            email_service = get_email_service()
+            expires_hours = getattr(settings, 'PASSWORD_RESET_TOKEN_EXPIRY_HOURS', 24)
+            email_sent = email_service.send_password_reset_email(
+                user=user,
+                reset_url=reset_url,
+                expires_hours=expires_hours
             )
 
-            return api_response(True, result={'message': 'Password reset email sent. Please check your email.'})
+            if not email_sent:
+                raise RuntimeError('Failed to queue password reset email.')
+
+            return api_response(True, result={'message': success_message})
 
         except Exception as e:
-            logger.error(f"Failed to send password reset email: {str(e)}")
+            logger.error(f"Failed to send password reset email to {email}: {str(e)}")
             return Response({
                 'status': 'error',
                 'message': 'Failed to send password reset email. Please try again.'
@@ -351,39 +360,60 @@ def forgot_password_view(request):
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
-def reset_password_view(request, uid, token):
+def reset_password_view(request):
     """
     Password reset confirmation endpoint.
     """
+    serializer = ResetPasswordSerializer(data=request.data)
+
+    if not serializer.is_valid():
+        return api_response(False, error=format_serializer_errors(serializer.errors), status_code=400)
+
+    reset_token = serializer.validated_data['token']
+    password = serializer.validated_data['password']
+
     try:
-        user_id = force_str(urlsafe_base64_decode(uid))
+        max_age_seconds = getattr(settings, 'PASSWORD_RESET_TOKEN_MAX_AGE', 60 * 60 * 24)
+        payload = signing.loads(reset_token, max_age=max_age_seconds)
+        uidb64 = payload.get('uid')
+        raw_token = payload.get('token')
+    except signing.SignatureExpired:
+        return Response({
+            'status': 'error',
+            'message': 'This reset link has expired. Please request a new one.'
+        }, status=status.HTTP_400_BAD_REQUEST)
+    except signing.BadSignature:
+        return Response({
+            'status': 'error',
+            'message': 'Invalid reset token.'
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+    if not uidb64 or not raw_token:
+        return Response({
+            'status': 'error',
+            'message': 'Invalid reset token.'
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        user_id = force_str(urlsafe_base64_decode(uidb64))
         user = User.objects.get(pk=user_id)
     except (TypeError, ValueError, OverflowError, User.DoesNotExist):
         return Response({
             'status': 'error',
-            'message': 'Invalid reset link.'
+            'message': 'Invalid reset token.'
         }, status=status.HTTP_400_BAD_REQUEST)
 
-    if not default_token_generator.check_token(user, token):
+    if not default_token_generator.check_token(user, raw_token):
         return Response({
             'status': 'error',
             'message': 'Invalid or expired reset token.'
         }, status=status.HTTP_400_BAD_REQUEST)
 
-    # Add token to request data for validation
-    data = request.data.copy()
-    data['token'] = token
+    user.set_password(password)
+    user.save()
 
-    serializer = ResetPasswordSerializer(data=data)
-
-    if serializer.is_valid():
-        password = serializer.validated_data['password']
-        user.set_password(password)
-        user.save()
-
-        return api_response(True, result={'message': 'Password reset successful. You can now login with your new password.'})
-
-    return api_response(False, error=format_serializer_errors(serializer.errors), status_code=400)
+    return api_response(True,
+                        result={'message': 'Password reset successful. You can now login with your new password.'})
 
 
 @api_view(['GET'])

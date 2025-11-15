@@ -1,6 +1,8 @@
 from common.models import PLATFORM_CHOICES, CONTENT_TYPE_CHOICES
 from django.db import models
 
+from backend.storage_backends import private_media_storage, private_upload_path
+
 
 class ContentReviewHistory(models.Model):
     """
@@ -53,7 +55,12 @@ class ContentSubmission(models.Model):
     platform = models.CharField(max_length=20, choices=PLATFORM_CHOICES)
     content_type = models.CharField(max_length=20, choices=CONTENT_TYPE_CHOICES)
     file_url = models.URLField(blank=True)
-    file_upload = models.FileField(upload_to='content_submissions/', blank=True, null=True)
+    file_upload = models.FileField(
+        upload_to=private_upload_path('content_submissions'),
+        blank=True,
+        null=True,
+        storage=private_media_storage,
+    )
     caption = models.TextField(blank=True)
     hashtags = models.TextField(blank=True)
     mention_brand = models.BooleanField(default=True)

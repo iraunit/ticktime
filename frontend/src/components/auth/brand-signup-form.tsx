@@ -42,6 +42,13 @@ const brandSignupSchema = z.object({
         .min(7, "Phone number must be at least 7 digits")
         .regex(/^\d+$/, "Phone number should only contain numbers"),
     description: z.string().min(10, "Please provide a brief description of your brand (minimum 10 characters)"),
+    gstin: z.string()
+        .optional()
+        .refine((value) => {
+            if (!value) return true;
+            const trimmed = value.replace(/\s/g, '').toUpperCase();
+            return trimmed.length === 15 && /^[0-9A-Z]{15}$/.test(trimmed);
+        }, "GSTIN must be a 15-character alphanumeric value"),
 }).refine((data) => data.password === data.password_confirm, {
     message: "Passwords don't match",
     path: ["password_confirm"],
@@ -79,13 +86,20 @@ export function BrandSignupForm() {
             country_code: "+1",
             contact_phone: "",
             description: "",
+            gstin: "",
         },
         mode: "onChange",
     });
 
     const onSubmit = async (data: BrandSignupFormData) => {
         try {
-            await brandSignup.mutateAsync(data);
+            const cleanedGstin = data.gstin
+                ? data.gstin.replace(/\s/g, '').toUpperCase()
+                : undefined;
+            await brandSignup.mutateAsync({
+                ...data,
+                gstin: cleanedGstin,
+            });
         } catch (error: any) {
             // Error toast is already handled in the useAuth hook
             // Since backend now sends simple string errors, we don't set field-specific errors
@@ -335,6 +349,43 @@ export function BrandSignupForm() {
                                                     />
                                                 </div>
                                             </div>
+                                        </div>
+
+                                        {/* Compliance */}
+                                        <div className="space-y-4">
+                                            <div className="flex items-center gap-2 mb-4">
+                                                <div
+                                                    className="w-2 h-2 bg-gradient-to-r from-amber-500 to-orange-600 rounded-full"></div>
+                                                <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">
+                                                    Compliance (Optional)
+                                                </h3>
+                                            </div>
+
+                                            <FormField
+                                                control={form.control}
+                                                name="gstin"
+                                                render={({field}) => (
+                                                    <FormItem>
+                                                        <FormLabel
+                                                            className="text-sm font-medium text-gray-700 flex items-center justify-between">
+                                                            GSTIN
+                                                            <span className="text-xs text-gray-500">Optional</span>
+                                                        </FormLabel>
+                                                        <FormControl>
+                                                            <Input
+                                                                {...field}
+                                                                placeholder="15-character GSTIN"
+                                                                className="h-11 border-gray-200 uppercase tracking-wide focus:border-blue-500 focus:ring-blue-500/20"
+                                                            />
+                                                        </FormControl>
+                                                        <p className="text-xs text-gray-500">
+                                                            Providing GSTIN speeds up verification. You can add this
+                                                            later if unavailable now.
+                                                        </p>
+                                                        <FormMessage/>
+                                                    </FormItem>
+                                                )}
+                                            />
                                         </div>
 
                                         {/* Account Security */}

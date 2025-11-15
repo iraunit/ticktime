@@ -334,21 +334,35 @@ def toggle_social_account_status_view(request, account_id):
     }, status=status.HTTP_200_OK)
 
 
+def influencer_search_cache_key(request, *args, **kwargs):
+    """Generate a cache key that varies by user and full querystring."""
+    base_key = "view_cache:influencer_search_view"
+    user_part = f"user:{request.user.id}" if request.user.is_authenticated else "anon"
+    query_pairs = []
+    for key, values in sorted(request.GET.lists()):
+        for value in values:
+            query_pairs.append(f"{key}={value}")
+    query_part = "&".join(query_pairs) if query_pairs else "noquery"
+    return f"{base_key}:{user_part}:{query_part}"
+
+
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 @user_rate_limit(requests_per_minute=30)
-@cache_response(timeout=300)  # 5 minute cache
+@cache_response(timeout=300, key_func=influencer_search_cache_key)
 def influencer_search_view(request):
     """
     Advanced influencer search with comprehensive filtering and platform-specific features.
     Only accessible to users with brand profiles.
     """
     # Check if user has a brand profile
-    if not hasattr(request.user, 'brand_user') or not request.user.brand_user:
+    brand_user = getattr(request.user, 'brand_user', None)
+    if not brand_user:
         return Response({
             'status': 'error',
             'message': 'Access denied. Only brand users can search for influencers.'
         }, status=status.HTTP_403_FORBIDDEN)
+    brand = brand_user.brand
     from django.db.models import Q
     from django.core.paginator import Paginator
     from brands.models import BookmarkedInfluencer
@@ -358,10 +372,19 @@ def influencer_search_view(request):
     search = request.GET.get('search', '').strip()
     platform = request.GET.get('platform', 'all')  # legacy single platform for column view
     # Preferred (soft) filters as CSVs
-    preferred_platforms = [p.strip() for p in request.GET.get('platforms', '').split(',') if p.strip()]
+    preferred_platforms = [p.strip().lower() for p in request.GET.get('platforms', '').split(',') if p.strip()]
     preferred_locations = [p.strip() for p in request.GET.get('locations', '').split(',') if p.strip()]
     preferred_genders = [p.strip().lower() for p in request.GET.get('genders', '').split(',') if p.strip()]
-    preferred_industries = [p.strip() for p in request.GET.get('industries', '').split(',') if p.strip()]
+    preferred_industry_tokens = [p.strip() for p in request.GET.get('industries', '').split(',') if p.strip()]
+    preferred_industry_ids = []
+    preferred_industry_keys = []
+    preferred_industry_name_tokens = []
+    for token in preferred_industry_tokens:
+        try:
+            preferred_industry_ids.append(int(token))
+        except (TypeError, ValueError):
+            preferred_industry_keys.append(token.lower())
+            preferred_industry_name_tokens.append(token)
     location = request.GET.get('location', '')  # legacy single location
     gender = request.GET.get('gender', '')  # legacy single gender
     follower_range = request.GET.get('follower_range', '')
@@ -371,6 +394,7 @@ def influencer_search_view(request):
     sort_order = request.GET.get('sort_order', 'desc')
     page = int(request.GET.get('page', 1))
     page_size = int(request.GET.get('page_size', 50))
+    campaign_id_raw = request.GET.get('campaign_id')
 
     # Platform-specific filters
     influence_score_min = request.GET.get('influence_score_min')
@@ -446,6 +470,13 @@ def influencer_search_view(request):
     if not preferred_platforms and platform and platform != 'all':
         queryset = queryset.filter(social_accounts__platform=platform, social_accounts__is_active=True)
 
+    # Apply hard platform filter when explicit preferred platforms are provided
+    if preferred_platforms:
+        queryset = queryset.filter(
+            social_accounts__platform__in=preferred_platforms,
+            social_accounts__is_active=True
+        ).distinct()
+
     # Do not hard-filter by preferred location; keep legacy params if explicitly used
     if country:
         queryset = queryset.filter(country__icontains=country)
@@ -498,11 +529,29 @@ def influencer_search_view(request):
         except ValueError:
             pass
 
-    # Do not hard-filter by preferred industries; keep legacy param if explicitly used
+    # Handle legacy single-industry filter (accept id, key, or name)
     if industry:
-        queryset = queryset.filter(industry=industry)
+        try:
+            industry_id = int(industry)
+            queryset = queryset.filter(industry_id=industry_id)
+        except (TypeError, ValueError):
+            queryset = queryset.filter(
+                Q(industry__key__iexact=industry) |
+                Q(industry__name__iexact=industry)
+            )
 
     # Do not hard-filter by preferred categories; use for scoring only
+
+    # Exclude influencers already tied to the selected campaign
+    if campaign_id_raw:
+        try:
+            campaign_id_val = int(campaign_id_raw)
+            queryset = queryset.exclude(
+                deals__campaign_id=campaign_id_val,
+                deals__campaign__brand=brand
+            )
+        except (TypeError, ValueError):
+            pass
 
     # Apply platform-specific filters
     if influence_score_min:
@@ -645,9 +694,19 @@ def influencer_search_view(request):
         queryset = queryset.annotate(pref_platform_score=models.Value(0, output_field=models.IntegerField()))
 
     # Industry preference
-    if preferred_industries:
+    if preferred_industry_ids or preferred_industry_keys or preferred_industry_name_tokens:
+        industry_condition = Q()
+        if preferred_industry_ids:
+            industry_condition |= Q(industry_id__in=preferred_industry_ids)
+        if preferred_industry_keys:
+            industry_condition |= Q(industry__key__in=preferred_industry_keys)
+        if preferred_industry_name_tokens:
+            name_q = Q()
+            for token in preferred_industry_name_tokens:
+                name_q |= Q(industry__name__iexact=token)
+            industry_condition |= name_q
         queryset = queryset.annotate(pref_industry_score=models.Case(
-            models.When(industry__in=preferred_industries, then=models.Value(2)),
+            models.When(industry_condition, then=models.Value(2)),
             default=models.Value(0),
             output_field=models.IntegerField()
         ))

@@ -5,13 +5,16 @@ import {useParams, useRouter, useSearchParams} from "next/navigation";
 import {Card, CardContent, CardHeader, CardTitle} from "@/components/ui/card";
 import {Button} from "@/components/ui/button";
 import {Badge} from "@/components/ui/badge";
+import {Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle} from "@/components/ui/dialog";
 import {Input} from "@/components/ui/input";
 import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from "@/components/ui/select";
 import {Checkbox} from "@/components/ui/checkbox";
 import {toast} from "@/lib/toast";
 import {api} from "@/lib/api";
+import {brandApi} from "@/lib/api-client";
 import {InlineLoader} from "@/components/ui/global-loader";
 import {EmailSender} from "@/components/communications/email-sender";
+import {ContentReview, ContentReviewDeal, ContentReviewSubmission} from "@/components/brand/content-review";
 import {
     HiArrowLeft,
     HiArrowPath,
@@ -45,6 +48,21 @@ type DealStatus =
     | "cancelled"
     | "dispute";
 
+interface ShippingAddress {
+    address_line1?: string;
+    address_line_1?: string;
+    address_line2?: string;
+    address_line_2?: string;
+    city?: string;
+    state?: string;
+    zipcode?: string;
+    postal_code?: string;
+    country?: string;
+    country_code?: string;
+    phone_number?: string;
+    phone?: string;
+}
+
 interface DealItem {
     id: number;
     status: DealStatus;
@@ -52,6 +70,7 @@ interface DealItem {
     accepted_at?: string;
     completed_at?: string;
     payment_status?: string;
+    content_submissions_count?: number;
     influencer: {
         id: number;
         username: string;
@@ -61,6 +80,7 @@ interface DealItem {
         id: number;
         title: string;
     };
+    shipping_address?: ShippingAddress | null;
 }
 
 interface PaginationInfo {
@@ -74,6 +94,11 @@ const statusOptions: { value: string; label: string }[] = [
     {value: "invited", label: "Invited"},
     {value: "pending", label: "Pending"},
     {value: "accepted", label: "Accepted"},
+    {value: "shortlisted", label: "Shortlisted"},
+    {value: "address_requested", label: "Address requested"},
+    {value: "address_provided", label: "Address provided"},
+    {value: "product_shipped", label: "Product shipped"},
+    {value: "product_delivered", label: "Product delivered"},
     {value: "active", label: "Active"},
     {value: "content_submitted", label: "Content submitted"},
     {value: "under_review", label: "Under review"},
@@ -82,7 +107,18 @@ const statusOptions: { value: string; label: string }[] = [
     {value: "completed", label: "Completed"},
     {value: "rejected", label: "Rejected"},
     {value: "cancelled", label: "Cancelled"},
+    {value: "dispute", label: "Dispute"},
 ];
+
+const submissionEligibleStatuses = new Set<DealStatus>([
+    "content_submitted",
+    "under_review",
+    "revision_requested",
+    "approved",
+    "completed",
+]);
+
+const highlightStatuses = new Set<DealStatus>(["approved", "completed"]);
 
 export default function CampaignDealsPage() {
     const params = useParams();
@@ -106,8 +142,30 @@ export default function CampaignDealsPage() {
     const [bulkStage, setBulkStage] = useState<string>("");
     const [csvFile, setCsvFile] = useState<File | null>(null);
     const [csvUploading, setCsvUploading] = useState(false);
+    const [contentDialogOpen, setContentDialogOpen] = useState(false);
+    const [contentDialogDeal, setContentDialogDeal] = useState<ContentReviewDeal | null>(null);
+    const [contentDialogSubmissions, setContentDialogSubmissions] = useState<ContentReviewSubmission[]>([]);
+    const [contentDialogLoading, setContentDialogLoading] = useState(false);
+    const [contentActionLoading, setContentActionLoading] = useState(false);
+    const [contentDialogTriggerId, setContentDialogTriggerId] = useState<number | null>(null);
 
     const pageSize = 20;
+
+    const loadContentSubmissions = async (dealId: number) => {
+        setContentDialogLoading(true);
+        try {
+            const response = await brandApi.getContentSubmissions(dealId);
+            const submissions = response.data.submissions || [];
+            setContentDialogSubmissions(submissions);
+            return submissions;
+        } catch (error: any) {
+            toast.error(error?.message || "Failed to load content submissions");
+            setContentDialogSubmissions([]);
+            return [];
+        } finally {
+            setContentDialogLoading(false);
+        }
+    };
 
     const fetchDeals = async (opts?: { page?: number }) => {
         setIsLoading(true);
@@ -134,6 +192,54 @@ export default function CampaignDealsPage() {
         } finally {
             setIsLoading(false);
         }
+    };
+
+    const openContentReviewDialog = async (deal: DealItem) => {
+        setContentDialogDeal({
+            id: deal.id,
+            campaign: deal.campaign,
+            influencer: deal.influencer,
+            status: deal.status,
+        });
+        setContentDialogSubmissions([]);
+        setContentDialogOpen(true);
+        setContentDialogTriggerId(deal.id);
+        await loadContentSubmissions(deal.id);
+        setContentDialogTriggerId(null);
+    };
+
+    const handleInlineContentReview = async (
+        submissionId: number,
+        action: 'approve' | 'reject' | 'request_revision',
+        feedback?: string,
+        revisionNotes?: string
+    ) => {
+        if (!contentDialogDeal) return;
+
+        setContentActionLoading(true);
+        try {
+            await brandApi.reviewContent(contentDialogDeal.id, submissionId, {
+                action,
+                feedback,
+                revision_notes: revisionNotes,
+            });
+            await loadContentSubmissions(contentDialogDeal.id);
+            await fetchDeals();
+            toast.success(`Content ${action.replace('_', ' ')}d successfully`);
+        } catch (error) {
+            throw error;
+        } finally {
+            setContentActionLoading(false);
+        }
+    };
+
+    const closeContentDialog = () => {
+        setContentDialogOpen(false);
+        setContentDialogDeal(null);
+        setContentDialogSubmissions([]);
+        setContentDialogLoading(false);
+        setContentActionLoading(false);
+        setContentDialogTriggerId(null);
     };
 
     useEffect(() => {
@@ -188,6 +294,40 @@ export default function CampaignDealsPage() {
         }
     }, [deals, sortKey]);
 
+    const normalizeAddress = (address?: ShippingAddress | null) => {
+        if (!address) return null;
+        const pickValue = (...keys: (keyof ShippingAddress)[]) => {
+            for (const key of keys) {
+                const value = address[key];
+                if (value) return String(value);
+            }
+            return "";
+        };
+
+        const line1 = pickValue("address_line1", "address_line_1");
+        const line2 = pickValue("address_line2", "address_line_2");
+        const city = pickValue("city");
+        const state = pickValue("state");
+        const postalCode = pickValue("zipcode", "postal_code");
+        const country = pickValue("country");
+        const countryCode = pickValue("country_code");
+        const phoneNumber = pickValue("phone_number", "phone");
+
+        const hasValues = [line1, line2, city, state, postalCode, country, countryCode, phoneNumber].some(Boolean);
+        if (!hasValues) return null;
+
+        return {
+            line1,
+            line2,
+            city,
+            state,
+            postalCode,
+            country,
+            countryCode,
+            phoneNumber,
+        };
+    };
+
     const exportCsv = () => {
         const headers = [
             "Deal ID",
@@ -201,6 +341,14 @@ export default function CampaignDealsPage() {
             "Invited At",
             "Accepted At",
             "Completed At",
+            "Address Line 1",
+            "Address Line 2",
+            "City",
+            "State",
+            "Postal/Zip Code",
+            "Country",
+            "Country Code",
+            "Phone Number",
         ];
         const formatTs = (ts?: string) =>
             ts
@@ -212,19 +360,36 @@ export default function CampaignDealsPage() {
                     minute: "2-digit",
                 })
                 : "";
-        const rows = deals.map((d) => [
-            d.id,
-            d.campaign?.id ?? "",
-            d.campaign?.title ?? "",
-            d.influencer?.id ?? "",
-            d.influencer?.full_name || "",
-            d.influencer?.username || "",
-            d.status,
-            d.payment_status || "",
-            formatTs(d.invited_at),
-            formatTs(d.accepted_at),
-            formatTs(d.completed_at),
-        ]);
+        const rows = deals.map((d) => {
+            const normalizedAddress = normalizeAddress(d.shipping_address);
+            const addressCells = normalizedAddress
+                ? [
+                    normalizedAddress.line1,
+                    normalizedAddress.line2,
+                    normalizedAddress.city,
+                    normalizedAddress.state,
+                    normalizedAddress.postalCode,
+                    normalizedAddress.country,
+                    normalizedAddress.countryCode,
+                    normalizedAddress.phoneNumber,
+                ]
+                : Array(9).fill("");
+
+            return [
+                d.id,
+                d.campaign?.id ?? "",
+                d.campaign?.title ?? "",
+                d.influencer?.id ?? "",
+                d.influencer?.full_name || "",
+                d.influencer?.username || "",
+                d.status,
+                d.payment_status || "",
+                formatTs(d.invited_at),
+                formatTs(d.accepted_at),
+                formatTs(d.completed_at),
+                ...addressCells,
+            ];
+        });
         const csv = [headers, ...rows]
             .map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(","))
             .join("\n");
@@ -521,34 +686,54 @@ export default function CampaignDealsPage() {
                                         </td>
                                     </tr>
                                 ) : (
-                                    sortedDeals.map((d) => (
-                                        <tr key={d.id} className="border-b hover:bg-gray-50">
-                                            <td className="px-2 py-2">
-                                                <Checkbox checked={selected.has(d.id)}
-                                                          onCheckedChange={(v: boolean) => toggleOne(d.id, !!v)}/>
-                                            </td>
-                                            <td className="px-2 py-2 font-medium text-gray-900">{d.influencer?.full_name || "—"}</td>
-                                            <td className="px-2 py-2 text-gray-600">@{d.influencer?.username}</td>
-                                            <td className="px-2 py-2">{statusBadge(d.status)}</td>
-                                            <td className="px-2 py-2 text-gray-600">{new Date(d.invited_at).toLocaleDateString("en-IN", {
-                                                day: "numeric",
-                                                month: "short",
-                                                year: "numeric"
-                                            })}</td>
-                                            <td className="px-2 py-2 text-right">
-                                                <div className="flex justify-end gap-2">
-                                                    <Button variant="outline" size="sm"
-                                                            onClick={() => window.open(`/brand/deals/${d.id}?campaign=${campaignId}`, "_blank")}>
-                                                        View
-                                                    </Button>
-                                                    <Button variant="outline" size="sm"
-                                                            onClick={() => window.open(`/brand/messages?influencer=${d.influencer?.id}`, "_blank")}>
-                                                        Message
-                                                    </Button>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    ))
+                                    sortedDeals.map((d) => {
+                                        const hasSubmissions = (d.content_submissions_count || 0) > 0;
+                                        const showViewSubmissions = hasSubmissions || submissionEligibleStatuses.has(d.status);
+                                        const highlightRow = highlightStatuses.has(d.status);
+                                        return (
+                                            <tr
+                                                key={d.id}
+                                                className={`border-b ${highlightRow ? 'bg-emerald-50/70 hover:bg-emerald-100' : 'hover:bg-gray-50'}`}
+                                            >
+                                                <td className="px-2 py-2">
+                                                    <Checkbox checked={selected.has(d.id)}
+                                                              onCheckedChange={(v: boolean) => toggleOne(d.id, !!v)}/>
+                                                </td>
+                                                <td className="px-2 py-2 font-medium text-gray-900">{d.influencer?.full_name || "—"}</td>
+                                                <td className="px-2 py-2 text-gray-600">@{d.influencer?.username}</td>
+                                                <td className="px-2 py-2">{statusBadge(d.status)}</td>
+                                                <td className="px-2 py-2 text-gray-600">{new Date(d.invited_at).toLocaleDateString("en-IN", {
+                                                    day: "numeric",
+                                                    month: "short",
+                                                    year: "numeric"
+                                                })}</td>
+                                                <td className="px-2 py-2 text-right">
+                                                    <div className="flex justify-end gap-2">
+                                                        {showViewSubmissions && (
+                                                            <Button
+                                                                variant="outline"
+                                                                size="sm"
+                                                                onClick={() => openContentReviewDialog(d)}
+                                                                disabled={contentDialogTriggerId === d.id}
+                                                            >
+                                                                {contentDialogTriggerId === d.id &&
+                                                                    <InlineLoader className="mr-2"/>}
+                                                                View Submissions
+                                                            </Button>
+                                                        )}
+                                                        <Button variant="outline" size="sm"
+                                                                onClick={() => window.open(`/brand/deals/${d.id}?campaign=${campaignId}`, "_blank")}>
+                                                            View
+                                                        </Button>
+                                                        <Button variant="outline" size="sm"
+                                                                onClick={() => window.open(`/brand/messages?influencer=${d.influencer?.id}`, "_blank")}>
+                                                            Message
+                                                        </Button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })
                                 )}
                                 </tbody>
                             </table>
@@ -588,6 +773,42 @@ export default function CampaignDealsPage() {
                     }}
                 />
             )}
+
+            <Dialog open={contentDialogOpen} onOpenChange={(open) => {
+                if (!open) {
+                    closeContentDialog();
+                }
+            }}>
+                <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+                    <DialogHeader>
+                        <DialogTitle>Content Submissions</DialogTitle>
+                        <DialogDescription>
+                            Review influencer submissions without leaving this campaign view.
+                        </DialogDescription>
+                    </DialogHeader>
+                    {contentDialogLoading ? (
+                        <div className="py-12 flex flex-col items-center text-gray-600 text-sm">
+                            <InlineLoader className="mb-2"/>
+                            Loading submissions...
+                        </div>
+                    ) : contentDialogDeal && contentDialogSubmissions.length > 0 ? (
+                        <ContentReview
+                            deal={contentDialogDeal}
+                            submissions={contentDialogSubmissions}
+                            onReview={handleInlineContentReview}
+                            isLoading={contentActionLoading}
+                        />
+                    ) : contentDialogDeal ? (
+                        <div className="py-8 text-center text-gray-600 text-sm">
+                            No submissions available yet for this deal.
+                        </div>
+                    ) : (
+                        <div className="py-8 text-center text-gray-600 text-sm">
+                            Select a deal with submissions to get started.
+                        </div>
+                    )}
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }

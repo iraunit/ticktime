@@ -1,21 +1,25 @@
 import logging
 
-from common.api_response import api_response
+from common.api_response import api_response, format_serializer_errors
 from deals.models import Deal
+from django.conf import settings
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import AllowAny, IsAuthenticated
 
 from .decorators import rate_limit, require_verified_brand
 from .email_service import get_email_service
 from .models import EmailVerificationToken
 from .serializers import (
     SendCampaignNotificationSerializer,
-    AccountStatusSerializer
+    AccountStatusSerializer,
+    SupportMessageSerializer,
 )
+from .support_channels import SupportChannelDispatcher, SupportMessagePayload
 
 logger = logging.getLogger(__name__)
+support_dispatcher = SupportChannelDispatcher()
 
 
 @api_view(['POST'])
@@ -149,6 +153,13 @@ def send_campaign_notification(request):
     brand_user = request.user.brand_user
     brand = brand_user.brand
 
+    if brand.is_locked:
+        return api_response(
+            False,
+            error='Email notifications are unavailable while your brand account is locked. Please upgrade or contact support.',
+            status_code=status.HTTP_403_FORBIDDEN
+        )
+
     # Fetch deals
     deals = Deal.objects.filter(
         id__in=deal_ids,
@@ -211,6 +222,11 @@ def check_account_status(request):
     can_access = True
     lock_reason = None
     message = None
+    brand_verified = True
+    requires_brand_verification = False
+    has_verification_document = False
+    verification_document_uploaded_at = None
+    gstin_provided = False
 
     # Check for brand user
     if hasattr(user, 'brand_user'):
@@ -233,16 +249,131 @@ def check_account_status(request):
             lock_reason = 'payment_required'
             message = 'Your account has been locked. Please contact support.'
 
+        brand_verified = brand.is_verified
+        has_verification_document = bool(brand.verification_document)
+        verification_document_uploaded_at = brand.verification_document_uploaded_at
+        gstin_provided = bool(brand.gstin)
+
+        if (
+                email_verified
+                and not is_locked
+                and not brand_verified
+        ):
+            requires_brand_verification = True
+            can_access = False
+            lock_reason = 'brand_not_verified'
+            message = 'Please upload a verification document to unlock your brand account.'
+
     serializer = AccountStatusSerializer({
         'email_verified': email_verified,
         'is_locked': is_locked,
         'can_access': can_access,
         'lock_reason': lock_reason,
-        'message': message
+        'message': message,
+        'brand_verified': brand_verified,
+        'requires_brand_verification': requires_brand_verification,
+        'has_verification_document': has_verification_document,
+        'verification_document_uploaded_at': verification_document_uploaded_at,
+        'gstin_provided': gstin_provided,
     })
 
     return api_response(
         True,
         result=serializer.data,
         status_code=status.HTTP_200_OK
+    )
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def submit_support_query(request):
+    """
+    Accept a support query and forward it to the configured communications channels.
+    """
+    serializer = SupportMessageSerializer(data=request.data)
+    if not serializer.is_valid():
+        error_message = format_serializer_errors(serializer.errors)
+        return api_response(
+            False,
+            error=error_message,
+            status_code=status.HTTP_400_BAD_REQUEST
+        )
+
+    data = serializer.validated_data
+    authenticated_user = request.user if request.user.is_authenticated else None
+    user_profile = getattr(authenticated_user, 'user_profile', None) if authenticated_user else None
+
+    name = data.get('name') or (
+        (authenticated_user.get_full_name() or authenticated_user.username)
+        if authenticated_user else ''
+    ) or 'Guest User'
+    email = data.get('email') or (authenticated_user.email if authenticated_user else '')
+    phone_number = data.get('phone_number') or getattr(user_profile, 'phone_number', '')
+    source = data.get('source') or 'app'
+
+    metadata = {
+        'user_authenticated': bool(authenticated_user),
+        'user_id': getattr(authenticated_user, 'id', None),
+        'username': getattr(authenticated_user, 'username', None),
+        'account_type': (
+            'brand' if authenticated_user and hasattr(authenticated_user, 'brand_user') else
+            'influencer' if authenticated_user and hasattr(authenticated_user, 'influencer_profile') else
+            'guest'
+        ),
+        'source_ip': request.META.get('REMOTE_ADDR'),
+    }
+
+    if authenticated_user and hasattr(authenticated_user, 'brand_user'):
+        brand = authenticated_user.brand_user.brand
+        metadata.update({
+            'brand_id': brand.id,
+            'brand_name': brand.name,
+        })
+
+    if authenticated_user and hasattr(authenticated_user, 'influencer_profile'):
+        influencer = authenticated_user.influencer_profile
+        metadata.update({
+            'influencer_username': getattr(influencer, 'username', None),
+            'influencer_name': getattr(influencer, 'full_name', None),
+        })
+
+    payload = SupportMessagePayload(
+        name=name,
+        email=email,
+        phone_number=phone_number,
+        subject=data['subject'],
+        message=data['message'],
+        source=source,
+        metadata=metadata,
+    )
+
+    channel_configs = []
+    if settings.DISCORD_SUPPORT_CHANNEL_ID and settings.DISCORD_SUPPORT_BOT_TOKEN:
+        channel_configs.append({
+            'name': 'discord',
+            'options': {
+                'channel_id': settings.DISCORD_SUPPORT_CHANNEL_ID,
+                'bot_token': settings.DISCORD_SUPPORT_BOT_TOKEN,
+            }
+        })
+
+    channel_configs.append({'name': 'log'})
+
+    results = support_dispatcher.dispatch(payload, channel_configs)
+    success = any(result.get('success') for result in results)
+
+    if success:
+        return api_response(
+            True,
+            result={
+                'message': 'Your message has been sent to our support team.',
+                'channels': results,
+            },
+            status_code=status.HTTP_200_OK
+        )
+
+    return api_response(
+        False,
+        error='We could not deliver your message. Please try again later.',
+        status_code=status.HTTP_502_BAD_GATEWAY
     )

@@ -18,6 +18,7 @@ import {api} from '@/lib/api';
 import {InfluencerProfile} from '@/types';
 import {getMediaUrl} from '@/lib/utils';
 import {AlertCircle, Briefcase, Camera, MapPin, Phone, Save, Settings, User} from '@/lib/icons';
+import {HiInformationCircle} from "react-icons/hi2";
 import {InfluencerCategories} from '@/components/profile/influencer-categories';
 import {UnifiedCountrySelect} from '@/components/ui/unified-country-select';
 import {UnifiedCountryCodeSelect} from '@/components/ui/unified-country-code-select';
@@ -33,7 +34,7 @@ export function ProfileForm({profile}: ProfileFormProps) {
     const [profileImage, setProfileImage] = useState<File | null>(null);
 
     // Hooks
-    const {updateProfile, uploadProfileImage} = useProfile();
+    const {profile: profileQuery, updateProfile, uploadProfileImage} = useProfile();
     const {industries, loading: industriesLoading} = useIndustries();
     const {loading: pincodeLoading, error: pincodeError, lookupPincode} = usePincodeLookup();
 
@@ -98,8 +99,8 @@ export function ProfileForm({profile}: ProfileFormProps) {
     }, [isEditing, form]);
 
     const handleImageSelect = useCallback((file: File) => {
-        if (file.size > 5 * 1024 * 1024) {
-            toast.error('File size must be less than 5MB');
+        if (file.size > 200 * 1024) {
+            toast.error('File size must be less than 200KB');
             return;
         }
         if (!['image/jpeg', 'image/png', 'image/webp', 'image/gif'].includes(file.type)) {
@@ -114,12 +115,13 @@ export function ProfileForm({profile}: ProfileFormProps) {
 
         try {
             await uploadProfileImage.mutateAsync(profileImage);
+            await profileQuery?.refetch?.();
             setProfileImage(null);
             toast.success('Profile image updated successfully!');
         } catch (error: any) {
             toast.error(error?.response?.data?.message || 'Failed to upload image');
         }
-    }, [profileImage, uploadProfileImage]);
+    }, [profileImage, uploadProfileImage, profileQuery]);
 
     const handleSubmit = useCallback(async (data: InfluencerProfile) => {
         setIsSubmitting(true);
@@ -153,6 +155,7 @@ export function ProfileForm({profile}: ProfileFormProps) {
 
             if (profileImage) {
                 await uploadProfileImage.mutateAsync(profileImage);
+                await profileQuery?.refetch?.();
                 setProfileImage(null);
             }
 
@@ -182,7 +185,7 @@ export function ProfileForm({profile}: ProfileFormProps) {
         } finally {
             setIsSubmitting(false);
         }
-    }, [updateProfile, uploadProfileImage, profileImage]);
+    }, [updateProfile, uploadProfileImage, profileImage, profileQuery]);
 
     const debouncedPincodeLookup = useCallback(async (pincode: string) => {
         console.log('Pincode lookup triggered:', pincode);
@@ -253,6 +256,8 @@ export function ProfileForm({profile}: ProfileFormProps) {
             }
         };
     }, []);
+
+    const isImageUploading = uploadProfileImage.isPending;
 
     return (
         <div className="space-y-6">
@@ -337,18 +342,7 @@ export function ProfileForm({profile}: ProfileFormProps) {
                                         )}
                                     </div>
 
-                                    {(profile?.user_profile?.profile_image || profileImage) && isEditing && (
-                                        <button
-                                            type="button"
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                setProfileImage(null);
-                                            }}
-                                            className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm hover:bg-red-600 transition-colors shadow-sm"
-                                        >
-                                            ×
-                                        </button>
-                                    )}
+                                    {/* Cross button intentionally removed per requirements */}
                                 </div>
 
                                 <div className="flex-1">
@@ -360,7 +354,7 @@ export function ProfileForm({profile}: ProfileFormProps) {
                                     </p>
                                     {isEditing && (
                                         <p className="text-xs text-gray-500">
-                                            PNG, JPG, WebP or GIF up to 5MB
+                                            PNG, JPG, WebP or GIF up to 200KB
                                         </p>
                                     )}
                                 </div>
@@ -368,8 +362,32 @@ export function ProfileForm({profile}: ProfileFormProps) {
 
                             {profileImage && isEditing && (
                                 <div className="flex items-center gap-3 mt-4">
-                                    <Button type="button" size="sm" onClick={handleImageUpload} disabled={isSubmitting}>
-                                        {isSubmitting ? 'Uploading...' : 'Save Image'}
+                                    <Button
+                                        type="button"
+                                        size="sm"
+                                        onClick={handleImageUpload}
+                                        disabled={isImageUploading}
+                                        className="min-w-[110px]"
+                                    >
+                                        {isImageUploading ? (
+                                            <>
+                                                <div className="flex space-x-1 mr-2">
+                                                    {[0, 1, 2].map((i) => (
+                                                        <div
+                                                            key={i}
+                                                            className="w-1.5 h-1.5 rounded-full bg-white animate-pulse"
+                                                            style={{
+                                                                animationDelay: `${i * 0.2}s`,
+                                                                animationDuration: '1.4s'
+                                                            }}
+                                                        />
+                                                    ))}
+                                                </div>
+                                                Saving...
+                                            </>
+                                        ) : (
+                                            'Save Image'
+                                        )}
                                     </Button>
                                     <span className="text-xs text-gray-500">Click to save your new profile image</span>
                                 </div>
@@ -474,7 +492,29 @@ export function ProfileForm({profile}: ProfileFormProps) {
                         </CardHeader>
                         <CardContent className="space-y-4">
                             <div className="space-y-2">
-                                <label className="text-sm font-medium text-gray-700">Email Address</label>
+                                <div className="flex items-center gap-2 text-sm font-medium text-gray-700">
+                                    <span>Email Address</span>
+                                    <div className="relative group inline-flex">
+                                        <button
+                                            type="button"
+                                            className="text-gray-400 hover:text-gray-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500 rounded-full p-0.5"
+                                            aria-label="How to change email"
+                                        >
+                                            <HiInformationCircle className="h-4 w-4"/>
+                                        </button>
+                                        <div
+                                            className="pointer-events-auto absolute left-1/2 top-full z-10 mt-2 w-56 -translate-x-1/2 rounded-md bg-gray-900 px-3 py-2 text-xs text-white opacity-0 shadow-lg transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100">
+                                            Need to change your email? Write to{" "}
+                                            <a
+                                                className="underline text-blue-200"
+                                                href="mailto:support@ticktime.media"
+                                            >
+                                                support@ticktime.media
+                                            </a>
+                                            .
+                                        </div>
+                                    </div>
+                                </div>
                                 <div className="flex items-center gap-2 p-3 bg-gray-50 rounded-lg border">
                                     <span
                                         className="text-sm text-gray-600">{profile?.user?.email || 'No email set'}</span>

@@ -1,3 +1,4 @@
+from backend.storage_backends import generate_private_media_url
 from common.models import Industry
 from common.serializers import IndustrySerializer
 from django.contrib.auth.models import User
@@ -9,6 +10,8 @@ from .models import Brand, BrandUser, BrandAuditLog, BookmarkedInfluencer
 
 class BrandSerializer(serializers.ModelSerializer):
     logo = serializers.SerializerMethodField()
+    verification_document_url = serializers.SerializerMethodField()
+    has_verification_document = serializers.SerializerMethodField()
     industry = serializers.SlugRelatedField(
         queryset=Industry.objects.filter(is_active=True),
         slug_field='key'
@@ -17,13 +20,30 @@ class BrandSerializer(serializers.ModelSerializer):
     class Meta:
         model = Brand
         fields = '__all__'
-        read_only_fields = ('id', 'rating', 'total_campaigns', 'is_verified')
+        read_only_fields = (
+            'id',
+            'rating',
+            'total_campaigns',
+            'is_verified',
+            'verification_document',
+            'verification_document_uploaded_at',
+            'verification_document_original_name',
+        )
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
         if instance.industry:
             data['industry'] = instance.industry.key
+        data.pop('verification_document', None)
         return data
+
+    def get_verification_document_url(self, obj):
+        if obj.verification_document:
+            return generate_private_media_url(obj.verification_document.name)
+        return None
+
+    def get_has_verification_document(self, obj):
+        return bool(obj.verification_document)
 
     def get_logo(self, obj):
         if obj.logo:
@@ -80,11 +100,43 @@ class BrandTeamSerializer(serializers.ModelSerializer):
         )
 
 
+class BrandVerificationDocumentSerializer(serializers.Serializer):
+    """Serializer for uploading brand verification documents."""
+
+    document = serializers.FileField()
+
+    ALLOWED_TYPES = [
+        'application/pdf',
+        'image/jpeg',
+        'image/jpg',
+        'image/png',
+        'image/webp',
+    ]
+    ALLOWED_EXTENSIONS = ['.pdf', '.jpg', '.jpeg', '.png', '.webp']
+    MAX_FILE_SIZE = 1 * 1024 * 1024  # 1MB
+
+    def validate_document(self, value):
+        if value.size > self.MAX_FILE_SIZE:
+            raise serializers.ValidationError("Document must be 1MB or smaller.")
+
+        content_type = (value.content_type or '').lower()
+        extension = f".{value.name.split('.')[-1].lower()}" if '.' in value.name else ''
+
+        if content_type not in self.ALLOWED_TYPES and extension not in self.ALLOWED_EXTENSIONS:
+            raise serializers.ValidationError("Only PDF or image files (JPG, PNG, WebP) are allowed.")
+
+        return value
+
+
 class BrandUserInviteSerializer(serializers.Serializer):
     email = serializers.EmailField()
     first_name = serializers.CharField(max_length=150, required=False)
     last_name = serializers.CharField(max_length=150, required=False)
     role = serializers.ChoiceField(choices=BrandUser.ROLE_CHOICES)
+
+    def validate_email(self, value):
+        """Normalize invited email."""
+        return value.strip().lower()
 
     def validate_role(self, value):
         """Ensure only owner/admin can invite owners/admins"""

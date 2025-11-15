@@ -14,6 +14,7 @@ import os
 from datetime import timedelta
 from pathlib import Path
 
+from django.core.files.storage import storages
 from dotenv import load_dotenv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -33,8 +34,9 @@ SECRET_KEY = os.environ.get(
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.environ.get("DEBUG", "True").lower() == "true"
 
-ALLOWED_HOSTS = os.environ.get("ALLOWED_HOSTS", "localhost,127.0.0.1,api.ticktime.media,ticktime.media,www.ticktime.media,ticktimemedia.com,www.ticktimemedia.com").split(",")
-
+ALLOWED_HOSTS = os.environ.get("ALLOWED_HOSTS",
+                               "localhost,127.0.0.1,api.ticktime.media,ticktime.media,www.ticktime.media,ticktimemedia.com,www.ticktimemedia.com").split(
+    ",")
 
 # Application definition
 
@@ -48,6 +50,7 @@ INSTALLED_APPS = [
     "channels",
     "rest_framework",
     "corsheaders",
+    "storages",
     "core",
     "common",
     "authentication",
@@ -185,6 +188,34 @@ CORS_ALLOW_HEADERS = [
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
 
+# Storage configuration
+USE_R2_STORAGE = os.environ.get("USE_R2_STORAGE", "False").lower() == "true"
+R2_ACCOUNT_ID = os.environ.get("R2_ACCOUNT_ID", "")
+R2_ACCESS_KEY_ID = os.environ.get("R2_ACCESS_KEY_ID", "")
+R2_SECRET_ACCESS_KEY = os.environ.get("R2_SECRET_ACCESS_KEY", "")
+R2_PUBLIC_BUCKET = os.environ.get("R2_PUBLIC_BUCKET", "")
+R2_PRIVATE_BUCKET = os.environ.get("R2_PRIVATE_BUCKET", R2_PUBLIC_BUCKET)
+R2_PUBLIC_DOMAIN = os.environ.get("R2_PUBLIC_DOMAIN", "")
+R2_REGION = os.environ.get("R2_REGION", "auto")
+R2_ENDPOINT_URL = os.environ.get("R2_ENDPOINT_URL") or (
+    f"https://{R2_ACCOUNT_ID}.r2.cloudflarestorage.com" if R2_ACCOUNT_ID else ""
+)
+R2_SIGNED_URL_TTL = int(os.environ.get("R2_SIGNED_URL_TTL", "3600"))
+
+if USE_R2_STORAGE:
+    AWS_ACCESS_KEY_ID = R2_ACCESS_KEY_ID
+    AWS_SECRET_ACCESS_KEY = R2_SECRET_ACCESS_KEY
+    AWS_S3_REGION_NAME = R2_REGION
+    AWS_S3_ENDPOINT_URL = R2_ENDPOINT_URL or None
+    AWS_S3_SIGNATURE_VERSION = "s3v4"
+    AWS_DEFAULT_ACL = None
+    AWS_S3_FILE_OVERWRITE = False
+    AWS_QUERYSTRING_AUTH = True
+    AWS_QUERYSTRING_EXPIRE = R2_SIGNED_URL_TTL
+else:
+    AWS_QUERYSTRING_AUTH = False
+    AWS_QUERYSTRING_EXPIRE = None
+
 # Static files (CSS, JavaScript, Images)
 STATIC_URL = "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
@@ -234,6 +265,11 @@ RABBITMQ_EMAIL_QUEUE = os.environ.get("RABBITMQ_EMAIL_QUEUE", "email_notificatio
 
 # Frontend URL for email links
 FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:3000")
+
+# Support / communications channels
+DISCORD_SUPPORT_CHANNEL_ID = os.environ.get("SUPPORT_CHANNEL_ID", "")
+DISCORD_SUPPORT_BOT_TOKEN = os.environ.get("SUPPORT_CHANNEL_BOT_TOKEN", "")
+BRANDS_ONBOARDING_CHANNEL_ID = os.environ.get("BRANDS_ONBOARDING_CHANNEL_ID", "")
 
 # Celery Configuration
 CELERY_BROKER_URL = os.environ.get("CELERY_BROKER_URL", "redis://localhost:6379/0")

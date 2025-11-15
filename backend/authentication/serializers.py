@@ -1,3 +1,4 @@
+import re
 from urllib.parse import urlparse
 
 from common.models import Industry
@@ -8,6 +9,7 @@ from django.db import transaction
 from django.utils import timezone
 from influencers.models import InfluencerProfile
 from rest_framework import serializers
+from users.models import UserProfile
 
 
 class UserRegistrationSerializer(serializers.ModelSerializer):
@@ -33,9 +35,10 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
 
     def validate_email(self, value):
         """Validate email is unique."""
-        if User.objects.filter(email=value).exists():
+        normalized_email = value.strip().lower()
+        if User.objects.filter(email__iexact=normalized_email).exists():
             raise serializers.ValidationError("A user with this email already exists.")
-        return value
+        return normalized_email
 
     def validate_username(self, value):
         """Validate username is unique."""
@@ -54,7 +57,11 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         email = attrs.get('email')
         username = attrs.get('username')
 
-        if email and User.objects.filter(email=email).exists():
+        if email:
+            email = email.strip().lower()
+            attrs['email'] = email
+
+        if email and User.objects.filter(email__iexact=email).exists():
             raise serializers.ValidationError({"email": "A user with this email already exists."})
 
         if username and User.objects.filter(username=username).exists():
@@ -62,6 +69,14 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
 
         if username and InfluencerProfile.objects.filter(username=username).exists():
             raise serializers.ValidationError({"username": "This username is already taken."})
+
+        phone_number = attrs.get('phone_number')
+        if phone_number:
+            phone_number = phone_number.strip()
+            attrs['phone_number'] = phone_number
+
+        if phone_number and UserProfile.objects.filter(phone_number=phone_number).exists():
+            raise serializers.ValidationError({"phone_number": "This phone number is already in use."})
 
         return attrs
 
@@ -85,7 +100,6 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
             )
 
             # Create user profile with phone and country info
-            from users.models import UserProfile
             user_profile = UserProfile.objects.create(
                 user=user,
                 phone_number=phone_number,
@@ -127,14 +141,16 @@ class BrandRegistrationSerializer(serializers.Serializer):
     country_code = serializers.CharField(max_length=5)
     contact_phone = serializers.CharField(max_length=15)
     description = serializers.CharField()
+    gstin = serializers.CharField(max_length=15, required=False, allow_blank=True)
 
     def validate_email(self, value):
         """Validate email is unique and extract domain."""
-        if User.objects.filter(email=value).exists():
+        normalized_email = value.strip().lower()
+        if User.objects.filter(email__iexact=normalized_email).exists():
             raise serializers.ValidationError("A user with this email already exists.")
 
         # Extract domain from email
-        domain = value.split('@')[1].lower()
+        domain = normalized_email.split('@')[1].lower()
 
         # Check if domain is a common public email provider
         public_domains = {
@@ -147,7 +163,7 @@ class BrandRegistrationSerializer(serializers.Serializer):
                 "Please use your business email address, not a personal email like Gmail, Yahoo, etc."
             )
 
-        return value
+        return normalized_email
 
     def validate_website(self, value):
         """Validate website URL format."""
@@ -169,7 +185,8 @@ class BrandRegistrationSerializer(serializers.Serializer):
             raise serializers.ValidationError({"password_confirm": "Password confirmation doesn't match."})
 
         # Extract domain from email and website
-        email = attrs.get('email', '')
+        email = (attrs.get('email', '') or '').strip().lower()
+        attrs['email'] = email
         website = attrs.get('website', '')
 
         email_domain = email.split('@')[1].lower()
@@ -197,7 +214,26 @@ class BrandRegistrationSerializer(serializers.Serializer):
                          f"Please contact your brand administrator at: {', '.join(admin_emails[:2])}"
             })
 
+        contact_phone = attrs.get('contact_phone')
+        if contact_phone:
+            contact_phone = contact_phone.strip()
+            attrs['contact_phone'] = contact_phone
+
+        if contact_phone and UserProfile.objects.filter(phone_number=contact_phone).exists():
+            raise serializers.ValidationError({"contact_phone": "This phone number is already in use."})
+
         return attrs
+
+    def validate_gstin(self, value):
+        """Basic GSTIN format validation (optional field)."""
+        gstin = value.strip().upper()
+        if not gstin:
+            return ''
+
+        if len(gstin) != 15 or not re.match(r'^[0-9A-Z]{15}$', gstin):
+            raise serializers.ValidationError("Please enter a valid 15-character GSTIN.")
+
+        return gstin
 
     def create(self, validated_data):
         from brands.models import Brand, BrandUser
@@ -213,6 +249,7 @@ class BrandRegistrationSerializer(serializers.Serializer):
         country_code = validated_data.pop('country_code')
         contact_phone = validated_data.pop('contact_phone')
         description = validated_data.pop('description')
+        gstin = validated_data.pop('gstin', '')
 
         with transaction.atomic():
             # Create user
@@ -226,7 +263,6 @@ class BrandRegistrationSerializer(serializers.Serializer):
             )
 
             # Create user profile with phone and country info
-            from users.models import UserProfile
             user_profile = UserProfile.objects.create(
                 user=user,
                 phone_number=contact_phone,
@@ -242,6 +278,7 @@ class BrandRegistrationSerializer(serializers.Serializer):
                 website=website,
                 contact_email=user.email,
                 description=description,
+                gstin=gstin,
             )
 
             # Create brand user association (owner role)
@@ -269,13 +306,15 @@ class UserLoginSerializer(serializers.Serializer):
         password = attrs.get('password')
 
         if email and password:
+            email = email.strip().lower()
+            attrs['email'] = email
             # Try to authenticate with email first (for brands and some users)
             user = authenticate(username=email, password=password)
 
             # If that fails, try to find user by email and authenticate with their username
             if not user:
                 try:
-                    user_obj = User.objects.get(email=email)
+                    user_obj = User.objects.get(email__iexact=email)
                     user = authenticate(username=user_obj.username, password=password)
                 except User.DoesNotExist:
                     pass
@@ -315,36 +354,16 @@ class ForgotPasswordSerializer(serializers.Serializer):
     """
     email = serializers.EmailField()
 
-    def validate_email(self, value):
-        """Check that user exists with this email."""
-        try:
-            User.objects.get(email=value)
-        except User.DoesNotExist:
-            raise serializers.ValidationError(
-                "No account found with this email address."
-            )
-        return value
-
 
 class ResetPasswordSerializer(serializers.Serializer):
     """
     Serializer for password reset confirmation.
     """
     token = serializers.CharField()
-    uid = serializers.CharField()
-    new_password = serializers.CharField(
+    password = serializers.CharField(
         write_only=True,
         validators=[validate_password]
     )
-    confirm_password = serializers.CharField(write_only=True)
-
-    def validate(self, attrs):
-        """Validate password confirmation."""
-        if attrs['new_password'] != attrs['confirm_password']:
-            raise serializers.ValidationError(
-                "Password confirmation doesn't match."
-            )
-        return attrs
 
 
 class VerifyEmailSerializer(serializers.Serializer):

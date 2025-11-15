@@ -52,6 +52,7 @@ interface ContentSubmission {
     title?: string;
     description?: string;
     file_url?: string;
+    file_upload?: string;
     post_url?: string;
     caption?: string;
     hashtags?: string;
@@ -326,7 +327,21 @@ function ContentSubmissionsList({deal, submissions, onRefresh}: ContentSubmissio
                                         </div>
                                     )}
 
-                                    {submission.file_url && (
+                                    {submission.file_upload && (
+                                        <div className="flex items-center space-x-2">
+                                            <Eye className="h-4 w-4 text-gray-400"/>
+                                            <a
+                                                href={submission.file_upload}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                                            >
+                                                Preview Uploaded File
+                                            </a>
+                                        </div>
+                                    )}
+
+                                    {submission.file_url && (!submission.file_upload || submission.file_url !== submission.file_upload) && (
                                         <div className="flex items-center space-x-2">
                                             <Eye className="h-4 w-4 text-gray-400"/>
                                             <a

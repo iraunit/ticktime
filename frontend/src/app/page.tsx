@@ -124,7 +124,7 @@ export default function Home() {
                                         <div
                                             className="w-6 h-6 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-full border-2 border-white transform rotate-6"></div>
                                     </div>
-                                    <span className="font-semibold">1,200+ active creators</span>
+                                    <span className="font-semibold">5,000+ active creators</span>
                                 </div>
                                 <div
                                     className="bg-white/60 backdrop-blur-sm px-4 py-2 rounded-full border border-orange-200">
@@ -225,7 +225,7 @@ export default function Home() {
                                             M
                                         </div>
                                         <div className="flex-1">
-                                            <div className="font-bold text-gray-900 text-lg">Myntra Fashion Campaign
+                                            <div className="font-bold text-gray-900 text-lg">Fashion Campaign
                                             </div>
                                             <div className="text-sm text-gray-700 font-medium">Due in 3 days</div>
                                         </div>
@@ -241,7 +241,7 @@ export default function Home() {
                                             Z
                                         </div>
                                         <div className="flex-1">
-                                            <div className="font-bold text-gray-900 text-lg">Zomato Food Review</div>
+                                            <div className="font-bold text-gray-900 text-lg">Food Review</div>
                                             <div className="text-sm text-gray-700 font-medium">In review</div>
                                         </div>
                                         <div className="text-green-600 font-bold text-lg">₹25,000</div>
@@ -263,25 +263,25 @@ export default function Home() {
                             <div className="grid md:grid-cols-4 gap-8">
                                 <div>
                                     <div className="text-3xl md:text-4xl font-bold text-red-400 mb-2">
-                                        2,500+
+                                        5,000+
                                     </div>
                                     <div className="text-gray-400">Active Creators</div>
                                 </div>
                                 <div>
                                     <div className="text-3xl md:text-4xl font-bold text-orange-400 mb-2">
-                                        1,800+
+                                        2,800+
                                     </div>
                                     <div className="text-gray-400">Completed Deals</div>
                                 </div>
                                 <div>
                                     <div className="text-3xl md:text-4xl font-bold text-yellow-400 mb-2">
-                                        ₹15.2Cr+
+                                        ₹1.2Cr+
                                     </div>
                                     <div className="text-gray-400">Creator Earnings</div>
                                 </div>
                                 <div>
                                     <div className="text-3xl md:text-4xl font-bold text-green-400 mb-2">
-                                        300+
+                                        30+
                                     </div>
                                     <div className="text-gray-400">Indian Brands</div>
                                 </div>

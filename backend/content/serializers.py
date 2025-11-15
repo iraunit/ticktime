@@ -1,3 +1,6 @@
+from urllib.parse import urljoin, urlparse
+
+from django.conf import settings
 from rest_framework import serializers
 
 from .models import ContentSubmission, ContentReviewHistory
@@ -85,6 +88,32 @@ class ContentSubmissionSerializer(serializers.ModelSerializer):
                     )
 
         return value
+
+    def _build_absolute_url(self, url: str | None) -> str | None:
+        """Return absolute URL using request context when possible."""
+        if not url:
+            return url
+
+        parsed = urlparse(url)
+        if parsed.scheme and parsed.netloc:
+            return url
+
+        request = self.context.get('request')
+        if request:
+            return request.build_absolute_uri(url)
+
+        base_url = getattr(settings, 'API_BASE_URL', None) or getattr(settings, 'FRONTEND_URL', None)
+        if base_url:
+            return urljoin(base_url.rstrip('/') + '/', url.lstrip('/'))
+
+        return url
+
+    def to_representation(self, instance):
+        """Ensure file URLs are absolute."""
+        data = super().to_representation(instance)
+        data['file_upload'] = self._build_absolute_url(data.get('file_upload'))
+        data['file_url'] = self._build_absolute_url(data.get('file_url'))
+        return data
 
     def validate_additional_links(self, value):
         """Validate additional links format."""

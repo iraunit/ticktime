@@ -195,6 +195,7 @@ export interface ContentSubmission {
     platform: string;
     content_type: string;
     file_url?: string;
+    file_upload?: string | null;
     caption?: string;
     submitted_at: string;
     approved?: boolean;

@@ -25,8 +25,10 @@ export const authApi = {
         name: string;
         industry: string;
         website?: string;
-        contact_phone?: string;
+        country_code: string;
+        contact_phone: string;
         description?: string;
+        gstin?: string;
     }) => api.post('/auth/brand-signup/', data),
 
     logout: () => api.post('/auth/logout/'),
@@ -117,6 +119,87 @@ export const profileApi = {
 };
 
 // Deals API functions
+const appendCommonContentFields = (formData: FormData, data: {
+    platform: string;
+    content_type: string;
+    title?: string;
+    description?: string;
+    caption?: string;
+    hashtags?: string;
+    mention_brand?: boolean;
+    post_url?: string;
+    file_url?: string;
+}) => {
+    formData.append('platform', data.platform);
+    formData.append('content_type', data.content_type);
+    if (data.title) formData.append('title', data.title);
+    if (data.description) formData.append('description', data.description);
+    if (data.caption) formData.append('caption', data.caption);
+    if (data.hashtags) formData.append('hashtags', data.hashtags);
+    if (data.mention_brand !== undefined) formData.append('mention_brand', data.mention_brand.toString());
+    if (data.post_url) formData.append('post_url', data.post_url);
+    if (data.file_url) formData.append('file_url', data.file_url);
+};
+
+const appendAdditionalLinksToFormData = (
+    formData: FormData,
+    additional_links?: Array<{ url: string; description: string }>
+) => {
+    if (!additional_links || additional_links.length === 0) return;
+
+    additional_links.forEach((link, index) => {
+        formData.append(`additional_links[${index}][url]`, link.url);
+        formData.append(`additional_links[${index}][description]`, link.description);
+    });
+};
+
+const toJsonPayload = (
+    data: {
+        platform: string;
+        content_type: string;
+        title?: string;
+        description?: string;
+        caption?: string;
+        hashtags?: string;
+        mention_brand?: boolean;
+        post_url?: string;
+        file_url?: string;
+        additional_links?: Array<{ url: string; description: string }>;
+    },
+    filteredLinks: Array<{ url: string; description: string }>,
+    includeNullFileUpload = false,
+) => {
+    const payload: Record<string, any> = {
+        platform: data.platform,
+        content_type: data.content_type,
+        title: data.title,
+        description: data.description,
+        caption: data.caption,
+        hashtags: data.hashtags,
+        mention_brand: data.mention_brand,
+        post_url: data.post_url,
+        file_url: data.file_url,
+        additional_links: filteredLinks,
+    };
+
+    if (includeNullFileUpload) {
+        payload.file_upload = undefined;
+    }
+
+    Object.keys(payload).forEach((key) => {
+        if (payload[key] === undefined) {
+            delete payload[key];
+        }
+    });
+
+    return payload;
+};
+
+const hasValidFile = (file?: File) => {
+    if (!file) return false;
+    return typeof window !== "undefined" ? file instanceof File : true;
+};
+
 export const dealsApi = {
     getDeals: (params?: {
         status?: string;
@@ -152,35 +235,36 @@ export const dealsApi = {
         onProgress?: (progress: { loaded: number; total: number; percentage: number }) => void,
         signal?: AbortSignal
     ) => {
-        const formData = new FormData();
-        formData.append('platform', data.platform);
-        formData.append('content_type', data.content_type);
-        if (data.title) formData.append('title', data.title);
-        if (data.description) formData.append('description', data.description);
-        if (data.caption) formData.append('caption', data.caption);
-        if (data.hashtags) formData.append('hashtags', data.hashtags);
-        if (data.mention_brand !== undefined) formData.append('mention_brand', data.mention_brand.toString());
-        if (data.post_url) formData.append('post_url', data.post_url);
-        if (data.file_url) formData.append('file_url', data.file_url);
-        if (data.additional_links && data.additional_links.length > 0) {
-            formData.append('additional_links', JSON.stringify(data.additional_links));
-        }
-        if (data.file) formData.append('file_upload', data.file);
+        const filteredLinks = (data.additional_links || []).filter(
+            (link) => link && link.url && link.description
+        );
 
-        // Use content API endpoint
-        return api.post(`/content/deals/${id}/content-submissions/`, formData, {
-            signal,
-            onUploadProgress: (progressEvent: any) => {
-                if (onProgress && progressEvent.total) {
-                    const progress = {
-                        loaded: progressEvent.loaded,
-                        total: progressEvent.total,
-                        percentage: Math.round((progressEvent.loaded * 100) / progressEvent.total),
-                    };
-                    onProgress(progress);
-                }
-            },
-        });
+        if (hasValidFile(data.file)) {
+            const formData = new FormData();
+            appendCommonContentFields(formData, data);
+            appendAdditionalLinksToFormData(formData, filteredLinks);
+            formData.append('file_upload', data.file as File);
+
+            return api.post(`/content/deals/${id}/content-submissions/`, formData, {
+                headers: {
+                    'Content-Type': undefined,
+                },
+                signal,
+                onUploadProgress: (progressEvent: any) => {
+                    if (onProgress && progressEvent.total) {
+                        const progress = {
+                            loaded: progressEvent.loaded,
+                            total: progressEvent.total,
+                            percentage: Math.round((progressEvent.loaded * 100) / progressEvent.total),
+                        };
+                        onProgress(progress);
+                    }
+                },
+            });
+        }
+
+        const payload = toJsonPayload(data, filteredLinks, true);
+        return api.post(`/content/deals/${id}/content-submissions/`, payload, {signal});
     },
 
     getContentSubmissions: (id: number) => api.get(`/deals/${id}/content-submissions/`),
@@ -207,34 +291,40 @@ export const dealsApi = {
         onProgress?: (progress: { loaded: number; total: number; percentage: number }) => void,
         signal?: AbortSignal
     ) => {
-        const formData = new FormData();
-        formData.append('platform', data.platform);
-        formData.append('content_type', data.content_type);
-        if (data.title) formData.append('title', data.title);
-        if (data.description) formData.append('description', data.description);
-        if (data.caption) formData.append('caption', data.caption);
-        if (data.hashtags) formData.append('hashtags', data.hashtags);
-        if (data.mention_brand !== undefined) formData.append('mention_brand', data.mention_brand.toString());
-        if (data.post_url) formData.append('post_url', data.post_url);
-        if (data.file_url) formData.append('file_url', data.file_url);
-        if (data.additional_links && data.additional_links.length > 0) {
-            formData.append('additional_links', JSON.stringify(data.additional_links));
-        }
-        if (data.file) formData.append('file_upload', data.file);
+        const filteredLinks = (data.additional_links || []).filter(
+            (link) => link && link.url && link.description
+        );
 
-        return api.put(`/content/deals/${dealId}/content-submissions/${submissionId}/`, formData, {
-            signal,
-            onUploadProgress: (progressEvent: any) => {
-                if (onProgress && progressEvent.total) {
-                    const progress = {
-                        loaded: progressEvent.loaded,
-                        total: progressEvent.total,
-                        percentage: Math.round((progressEvent.loaded * 100) / progressEvent.total),
-                    };
-                    onProgress(progress);
-                }
-            },
-        });
+        if (hasValidFile(data.file)) {
+            const formData = new FormData();
+            appendCommonContentFields(formData, data);
+            appendAdditionalLinksToFormData(formData, filteredLinks);
+            formData.append('file_upload', data.file as File);
+
+            return api.put(`/content/deals/${dealId}/content-submissions/${submissionId}/`, formData, {
+                headers: {
+                    'Content-Type': undefined,
+                },
+                signal,
+                onUploadProgress: (progressEvent: any) => {
+                    if (onProgress && progressEvent.total) {
+                        const progress = {
+                            loaded: progressEvent.loaded,
+                            total: progressEvent.total,
+                            percentage: Math.round((progressEvent.loaded * 100) / progressEvent.total),
+                        };
+                        onProgress(progress);
+                    }
+                },
+            });
+        }
+
+        const payload = toJsonPayload(data, filteredLinks, true);
+        return api.put(
+            `/content/deals/${dealId}/content-submissions/${submissionId}/`,
+            payload,
+            {signal},
+        );
     },
 
     getMessages: (id: number) => api.get(`/deals/${id}/messages/`),
@@ -334,4 +424,16 @@ export const brandApi = {
         tracking_number: string;
         tracking_url?: string;
     }) => api.patch(`/brands/deals/${dealId}/tracking/`, data),
+
+    uploadVerificationDocument: (file: File) => {
+        const formData = new FormData();
+        formData.append('document', file);
+
+        return api.post('/brands/verification/document/', formData, {
+            headers: {
+                'Content-Type': undefined,
+            },
+            transformRequest: [(data) => data],
+        });
+    },
 };

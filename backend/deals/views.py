@@ -728,7 +728,7 @@ def submit_content_placeholder(request, deal_id):
 
     # Import and use the serializer directly
     from content.serializers import ContentSubmissionSerializer
-    serializer = ContentSubmissionSerializer(data=data)
+    serializer = ContentSubmissionSerializer(data=data, context={'request': request})
 
     if serializer.is_valid():
         submission = serializer.save()
@@ -744,7 +744,7 @@ def submit_content_placeholder(request, deal_id):
 
         return api_response(True, {
             'message': 'Content submitted successfully.',
-            'submission': ContentSubmissionSerializer(submission).data
+            'submission': ContentSubmissionSerializer(submission, context={'request': request}).data
         }, status_code=201)
 
     return api_response(False, error='Invalid submission data.', status_code=400)
@@ -772,7 +772,7 @@ def content_submissions_placeholder(request, deal_id):
 
     # Import the serializer
     from content.serializers import ContentSubmissionSerializer
-    serializer = ContentSubmissionSerializer(submissions, many=True)
+    serializer = ContentSubmissionSerializer(submissions, many=True, context={'request': request})
 
     return api_response(True, {
         'submissions': serializer.data,

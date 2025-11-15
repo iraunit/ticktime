@@ -1,3 +1,8 @@
+from backend.storage_backends import (
+    public_media_storage,
+    private_media_storage,
+    brand_verification_upload_to,
+)
 from common.models import Industry
 from django.contrib.auth.models import User
 from django.core.validators import MinValueValidator, MaxValueValidator
@@ -12,14 +17,34 @@ class Brand(models.Model):
     name = models.CharField(max_length=200)
     domain = models.CharField(max_length=255, unique=True, default='example.com',
                               help_text="Company domain (e.g., google.com)")
-    logo = models.ImageField(upload_to='brands/', blank=True, null=True)
+    logo = models.ImageField(
+        upload_to='brands/',
+        blank=True,
+        null=True,
+        storage=public_media_storage,
+    )
     description = models.TextField(blank=True, default='')
+    gstin = models.CharField(
+        max_length=15,
+        blank=True,
+        default='',
+        help_text="Optional GSTIN number used for business verification"
+    )
     website = models.URLField(blank=True, default='')
     industry = models.ForeignKey(Industry, on_delete=models.PROTECT, related_name='brands')
     contact_email = models.EmailField()
     # Removed country_code and contact_phone as they're now in UserProfile
     is_verified = models.BooleanField(default=False)
     is_locked = models.BooleanField(default=False, help_text='Lock account for non-payment or other reasons')
+    verification_document = models.FileField(
+        upload_to=brand_verification_upload_to,
+        storage=private_media_storage,
+        blank=True,
+        null=True,
+        help_text='Supporting document for manual verification (PAN, Aadhaar, etc.)'
+    )
+    verification_document_uploaded_at = models.DateTimeField(null=True, blank=True)
+    verification_document_original_name = models.CharField(max_length=255, blank=True, default='')
     rating = models.DecimalField(
         max_digits=3,
         decimal_places=2,
@@ -141,6 +166,7 @@ class BrandAuditLog(models.Model):
         ('content_rejected', 'Content Rejected'),
         ('message_sent', 'Message Sent'),
         ('influencer_bookmarked', 'Influencer Bookmarked'),
+        ('verification_document_uploaded', 'Verification Document Uploaded'),
     ]
 
     brand = models.ForeignKey(Brand, on_delete=models.CASCADE, related_name='audit_logs')

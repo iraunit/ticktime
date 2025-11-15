@@ -1,3 +1,5 @@
+import re
+
 from campaigns.models import Campaign
 from campaigns.serializers import CampaignCreateSerializer
 from common.api_response import api_response, format_serializer_errors
@@ -19,8 +21,14 @@ from rest_framework.response import Response
 from .models import BrandUser, BrandAuditLog, BookmarkedInfluencer
 from .models import Industry
 from .serializers import (
-    BrandSerializer, BrandDashboardSerializer, BrandTeamSerializer, BrandUserInviteSerializer,
-    BrandAuditLogSerializer, BookmarkedInfluencerSerializer, UserProfileSerializer
+    BrandSerializer,
+    BrandDashboardSerializer,
+    BrandTeamSerializer,
+    BrandUserInviteSerializer,
+    BrandAuditLogSerializer,
+    BookmarkedInfluencerSerializer,
+    UserProfileSerializer,
+    BrandVerificationDocumentSerializer,
 )
 
 
@@ -164,7 +172,7 @@ def invite_brand_user_view(request):
 
         # Check if user already exists
         try:
-            user = User.objects.get(email=email)
+            user = User.objects.get(email__iexact=email)
             if BrandUser.objects.filter(user=user, brand=brand_user.brand).exists():
                 return api_response(False, error='User is already associated with this brand.', status_code=400)
         except User.DoesNotExist:
@@ -174,7 +182,7 @@ def invite_brand_user_view(request):
                 email=email,
                 first_name=first_name,
                 last_name=last_name,
-                is_active=False  # Will be activated when they accept invitation
+                is_active=True
             )
 
             # Create UserProfile for the new user
@@ -538,6 +546,7 @@ def brand_deals_view(request):
     deals = (
         Deal.objects.filter(campaign__brand=brand_user.brand)
         .select_related('campaign__brand', 'influencer__user')
+        .prefetch_related('content_submissions')
     )
 
     # Apply filters
@@ -973,6 +982,12 @@ def bookmark_influencer_view(request, influencer_id):
     brand_user = get_brand_user_or_403(request)
     if not brand_user:
         return api_response(False, error='Brand profile not found.', status_code=404)
+
+    if brand_user.brand.is_locked:
+        return Response({
+            'status': 'error',
+            'message': 'Messaging is unavailable while your brand account is locked. Please upgrade or contact support.'
+        }, status=status.HTTP_403_FORBIDDEN)
 
     try:
         influencer = InfluencerProfile.objects.get(id=influencer_id)
@@ -1640,7 +1655,7 @@ def update_brand_profile_view(request):
     brand = brand_user.brand
 
     # Only allow updating non-sensitive fields
-    allowed_fields = ['name', 'description', 'website', 'industry', 'contact_email']
+    allowed_fields = ['name', 'description', 'website', 'industry', 'contact_email', 'gstin']
     update_data = {k: v for k, v in request.data.items() if k in allowed_fields}
 
     # Handle logo upload
@@ -1659,7 +1674,7 @@ def update_brand_profile_view(request):
         brand.logo = logo_file
         # Don't add to update_data since we're directly setting the field
 
-    if not update_data:
+    if not update_data and 'logo' not in request.FILES:
         return api_response(False, error='No valid fields to update.')
 
     # Validate email if being updated
@@ -1678,6 +1693,13 @@ def update_brand_profile_view(request):
             brand.industry = industry_obj
         except Industry.DoesNotExist:
             return api_response(False, error='Invalid industry key.')
+
+    # Handle GSTIN separately
+    if 'gstin' in update_data:
+        gstin = update_data.pop('gstin', '').strip().upper()
+        if gstin and (len(gstin) != 15 or not re.match(r'^[0-9A-Z]{15}$', gstin)):
+            return api_response(False, error='Please enter a valid 15-character GSTIN.')
+        brand.gstin = gstin
 
     # Update other fields
     for field, value in update_data.items():
@@ -1699,6 +1721,58 @@ def update_brand_profile_view(request):
         'message': 'Brand profile updated successfully.',
         'brand': serializer.data
     })
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def upload_brand_verification_document_view(request):
+    """
+    Upload brand verification document (PAN, Aadhaar, GST certificate, etc.).
+    """
+    brand_user = get_brand_user_or_403(request)
+    if not brand_user:
+        return api_response(False, error='Brand profile not found.', status_code=404)
+
+    serializer = BrandVerificationDocumentSerializer(data=request.data)
+    if serializer.is_valid():
+        document = serializer.validated_data['document']
+        brand = brand_user.brand
+
+        brand.verification_document = document
+        brand.verification_document_original_name = document.name
+        brand.verification_document_uploaded_at = timezone.now()
+        brand.is_verified = False  # Explicitly require manual approval after each upload
+        brand.save(
+            update_fields=[
+                'verification_document',
+                'verification_document_uploaded_at',
+                'verification_document_original_name',
+                'is_verified',
+            ]
+        )
+
+        log_brand_action(
+            brand,
+            request.user,
+            'verification_document_uploaded',
+            'Uploaded brand verification document',
+            {
+                'original_name': document.name,
+                'content_type': document.content_type,
+                'size': document.size,
+            }
+        )
+
+        return api_response(
+            True,
+            result={
+                'message': 'Verification document uploaded successfully.',
+                'brand': BrandSerializer(brand, context={'request': request}).data
+            },
+            status_code=201
+        )
+
+    return api_response(False, error=format_serializer_errors(serializer.errors), status_code=400)
 
 
 @api_view(['PUT'])
@@ -1995,6 +2069,12 @@ def send_message_to_influencer_view(request, influencer_id):
     brand_user = get_brand_user_or_403(request)
     if not brand_user:
         return api_response(False, error='Brand profile not found.', status_code=404)
+
+    if brand_user.brand.is_locked:
+        return Response({
+            'status': 'error',
+            'message': 'Messaging is unavailable while your brand account is locked. Please upgrade or contact support.'
+        }, status=status.HTTP_403_FORBIDDEN)
 
     try:
         influencer = InfluencerProfile.objects.get(id=influencer_id)

@@ -38,6 +38,11 @@ class AccountStatusSerializer(serializers.Serializer):
     can_access = serializers.BooleanField()
     lock_reason = serializers.CharField(required=False, allow_null=True)
     message = serializers.CharField(required=False, allow_null=True)
+    brand_verified = serializers.BooleanField(required=False, default=True)
+    requires_brand_verification = serializers.BooleanField(required=False, default=False)
+    has_verification_document = serializers.BooleanField(required=False, default=False)
+    verification_document_uploaded_at = serializers.DateTimeField(required=False, allow_null=True)
+    gstin_provided = serializers.BooleanField(required=False, default=False)
 
 
 class EmailVerificationResponseSerializer(serializers.Serializer):
@@ -47,3 +52,15 @@ class EmailVerificationResponseSerializer(serializers.Serializer):
     success = serializers.BooleanField()
     message = serializers.CharField()
     email_verified = serializers.BooleanField(required=False)
+
+
+class SupportMessageSerializer(serializers.Serializer):
+    """
+    Serializer for support or contact-us submissions
+    """
+    name = serializers.CharField(max_length=120, required=False, allow_blank=True)
+    email = serializers.EmailField(required=False, allow_blank=True)
+    phone_number = serializers.CharField(max_length=32, required=False, allow_blank=True)
+    subject = serializers.CharField(max_length=200)
+    message = serializers.CharField(max_length=2000)
+    source = serializers.CharField(max_length=64, required=False, allow_blank=True)

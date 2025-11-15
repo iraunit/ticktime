@@ -36,20 +36,20 @@ import {getPlatformConfig} from "@/lib/platform-config";
 import {getContentTypeConfig} from "@/lib/icon-config";
 
 // Extended interface for brand deal management
-interface BrandDeal {
+export interface ContentReviewDeal {
     id: number;
-    campaign: Deal['campaign'];
+    campaign?: Partial<Deal['campaign']>;
     influencer?: {
-        id: number;
-        username: string;
+        id?: number;
+        username?: string;
         full_name?: string;
     };
-    status: Deal['status'];
-    invited_at: string;
+    status?: Deal['status'];
+    invited_at?: string;
     responded_at?: string;
     completed_at?: string;
     rejection_reason?: string;
-    total_value: number;
+    total_value?: number;
     payment_status?: 'pending' | 'processing' | 'completed' | 'failed';
     shipping_address?: Deal['shipping_address'];
     tracking_number?: string;
@@ -72,7 +72,7 @@ interface ReviewHistory {
     reviewed_by_username: string;
 }
 
-interface ContentSubmission {
+export interface ContentReviewSubmission {
     id: number;
     platform: string;
     platform_display: string;
@@ -81,6 +81,7 @@ interface ContentSubmission {
     title?: string;
     description?: string;
     file_url?: string;
+    file_upload?: string;
     post_url?: string;
     caption?: string;
     hashtags?: string;
@@ -96,8 +97,8 @@ interface ContentSubmission {
 }
 
 interface ContentReviewProps {
-    deal: BrandDeal;
-    submissions: ContentSubmission[];
+    deal: ContentReviewDeal;
+    submissions: ContentReviewSubmission[];
     onReview: (submissionId: number, action: 'approve' | 'reject' | 'request_revision', feedback?: string, revisionNotes?: string) => Promise<void>;
     isLoading?: boolean;
 }
@@ -121,7 +122,7 @@ const reviewSchema = z.object({
 type ReviewFormData = z.infer<typeof reviewSchema>;
 
 export function ContentReview({deal, submissions, onReview, isLoading}: ContentReviewProps) {
-    const [selectedSubmission, setSelectedSubmission] = useState<ContentSubmission | null>(null);
+    const [selectedSubmission, setSelectedSubmission] = useState<ContentReviewSubmission | null>(null);
     const [showReviewModal, setShowReviewModal] = useState(false);
 
     const form = useForm<ReviewFormData>({
@@ -133,7 +134,7 @@ export function ContentReview({deal, submissions, onReview, isLoading}: ContentR
         },
     });
 
-    const handleReviewSubmission = (submission: ContentSubmission) => {
+    const handleReviewSubmission = (submission: ContentReviewSubmission) => {
         setSelectedSubmission(submission);
         setShowReviewModal(true);
         form.reset({
@@ -161,7 +162,7 @@ export function ContentReview({deal, submissions, onReview, isLoading}: ContentR
         }
     };
 
-    const getStatusBadge = (submission: ContentSubmission) => {
+    const getStatusBadge = (submission: ContentReviewSubmission) => {
         if (submission.approved === true) {
             return (
                 <Badge className="bg-green-100 text-green-800 border-green-200">
@@ -338,7 +339,21 @@ export function ContentReview({deal, submissions, onReview, isLoading}: ContentR
                                     </div>
                                 )}
 
-                                {submission.file_url && (
+                                {submission.file_upload && (
+                                    <div className="flex items-center space-x-2">
+                                        <Eye className="h-4 w-4 text-gray-400"/>
+                                        <a
+                                            href={submission.file_upload}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                                        >
+                                            Preview Uploaded File
+                                        </a>
+                                    </div>
+                                )}
+
+                                {submission.file_url && (!submission.file_upload || submission.file_url !== submission.file_upload) && (
                                     <div className="flex items-center space-x-2">
                                         <Eye className="h-4 w-4 text-gray-400"/>
                                         <a

@@ -202,6 +202,7 @@ export default function InfluencerSearchPage() {
     const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
     const [sortCombined, setSortCombined] = useState<string>("followers_desc");
     const [selectedCampaign, setSelectedCampaign] = useState<any | null>(null);
+    const [campaignFilter, setCampaignFilter] = useState<string>("");
 
     // Save column visibility to localStorage
     useEffect(() => {
@@ -228,6 +229,7 @@ export default function InfluencerSearchPage() {
                     age_range: ageRangesFilter.length === 1 ? ageRangesFilter[0] : undefined,
                     collaboration_preferences: collabPrefsFilter.length > 0 ? collabPrefsFilter.join(',') : undefined,
                     max_collab_amount: maxCollabAmountFilter || undefined,
+                    campaign_id: campaignFilter || undefined,
                 }
             });
 
@@ -255,7 +257,7 @@ export default function InfluencerSearchPage() {
         } finally {
             setIsLoading(false);
         }
-    }, [searchTerm, selectedPlatforms, selectedLocations, genderFilters, followerRange, selectedCategories, selectedIndustries, sortBy, sortOrder, ageRangesFilter, collabPrefsFilter, maxCollabAmountFilter]);
+    }, [searchTerm, selectedPlatforms, selectedLocations, genderFilters, followerRange, selectedCategories, selectedIndustries, sortBy, sortOrder, ageRangesFilter, collabPrefsFilter, maxCollabAmountFilter, campaignFilter]);
 
     // Sync filters and sorting to URL
     useEffect(() => {
@@ -273,12 +275,13 @@ export default function InfluencerSearchPage() {
             if (ageRangesFilter.length === 1) params.set('age_range', ageRangesFilter[0]);
             if (collabPrefsFilter.length > 0) params.set('collaboration_preferences', collabPrefsFilter.join(','));
             if (maxCollabAmountFilter) params.set('max_collab_amount', maxCollabAmountFilter);
+            if (campaignFilter) params.set('campaign_id', campaignFilter);
             const qs = params.toString();
             const url = qs ? `/brand/influencers?${qs}` : '/brand/influencers';
             window.history.replaceState(null, '', url);
         } catch {
         }
-    }, [searchTerm, selectedPlatforms, selectedLocations, genderFilters, followerRange, selectedCategories, selectedIndustries, sortBy, sortOrder, ageRangesFilter, collabPrefsFilter, maxCollabAmountFilter]);
+    }, [searchTerm, selectedPlatforms, selectedLocations, genderFilters, followerRange, selectedCategories, selectedIndustries, sortBy, sortOrder, ageRangesFilter, collabPrefsFilter, maxCollabAmountFilter, campaignFilter]);
 
     // Bookmark influencer
     const handleBookmark = async (influencerId: number) => {
@@ -324,8 +327,8 @@ export default function InfluencerSearchPage() {
         }
     };
 
-    // Fetch campaigns for adding influencers
-    const fetchCampaigns = async () => {
+    // Fetch campaigns for adding influencers / filtering
+    const fetchCampaigns = useCallback(async () => {
         try {
             console.log('Fetching campaigns for influencers...');
             const response = await api.get('/brands/campaigns/for-influencers/');
@@ -339,7 +342,11 @@ export default function InfluencerSearchPage() {
             console.error('Failed to fetch campaigns:', error);
             toast.error('Failed to load campaigns. Please try again.');
         }
-    };
+    }, []);
+
+    useEffect(() => {
+        fetchCampaigns();
+    }, [fetchCampaigns]);
 
     // Handle influencer selection
     const handleInfluencerSelect = (influencerId: number) => {
@@ -488,6 +495,8 @@ export default function InfluencerSearchPage() {
             if (inds) setSelectedIndustries(inds.split(',').filter(Boolean));
             const cats = params.get('categories');
             if (cats) setSelectedCategories(cats.split(',').filter(Boolean));
+            const campaignId = params.get('campaign_id');
+            if (campaignId) setCampaignFilter(campaignId);
         } catch {
         }
         // Load industries for dropdown
@@ -608,8 +617,9 @@ export default function InfluencerSearchPage() {
             selectedIndustries.length > 0 ||
             ageRangesFilter.length > 0 ||
             collabPrefsFilter.length > 0 ||
-            !!maxCollabAmountFilter;
-    }, [searchTerm, selectedPlatforms, selectedLocations, genderFilters, followerRange, selectedCategories, selectedIndustries, ageRangesFilter, collabPrefsFilter, maxCollabAmountFilter]);
+            !!maxCollabAmountFilter ||
+            !!campaignFilter;
+    }, [searchTerm, selectedPlatforms, selectedLocations, genderFilters, followerRange, selectedCategories, selectedIndustries, ageRangesFilter, collabPrefsFilter, maxCollabAmountFilter, campaignFilter]);
 
     const clearAllFilters = () => {
         setSearchTerm("");
@@ -622,6 +632,7 @@ export default function InfluencerSearchPage() {
         setAgeRangesFilter([]);
         setCollabPrefsFilter([]);
         setMaxCollabAmountFilter("");
+        setCampaignFilter("");
     };
 
     const handleCategoryToggle = (category: string) => {
@@ -783,7 +794,7 @@ export default function InfluencerSearchPage() {
                         </div>
 
                         {/* Quick Filters Row */}
-                        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2">
+                        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-2">
                             {/* Platforms (Multi-select) */}
                             <div className="space-y-1">
                                 <label className="text-xs font-medium text-gray-700">Platforms</label>
@@ -808,6 +819,27 @@ export default function InfluencerSearchPage() {
                                         })}
                                     </div>
                                 )}
+                            </div>
+
+                            {/* Campaign */}
+                            <div className="space-y-1">
+                                <label className="text-xs font-medium text-gray-700">Campaign</label>
+                                <Select
+                                    value={campaignFilter || "all"}
+                                    onValueChange={(val) => setCampaignFilter(val === "all" ? "" : val)}
+                                >
+                                    <SelectTrigger className="h-8 text-xs border border-gray-300">
+                                        <SelectValue placeholder="All campaigns"/>
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="all">All Campaigns</SelectItem>
+                                        {campaigns.map((campaign) => (
+                                            <SelectItem key={campaign.id} value={String(campaign.id)}>
+                                                {campaign.title}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
                             </div>
 
                             {/* Industry (Multi-select) */}
@@ -1577,6 +1609,7 @@ export default function InfluencerSearchPage() {
                                 }
                             }
                             setSelectedCampaign(c);
+                            setCampaignFilter(String(c.id));
                             toast.success('Filters imported from campaign');
                             setShowFilters(true);
                             // Build params from selected campaign directly to avoid state sync timing
