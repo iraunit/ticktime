@@ -94,6 +94,11 @@ const statusOptions: { value: string; label: string }[] = [
     {value: "invited", label: "Invited"},
     {value: "pending", label: "Pending"},
     {value: "accepted", label: "Accepted"},
+    {value: "shortlisted", label: "Shortlisted"},
+    {value: "address_requested", label: "Address requested"},
+    {value: "address_provided", label: "Address provided"},
+    {value: "product_shipped", label: "Product shipped"},
+    {value: "product_delivered", label: "Product delivered"},
     {value: "active", label: "Active"},
     {value: "content_submitted", label: "Content submitted"},
     {value: "under_review", label: "Under review"},
@@ -102,6 +107,7 @@ const statusOptions: { value: string; label: string }[] = [
     {value: "completed", label: "Completed"},
     {value: "rejected", label: "Rejected"},
     {value: "cancelled", label: "Cancelled"},
+    {value: "dispute", label: "Dispute"},
 ];
 
 const submissionEligibleStatuses = new Set<DealStatus>([
