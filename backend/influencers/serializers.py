@@ -731,7 +731,7 @@ class SocialMediaAccountDetailSerializer(serializers.ModelSerializer):
     class Meta:
         model = SocialMediaAccount
         fields = (
-            'id', 'platform', 'handle', 'profile_url', 'platform_handle', 'platform_profile_link',
+            'id', 'platform', 'handle', 'profile_url',
             'followers_count', 'following_count', 'posts_count', 'engagement_rate',
             'average_likes', 'average_comments', 'average_shares',
             'average_video_views', 'average_video_likes', 'average_video_comments',
@@ -852,12 +852,12 @@ class InfluencerSearchSerializer(serializers.ModelSerializer):
     def get_twitter_handle(self, obj):
         """Get Twitter handle"""
         twitter_account = obj.social_accounts.filter(platform='twitter', is_active=True).first()
-        return twitter_account.platform_handle or twitter_account.handle if twitter_account else ""
+        return twitter_account.handle if twitter_account else ""
 
     def get_twitter_profile_link(self, obj):
         """Get Twitter profile link"""
         twitter_account = obj.social_accounts.filter(platform='twitter', is_active=True).first()
-        return twitter_account.platform_profile_link or f"https://twitter.com/{twitter_account.handle}" if twitter_account else ""
+        return twitter_account.profile_url or f"https://twitter.com/{twitter_account.handle}" if twitter_account else ""
 
     def get_youtube_subscribers(self, obj):
         """Get YouTube subscribers count"""
@@ -869,12 +869,12 @@ class InfluencerSearchSerializer(serializers.ModelSerializer):
     def get_youtube_handle(self, obj):
         """Get YouTube handle"""
         youtube_account = obj.social_accounts.filter(platform='youtube', is_active=True).first()
-        return youtube_account.platform_handle or youtube_account.handle if youtube_account else ""
+        return youtube_account.handle if youtube_account else ""
 
     def get_youtube_profile_link(self, obj):
         """Get YouTube profile link"""
         youtube_account = obj.social_accounts.filter(platform='youtube', is_active=True).first()
-        return youtube_account.platform_profile_link or f"https://youtube.com/channel/{youtube_account.handle}" if youtube_account else ""
+        return youtube_account.profile_url or f"https://youtube.com/channel/{youtube_account.handle}" if youtube_account else ""
 
     def get_facebook_page_likes(self, obj):
         """Get Facebook page likes"""
@@ -886,12 +886,12 @@ class InfluencerSearchSerializer(serializers.ModelSerializer):
     def get_facebook_handle(self, obj):
         """Get Facebook handle"""
         facebook_account = obj.social_accounts.filter(platform='facebook', is_active=True).first()
-        return facebook_account.platform_handle or facebook_account.handle if facebook_account else ""
+        return facebook_account.handle if facebook_account else ""
 
     def get_facebook_profile_link(self, obj):
         """Get Facebook profile link"""
         facebook_account = obj.social_accounts.filter(platform='facebook', is_active=True).first()
-        return facebook_account.platform_profile_link or f"https://facebook.com/{facebook_account.handle}" if facebook_account else ""
+        return facebook_account.profile_url or f"https://facebook.com/{facebook_account.handle}" if facebook_account else ""
 
     def get_average_comments(self, obj):
         """Get average comments across all platforms"""
@@ -1076,9 +1076,9 @@ class SocialAccountPublicSerializer(serializers.ModelSerializer):
     class Meta:
         model = SocialMediaAccount
         fields = (
-            'id', 'platform', 'handle', 'username', 'followers_count', 'following_count', 'posts_count',
+            'id', 'platform', 'handle', 'username', 'profile_url', 'followers_count', 'following_count', 'posts_count',
             'engagement_rate', 'average_likes', 'average_comments', 'average_shares',
-            'platform_handle', 'platform_profile_link', 'is_active', 'verified',
+            'is_active', 'verified',
             'average_video_views', 'average_video_likes', 'average_video_comments',
             'engagement_snapshot', 'follower_growth_rate', 'subscriber_growth_rate',
             'last_synced_at',

@@ -222,7 +222,8 @@ class SocialScrapingService:
             profile_data.username,
         )
 
-        account.platform_handle = profile_data.username or account.platform_handle
+        if profile_data.username:
+            account.handle = profile_data.username
         account.followers_count = account_data.get('followers_count', account.followers_count)
         account.following_count = account_data.get('following_count', account.following_count)
         account.posts_count = account_data.get('media_count', account.posts_count)
@@ -236,8 +237,7 @@ class SocialScrapingService:
         account.average_video_comments = engagement_data.get('average_video_comments', account.average_video_comments)
 
         account.last_synced_at = timezone.now()
-        account.save(update_fields=[
-            'platform_handle',
+        update_fields = [
             'followers_count',
             'following_count',
             'posts_count',
@@ -249,7 +249,10 @@ class SocialScrapingService:
             'average_video_comments',
             'last_synced_at',
             'updated_at',
-        ])
+        ]
+        if profile_data.username:
+            update_fields.insert(0, 'handle')
+        account.save(update_fields=update_fields)
 
         latest_posted_at = self._save_posts(account, profile_data.posts)
         if latest_posted_at and (not account.last_posted_at or latest_posted_at > account.last_posted_at):

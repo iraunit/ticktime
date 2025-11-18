@@ -1,8 +1,7 @@
+from backend.storage_backends import private_media_storage, private_upload_path
 from common.models import Industry, ContentCategory, PLATFORM_CHOICES
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.db import models
-
-from backend.storage_backends import private_media_storage, private_upload_path
 
 
 class InfluencerProfile(models.Model):
@@ -319,14 +318,6 @@ class SocialMediaAccount(models.Model):
     average_video_views = models.IntegerField(validators=[MinValueValidator(0)], default=0)
     average_video_likes = models.IntegerField(validators=[MinValueValidator(0)], default=0)
     average_video_comments = models.IntegerField(validators=[MinValueValidator(0)], default=0)
-
-    # Platform-specific handles and profile links
-    platform_handle = models.CharField(
-        max_length=100,
-        blank=True,
-        help_text='Platform-specific handle (e.g., @username)'
-    )
-    platform_profile_link = models.URLField(blank=True, help_text='Direct link to platform profile')
 
     # Growth metrics
     follower_growth_rate = models.DecimalField(
