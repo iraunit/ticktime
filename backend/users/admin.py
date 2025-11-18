@@ -7,12 +7,67 @@ from django.contrib import admin
 from django.contrib import messages
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.contrib.auth.models import User
-from django.db import transaction
+from django.db import models, transaction
 from django.http import HttpResponse
 from django.shortcuts import render, redirect
 from django.urls import path
 
 from .models import UserProfile
+
+
+class PhoneVerifiedFilter(admin.SimpleListFilter):
+    title = 'Phone Verification'
+    parameter_name = 'phone_verified'
+
+    def lookups(self, request, model_admin):
+        return (
+            ('verified', 'Verified'),
+            ('not_verified', 'Not Verified'),
+        )
+
+    def queryset(self, request, queryset):
+        if self.value() == 'verified':
+            return queryset.filter(user_profile__phone_verified=True)
+        elif self.value() == 'not_verified':
+            return queryset.filter(
+                models.Q(user_profile__phone_verified=False) | models.Q(user_profile__isnull=True)
+            )
+
+
+class EmailVerifiedFilter(admin.SimpleListFilter):
+    title = 'Email Verification'
+    parameter_name = 'email_verified'
+
+    def lookups(self, request, model_admin):
+        return (
+            ('verified', 'Verified'),
+            ('not_verified', 'Not Verified'),
+        )
+
+    def queryset(self, request, queryset):
+        if self.value() == 'verified':
+            return queryset.filter(user_profile__email_verified=True)
+        elif self.value() == 'not_verified':
+            return queryset.filter(
+                models.Q(user_profile__email_verified=False) | models.Q(user_profile__isnull=True)
+            )
+
+
+class LastLoginFilter(admin.SimpleListFilter):
+    title = 'Last Login'
+    parameter_name = 'last_login'
+
+    def lookups(self, request, model_admin):
+        return (
+            ('has_login', 'Has Logged In'),
+            ('never_logged_in', 'Never Logged In'),
+        )
+
+    def queryset(self, request, queryset):
+        if self.value() == 'has_login':
+            return queryset.exclude(last_login__isnull=True)
+        elif self.value() == 'never_logged_in':
+            return queryset.filter(last_login__isnull=True)
 
 
 def extract_instagram_username(instagram_input):
@@ -126,9 +181,17 @@ def extract_instagram_username(instagram_input):
 
 class UserAdmin(BaseUserAdmin):
     list_display = ('username', 'email', 'first_name', 'last_name', 'account_type', 'is_active', 'date_joined')
-    list_filter = ('is_active', 'is_staff', 'date_joined')
+    list_filter = (
+        'is_active',
+        'is_staff',
+        'date_joined',
+        PhoneVerifiedFilter,
+        EmailVerifiedFilter,
+        LastLoginFilter,
+    )
     search_fields = ('username', 'email', 'first_name', 'last_name')
     ordering = ('-date_joined',)
+    actions = ['download_selected_users_csv']
 
     def account_type(self, obj):
         """Display the account type for each user"""
@@ -144,8 +207,48 @@ class UserAdmin(BaseUserAdmin):
 
     def get_queryset(self, request):
         return super().get_queryset(request).select_related(
-            'influencer_profile', 'brand_user__brand'
+            'influencer_profile', 'brand_user__brand', 'user_profile'
         ).prefetch_related('influencer_profile', 'brand_user')
+
+    def download_selected_users_csv(self, request, queryset):
+        """Download CSV with email and phone for selected users"""
+        response = HttpResponse(content_type='text/csv; charset=utf-8')
+        response['Content-Disposition'] = 'attachment; filename="users_export.csv"'
+
+        writer = csv.writer(response)
+        # Write header
+        writer.writerow(
+            ['Email', 'Phone Number', 'Country Code', 'Phone Verified', 'Email Verified', 'Username', 'First Name',
+             'Last Name'])
+
+        # Write user data
+        for user in queryset:
+            phone_number = ''
+            country_code = ''
+            phone_verified = False
+            email_verified = False
+
+            if hasattr(user, 'user_profile'):
+                phone_number = user.user_profile.phone_number or ''
+                country_code = user.user_profile.country_code or ''
+                phone_verified = user.user_profile.phone_verified
+                email_verified = user.user_profile.email_verified
+
+            writer.writerow([
+                user.email or '',
+                phone_number,
+                country_code,
+                'Yes' if phone_verified else 'No',
+                'Yes' if email_verified else 'No',
+                user.username or '',
+                user.first_name or '',
+                user.last_name or '',
+            ])
+
+        self.message_user(request, f'Exported {queryset.count()} user(s) to CSV.')
+        return response
+
+    download_selected_users_csv.short_description = 'Download selected users as CSV (Email & Phone)'
 
     def get_urls(self):
         urls = super().get_urls()
