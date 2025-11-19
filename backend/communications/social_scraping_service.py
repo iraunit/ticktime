@@ -46,12 +46,12 @@ class BasePlatformScraper:
         url = self.build_url(username)
         logger.debug("Fetching %s profile for %s", self.platform, username)
         response = self.session.get(url, timeout=timeout)
-        
+
         # Handle 404 errors gracefully before raise_for_status
         if response.status_code == 404:
             error_msg = response.json().get('error', 'User not found') if response.text else 'User not found'
             raise ScraperError(f"User not found: {error_msg}")
-        
+
         response.raise_for_status()
         payload = response.json()
         return self.parse_response(username, payload)
@@ -277,8 +277,46 @@ class SocialScrapingService:
             account.save(update_fields=['last_posted_at', 'updated_at'])
 
         metrics_summary = calculate_engagement_metrics(account)
-        account.engagement_rate = Decimal(
-            str(metrics_summary['overall_engagement_rate'])) if metrics_summary else account.engagement_rate
+
+        # Safely update engagement_rate and related metrics from calculated summary
+        if metrics_summary:
+            # Clamp engagement rate to the valid range for the DB field (0-100)
+            try:
+                overall_rate = Decimal(str(metrics_summary.get('overall_engagement_rate', 0)))
+            except Exception:
+                overall_rate = Decimal('0')
+
+            if overall_rate < Decimal('0'):
+                overall_rate = Decimal('0')
+            if overall_rate > Decimal('100'):
+                logger.warning(
+                    "Clamping engagement_rate for account %s/%s from %s to 100.00",
+                    account.platform,
+                    account.handle,
+                    overall_rate,
+                )
+                overall_rate = Decimal('100.00')
+
+            account.engagement_rate = overall_rate
+
+            account.average_likes = int(round(
+                metrics_summary.get('average_post_likes', account.average_likes)
+            ))
+            account.average_comments = int(round(
+                metrics_summary.get('average_post_comments', account.average_comments)
+            ))
+            account.average_video_likes = int(round(
+                metrics_summary.get('average_video_likes', account.average_video_likes)
+            ))
+            account.average_video_comments = int(round(
+                metrics_summary.get('average_video_comments', account.average_video_comments)
+            ))
+            account.average_video_views = int(round(
+                metrics_summary.get('average_video_views', account.average_video_views)
+            ))
+            account.engagement_snapshot = metrics_summary
+
+        # Persist updated engagement metrics (if any)
         account.average_likes = int(round(metrics_summary.get('average_post_likes',
                                                               account.average_likes))) if metrics_summary else account.average_likes
         account.average_comments = int(round(metrics_summary.get('average_post_comments',
