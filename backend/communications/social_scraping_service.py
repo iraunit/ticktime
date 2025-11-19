@@ -137,6 +137,15 @@ class SocialScrapingService:
         try:
             profile_data = scraper.fetch(account.handle, timeout=self.timeout)
         except requests.HTTPError as exc:
+            # Handle 404 errors gracefully - account not found, consume message and move on
+            if exc.response and exc.response.status_code == 404:
+                logger.warning(
+                    "Account %s/%s not found (404) on scraper API. Skipping sync.",
+                    account.platform,
+                    account.handle,
+                )
+                return None
+            # For other HTTP errors, log and raise
             logger.error(
                 "HTTP error fetching %s data for %s: %s",
                 account.platform,
@@ -312,6 +321,17 @@ class SocialScrapingService:
                 else:
                     # Nothing to do for this event, acknowledge to avoid redelivery
                     self.rabbitmq.ack_message(method_frame.delivery_tag)
+            except requests.HTTPError as exc:
+                # Handle HTTP errors (like 404) - consume message to move to next one
+                if exc.response and exc.response.status_code == 404:
+                    logger.warning(
+                        "HTTP 404 error handling scrape completion. Consuming message to move to next one."
+                    )
+                    self.rabbitmq.ack_message(method_frame.delivery_tag)
+                else:
+                    # For other HTTP errors, requeue
+                    logger.exception("HTTP error handling scrape completion message: %s", exc)
+                    self.rabbitmq.nack_message(method_frame.delivery_tag, requeue=True)
             except Exception as exc:
                 logger.exception("Error handling scrape completion message: %s", exc)
                 self.rabbitmq.nack_message(method_frame.delivery_tag, requeue=True)
