@@ -40,7 +40,7 @@ class BasePlatformScraper:
         self.session = session or requests.Session()
 
     def build_url(self, username: str) -> str:
-        return f"{self.base_url}/users/{username}/posts?platform={self.platform}"
+        return f"{self.base_url}/users/{username}/analytics?platform={self.platform}"
 
     def fetch(self, username: str, timeout: int) -> PlatformProfileData:
         url = self.build_url(username)
