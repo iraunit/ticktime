@@ -46,6 +46,12 @@ class BasePlatformScraper:
         url = self.build_url(username)
         logger.debug("Fetching %s profile for %s", self.platform, username)
         response = self.session.get(url, timeout=timeout)
+        
+        # Handle 404 errors gracefully before raise_for_status
+        if response.status_code == 404:
+            error_msg = response.json().get('error', 'User not found') if response.text else 'User not found'
+            raise ScraperError(f"User not found: {error_msg}")
+        
         response.raise_for_status()
         payload = response.json()
         return self.parse_response(username, payload)
@@ -136,24 +142,17 @@ class SocialScrapingService:
             return None
         try:
             profile_data = scraper.fetch(account.handle, timeout=self.timeout)
-        except requests.HTTPError as exc:
-            # Handle 404 errors gracefully - account not found, consume message and move on
-            if exc.response and exc.response.status_code == 404:
+        except ScraperError as exc:
+            # Handle ScraperError (including 404 converted to ScraperError) - don't requeue, just skip
+            error_msg = str(exc).lower()
+            if 'not found' in error_msg or '404' in error_msg:
                 logger.warning(
-                    "Account %s/%s not found (404) on scraper API. Skipping sync.",
+                    "Account %s/%s not found on scraper API. Skipping sync and consuming message.",
                     account.platform,
                     account.handle,
                 )
                 return None
-            # For other HTTP errors, log and raise
-            logger.error(
-                "HTTP error fetching %s data for %s: %s",
-                account.platform,
-                account.handle,
-                exc,
-            )
-            raise
-        except ScraperError as exc:
+            # For other scraper errors, log and requeue
             logger.warning(
                 "Scraper error for %s/%s: %s. Requeuing scrape request.",
                 account.platform,
@@ -162,6 +161,15 @@ class SocialScrapingService:
             )
             self.queue_scrape_request(account)
             return None
+        except requests.HTTPError as exc:
+            # Handle other HTTP errors (non-404)
+            logger.error(
+                "HTTP error fetching %s data for %s: %s",
+                account.platform,
+                account.handle,
+                exc,
+            )
+            raise
         except Exception as exc:
             logger.exception(
                 "Unexpected error fetching %s data for %s",
@@ -321,17 +329,22 @@ class SocialScrapingService:
                 else:
                     # Nothing to do for this event, acknowledge to avoid redelivery
                     self.rabbitmq.ack_message(method_frame.delivery_tag)
-            except requests.HTTPError as exc:
-                # Handle HTTP errors (like 404) - consume message to move to next one
-                if exc.response and exc.response.status_code == 404:
+            except ScraperError as exc:
+                # Handle ScraperError (including 404 converted to ScraperError) - consume message
+                error_msg = str(exc).lower()
+                if 'not found' in error_msg or '404' in error_msg:
                     logger.warning(
-                        "HTTP 404 error handling scrape completion. Consuming message to move to next one."
+                        "Account not found (404) handling scrape completion. Consuming message to move to next one."
                     )
                     self.rabbitmq.ack_message(method_frame.delivery_tag)
                 else:
-                    # For other HTTP errors, requeue
-                    logger.exception("HTTP error handling scrape completion message: %s", exc)
+                    # For other scraper errors, requeue
+                    logger.exception("Scraper error handling scrape completion message: %s", exc)
                     self.rabbitmq.nack_message(method_frame.delivery_tag, requeue=True)
+            except requests.HTTPError as exc:
+                # Handle HTTP errors (non-404) - requeue
+                logger.exception("HTTP error handling scrape completion message: %s", exc)
+                self.rabbitmq.nack_message(method_frame.delivery_tag, requeue=True)
             except Exception as exc:
                 logger.exception("Error handling scrape completion message: %s", exc)
                 self.rabbitmq.nack_message(method_frame.delivery_tag, requeue=True)
