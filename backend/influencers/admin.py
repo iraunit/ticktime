@@ -1,5 +1,11 @@
+from datetime import timedelta
+
 from django.contrib import admin
+from django.contrib import messages
 from django.db.models import Q
+from django.shortcuts import redirect
+from django.urls import path
+from django.utils import timezone
 from django.utils.html import format_html
 from users.models import UserProfile
 
@@ -390,17 +396,253 @@ class SocialMediaPostInline(admin.TabularInline):
 class SocialMediaAccountAdmin(admin.ModelAdmin):
     list_display = [
         'influencer_username', 'platform', 'handle', 'followers_count',
-        'engagement_rate', 'verified', 'is_active'
+        'engagement_rate', 'verified', 'is_active', 'last_synced_display',
+        'updated_at_display', 'sync_status_button'
     ]
     list_filter = ['platform', 'verified', 'is_active', 'created_at']
     search_fields = ['influencer__username', 'handle', 'profile_url']
+    readonly_fields = ['last_synced_at', 'sync_status_display', 'queue_sync_button', 'created_at', 'updated_at']
+    ordering = ['-last_synced_at', '-updated_at']
 
     inlines = [SocialMediaPostInline]
+
+    fieldsets = (
+        ('Account Information', {
+            'fields': ('influencer', 'platform', 'handle', 'profile_url', 'verified', 'is_active')
+        }),
+        ('Metrics', {
+            'fields': ('followers_count', 'following_count', 'posts_count', 'engagement_rate',
+                       'average_likes', 'average_comments', 'average_shares',
+                       'average_video_views', 'average_video_likes', 'average_video_comments')
+        }),
+        ('Sync Information', {
+            'fields': ('last_synced_at', 'sync_status_display', 'queue_sync_button'),
+            'description': 'Sync status and manual queue trigger'
+        }),
+        ('Timestamps', {
+            'fields': ('created_at', 'updated_at'),
+            'classes': ('collapse',)
+        }),
+    )
 
     def influencer_username(self, obj):
         return obj.influencer.username
 
     influencer_username.short_description = 'Influencer'
+
+    def last_synced_display(self, obj):
+        """Display last synced time with color coding"""
+        if not obj.last_synced_at:
+            return format_html('<span style="color: red;">Never synced</span>')
+
+        days_ago = (timezone.now() - obj.last_synced_at).days
+        if days_ago >= 7:
+            color = 'red'
+            status = f'{days_ago} days ago (needs sync)'
+        elif days_ago >= 3:
+            color = 'orange'
+            status = f'{days_ago} days ago'
+        else:
+            color = 'green'
+            status = f'{days_ago} days ago'
+
+        return format_html(
+            '<span style="color: {};">{}</span>',
+            color,
+            status
+        )
+
+    last_synced_display.short_description = 'Last Synced'
+    last_synced_display.admin_order_field = 'last_synced_at'
+
+    def updated_at_display(self, obj):
+        """Display updated at time"""
+        if not obj.updated_at:
+            return 'N/A'
+        return obj.updated_at.strftime('%Y-%m-%d %H:%M:%S')
+
+    updated_at_display.short_description = 'Last Updated'
+    updated_at_display.admin_order_field = 'updated_at'
+
+    def sync_status_button(self, obj):
+        """Display sync status button in list view"""
+        needs_sync = self._needs_sync(obj)
+        if needs_sync:
+            url = f'/admin/influencers/socialmediaaccount/{obj.id}/queue-sync/'
+            return format_html(
+                '<a class="button" href="{}" style="background-color: #ff6b6b; color: white; padding: 5px 10px; text-decoration: none; border-radius: 3px;">Queue Sync</a>',
+                url
+            )
+        else:
+            return format_html('<span style="color: green;">✓ Up to date</span>')
+
+    sync_status_button.short_description = 'Sync Status'
+
+    def sync_status_display(self, obj):
+        """Display sync status in detail view"""
+        needs_sync = self._needs_sync(obj)
+        if needs_sync:
+            days_ago = (timezone.now() - obj.last_synced_at).days if obj.last_synced_at else None
+            if days_ago is None:
+                message = "This account has never been synced and needs an update."
+            else:
+                message = f"This account was last synced {days_ago} days ago (more than 7 days) and needs an update."
+            return format_html(
+                '<div style="padding: 10px; background-color: #fff3cd; border: 1px solid #ffc107; border-radius: 4px; margin: 10px 0;">'
+                '<strong>⚠️ Sync Required:</strong><br>{}'
+                '</div>',
+                message
+            )
+        else:
+            days_ago = (timezone.now() - obj.last_synced_at).days if obj.last_synced_at else 0
+            return format_html(
+                '<div style="padding: 10px; background-color: #d4edda; border: 1px solid #28a745; border-radius: 4px; margin: 10px 0;">'
+                '<strong>✓ Up to Date:</strong><br>Last synced {} days ago.'
+                '</div>',
+                days_ago
+            )
+
+    sync_status_display.short_description = 'Sync Status'
+
+    def queue_sync_button(self, obj):
+        """Display queue sync button in detail view"""
+        needs_sync = self._needs_sync(obj)
+        if needs_sync:
+            url = f'/admin/influencers/socialmediaaccount/{obj.id}/queue-sync/'
+            return format_html(
+                '<a class="button" href="{}" style="background-color: #007cba; color: white; padding: 10px 20px; text-decoration: none; border-radius: 4px; display: inline-block; margin: 10px 0;">'
+                '🔄 Queue Sync Now'
+                '</a>',
+                url
+            )
+        else:
+            return format_html(
+                '<span style="color: green; padding: 10px; display: inline-block;">✓ Account is up to date (no sync needed)</span>'
+            )
+
+    queue_sync_button.short_description = 'Queue Sync'
+
+    def _needs_sync(self, obj):
+        """Check if account needs sync (last_synced_at is None or older than 7 days)"""
+        if not obj.last_synced_at:
+            return True
+        delta = timezone.now() - obj.last_synced_at
+        return delta.days >= 7
+
+    def get_urls(self):
+        """Add custom URL for queue sync action"""
+        urls = super().get_urls()
+        custom_urls = [
+            path(
+                '<int:object_id>/queue-sync/',
+                self.admin_site.admin_view(self.queue_sync_view),
+                name='influencers_socialmediaaccount_queue_sync',
+            ),
+            path(
+                'queue-sync-all/',
+                self.admin_site.admin_view(self.queue_sync_all_view),
+                name='influencers_socialmediaaccount_queue_sync_all',
+            ),
+        ]
+        return custom_urls + urls
+
+    def changelist_view(self, request, extra_context=None):
+        """Override changelist to add custom button"""
+        extra_context = extra_context or {}
+        extra_context['show_queue_sync_button'] = True
+        return super().changelist_view(request, extra_context)
+
+    def queue_sync_view(self, request, object_id):
+        """Handle queue sync action"""
+        try:
+            account = SocialMediaAccount.objects.get(pk=object_id)
+        except SocialMediaAccount.DoesNotExist:
+            messages.error(request, 'Social media account not found.')
+            return redirect('admin:influencers_socialmediaaccount_changelist')
+
+        needs_sync = self._needs_sync(account)
+
+        if not needs_sync:
+            messages.info(
+                request,
+                f'Account {account.handle} ({account.platform}) is up to date. '
+                f'Last synced {((timezone.now() - account.last_synced_at).days)} days ago.'
+            )
+        else:
+            try:
+                from communications.social_scraping_service import get_social_scraping_service
+                scraping_service = get_social_scraping_service()
+                message_id = scraping_service.queue_scrape_request(account, priority='high')
+
+                if message_id:
+                    messages.success(
+                        request,
+                        f'Successfully queued sync for {account.handle} ({account.platform}). '
+                        f'Message ID: {message_id}'
+                    )
+                else:
+                    messages.error(
+                        request,
+                        f'Failed to queue sync for {account.handle} ({account.platform}). '
+                        f'Please check RabbitMQ connection.'
+                    )
+            except Exception as e:
+                messages.error(
+                    request,
+                    f'Error queueing sync: {str(e)}'
+                )
+
+        # Redirect back to the change page or list
+        if 'next' in request.GET:
+            return redirect(request.GET['next'])
+        return redirect('admin:influencers_socialmediaaccount_change', object_id)
+
+    def queue_sync_all_view(self, request):
+        """Handle queue sync for all accounts that need it"""
+        from communications.social_scraping_service import get_social_scraping_service
+        scraping_service = get_social_scraping_service()
+
+        # Get all accounts that need syncing
+        accounts_needing_sync = SocialMediaAccount.objects.filter(
+            Q(last_synced_at__isnull=True) |
+            Q(last_synced_at__lt=timezone.now() - timedelta(days=7))
+        )
+
+        queued_count = 0
+        skipped_count = 0
+        error_count = 0
+
+        for account in accounts_needing_sync:
+            try:
+                message_id = scraping_service.queue_scrape_request(account, priority='high')
+                if message_id:
+                    queued_count += 1
+                else:
+                    error_count += 1
+            except Exception as e:
+                error_count += 1
+                messages.error(
+                    request,
+                    f'Error queueing sync for {account.handle}: {str(e)}'
+                )
+
+        if queued_count > 0:
+            messages.success(
+                request,
+                f'Successfully queued sync for {queued_count} account(s) that needed updating.'
+            )
+        if skipped_count > 0:
+            messages.info(
+                request,
+                f'Skipped {skipped_count} account(s) that are already up to date.'
+            )
+        if error_count > 0:
+            messages.error(
+                request,
+                f'Failed to queue sync for {error_count} account(s).'
+            )
+
+        return redirect('admin:influencers_socialmediaaccount_changelist')
 
 
 # Add inline relationships
