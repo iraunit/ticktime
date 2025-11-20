@@ -232,6 +232,13 @@ class SocialScrapingService:
         account_data = profile_data.account_metrics or {}
         engagement_data = profile_data.engagement_data or {}
 
+        # User-level metadata from scraper (bio, display name, etc.)
+        user_data = {}
+        try:
+            user_data = (profile_data.raw_payload or {}).get('data', {}).get('user', {}) or {}
+        except Exception:
+            user_data = {}
+
         logger.debug(
             "Persisting %s data for %s (user=%s)",
             profile_data.platform,
@@ -244,6 +251,17 @@ class SocialScrapingService:
         account.followers_count = account_data.get('followers_count', account.followers_count)
         account.following_count = account_data.get('following_count', account.following_count)
         account.posts_count = account_data.get('media_count', account.posts_count)
+
+        # Map user metadata onto the social account
+        if user_data:
+            account.display_name = user_data.get('display_name') or account.display_name
+            account.bio = user_data.get('bio') or account.bio
+            account.external_url = user_data.get('external_url') or account.external_url
+            account.is_private = bool(user_data.get('is_private', account.is_private))
+            account.profile_image_url = user_data.get('profile_image_url') or account.profile_image_url
+            # Platform blue tick / official verification on the social platform itself
+            if 'is_verified' in user_data:
+                account.platform_verified = bool(user_data.get('is_verified'))
 
         # Update averages using engagement data when available
         account.average_likes = engagement_data.get('average_likes', account.average_likes)
@@ -264,6 +282,12 @@ class SocialScrapingService:
             'average_video_views',
             'average_video_likes',
             'average_video_comments',
+            'display_name',
+            'bio',
+            'external_url',
+            'is_private',
+            'profile_image_url',
+            'platform_verified',
             'last_synced_at',
             'updated_at',
         ]
@@ -340,6 +364,9 @@ class SocialScrapingService:
         ])
 
         self._update_influencer_summary(account.influencer)
+
+        # Enforce a maximum number of posts per influencer profile to keep data manageable
+        self._enforce_post_limit(account.influencer, max_posts=50)
 
     def process_scrape_out_queue(self, limit: int = 10) -> int:
         """
@@ -430,6 +457,29 @@ class SocialScrapingService:
         influencer.average_interaction = f"{avg_engagement:.2f}%"
         influencer.average_views = f"{int(round(avg_video_views))}"
         influencer.save(update_fields=['average_interaction', 'average_views', 'updated_at'])
+
+    def _enforce_post_limit(self, influencer: InfluencerProfile, max_posts: int = 50) -> None:
+        """
+        Ensure we only keep up to `max_posts` SocialMediaPost records per influencer profile.
+        Older posts (by posted_at/last_fetched_at) are deleted when the limit is exceeded.
+        """
+        from influencers.models import SocialMediaPost  # local import to avoid circulars in some contexts
+
+        queryset = SocialMediaPost.objects.filter(
+            account__influencer=influencer
+        ).order_by('-posted_at', '-last_fetched_at')
+
+        total = queryset.count()
+        if total <= max_posts:
+            return
+
+        keep_ids = list(queryset.values_list('id', flat=True)[:max_posts])
+        if not keep_ids:
+            return
+
+        SocialMediaPost.objects.filter(
+            account__influencer=influencer
+        ).exclude(id__in=keep_ids).delete()
 
     def _save_posts(self, account: SocialMediaAccount, posts: List[Dict[str, Any]]) -> Optional[datetime]:
         """

@@ -277,6 +277,9 @@ def social_media_account_detail_view(request, account_id):
         }, status=status.HTTP_200_OK)
 
     elif request.method == 'PUT':
+        # Capture original handle to detect username/handle changes
+        original_handle = account.handle
+
         serializer = SocialMediaAccountSerializer(
             account,
             data=request.data,
@@ -284,12 +287,51 @@ def social_media_account_detail_view(request, account_id):
         )
 
         if serializer.is_valid():
-            serializer.save()
+            # Determine if the handle is changing before saving
+            new_handle = serializer.validated_data.get('handle', original_handle)
+            handle_changed = new_handle != original_handle
+
+            account = serializer.save()
+
+            if handle_changed:
+                # If the platform username/handle changes, treat it as a new account:
+                # - wipe all synced metrics and profile metadata
+                # - delete all historical posts
+                # - mark as unverified and clear sync timestamps
+                SocialMediaPost.objects.filter(account=account).delete()
+
+                account.followers_count = 0
+                account.following_count = 0
+                account.posts_count = 0
+                account.engagement_rate = 0
+                account.average_likes = 0
+                account.average_comments = 0
+                account.average_shares = 0
+                account.average_video_views = 0
+                account.average_video_likes = 0
+                account.average_video_comments = 0
+
+                account.follower_growth_rate = None
+                account.subscriber_growth_rate = None
+                account.engagement_snapshot = {}
+
+                # Platform profile metadata
+                account.display_name = ''
+                account.bio = ''
+                account.external_url = ''
+                account.is_private = False
+                account.profile_image_url = ''
+                account.verified = False  # platform verification should be re-evaluated on next sync
+
+                account.last_posted_at = None
+                account.last_synced_at = None
+
+                account.save()
 
             return Response({
                 'status': 'success',
                 'message': 'Social media account updated successfully.',
-                'account': serializer.data
+                'account': SocialMediaAccountSerializer(account).data
             }, status=status.HTTP_200_OK)
 
         error_message = format_serializer_errors(serializer.errors)
@@ -574,13 +616,26 @@ def influencer_search_view(request):
         queryset = queryset.filter(barter_ready=True)
 
     if instagram_verified:
-        queryset = queryset.filter(instagram_verified=True)
+        # At least one active Instagram account that is marked as verified on the platform side (blue tick, etc.)
+        queryset = queryset.filter(
+            social_accounts__platform='instagram',
+            social_accounts__is_active=True,
+            social_accounts__platform_verified=True,
+        ).distinct()
 
     if has_instagram:
-        queryset = queryset.filter(has_instagram=True)
+        # At least one active Instagram account
+        queryset = queryset.filter(
+            social_accounts__platform='instagram',
+            social_accounts__is_active=True,
+        ).distinct()
 
     if has_youtube:
-        queryset = queryset.filter(has_youtube=True)
+        # At least one active YouTube account
+        queryset = queryset.filter(
+            social_accounts__platform='youtube',
+            social_accounts__is_active=True,
+        ).distinct()
 
     # Do not hard-filter by collaboration preferences; use for scoring only
 

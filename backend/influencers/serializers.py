@@ -509,12 +509,30 @@ class SocialMediaAccountSerializer(serializers.ModelSerializer):
     class Meta:
         model = SocialMediaAccount
         fields = (
-            'id', 'platform', 'platform_display', 'handle', 'profile_url',
-            'followers_count', 'following_count', 'posts_count', 'engagement_rate',
-            'average_likes', 'average_comments', 'average_shares', 'verified',
-            'is_active', 'created_at', 'updated_at'
+            'id',
+            'platform',
+            'platform_display',
+            'handle',
+            'profile_url',
+            'display_name',
+            'bio',
+            'external_url',
+            'is_private',
+            'profile_image_url',
+            'followers_count',
+            'following_count',
+            'posts_count',
+            'engagement_rate',
+            'average_likes',
+            'average_comments',
+            'average_shares',
+            'verified',  # TickTime-owned verification (belongs to this user)
+            'platform_verified',  # Verified on platform (blue tick, etc.)
+            'is_active',
+            'created_at',
+            'updated_at',
         )
-        read_only_fields = ('id', 'created_at', 'updated_at')
+        read_only_fields = ('id', 'platform_verified', 'created_at', 'updated_at')
 
     def validate_handle(self, value):
         """Validate social media handle format."""
@@ -735,7 +753,7 @@ class SocialMediaAccountDetailSerializer(serializers.ModelSerializer):
             'followers_count', 'following_count', 'posts_count', 'engagement_rate',
             'average_likes', 'average_comments', 'average_shares',
             'average_video_views', 'average_video_likes', 'average_video_comments',
-            'engagement_snapshot', 'verified', 'is_active',
+            'engagement_snapshot', 'verified', 'platform_verified', 'is_active',
             'last_posted_at', 'last_synced_at', 'follower_growth_rate'
         )
 
@@ -1076,13 +1094,34 @@ class SocialAccountPublicSerializer(serializers.ModelSerializer):
     class Meta:
         model = SocialMediaAccount
         fields = (
-            'id', 'platform', 'handle', 'username', 'profile_url', 'followers_count', 'following_count', 'posts_count',
-            'engagement_rate', 'average_likes', 'average_comments', 'average_shares',
-            'is_active', 'verified',
-            'average_video_views', 'average_video_likes', 'average_video_comments',
-            'engagement_snapshot', 'follower_growth_rate', 'subscriber_growth_rate',
+            'id',
+            'platform',
+            'handle',
+            'username',
+            'profile_url',
+            'display_name',
+            'bio',
+            'external_url',
+            'is_private',
+            'profile_image_url',
+            'followers_count',
+            'following_count',
+            'posts_count',
+            'engagement_rate',
+            'average_likes',
+            'average_comments',
+            'average_shares',
+            'is_active',
+            'verified',
+            'platform_verified',
+            'average_video_views',
+            'average_video_likes',
+            'average_video_comments',
+            'engagement_snapshot',
+            'follower_growth_rate',
+            'subscriber_growth_rate',
             'last_synced_at',
-            'last_posted_at', 'post_performance_score',
+            'last_posted_at',
             'recent_posts',
         )
 
@@ -1100,6 +1139,8 @@ class InfluencerPublicProfileSerializer(serializers.ModelSerializer):
     user_first_name = serializers.CharField(source='user.first_name', read_only=True)
     user_last_name = serializers.CharField(source='user.last_name', read_only=True)
     username = serializers.CharField(source='user.username', read_only=True)
+    display_name = serializers.SerializerMethodField()
+    external_url = serializers.SerializerMethodField()
     profile_image = serializers.SerializerMethodField()
     total_followers = serializers.ReadOnlyField()
     average_engagement_rate = serializers.ReadOnlyField()
@@ -1119,7 +1160,7 @@ class InfluencerPublicProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = InfluencerProfile
         fields = (
-            'id', 'user_first_name', 'user_last_name', 'username', 'bio',
+            'id', 'user_first_name', 'user_last_name', 'username', 'display_name', 'bio',
             'industry', 'categories', 'profile_image', 'is_verified',
             'total_followers', 'average_engagement_rate', 'social_accounts_count',
             'average_interaction', 'average_views', 'average_dislikes',
@@ -1128,7 +1169,8 @@ class InfluencerPublicProfileSerializer(serializers.ModelSerializer):
             'influence_score', 'platform_score', 'brand_safety_score', 'content_quality_score',
             'response_time', 'faster_responses', 'contact_availability',
             'avg_rating', 'collaboration_count', 'total_earnings',
-            'created_at', 'location', 'social_accounts', 'recent_collaborations', 'brand_collaborations',
+            'created_at', 'location', 'external_url', 'social_accounts', 'recent_collaborations',
+            'brand_collaborations',
             'content_keywords', 'hashtags_used', 'performance_metrics',
             'recent_posts', 'engagement_overview',
             # Collaboration details
@@ -1138,6 +1180,38 @@ class InfluencerPublicProfileSerializer(serializers.ModelSerializer):
     def get_social_accounts_count(self, obj):
         """Get count of active social media accounts."""
         return obj.social_accounts.filter(is_active=True).count()
+
+    def _get_primary_social_account(self, obj):
+        """
+        Helper to pick a primary social account for surface-level fields.
+        Prefers instagram, then any active account, then any account.
+        """
+        accounts = list(obj.social_accounts.all())
+        if not accounts:
+            return None
+
+        # Prefer active accounts
+        active_accounts = [a for a in accounts if a.is_active]
+        candidates = active_accounts or accounts
+
+        for account in candidates:
+            if account.platform == 'instagram':
+                return account
+
+        return candidates[0]
+
+    def get_display_name(self, obj):
+        account = self._get_primary_social_account(obj)
+        if account and getattr(account, 'display_name', ''):
+            return account.display_name
+        # Fallback to full name or username
+        return f"{obj.user.first_name} {obj.user.last_name}".strip() or obj.username
+
+    def get_external_url(self, obj):
+        account = self._get_primary_social_account(obj)
+        if account and getattr(account, 'external_url', ''):
+            return account.external_url
+        return ''
 
     def get_profile_image(self, obj):
         """Get profile image from user profile."""

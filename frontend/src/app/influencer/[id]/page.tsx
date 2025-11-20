@@ -12,18 +12,16 @@ import {CampaignSelectionDialog} from "@/components/campaigns/campaign-selection
 import {
     HiArrowLeft,
     HiArrowPath,
-    HiArrowTrendingDown,
     HiArrowTrendingUp,
     HiChatBubbleLeft,
     HiCheckCircle,
     HiExclamationTriangle,
     HiEye,
     HiHeart,
+    HiLink,
     HiMapPin,
-    HiMinus,
     HiPlay,
     HiPresentationChartBar,
-    HiShare,
     HiSparkles,
     HiStar,
     HiUsers
@@ -173,6 +171,11 @@ interface SocialAccount {
     handle: string;
     username: string; // This is now mapped from 'handle' in the serializer
     profile_url?: string;
+    display_name?: string;
+    bio?: string;
+    external_url?: string;
+    is_private?: boolean;
+    profile_image_url?: string;
     platform_handle?: string;
     platform_profile_link?: string;
     followers_count: number;
@@ -186,12 +189,12 @@ interface SocialAccount {
     average_video_likes?: number;
     average_video_comments?: number;
     is_active: boolean;
-    verified: boolean;
+    verified: boolean;            // TickTime-owned verification (belongs to this user)
+    platform_verified?: boolean;  // Verified on platform (blue tick etc.)
     follower_growth_rate?: number;
     subscriber_growth_rate?: number;
     last_posted_at?: string;
     last_synced_at?: string;
-    post_performance_score?: number;
     engagement_snapshot?: EngagementSnapshot;
     recent_posts?: SocialMediaPost[];
 }
@@ -341,7 +344,7 @@ export default function InfluencerProfilePage() {
     const formatScore = (value?: number | null, decimals = 1, fallback = 'N/A') =>
         isValidNumber(value) ? value.toFixed(decimals) : fallback;
 
-    const safeArray = <T,>(value?: T[] | null): T[] => (Array.isArray(value) ? value : []);
+    const safeArray = <T, >(value?: T[] | null): T[] => (Array.isArray(value) ? value : []);
 
     const parseNumericValue = (value?: string | number | null): number | null => {
         if (value === undefined || value === null) return null;
@@ -501,7 +504,7 @@ export default function InfluencerProfilePage() {
         return aliasMap[normalized] ?? label.replace(/\s+/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase());
     };
 
-    const RecentPostTile = ({post}: {post: SocialMediaPost}) => {
+    const RecentPostTile = ({post}: { post: SocialMediaPost }) => {
         const initialThumbnail = getPrimaryThumbnail(post);
         const [thumbnail, setThumbnail] = useState<string | null>(initialThumbnail || null);
 
@@ -545,7 +548,7 @@ export default function InfluencerProfilePage() {
                 tabIndex={post.post_url ? 0 : -1}
                 onClick={post.post_url ? handleOpenPost : undefined}
                 onKeyDown={post.post_url ? handleOpenPost : undefined}
-                    className={`relative group aspect-square rounded-2xl overflow-hidden border border-gray-200 bg-gray-900/5 shadow-sm transition-shadow hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-primary ${
+                className={`relative group aspect-square rounded-2xl overflow-hidden border border-gray-200 bg-gray-900/5 shadow-sm transition-shadow hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-primary ${
                     post.post_url ? 'cursor-pointer' : 'cursor-default'
                 }`}
             >
@@ -573,9 +576,10 @@ export default function InfluencerProfilePage() {
                 )}
 
                 {!hasMedia && (
-                    <div className={`absolute inset-0 ${platformIcon.bgColor} flex flex-col items-center justify-center text-white px-4 text-center space-y-2 z-10`}>
+                    <div
+                        className={`absolute inset-0 ${platformIcon.bgColor} flex flex-col items-center justify-center text-white px-4 text-center space-y-2 z-10`}>
                         <div className="bg-white/15 rounded-full p-2">
-                            <IconComponent className="w-6 h-6" />
+                            <IconComponent className="w-6 h-6"/>
                         </div>
                         <span className="text-[10px] uppercase tracking-wide text-white/80">
                             {post.platform}
@@ -591,7 +595,7 @@ export default function InfluencerProfilePage() {
                 >
                     <div className="flex items-center justify-between">
                         <span className="uppercase tracking-wide text-[10px] text-white/70 flex items-center gap-1">
-                            <IconComponent className={`w-3 h-3 ${platformIcon.color}`} />
+                            <IconComponent className={`w-3 h-3 ${platformIcon.color}`}/>
                             {post.platform}
                         </span>
                         <span>{timestamp}</span>
@@ -660,7 +664,7 @@ export default function InfluencerProfilePage() {
             pinterest: {icon: FaPinterest, color: 'text-red-500', bgColor: 'bg-red-500'}
         };
         return icons[platform] || {
-            icon: ({ className = '' }: { className?: string }) => (
+            icon: ({className = ''}: { className?: string }) => (
                 <span className={`text-gray-600 text-sm ${className}`.trim()}>🌐</span>
             ),
             color: 'text-gray-600',
@@ -793,7 +797,10 @@ export default function InfluencerProfilePage() {
 
     const recentPosts = safeArray(profile.recent_posts);
     const fallbackProfileImage = recentPosts.length ? getPrimaryThumbnail(recentPosts[0]) : undefined;
-    const profileImageSrc = profile.profile_image || fallbackProfileImage || undefined;
+    const platformProfileImageUrl =
+        safeArray(profile.social_accounts).find((account) => account.profile_image_url)?.profile_image_url;
+    const profileImageSrc =
+        platformProfileImageUrl || profile.profile_image || fallbackProfileImage || undefined;
     const displayName = (profile.display_name || `${profile.user_first_name} ${profile.user_last_name}`.trim()) || profile.username;
 
     const heroPrimaryStats: Array<{ label: string; value: string }> = [
@@ -806,8 +813,14 @@ export default function InfluencerProfilePage() {
         profile.average_interaction ? {label: 'Avg Interaction', value: profile.average_interaction} : null,
         {label: 'Avg Views', value: tryFormatFollowers(profile.average_views)},
         {label: 'Avg Dislikes', value: tryFormatFollowers(profile.average_dislikes)},
-        isValidNumber(profile.influence_score) ? {label: 'Influence Score', value: formatScore(profile.influence_score)} : null,
-        isValidNumber(profile.brand_safety_score) ? {label: 'Brand Safety', value: formatScore(profile.brand_safety_score)} : null,
+        isValidNumber(profile.influence_score) ? {
+            label: 'Influence Score',
+            value: formatScore(profile.influence_score)
+        } : null,
+        isValidNumber(profile.brand_safety_score) ? {
+            label: 'Brand Safety',
+            value: formatScore(profile.brand_safety_score)
+        } : null,
         profile.collaboration_count ? {label: 'Collaborations', value: `${profile.collaboration_count}`} : null,
     ].filter((stat): stat is { label: string; value: string } => Boolean(stat?.value));
 
@@ -815,14 +828,27 @@ export default function InfluencerProfilePage() {
 
     const statusBadges: Array<{ label: string; value: string }> = [
         profile.response_time ? {label: 'Response Time', value: profile.response_time.replace(/_/g, ' ')} : null,
-        profile.contact_availability ? {label: 'Availability', value: profile.contact_availability.replace(/_/g, ' ')} : null,
+        profile.contact_availability ? {
+            label: 'Availability',
+            value: profile.contact_availability.replace(/_/g, ' ')
+        } : null,
         profile.faster_responses ? {label: 'Priority Responses', value: 'Enabled'} : null,
     ].filter((badge): badge is { label: string; value: string } => Boolean(badge?.value));
 
     const kpiTiles: Array<{ label: string; value: string; icon: any; color: string }> = [
-        { label: 'Followers', value: formatFollowers(profile.total_followers), icon: HiUsers, color: 'text-blue-600' },
-        { label: 'ER', value: formatPercentage(profile.average_engagement_rate), icon: HiArrowTrendingUp, color: 'text-emerald-600' },
-        { label: 'Platforms', value: String(profile.social_accounts_count ?? 0), icon: HiPresentationChartBar, color: 'text-violet-600' },
+        {label: 'Followers', value: formatFollowers(profile.total_followers), icon: HiUsers, color: 'text-blue-600'},
+        {
+            label: 'ER',
+            value: formatPercentage(profile.average_engagement_rate),
+            icon: HiArrowTrendingUp,
+            color: 'text-emerald-600'
+        },
+        {
+            label: 'Platforms',
+            value: String(profile.social_accounts_count ?? 0),
+            icon: HiPresentationChartBar,
+            color: 'text-violet-600'
+        },
     ].filter((tile) => tile.value && tile.value !== '0' && tile.value !== '0%');
 
     const influenceScoreValue = getNumericValue(profile.influence_score);
@@ -863,7 +889,7 @@ export default function InfluencerProfilePage() {
 
         safeArray(profile.social_accounts).forEach((account) => {
             const key = String(account.platform).toLowerCase();
-            const existing = platformMap.get(key) ?? { platform: key };
+            const existing = platformMap.get(key) ?? {platform: key};
             platformMap.set(key, {
                 platform: key,
                 followers: account.followers_count ?? existing.followers,
@@ -906,7 +932,7 @@ export default function InfluencerProfilePage() {
         return Array.from(counts.entries())
             .sort((a, b) => b[1] - a[1])
             .slice(0, 20)
-            .map(([tag, count]) => ({ tag, count }));
+            .map(([tag, count]) => ({tag, count}));
     };
 
     return (
@@ -915,16 +941,18 @@ export default function InfluencerProfilePage() {
                 {/* Header */}
                 <div className="mb-6">
                     <div className="flex items-center justify-between">
-                        <h1 className="text-2xl font-semibold text-gray-900">
-                            {displayName}
-                        </h1>
                         <div className="flex items-center gap-3">
+                            <h1 className="text-2xl font-semibold text-gray-900">
+                                {displayName}
+                            </h1>
                             {profile.is_verified && (
                                 <Badge variant="outline" className="border-green-200 text-green-700 bg-green-50">
                                     <HiCheckCircle className="w-3 h-3 mr-1"/>
-                                    Verified
+                                    Verified by TickTime
                                 </Badge>
                             )}
+                        </div>
+                        <div className="flex items-center gap-3">
                             <Button
                                 variant="outline"
                                 size="sm"
@@ -953,18 +981,20 @@ export default function InfluencerProfilePage() {
                                         <div className="text-[11px] uppercase tracking-wide text-gray-500">
                                             {tile.label}
                                         </div>
-                                        <Icon className={`h-4 w-4 ${tile.color}`} />
+                                        <Icon className={`h-4 w-4 ${tile.color}`}/>
                                     </div>
                                     <div className="mt-1 text-lg font-semibold text-gray-900">{tile.value}</div>
 
                                     {tile.label === 'Followers' && platformSummary.length > 0 && (
                                         <div className="mt-2 flex flex-wrap gap-2">
-                                            {platformSummary.map(({ platform, followers }) => {
-                                                const { icon: PIcon, color } = getPlatformIcon(platform);
+                                            {platformSummary.map(({platform, followers}) => {
+                                                const {icon: PIcon, color} = getPlatformIcon(platform);
                                                 return (
-                                                    <div key={`followers-${platform}`} className="flex items-center gap-1.5 text-xs text-gray-700">
-                                                        <PIcon className={`h-3.5 w-3.5 ${color}`} />
-                                                        <span className="font-medium">{getPlatformAbbrev(platform)}</span>
+                                                    <div key={`followers-${platform}`}
+                                                         className="flex items-center gap-1.5 text-xs text-gray-700">
+                                                        <PIcon className={`h-3.5 w-3.5 ${color}`}/>
+                                                        <span
+                                                            className="font-medium">{getPlatformAbbrev(platform)}</span>
                                                         <span className="text-gray-500">
                                                             {formatFollowers(followers)} {getFollowersLabelForPlatform(platform)}
                                                         </span>
@@ -976,13 +1006,15 @@ export default function InfluencerProfilePage() {
 
                                     {tile.label === 'ER' && platformSummary.length > 0 && (
                                         <div className="mt-2 flex flex-wrap gap-2">
-                                            {platformSummary.map(({ platform, er }) => {
-                                                const { icon: PIcon, color } = getPlatformIcon(platform);
+                                            {platformSummary.map(({platform, er}) => {
+                                                const {icon: PIcon, color} = getPlatformIcon(platform);
                                                 const erDisplay = isValidNumber(er) ? formatPercentage(er) : '—';
                                                 return (
-                                                    <div key={`er-${platform}`} className="flex items-center gap-1.5 text-xs text-gray-700">
-                                                        <PIcon className={`h-3.5 w-3.5 ${color}`} />
-                                                        <span className="font-medium">{getPlatformAbbrev(platform)}</span>
+                                                    <div key={`er-${platform}`}
+                                                         className="flex items-center gap-1.5 text-xs text-gray-700">
+                                                        <PIcon className={`h-3.5 w-3.5 ${color}`}/>
+                                                        <span
+                                                            className="font-medium">{getPlatformAbbrev(platform)}</span>
                                                         <span className="text-gray-500">{erDisplay}</span>
                                                     </div>
                                                 );
@@ -992,15 +1024,15 @@ export default function InfluencerProfilePage() {
 
                                     {tile.label === 'Platforms' && platformSummary.length > 0 && (
                                         <div className="mt-2 flex flex-wrap gap-2">
-                                            {platformSummary.map(({ platform }) => {
-                                                const { icon: PIcon, bgColor } = getPlatformIcon(platform);
+                                            {platformSummary.map(({platform}) => {
+                                                const {icon: PIcon, bgColor} = getPlatformIcon(platform);
                                                 return (
                                                     <div
                                                         key={`platform-${platform}`}
                                                         className={`h-8 w-8 rounded-full flex items-center justify-center text-white ${bgColor}`}
                                                         title={platform}
                                                     >
-                                                        <PIcon className="h-4 w-4" />
+                                                        <PIcon className="h-4 w-4"/>
                                                     </div>
                                                 );
                                             })}
@@ -1020,15 +1052,29 @@ export default function InfluencerProfilePage() {
                             <CardContent className="space-y-6 p-6">
                                 <div className="flex flex-col gap-6 lg:flex-row">
                                     <div className="flex flex-col items-center gap-4">
-                                        <div className="relative h-24 w-24 overflow-hidden rounded-full border border-gray-200 bg-gray-100">
+                                        <div
+                                            className="relative h-24 w-24 overflow-hidden rounded-full border border-gray-200 bg-gray-100">
                                             {profileImageSrc ? (
                                                 <img
                                                     src={profileImageSrc}
                                                     alt={displayName}
                                                     className="h-full w-full object-cover"
+                                                    onError={(event) => {
+                                                        // Fallback to local profile image then first post thumbnail
+                                                        if (profile.profile_image && event.currentTarget.src !== profile.profile_image) {
+                                                            event.currentTarget.src = profile.profile_image;
+                                                            return;
+                                                        }
+                                                        if (fallbackProfileImage && event.currentTarget.src !== fallbackProfileImage) {
+                                                            event.currentTarget.src = fallbackProfileImage;
+                                                            return;
+                                                        }
+                                                        event.currentTarget.style.display = "none";
+                                                    }}
                                                 />
                                             ) : (
-                                                <div className="flex h-full w-full items-center justify-center text-xl font-semibold text-gray-500">
+                                                <div
+                                                    className="flex h-full w-full items-center justify-center text-xl font-semibold text-gray-500">
                                                     {(displayName || profile.username).charAt(0)}
                                                 </div>
                                             )}
@@ -1045,7 +1091,8 @@ export default function InfluencerProfilePage() {
                                         {safeArray(profile.available_platforms).length > 0 && (
                                             <div className="flex flex-wrap justify-center gap-2 text-xs text-gray-500">
                                                 {safeArray(profile.available_platforms).map((platform) => (
-                                                    <Badge key={platform} variant="outline" className="text-[10px] uppercase tracking-wide">
+                                                    <Badge key={platform} variant="outline"
+                                                           className="text-[10px] uppercase tracking-wide">
                                                         {platform}
                                                     </Badge>
                                                 ))}
@@ -1054,27 +1101,24 @@ export default function InfluencerProfilePage() {
                                     </div>
 
                                     <div className="flex-1 space-y-6">
-                                        <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+                                        <div
+                                            className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
                                             <div className="space-y-3">
-                                                <div className="flex items-center gap-2">
-                                                    <h2 className="text-2xl font-semibold text-gray-900">
-                                                        {displayName}
-                                                    </h2>
-                                                    {profile.is_verified && (
-                                                        <HiCheckCircle className="h-5 w-5 text-green-500" />
-                                                    )}
-                                                </div>
+                                                <h2 className="text-2xl font-semibold text-gray-900">
+                                                    {displayName}
+                                                </h2>
 
-                                                <div className="flex flex-wrap items-center gap-3 text-sm text-gray-500">
+                                                <div
+                                                    className="flex flex-wrap items-center gap-3 text-sm text-gray-500">
                                                     <span>@{profile.username}</span>
                                                     {profile.location && (
                                                         <span className="inline-flex items-center gap-1">
-                                                            <HiMapPin className="h-4 w-4" />
+                                                            <HiMapPin className="h-4 w-4"/>
                                                             {profile.location}
                                                         </span>
                                                     )}
                                                     <span className="inline-flex items-center gap-1">
-                                                        <HiSparkles className="h-4 w-4 text-yellow-500" />
+                                                        <HiSparkles className="h-4 w-4 text-yellow-500"/>
                                                         {profile.industry}
                                                     </span>
                                                 </div>
@@ -1082,7 +1126,8 @@ export default function InfluencerProfilePage() {
                                                 {safeArray(profile.categories).length > 0 && (
                                                     <div className="flex flex-wrap gap-2">
                                                         {safeArray(profile.categories).slice(0, 4).map((category) => (
-                                                            <Badge key={category} variant="secondary" className="text-xs">
+                                                            <Badge key={category} variant="secondary"
+                                                                   className="text-xs">
                                                                 {category}
                                                             </Badge>
                                                         ))}
@@ -1097,13 +1142,15 @@ export default function InfluencerProfilePage() {
                                             </div>
 
                                             {statusBadges.length > 0 && (
-                                                <div className="flex flex-col gap-2 text-xs uppercase tracking-wide text-gray-500">
+                                                <div
+                                                    className="flex flex-col gap-2 text-xs uppercase tracking-wide text-gray-500">
                                                     {statusBadges.map((badge) => (
                                                         <div
                                                             key={badge.label}
                                                             className="rounded-full border border-gray-200 bg-gray-50 px-3 py-1 text-gray-700"
                                                         >
-                                                            <span className="font-semibold">{badge.label}:</span> {badge.value}
+                                                            <span
+                                                                className="font-semibold">{badge.label}:</span> {badge.value}
                                                         </div>
                                                     ))}
                                                 </div>
@@ -1206,12 +1253,12 @@ export default function InfluencerProfilePage() {
                                         );
 
                                         const metricChips = [
-                                            { label: 'Avg Likes', value: account.average_likes },
-                                            { label: 'Avg Comments', value: account.average_comments },
-                                            { label: 'Avg Shares', value: account.average_shares },
-                                            { label: 'Avg Video Views', value: account.average_video_views },
-                                            { label: 'Avg Video Likes', value: account.average_video_likes },
-                                            { label: 'Avg Video Comments', value: account.average_video_comments },
+                                            {label: 'Avg Likes', value: account.average_likes},
+                                            {label: 'Avg Comments', value: account.average_comments},
+                                            {label: 'Avg Shares', value: account.average_shares},
+                                            {label: 'Avg Video Views', value: account.average_video_views},
+                                            {label: 'Avg Video Likes', value: account.average_video_likes},
+                                            {label: 'Avg Video Comments', value: account.average_video_comments},
                                         ].filter((metric) => isValidNumber(metric.value) && metric.value > 0);
 
                                         return (
@@ -1234,28 +1281,48 @@ export default function InfluencerProfilePage() {
                                                         <div
                                                             className={`flex h-11 w-11 items-center justify-center rounded-full text-white ${platformIcon.bgColor}`}
                                                         >
-                                                            <IconComponent className="h-5 w-5" />
+                                                            <IconComponent className="h-5 w-5"/>
                                                         </div>
-                                                        <div>
+                                                        <div className="space-y-1">
                                                             <div className="flex items-center gap-2">
                                                                 <h3 className="text-lg font-semibold text-gray-900 capitalize">
                                                                     {account.platform}
                                                                 </h3>
-                                                                {account.verified && (
-                                                                    <HiCheckCircle className="h-4 w-4 text-green-500" />
+                                                                {account.platform_verified && (
+                                                                    <HiCheckCircle className="h-4 w-4 text-blue-500"/>
                                                                 )}
                                                             </div>
                                                             <p className="text-sm text-gray-500">
                                                                 @{account.handle ?? 'unknown'}
                                                             </p>
+                                                            {account.display_name && account.display_name !== account.handle && (
+                                                                <p className="text-xs text-gray-400">
+                                                                    {account.display_name}
+                                                                </p>
+                                                            )}
+                                                            {account.bio && (
+                                                                <p className="mt-1 text-xs text-gray-600 line-clamp-2">
+                                                                    {truncate(account.bio, 140)}
+                                                                </p>
+                                                            )}
                                                         </div>
                                                     </div>
-                                                    <Badge
-                                                        variant={account.is_active ? "default" : "secondary"}
-                                                        className={account.is_active ? "bg-green-100 text-green-700 border-green-200" : "bg-gray-100 text-gray-600 border-gray-200"}
-                                                    >
-                                                        {account.is_active ? "Active" : "Inactive"}
-                                                    </Badge>
+                                                    <div className="flex flex-col items-end gap-1">
+                                                        <Badge
+                                                            variant={account.is_active ? "default" : "secondary"}
+                                                            className={account.is_active ? "bg-green-100 text-green-700 border-green-200" : "bg-gray-100 text-gray-600 border-gray-200"}
+                                                        >
+                                                            {account.is_active ? "Active" : "Inactive"}
+                                                        </Badge>
+                                                        {account.is_private && (
+                                                            <Badge
+                                                                variant="outline"
+                                                                className="bg-amber-50 text-amber-700 border-amber-200 text-xs"
+                                                            >
+                                                                Private
+                                                            </Badge>
+                                                        )}
+                                                    </div>
                                                 </div>
 
                                                 <div className="mt-3 grid grid-cols-3 gap-3 text-center">
@@ -1264,7 +1331,8 @@ export default function InfluencerProfilePage() {
                                                             <div className="text-base font-semibold text-gray-900">
                                                                 {stat.formatter(stat.value as number)}
                                                             </div>
-                                                            <div className="text-xs uppercase tracking-wide text-gray-500">
+                                                            <div
+                                                                className="text-xs uppercase tracking-wide text-gray-500">
                                                                 {stat.label}
                                                             </div>
                                                         </div>
@@ -1277,7 +1345,8 @@ export default function InfluencerProfilePage() {
                                                             key={`${account.id}_${metric.label}`}
                                                             className="rounded-md border border-gray-100 bg-gray-50 px-2.5 py-1"
                                                         >
-                                                            <span className="text-[10px] uppercase tracking-wide text-gray-500 mr-1">
+                                                            <span
+                                                                className="text-[10px] uppercase tracking-wide text-gray-500 mr-1">
                                                                 {metric.label}
                                                             </span>
                                                             <span className="font-semibold text-gray-900">
@@ -1287,7 +1356,23 @@ export default function InfluencerProfilePage() {
                                                     ))}
                                                 </div>
 
-                                                {/* Clickable card removes dedicated button */}
+                                                <div
+                                                    className="mt-3 flex flex-wrap items-center gap-2 text-xs text-gray-600">
+                                                    {account.external_url && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={(event) => {
+                                                                event.stopPropagation();
+                                                                window.open(account.external_url as string, "_blank", "noopener,noreferrer");
+                                                            }}
+                                                            className="inline-flex items-center gap-1 rounded-full border border-gray-200 bg-white px-3 py-1 hover:bg-gray-50"
+                                                        >
+                                                            <HiLink className="h-3.5 w-3.5"/>
+                                                            <span>External Link</span>
+                                                        </button>
+                                                    )}
+                                                </div>
+
                                             </div>
                                         );
                                     })}
@@ -1302,44 +1387,44 @@ export default function InfluencerProfilePage() {
                                 recentHashtags.length > 0 ? recentHashtags : safeArray(profile.hashtags_used);
                             return hashtags.length > 0;
                         })() && (
-                        <Card className="border border-gray-200">
-                            <CardHeader className="pb-4">
-                                <CardTitle className="text-lg font-semibold text-gray-900">
-                                    Hashtag Highlights
-                                </CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                                {(() => {
-                                    const recent = getRecentHashtagsFromPosts(safeArray(profile.recent_posts));
-                                    const hashtags = (recent.length > 0 ? recent : safeArray(profile.hashtags_used)).sort(
-                                        (a, b) => (b.count || 0) - (a.count || 0)
-                                    );
-                                    if (hashtags.length === 0) {
-                                        return <p className="text-xs text-gray-500">No hashtags available</p>;
-                                    }
+                            <Card className="border border-gray-200">
+                                <CardHeader className="pb-4">
+                                    <CardTitle className="text-lg font-semibold text-gray-900">
+                                        Hashtag Highlights
+                                    </CardTitle>
+                                </CardHeader>
+                                <CardContent>
+                                    {(() => {
+                                        const recent = getRecentHashtagsFromPosts(safeArray(profile.recent_posts));
+                                        const hashtags = (recent.length > 0 ? recent : safeArray(profile.hashtags_used)).sort(
+                                            (a, b) => (b.count || 0) - (a.count || 0)
+                                        );
+                                        if (hashtags.length === 0) {
+                                            return <p className="text-xs text-gray-500">No hashtags available</p>;
+                                        }
 
-                                    return (
-                                        <div className="flex flex-wrap gap-2">
-                                            {hashtags.slice(0, 16).map((hashtag, index) => (
-                                                <div
-                                                    key={index}
-                                                    className="flex items-center gap-2 rounded-full border border-gray-200 bg-gray-50 px-3 py-1 text-xs text-gray-700"
-                                                >
+                                        return (
+                                            <div className="flex flex-wrap gap-2">
+                                                {hashtags.slice(0, 16).map((hashtag, index) => (
+                                                    <div
+                                                        key={index}
+                                                        className="flex items-center gap-2 rounded-full border border-gray-200 bg-gray-50 px-3 py-1 text-xs text-gray-700"
+                                                    >
                                                     <span className="font-semibold text-gray-900">
                                                         #{hashtag.tag.replace(/^#/, '')}
                                                     </span>
-                                                    {hashtag.count !== undefined && hashtag.count !== null && (
-                                                        <span className="text-[11px] text-gray-500">
+                                                        {hashtag.count !== undefined && hashtag.count !== null && (
+                                                            <span className="text-[11px] text-gray-500">
                                                             ({hashtag.count})
                                                         </span>
-                                                    )}
-                                                </div>
-                                            ))}
-                                        </div>
-                                    );
-                                })()}
-                            </CardContent>
-                        </Card>
+                                                        )}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        );
+                                    })()}
+                                </CardContent>
+                            </Card>
                         )}
 
                         {/* Recent Posts */}
@@ -1355,7 +1440,7 @@ export default function InfluencerProfilePage() {
                                     <div className="space-y-3">
                                         {safeArray(profile.recent_posts).map((post) => {
                                             const thumb = getPrimaryThumbnail(post);
-                                            const { icon: PIcon, color, bgColor } = getPlatformIcon(post.platform);
+                                            const {icon: PIcon, color, bgColor} = getPlatformIcon(post.platform);
                                             const openPost = () => {
                                                 if (post.post_url) {
                                                     window.open(post.post_url, '_blank', 'noopener,noreferrer');
@@ -1389,13 +1474,15 @@ export default function InfluencerProfilePage() {
                                                                 className="h-full w-full object-cover"
                                                             />
                                                         ) : (
-                                                            <PIcon className="h-7 w-7" />
+                                                            <PIcon className="h-7 w-7"/>
                                                         )}
                                                     </div>
                                                     <div className="flex-1 min-w-0 space-y-1.5">
-                                                        <div className="flex flex-wrap items-center gap-2 text-xs text-gray-500">
-                                                            <span className={`flex items-center gap-1 font-medium text-gray-900 ${color}`}>
-                                                                <PIcon className="h-3.5 w-3.5" />
+                                                        <div
+                                                            className="flex flex-wrap items-center gap-2 text-xs text-gray-500">
+                                                            <span
+                                                                className={`flex items-center gap-1 font-medium text-gray-900 ${color}`}>
+                                                                <PIcon className="h-3.5 w-3.5"/>
                                                                 {post.platform}
                                                             </span>
                                                             <span>•</span>
@@ -1408,20 +1495,41 @@ export default function InfluencerProfilePage() {
                                                         </div>
                                                         <div className="flex flex-wrap gap-3 text-xs text-gray-600">
                                                             <span className="inline-flex items-center gap-1">
-                                                                <HiHeart className="h-3.5 w-3.5 text-rose-500" />
+                                                                <HiHeart className="h-3.5 w-3.5 text-rose-500"/>
                                                                 {formatFollowers(post.likes_count || 0)}
                                                             </span>
                                                             <span className="inline-flex items-center gap-1">
-                                                                <HiChatBubbleLeft className="h-3.5 w-3.5 text-sky-500" />
+                                                                <HiChatBubbleLeft className="h-3.5 w-3.5 text-sky-500"/>
                                                                 {formatFollowers(post.comments_count || 0)}
                                                             </span>
                                                             {post.views_count !== undefined && post.views_count !== null && (
                                                                 <span className="inline-flex items-center gap-1">
-                                                                    <HiEye className="h-3.5 w-3.5 text-amber-500" />
+                                                                    <HiEye className="h-3.5 w-3.5 text-amber-500"/>
                                                                     {formatFollowers(post.views_count)}
                                                                 </span>
                                                             )}
                                                         </div>
+                                                        {(safeArray(post.hashtags).length > 0 || safeArray(post.mentions).length > 0) && (
+                                                            <div
+                                                                className="mt-1 flex flex-wrap gap-2 text-[11px] text-gray-500">
+                                                                {safeArray(post.hashtags).slice(0, 4).map((tag) => (
+                                                                    <span
+                                                                        key={`${post.platform_post_id}_tag_${tag}`}
+                                                                        className="rounded-full bg-gray-50 px-2 py-0.5 border border-gray-200"
+                                                                    >
+                                                                        #{String(tag).replace(/^#/, "")}
+                                                                    </span>
+                                                                ))}
+                                                                {safeArray(post.mentions).slice(0, 4).map((mention) => (
+                                                                    <span
+                                                                        key={`${post.platform_post_id}_mention_${mention}`}
+                                                                        className="rounded-full bg-blue-50 px-2 py-0.5 border border-blue-100 text-blue-700"
+                                                                    >
+                                                                        @{String(mention).replace(/^@/, "")}
+                                                                    </span>
+                                                                ))}
+                                                            </div>
+                                                        )}
                                                     </div>
                                                 </div>
                                             );
@@ -1484,9 +1592,9 @@ export default function InfluencerProfilePage() {
 
                                         <div className="grid grid-cols-3 gap-3 text-xs text-gray-600">
                                             {[
-                                                { label: 'Likes', value: profile.engagement_overview.avg_likes },
-                                                { label: 'Comments', value: profile.engagement_overview.avg_comments },
-                                                { label: 'Views', value: profile.engagement_overview.avg_views },
+                                                {label: 'Likes', value: profile.engagement_overview.avg_likes},
+                                                {label: 'Comments', value: profile.engagement_overview.avg_comments},
+                                                {label: 'Views', value: profile.engagement_overview.avg_views},
                                             ]
                                                 .filter(
                                                     (metric) =>
@@ -1606,7 +1714,7 @@ export default function InfluencerProfilePage() {
                                             <span className="text-gray-500">Avg Rating:</span>
                                             <span className="font-medium text-gray-900 inline-flex items-center gap-1">
                                                 {formatDecimal(averageRatingValue, 1)}
-                                                <HiStar className="h-4 w-4 text-yellow-500" />
+                                                <HiStar className="h-4 w-4 text-yellow-500"/>
                                             </span>
                                         </div>
                                     )}
