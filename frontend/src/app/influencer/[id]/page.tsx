@@ -1,6 +1,6 @@
 "use client";
 
-import {useEffect, useState} from "react";
+import {useCallback, useEffect, useState} from "react";
 import {useParams, useRouter} from "next/navigation";
 import {Card, CardContent, CardHeader, CardTitle} from "@/components/ui/card";
 import {Button} from "@/components/ui/button";
@@ -222,13 +222,14 @@ export default function InfluencerProfilePage() {
     const [isBookmarked, setIsBookmarked] = useState(false);
     const [isBookmarking, setIsBookmarking] = useState(false);
     const [isRefreshing, setIsRefreshing] = useState(false);
+    // Store fetched media URLs for posts (key: post_id, value: media_urls array)
+    const [postMediaUrls, setPostMediaUrls] = useState<Record<string, string[]>>({});
 
     const fetchProfile = async () => {
         setIsLoading(true);
         setError(null);
         try {
             const response = await api.get(`/influencers/${influencerId}/public/`);
-            console.log('Influencer profile data:', response.data.influencer);
             setProfile(response.data.influencer);
         } catch (error: any) {
             console.error('Failed to fetch influencer profile:', error);
@@ -290,12 +291,139 @@ export default function InfluencerProfilePage() {
     };
 
 
+    // Fetch media URLs from scraper API for all posts
+    const fetchPostMedia = useCallback(async () => {
+        if (!profile || !profile.recent_posts || profile.recent_posts.length === 0) {
+            return;
+        }
+
+        const recentPosts = safeArray(profile.recent_posts);
+        const socialAccounts = safeArray(profile.social_accounts);
+
+        // Group posts by platform and handle
+        const postsByPlatform: Record<string, { handle: string; platform: string; posts: SocialMediaPost[] }> = {};
+
+        recentPosts.forEach((post) => {
+            // Infer platform from post URL if platform field is empty
+            let postPlatform = post.platform?.toLowerCase() || '';
+            if (!postPlatform && post.post_url) {
+                const url = post.post_url.toLowerCase();
+                if (url.includes('instagram.com')) {
+                    postPlatform = 'instagram';
+                } else if (url.includes('youtube.com') || url.includes('youtu.be')) {
+                    postPlatform = 'youtube';
+                } else if (url.includes('tiktok.com')) {
+                    postPlatform = 'tiktok';
+                } else if (url.includes('twitter.com') || url.includes('x.com')) {
+                    postPlatform = 'twitter';
+                } else if (url.includes('facebook.com')) {
+                    postPlatform = 'facebook';
+                } else if (url.includes('linkedin.com')) {
+                    postPlatform = 'linkedin';
+                }
+            }
+
+            // Find the account handle for this platform
+            const account = socialAccounts.find(
+                acc => acc.platform.toLowerCase() === postPlatform
+            );
+
+            if (!account || !account.handle) {
+                return;
+            }
+
+            const key = `${postPlatform}_${account.handle}`;
+            if (!postsByPlatform[key]) {
+                postsByPlatform[key] = {handle: account.handle, platform: postPlatform, posts: []};
+            }
+            postsByPlatform[key].posts.push(post);
+        });
+
+        // Fetch media for each platform/handle combination
+        const mediaMap: Record<string, string[]> = {};
+
+        if (Object.keys(postsByPlatform).length === 0) {
+            return;
+        }
+
+        await Promise.all(
+            Object.entries(postsByPlatform).map(async ([key, {handle, platform, posts}]) => {
+                try {
+                    // Remove @ from handle if present
+                    const username = handle.replace(/^@/, '');
+                    const scraperApiUrl = `https://scraper.ticktime.media/api/users/${encodeURIComponent(username)}/analytics?platform=${platform}`;
+
+                    const response = await fetch(scraperApiUrl);
+
+                    if (!response.ok) {
+                        return;
+                    }
+
+                    const data = await response.json();
+
+                    if (data.ok && data.data && data.data.posts) {
+                        // Create a map of API post IDs to first media URL (use first URL from array)
+                        const apiPostMap: Record<string, string> = {};
+                        data.data.posts.forEach((apiPost: any) => {
+                            const postId = String(apiPost.post_id || apiPost.id || '');
+
+                            if (apiPost.media_urls && Array.isArray(apiPost.media_urls) && apiPost.media_urls.length > 0) {
+                                // Store only the first media URL
+                                apiPostMap[postId] = apiPost.media_urls[0];
+                            }
+                        });
+
+                        // Match our posts with API posts
+                        posts.forEach((post) => {
+                            const postIdStr = String(post.platform_post_id || '');
+
+                            // Try exact match first
+                            if (apiPostMap[postIdStr]) {
+                                mediaMap[postIdStr] = [apiPostMap[postIdStr]]; // Store as array for compatibility
+                                return;
+                            }
+
+                            // Try matching by base ID (API sometimes returns post_id with underscore suffix like "123456789_987654321")
+                            // Extract the base ID (part before underscore if exists)
+                            const baseId = postIdStr.includes('_') ? postIdStr.split('_')[0] : postIdStr;
+                            const matchingKey = Object.keys(apiPostMap).find(key => {
+                                const apiBaseId = key.includes('_') ? key.split('_')[0] : key;
+                                return key === postIdStr ||
+                                    apiBaseId === baseId ||
+                                    key.startsWith(baseId + '_') ||
+                                    postIdStr.startsWith(apiBaseId + '_') ||
+                                    baseId === apiBaseId;
+                            });
+                            if (matchingKey) {
+                                mediaMap[postIdStr] = [apiPostMap[matchingKey]]; // Store as array for compatibility
+                            }
+                        });
+                    }
+                } catch (error) {
+                    // Silently fail - no need to log errors
+                }
+            })
+        );
+
+        // Update state with fetched media URLs
+        if (Object.keys(mediaMap).length > 0) {
+            setPostMediaUrls(prev => ({...prev, ...mediaMap}));
+        }
+    }, [profile]);
+
     useEffect(() => {
         if (influencerId) {
             fetchProfile();
             checkBookmarkStatus();
         }
     }, [influencerId]);
+
+    // Fetch media URLs from scraper API for all posts when profile is loaded
+    useEffect(() => {
+        if (profile && profile.recent_posts && safeArray(profile.recent_posts).length > 0) {
+            fetchPostMedia();
+        }
+    }, [profile, fetchPostMedia]);
 
     const formatFollowers = (count: number | undefined) => {
         if (count === undefined || count === null) return "0";
@@ -667,7 +795,7 @@ export default function InfluencerProfilePage() {
         };
         return icons[platform] || {
             icon: ({className = ''}: { className?: string }) => (
-                <span className={`text-gray-600 text-sm ${className}`.trim()}>🌐</span>
+                <span className={`text-gray-600 text-sm ${className}`.trim()}>●</span>
             ),
             color: 'text-gray-600',
             bgColor: 'bg-gray-500'
@@ -1066,31 +1194,33 @@ export default function InfluencerProfilePage() {
                                 <div className="flex flex-col gap-6 lg:flex-row">
                                     <div className="flex flex-col items-center gap-4 lg:items-start">
                                         <div className="relative group">
-                                        <div
+                                            <div
                                                 className="relative h-32 w-32 lg:h-36 lg:w-36 overflow-hidden rounded-full border-4 border-gray-200 bg-gradient-to-br from-gray-100 to-gray-200 shadow-lg">
-                                            {profileImageSrc ? (
-                                                <img
-                                                    src={profileImageSrc}
-                                                    alt={displayName}
-                                                    className="h-full w-full object-cover"
-                                                    onError={(event) => {
-                                                        event.currentTarget.style.display = "none";
-                                                        const parent = event.currentTarget.parentElement;
-                                                        if (parent && !parent.querySelector('.fallback-initials')) {
-                                                            const fallback = document.createElement('div');
-                                                            fallback.className = 'fallback-initials flex h-full w-full items-center justify-center text-4xl font-bold text-gray-400';
-                                                            fallback.textContent = (displayName || profile.username).charAt(0).toUpperCase();
-                                                            parent.appendChild(fallback);
-                                                        }
-                                                    }}
-                                                />
-                                            ) : (
-                                                <div className="flex h-full w-full items-center justify-center text-4xl font-bold text-gray-400">
-                                                    {(displayName || profile.username).charAt(0).toUpperCase()}
-                                                </div>
-                                            )}
+                                                {profileImageSrc ? (
+                                                    <img
+                                                        src={profileImageSrc}
+                                                        alt={displayName}
+                                                        className="h-full w-full object-cover"
+                                                        onError={(event) => {
+                                                            event.currentTarget.style.display = "none";
+                                                            const parent = event.currentTarget.parentElement;
+                                                            if (parent && !parent.querySelector('.fallback-initials')) {
+                                                                const fallback = document.createElement('div');
+                                                                fallback.className = 'fallback-initials flex h-full w-full items-center justify-center text-4xl font-bold text-gray-400';
+                                                                fallback.textContent = (displayName || profile.username).charAt(0).toUpperCase();
+                                                                parent.appendChild(fallback);
+                                                            }
+                                                        }}
+                                                    />
+                                                ) : (
+                                                    <div
+                                                        className="flex h-full w-full items-center justify-center text-4xl font-bold text-gray-400">
+                                                        {(displayName || profile.username).charAt(0).toUpperCase()}
+                                                    </div>
+                                                )}
                                                 {profile.is_verified && (
-                                                    <div className="absolute -bottom-1 -right-1 h-10 w-10 rounded-full bg-blue-500 flex items-center justify-center shadow-lg border-4 border-white">
+                                                    <div
+                                                        className="absolute -bottom-1 -right-1 h-10 w-10 rounded-full bg-blue-500 flex items-center justify-center shadow-lg border-4 border-white">
                                                         <HiCheckCircle className="h-6 w-6 text-white"/>
                                                     </div>
                                                 )}
@@ -1112,11 +1242,11 @@ export default function InfluencerProfilePage() {
                                                 {safeArray(profile.available_platforms).map((platform) => {
                                                     const {icon: PIcon, color} = getPlatformIcon(platform);
                                                     return (
-                                                    <Badge key={platform} variant="outline"
+                                                        <Badge key={platform} variant="outline"
                                                                className="text-xs uppercase tracking-wide flex items-center gap-1.5">
                                                             <PIcon className={`h-3.5 w-3.5 ${color}`}/>
-                                                        {platform}
-                                                    </Badge>
+                                                            {platform}
+                                                        </Badge>
                                                     );
                                                 })}
                                             </div>
@@ -1128,10 +1258,11 @@ export default function InfluencerProfilePage() {
                                             <div className="flex flex-col gap-2">
                                                 <div className="flex items-center gap-3 flex-wrap">
                                                     <h1 className="text-3xl font-bold text-gray-900">
-                                                    {displayName}
+                                                        {displayName}
                                                     </h1>
                                                     {profile.is_verified && (
-                                                        <Badge variant="outline" className="border-green-200 text-green-700 bg-green-50">
+                                                        <Badge variant="outline"
+                                                               className="border-green-200 text-green-700 bg-green-50">
                                                             <HiCheckCircle className="w-3.5 h-3.5 mr-1"/>
                                                             Verified
                                                         </Badge>
@@ -1139,9 +1270,11 @@ export default function InfluencerProfilePage() {
                                                 </div>
 
                                                 <div className="flex flex-wrap items-center gap-4 text-sm">
-                                                    <span className="font-medium text-gray-700">@{profile.username}</span>
+                                                    <span
+                                                        className="font-medium text-gray-700">@{profile.username}</span>
                                                     {profile.location && (
-                                                        <span className="inline-flex items-center gap-1.5 text-gray-600">
+                                                        <span
+                                                            className="inline-flex items-center gap-1.5 text-gray-600">
                                                             <HiMapPin className="h-4 w-4 text-gray-400"/>
                                                             {profile.location}
                                                         </span>
@@ -1166,8 +1299,8 @@ export default function InfluencerProfilePage() {
                                                 {profile.bio && (
                                                     <div className="pt-2">
                                                         <p className="text-base text-gray-700 leading-relaxed whitespace-pre-line">
-                                                        {profile.bio}
-                                                    </p>
+                                                            {profile.bio}
+                                                        </p>
                                                     </div>
                                                 )}
                                             </div>
@@ -1179,7 +1312,8 @@ export default function InfluencerProfilePage() {
                                                             key={badge.label}
                                                             className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-1.5 text-xs text-gray-700"
                                                         >
-                                                            <span className="font-semibold">{badge.label}:</span> <span className="text-gray-600">{badge.value}</span>
+                                                            <span className="font-semibold">{badge.label}:</span> <span
+                                                            className="text-gray-600">{badge.value}</span>
                                                         </div>
                                                     ))}
                                                 </div>
@@ -1295,9 +1429,21 @@ export default function InfluencerProfilePage() {
                                             {label: 'Avg Likes', value: account.average_likes, highlight: true},
                                             {label: 'Avg Comments', value: account.average_comments, highlight: true},
                                             {label: 'Avg Shares', value: account.average_shares},
-                                            {label: 'Avg Video Views', value: account.average_video_views, highlight: true},
-                                            {label: 'Avg Video Likes', value: account.average_video_likes, highlight: true},
-                                            {label: 'Avg Video Comments', value: account.average_video_comments, highlight: true},
+                                            {
+                                                label: 'Avg Video Views',
+                                                value: account.average_video_views,
+                                                highlight: true
+                                            },
+                                            {
+                                                label: 'Avg Video Likes',
+                                                value: account.average_video_likes,
+                                                highlight: true
+                                            },
+                                            {
+                                                label: 'Avg Video Comments',
+                                                value: account.average_video_comments,
+                                                highlight: true
+                                            },
                                         ].filter((metric) => isValidNumber(metric.value) && metric.value > 0);
 
                                         return (
@@ -1319,7 +1465,8 @@ export default function InfluencerProfilePage() {
                                                     {/* Profile Picture */}
                                                     <div className="relative flex-shrink-0">
                                                         {accountProfileImage ? (
-                                                            <div className="h-20 w-20 rounded-full overflow-hidden border-2 border-gray-200 ring-2 ring-white shadow-md">
+                                                            <div
+                                                                className="h-20 w-20 rounded-full overflow-hidden border-2 border-gray-200 ring-2 ring-white shadow-md">
                                                                 <img
                                                                     src={accountProfileImage}
                                                                     alt={`${account.handle} profile`}
@@ -1328,18 +1475,20 @@ export default function InfluencerProfilePage() {
                                                                         e.currentTarget.style.display = 'none';
                                                                     }}
                                                                 />
-                                                        </div>
+                                                            </div>
                                                         ) : (
-                                                            <div className={`h-20 w-20 rounded-full flex items-center justify-center text-white ${platformIcon.bgColor} border-2 border-gray-200 shadow-md`}>
+                                                            <div
+                                                                className={`h-20 w-20 rounded-full flex items-center justify-center text-white ${platformIcon.bgColor} border-2 border-gray-200 shadow-md`}>
                                                                 <IconComponent className="h-8 w-8"/>
                                                             </div>
                                                         )}
-                                                                {account.platform_verified && (
-                                                            <div className="absolute -bottom-1 -right-1 h-6 w-6 rounded-full bg-blue-500 flex items-center justify-center shadow-md border-2 border-white">
+                                                        {account.platform_verified && (
+                                                            <div
+                                                                className="absolute -bottom-1 -right-1 h-6 w-6 rounded-full bg-blue-500 flex items-center justify-center shadow-md border-2 border-white">
                                                                 <HiCheckCircle className="h-4 w-4 text-white"/>
                                                             </div>
-                                                                )}
-                                                            </div>
+                                                        )}
+                                                    </div>
 
                                                     {/* Account Info */}
                                                     <div className="flex-1 min-w-0">
@@ -1348,80 +1497,86 @@ export default function InfluencerProfilePage() {
                                                                 @{account.handle ?? 'unknown'}
                                                             </span>
                                                             {account.is_active && (
-                                                                <Badge className="bg-green-100 text-green-700 border-green-200 text-xs">
+                                                                <Badge
+                                                                    className="bg-green-100 text-green-700 border-green-200 text-xs">
                                                                     Active
                                                                 </Badge>
                                                             )}
                                                             {account.is_private && (
-                                                                <Badge className="bg-amber-50 text-amber-700 border-amber-200 text-xs">
+                                                                <Badge
+                                                                    className="bg-amber-50 text-amber-700 border-amber-200 text-xs">
                                                                     Private
                                                                 </Badge>
                                                             )}
                                                         </div>
-                                                        
-                                                            {account.display_name && account.display_name !== account.handle && (
+
+                                                        {account.display_name && account.display_name !== account.handle && (
                                                             <p className="text-sm font-medium text-gray-700 mb-1">
-                                                                    {account.display_name}
-                                                                </p>
-                                                            )}
-                                                        
-                                                            {account.bio && (
+                                                                {account.display_name}
+                                                            </p>
+                                                        )}
+
+                                                        {account.bio && (
                                                             <p className="text-sm text-gray-600 mb-3 line-clamp-2">
                                                                 {account.bio}
-                                                                </p>
-                                                            )}
+                                                            </p>
+                                                        )}
 
                                                         {/* Stats Row */}
                                                         <div className="flex items-center gap-6 mb-3">
-                                                    {primaryStats.map((stat) => (
-                                                                <div key={`${account.id}_${stat.label}`} className="text-center">
+                                                            {primaryStats.map((stat) => (
+                                                                <div key={`${account.id}_${stat.label}`}
+                                                                     className="text-center">
                                                                     <div className="text-lg font-bold text-gray-900">
-                                                                {stat.formatter(stat.value as number)}
-                                                            </div>
-                                                                    <div className="text-xs text-gray-500 uppercase tracking-wide">
-                                                                {stat.label}
-                                                            </div>
+                                                                        {stat.formatter(stat.value as number)}
+                                                                    </div>
+                                                                    <div
+                                                                        className="text-xs text-gray-500 uppercase tracking-wide">
+                                                                        {stat.label}
+                                                                    </div>
+                                                                </div>
+                                                            ))}
                                                         </div>
-                                                    ))}
-                                                </div>
 
                                                         {/* Highlighted Metrics */}
                                                         {metricChips.length > 0 && (
-                                                            <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-gray-100">
-                                                    {metricChips.map((metric) => (
-                                                        <div
-                                                            key={`${account.id}_${metric.label}`}
+                                                            <div
+                                                                className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-gray-100">
+                                                                {metricChips.map((metric) => (
+                                                                    <div
+                                                                        key={`${account.id}_${metric.label}`}
                                                                         className={`rounded-lg px-3 py-1.5 text-xs font-medium ${
-                                                                            metric.highlight 
-                                                                                ? 'border-2 border-blue-300 bg-blue-50 text-blue-900 font-semibold' 
+                                                                            metric.highlight
+                                                                                ? 'border-2 border-blue-300 bg-blue-50 text-blue-900 font-semibold'
                                                                                 : 'border border-gray-200 bg-gray-50 text-gray-700'
                                                                         }`}
                                                                     >
-                                                                        <span className="text-[10px] uppercase tracking-wide opacity-75 mr-1">
+                                                                        <span
+                                                                            className="text-[10px] uppercase tracking-wide opacity-75 mr-1">
                                                                             {metric.label}:
                                                             </span>
                                                                         <span className="font-bold">
                                                                 {formatFollowers(metric.value as number)}
                                                             </span>
-                                                        </div>
-                                                    ))}
-                                                </div>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
                                                         )}
 
-                                                    {account.external_url && (
-                                                        <button
-                                                            type="button"
-                                                            onClick={(event) => {
-                                                                event.stopPropagation();
-                                                                window.open(account.external_url as string, "_blank", "noopener,noreferrer");
-                                                            }}
+                                                        {account.external_url && (
+                                                            <button
+                                                                type="button"
+                                                                onClick={(event) => {
+                                                                    event.stopPropagation();
+                                                                    window.open(account.external_url as string, "_blank", "noopener,noreferrer");
+                                                                }}
                                                                 className="mt-3 inline-flex items-center gap-1.5 text-xs text-primary hover:underline"
-                                                        >
-                                                            <HiLink className="h-3.5 w-3.5"/>
+                                                            >
+                                                                <HiLink className="h-3.5 w-3.5"/>
                                                                 <span>{account.external_url}</span>
-                                                        </button>
-                                                    )}
-                                                </div>
+                                                            </button>
+                                                        )}
+                                                    </div>
                                                 </div>
                                             </div>
                                         );
@@ -1471,7 +1626,7 @@ export default function InfluencerProfilePage() {
                                                         )}
                                                     </Badge>
                                                 ))}
-                                                    </div>
+                                            </div>
                                         );
                                     })()}
                                 </CardContent>
@@ -1534,7 +1689,8 @@ export default function InfluencerProfilePage() {
                                             .slice(0, 30);
 
                                         if (sorted.length === 0) {
-                                            return <p className="text-xs text-gray-500">No tagged accounts available</p>;
+                                            return <p className="text-xs text-gray-500">No tagged accounts
+                                                available</p>;
                                         }
 
                                         return (
@@ -1573,8 +1729,14 @@ export default function InfluencerProfilePage() {
                                 {safeArray(profile.recent_posts).length > 0 ? (
                                     <div className="space-y-4">
                                         {safeArray(profile.recent_posts).map((post) => {
-                                            const thumb = getPrimaryThumbnail(post);
-                                            const hasMedia = Boolean(thumb);
+                                            // Use fetched media URL if available, otherwise try existing thumbnail
+                                            const fetchedMedia = postMediaUrls[post.platform_post_id];
+                                            const mediaUrl = (fetchedMedia && Array.isArray(fetchedMedia) && fetchedMedia.length > 0)
+                                                ? fetchedMedia[0]
+                                                : (fetchedMedia && typeof fetchedMedia === 'string')
+                                                    ? fetchedMedia
+                                                    : getPrimaryThumbnail(post);
+                                            const hasMedia = Boolean(mediaUrl);
                                             const {icon: PIcon, color, bgColor} = getPlatformIcon(post.platform);
                                             const openPost = () => {
                                                 if (post.post_url) {
@@ -1591,111 +1753,116 @@ export default function InfluencerProfilePage() {
                                             const hasHashtags = safeArray(post.hashtags).length > 0;
                                             const hasMentions = safeArray(post.mentions).length > 0;
                                             const hasTags = hasHashtags || hasMentions;
-                                            
+
                                             // If no media, show compact detail-only view
                                             if (!hasMedia) {
-                                            return (
-                                                <div
-                                                    key={`${post.platform}_${post.platform_post_id}`}
+                                                return (
+                                                    <div
+                                                        key={`${post.platform}_${post.platform_post_id}`}
                                                         role={post.post_url ? 'button' : 'group'}
-                                                    tabIndex={post.post_url ? 0 : -1}
-                                                    onClick={post.post_url ? openPost : undefined}
-                                                    onKeyDown={handleKeyDown}
+                                                        tabIndex={post.post_url ? 0 : -1}
+                                                        onClick={post.post_url ? openPost : undefined}
+                                                        onKeyDown={handleKeyDown}
                                                         className={`rounded-xl border-2 border-gray-200 bg-white p-4 transition-all ${
                                                             post.post_url ? 'hover:shadow-lg hover:border-primary/30 cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary' : ''
                                                         }`}
                                                     >
                                                         <div className="space-y-2">
-                                                                <div className="flex items-center gap-2 flex-wrap">
-                                                                    <span className={`font-semibold text-sm capitalize ${color}`}>
+                                                            <div className="flex items-center gap-2 flex-wrap">
+                                                                    <span
+                                                                        className={`font-semibold text-sm capitalize ${color}`}>
                                                                         {post.platform}
                                                                     </span>
-                                                                    {post.post_type && (
-                                                                        <>
-                                                                            <span className="text-gray-400">•</span>
-                                                                            <Badge variant="outline" className="text-xs">
-                                                                                {post.post_type.toUpperCase()}
-                                                                            </Badge>
-                                                                        </>
-                                                                    )}
-                                                                    <span className="text-gray-400">•</span>
-                                                                    <span className="text-xs text-gray-500">
+                                                                {post.post_type && (
+                                                                    <>
+                                                                        <span className="text-gray-400">•</span>
+                                                                        <Badge variant="outline" className="text-xs">
+                                                                            {post.post_type.toUpperCase()}
+                                                                        </Badge>
+                                                                    </>
+                                                                )}
+                                                                <span className="text-gray-400">•</span>
+                                                                <span className="text-xs text-gray-500">
                                                                         {post.posted_at ? formatDateTime(post.posted_at) : 'Unknown date'}
                                                                     </span>
-                                                                </div>
-                                                                
-                                                                {post.caption && (
-                                                                    <p className="text-sm text-gray-900 leading-relaxed">
-                                                                        {post.caption}
-                                                                    </p>
-                                                                )}
-                                                                
-                                                                {/* Engagement Stats */}
-                                                                <div className="flex flex-wrap items-center gap-4 text-xs text-gray-600 pt-1">
-                                                                    {post.likes_count !== undefined && post.likes_count !== null && (
-                                                                        <span className="inline-flex items-center gap-1">
+                                                            </div>
+
+                                                            {post.caption && (
+                                                                <p className="text-sm text-gray-900 leading-relaxed">
+                                                                    {post.caption}
+                                                                </p>
+                                                            )}
+
+                                                            {/* Engagement Stats */}
+                                                            <div
+                                                                className="flex flex-wrap items-center gap-4 text-xs text-gray-600 pt-1">
+                                                                {post.likes_count !== undefined && post.likes_count !== null && (
+                                                                    <span className="inline-flex items-center gap-1">
                                                                             <HiHeart className="h-4 w-4 text-rose-500"/>
-                                                                            {formatFollowers(post.likes_count)}
+                                                                        {formatFollowers(post.likes_count)}
                                                                         </span>
-                                                                    )}
-                                                                    {post.comments_count !== undefined && post.comments_count !== null && (
-                                                                        <span className="inline-flex items-center gap-1">
-                                                                            <HiChatBubbleLeft className="h-4 w-4 text-sky-500"/>
-                                                                            {formatFollowers(post.comments_count)}
-                                                                        </span>
-                                                                    )}
-                                                                    {post.views_count !== undefined && post.views_count !== null && (
-                                                                        <span className="inline-flex items-center gap-1">
-                                                                            <HiEye className="h-4 w-4 text-amber-500"/>
-                                                                            {formatFollowers(post.views_count)}
-                                                                        </span>
-                                                                    )}
-                                                                    {post.shares_count !== undefined && post.shares_count !== null && post.shares_count > 0 && (
-                                                                        <span className="inline-flex items-center gap-1">
-                                                                            <HiLink className="h-4 w-4 text-green-500"/>
-                                                                            {formatFollowers(post.shares_count)}
-                                                                        </span>
-                                                                    )}
-                                                                </div>
-                                                                
-                                                                {/* Hashtags and Mentions */}
-                                                                {hasTags && (
-                                                                    <div className="flex flex-wrap gap-2 pt-2 border-t border-gray-100">
-                                                                        {hasHashtags && safeArray(post.hashtags).slice(0, 4).map((tag) => (
-                                                                            <Badge
-                                                                                key={`${post.platform_post_id}_tag_${tag}`}
-                                                                                variant="outline"
-                                                                                className="rounded-full bg-purple-50 text-purple-700 border-purple-200 text-xs px-2 py-0.5"
-                                                                            >
-                                                                                #{String(tag).replace(/^#/, "")}
-                                                                            </Badge>
-                                                                        ))}
-                                                                        {hasMentions && safeArray(post.mentions).slice(0, 4).map((mention) => (
-                                                                            <Badge
-                                                                                key={`${post.platform_post_id}_mention_${mention}`}
-                                                                                variant="outline"
-                                                                                className="rounded-full bg-blue-50 text-blue-700 border-blue-200 text-xs px-2 py-0.5"
-                                                                            >
-                                                                                <HiUsers className="w-3 h-3 mr-1 inline"/>
-                                                                                @{String(mention).replace(/^@/, "")}
-                                                                            </Badge>
-                                                                        ))}
-                                                                    </div>
                                                                 )}
-                                                                
-                                                                {post.post_url && (
-                                                                    <div className="pt-1">
-                                                                        <span className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
+                                                                {post.comments_count !== undefined && post.comments_count !== null && (
+                                                                    <span className="inline-flex items-center gap-1">
+                                                                            <HiChatBubbleLeft
+                                                                                className="h-4 w-4 text-sky-500"/>
+                                                                        {formatFollowers(post.comments_count)}
+                                                                        </span>
+                                                                )}
+                                                                {post.views_count !== undefined && post.views_count !== null && (
+                                                                    <span className="inline-flex items-center gap-1">
+                                                                            <HiEye className="h-4 w-4 text-amber-500"/>
+                                                                        {formatFollowers(post.views_count)}
+                                                                        </span>
+                                                                )}
+                                                                {post.shares_count !== undefined && post.shares_count !== null && post.shares_count > 0 && (
+                                                                    <span className="inline-flex items-center gap-1">
+                                                                            <HiLink className="h-4 w-4 text-green-500"/>
+                                                                        {formatFollowers(post.shares_count)}
+                                                                        </span>
+                                                                )}
+                                                            </div>
+
+                                                            {/* Hashtags and Mentions */}
+                                                            {hasTags && (
+                                                                <div
+                                                                    className="flex flex-wrap gap-2 pt-2 border-t border-gray-100">
+                                                                    {hasHashtags && safeArray(post.hashtags).slice(0, 4).map((tag) => (
+                                                                        <Badge
+                                                                            key={`${post.platform_post_id}_tag_${tag}`}
+                                                                            variant="outline"
+                                                                            className="rounded-full bg-purple-50 text-purple-700 border-purple-200 text-xs px-2 py-0.5"
+                                                                        >
+                                                                            #{String(tag).replace(/^#/, "")}
+                                                                        </Badge>
+                                                                    ))}
+                                                                    {hasMentions && safeArray(post.mentions).slice(0, 4).map((mention) => (
+                                                                        <Badge
+                                                                            key={`${post.platform_post_id}_mention_${mention}`}
+                                                                            variant="outline"
+                                                                            className="rounded-full bg-blue-50 text-blue-700 border-blue-200 text-xs px-2 py-0.5"
+                                                                        >
+                                                                            <HiUsers className="w-3 h-3 mr-1 inline"/>
+                                                                            @{String(mention).replace(/^@/, "")}
+                                                                        </Badge>
+                                                                    ))}
+                                                                </div>
+                                                            )}
+
+                                                            {post.post_url && (
+                                                                <div className="pt-1">
+                                                                        <span
+                                                                            className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
                                                                             View on {post.platform}
                                                                             <HiArrowRight className="w-3 h-3"/>
                                                                         </span>
-                                                                    </div>
-                                                                )}
-                                                            </div>
+                                                                </div>
+                                                            )}
                                                         </div>
+                                                    </div>
                                                 );
                                             }
-                                            
+
                                             // If media exists, show card with image
                                             return (
                                                 <div
@@ -1710,32 +1877,37 @@ export default function InfluencerProfilePage() {
                                                 >
                                                     <div className="flex gap-0">
                                                         {/* Post Image */}
-                                                        <div className="relative w-48 h-48 flex-shrink-0 overflow-hidden bg-gradient-to-br from-gray-100 to-gray-200">
-                                                            {thumb && (
-                                                            <img
-                                                                src={thumb}
-                                                                alt={post.caption || `${post.platform} post`}
+                                                        <div
+                                                            className="relative w-48 h-48 flex-shrink-0 overflow-hidden bg-gradient-to-br from-gray-100 to-gray-200">
+                                                            {mediaUrl ? (
+                                                                <img
+                                                                    src={mediaUrl}
+                                                                    alt={post.caption || `${post.platform} post`}
                                                                     className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300"
                                                                     loading="lazy"
-                                                            />
-                                                        )}
-                                                            {/* Platform Badge */}
-                                                            <div className="absolute top-2 right-2">
-                                                                <div className={`flex items-center gap-1 rounded-full px-2 py-1 bg-white/90 backdrop-blur-sm shadow-sm ${color}`}>
-                                                                    <PIcon className="h-3 w-3"/>
-                                                                    <span className="text-xs font-semibold capitalize">{post.platform}</span>
-                                                    </div>
-                                                        </div>
+                                                                    onError={(e) => {
+                                                                        // Fallback to platform icon if image fails to load
+                                                                        e.currentTarget.style.display = 'none';
+                                                                    }}
+                                                                />
+                                                            ) : (
+                                                                <div
+                                                                    className={`h-full w-full flex items-center justify-center ${bgColor} text-white`}>
+                                                                    <PIcon className="h-12 w-12"/>
+                                                                </div>
+                                                            )}
                                                             {post.post_type && (
                                                                 <div className="absolute top-2 left-2">
-                                                                    <Badge className="bg-black/70 text-white border-0 backdrop-blur-sm text-xs">
-                                                                        {post.post_type === 'VIDEO' && <HiPlay className="w-2.5 h-2.5 mr-1"/>}
+                                                                    <Badge
+                                                                        className="bg-black/70 text-white border-0 backdrop-blur-sm text-xs">
+                                                                        {post.post_type === 'VIDEO' &&
+                                                                            <HiPlay className="w-2.5 h-2.5 mr-1"/>}
                                                                         {post.post_type.toUpperCase()}
                                                                     </Badge>
-                                                        </div>
+                                                                </div>
                                                             )}
                                                         </div>
-                                                        
+
                                                         {/* Post Content */}
                                                         <div className="flex-1 p-4 space-y-3">
                                                             {/* Caption */}
@@ -1744,58 +1916,65 @@ export default function InfluencerProfilePage() {
                                                                     {post.caption}
                                                                 </p>
                                                             )}
-                                                            
+
                                                             {/* Engagement Stats */}
                                                             <div className="flex flex-wrap items-center gap-3 text-xs">
                                                                 {post.likes_count !== undefined && post.likes_count !== null && (
-                                                                    <span className="inline-flex items-center gap-1 text-gray-700">
+                                                                    <span
+                                                                        className="inline-flex items-center gap-1 text-gray-700">
                                                                         <HiHeart className="h-4 w-4 text-rose-500"/>
                                                                         {formatFollowers(post.likes_count)}
                                                             </span>
                                                                 )}
                                                                 {post.comments_count !== undefined && post.comments_count !== null && (
-                                                                    <span className="inline-flex items-center gap-1 text-gray-700">
-                                                                        <HiChatBubbleLeft className="h-4 w-4 text-sky-500"/>
+                                                                    <span
+                                                                        className="inline-flex items-center gap-1 text-gray-700">
+                                                                        <HiChatBubbleLeft
+                                                                            className="h-4 w-4 text-sky-500"/>
                                                                         {formatFollowers(post.comments_count)}
                                                             </span>
                                                                 )}
-                                                            {post.views_count !== undefined && post.views_count !== null && (
-                                                                    <span className="inline-flex items-center gap-1 text-gray-700">
+                                                                {post.views_count !== undefined && post.views_count !== null && (
+                                                                    <span
+                                                                        className="inline-flex items-center gap-1 text-gray-700">
                                                                         <HiEye className="h-4 w-4 text-amber-500"/>
-                                                                    {formatFollowers(post.views_count)}
+                                                                        {formatFollowers(post.views_count)}
                                                                 </span>
-                                                            )}
-                                                        </div>
-                                                            
+                                                                )}
+                                                            </div>
+
                                                             {/* Hashtags and Mentions */}
                                                             {hasTags && (
-                                                                <div className="flex flex-wrap gap-1.5 pt-2 border-t border-gray-100">
+                                                                <div
+                                                                    className="flex flex-wrap gap-1.5 pt-2 border-t border-gray-100">
                                                                     {hasHashtags && safeArray(post.hashtags).slice(0, 3).map((tag) => (
                                                                         <Badge
-                                                                        key={`${post.platform_post_id}_tag_${tag}`}
+                                                                            key={`${post.platform_post_id}_tag_${tag}`}
                                                                             variant="outline"
                                                                             className="rounded-full bg-purple-50 text-purple-700 border-purple-200 text-xs px-2 py-0.5"
-                                                                    >
-                                                                        #{String(tag).replace(/^#/, "")}
+                                                                        >
+                                                                            #{String(tag).replace(/^#/, "")}
                                                                         </Badge>
-                                                                ))}
+                                                                    ))}
                                                                     {hasMentions && safeArray(post.mentions).slice(0, 3).map((mention) => (
                                                                         <Badge
-                                                                        key={`${post.platform_post_id}_mention_${mention}`}
+                                                                            key={`${post.platform_post_id}_mention_${mention}`}
                                                                             variant="outline"
                                                                             className="rounded-full bg-blue-50 text-blue-700 border-blue-200 text-xs px-2 py-0.5"
-                                                                    >
+                                                                        >
                                                                             <HiUsers className="w-3 h-3 mr-1 inline"/>
-                                                                        @{String(mention).replace(/^@/, "")}
+                                                                            @{String(mention).replace(/^@/, "")}
                                                                         </Badge>
-                                                                ))}
-                                                            </div>
+                                                                    ))}
+                                                                </div>
                                                             )}
-                                                            
-                                                            <div className="flex items-center justify-between text-xs text-gray-500 pt-1">
+
+                                                            <div
+                                                                className="flex items-center justify-between text-xs text-gray-500 pt-1">
                                                                 <span>{post.posted_at ? formatDateTime(post.posted_at) : 'Unknown date'}</span>
                                                                 {post.post_url && (
-                                                                    <span className="inline-flex items-center gap-1 text-primary hover:underline">
+                                                                    <span
+                                                                        className="inline-flex items-center gap-1 text-primary hover:underline">
                                                                         View
                                                                         <HiArrowRight className="w-3 h-3"/>
                                                                     </span>
@@ -1811,7 +1990,8 @@ export default function InfluencerProfilePage() {
                                     <div className="text-center py-12">
                                         <HiExclamationTriangle className="w-12 h-12 text-gray-300 mx-auto mb-3"/>
                                         <p className="text-sm font-medium text-gray-600">No recent posts available</p>
-                                        <p className="text-xs text-gray-500 mt-1">Posts will appear here once they're synced</p>
+                                        <p className="text-xs text-gray-500 mt-1">Posts will appear here once they're
+                                            synced</p>
                                     </div>
                                 )}
                             </CardContent>
@@ -1829,10 +2009,10 @@ export default function InfluencerProfilePage() {
                                 </CardTitle>
                             </CardHeader>
                             <CardContent className="p-6">
-                                            {(() => {
+                                {(() => {
                                     // Show data from actual social accounts, not averaged/calculated
                                     const activeAccounts = safeArray(profile.social_accounts).filter(acc => acc.is_active);
-                                    
+
                                     if (activeAccounts.length === 0) {
                                         return <p className="text-sm text-gray-500">No active social accounts</p>;
                                     }
@@ -1843,7 +2023,7 @@ export default function InfluencerProfilePage() {
                                     const avgER = accountsWithER.length > 0
                                         ? accountsWithER.reduce((sum, acc) => sum + (acc.engagement_rate || 0), 0) / accountsWithER.length
                                         : null;
-                                    
+
                                     // Get actual metrics from accounts (not averaged, show what exists)
                                     const likes = activeAccounts.filter(acc => isValidNumber(acc.average_likes) && acc.average_likes > 0);
                                     const comments = activeAccounts.filter(acc => isValidNumber(acc.average_comments) && acc.average_comments > 0);
@@ -1853,29 +2033,33 @@ export default function InfluencerProfilePage() {
                                     return (
                                         <div className="space-y-4 text-sm">
                                             <div className="space-y-3">
-                                                <div className="flex items-center justify-between pb-2 border-b border-gray-100">
+                                                <div
+                                                    className="flex items-center justify-between pb-2 border-b border-gray-100">
                                                     <span className="text-gray-600 font-medium">Total Followers</span>
                                                     <span className="font-bold text-lg text-gray-900">
                                                         {formatFollowers(totalFollowers)}
                                                         </span>
-                                                    </div>
+                                                </div>
                                                 {avgER !== null && (
-                                                    <div className="flex items-center justify-between pb-2 border-b border-gray-100">
-                                                        <span className="text-gray-600 font-medium">Avg Engagement Rate</span>
+                                                    <div
+                                                        className="flex items-center justify-between pb-2 border-b border-gray-100">
+                                                        <span
+                                                            className="text-gray-600 font-medium">Avg Engagement Rate</span>
                                                         <span className="font-bold text-lg text-gray-900">
                                                             {formatPercentage(avgER)}
                                                         </span>
                                                     </div>
                                                 )}
-                                        </div>
+                                            </div>
 
                                             <div className="pt-2">
-                                                <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Metrics by Platform</h4>
+                                                <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Metrics
+                                                    by Platform</h4>
                                                 <div className="space-y-2">
                                                     {activeAccounts.map((account) => {
                                                         const platformIcon = getPlatformIcon(account.platform);
                                                         const IconComponent = platformIcon.icon;
-                                                        const hasMetrics = 
+                                                        const hasMetrics =
                                                             (isValidNumber(account.average_likes) && account.average_likes > 0) ||
                                                             (isValidNumber(account.average_comments) && account.average_comments > 0) ||
                                                             (isValidNumber(account.average_video_views) && account.average_video_views > 0);
@@ -1883,47 +2067,59 @@ export default function InfluencerProfilePage() {
                                                         if (!hasMetrics) return null;
 
                                                         return (
-                                                            <div key={account.id} className="p-3 rounded-lg border border-gray-200 bg-gray-50">
+                                                            <div key={account.id}
+                                                                 className="p-3 rounded-lg border border-gray-200 bg-gray-50">
                                                                 <div className="flex items-center gap-2 mb-2">
-                                                                    <IconComponent className={`h-4 w-4 ${platformIcon.color}`}/>
-                                                                    <span className="font-semibold text-gray-900 capitalize text-xs">
+                                                                    <IconComponent
+                                                                        className={`h-4 w-4 ${platformIcon.color}`}/>
+                                                                    <span
+                                                                        className="font-semibold text-gray-900 capitalize text-xs">
                                                                         {account.platform}
                                                                     </span>
                                                                     {isValidNumber(account.engagement_rate) && account.engagement_rate > 0 && (
-                                                                        <span className="ml-auto text-xs font-medium text-gray-600">
+                                                                        <span
+                                                                            className="ml-auto text-xs font-medium text-gray-600">
                                                                             {formatPercentage(account.engagement_rate)}
                                                                         </span>
                                                                     )}
-                                                        </div>
+                                                                </div>
                                                                 <div className="grid grid-cols-2 gap-2 text-xs">
                                                                     {isValidNumber(account.average_likes) && account.average_likes > 0 && (
                                                                         <div>
-                                                                            <span className="text-gray-500">Likes: </span>
-                                                                            <span className="font-semibold text-gray-900">
+                                                                            <span
+                                                                                className="text-gray-500">Likes: </span>
+                                                                            <span
+                                                                                className="font-semibold text-gray-900">
                                                                                 {formatFollowers(account.average_likes)}
                                                                             </span>
-                                                    </div>
+                                                                        </div>
                                                                     )}
                                                                     {isValidNumber(account.average_comments) && account.average_comments > 0 && (
                                                                         <div>
-                                                                            <span className="text-gray-500">Comments: </span>
-                                                                            <span className="font-semibold text-gray-900">
+                                                                            <span
+                                                                                className="text-gray-500">Comments: </span>
+                                                                            <span
+                                                                                className="font-semibold text-gray-900">
                                                                                 {formatFollowers(account.average_comments)}
                                                                             </span>
-                                        </div>
+                                                                        </div>
                                                                     )}
                                                                     {isValidNumber(account.average_video_views) && account.average_video_views > 0 && (
                                                                         <div>
-                                                                            <span className="text-gray-500">Video Views: </span>
-                                                                            <span className="font-semibold text-gray-900">
+                                                                            <span
+                                                                                className="text-gray-500">Video Views: </span>
+                                                                            <span
+                                                                                className="font-semibold text-gray-900">
                                                                                 {formatFollowers(account.average_video_views)}
                                                                             </span>
-                                    </div>
+                                                                        </div>
                                                                     )}
                                                                     {isValidNumber(account.average_shares) && account.average_shares > 0 && (
                                                                         <div>
-                                                                            <span className="text-gray-500">Shares: </span>
-                                                                            <span className="font-semibold text-gray-900">
+                                                                            <span
+                                                                                className="text-gray-500">Shares: </span>
+                                                                            <span
+                                                                                className="font-semibold text-gray-900">
                                                                                 {formatFollowers(account.average_shares)}
                                                                             </span>
                                                                         </div>
