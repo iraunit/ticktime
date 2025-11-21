@@ -7,10 +7,11 @@ os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'backend.settings')
 
 app = Celery('backend')
 
-# Explicitly set broker and result backend from environment variables first
+# Use REDIS_URL directly for broker and result backend
 # This prevents Celery from defaulting to RabbitMQ
-broker_url = os.environ.get('CELERY_BROKER_URL', 'redis://localhost:6379/0')
-result_backend = os.environ.get('CELERY_RESULT_BACKEND', 'redis://localhost:6379/0')
+redis_url = os.environ.get('REDIS_URL', 'redis://localhost:6379/0')
+broker_url = os.environ.get('CELERY_BROKER_URL', redis_url)
+result_backend = os.environ.get('CELERY_RESULT_BACKEND', redis_url)
 
 app.conf.broker_url = broker_url
 app.conf.result_backend = result_backend
