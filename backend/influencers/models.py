@@ -298,8 +298,9 @@ class SocialMediaAccount(models.Model):
         default=False,
         help_text='Whether the account is private on the platform',
     )
-    profile_image_url = models.URLField(
+    profile_image_url = models.TextField(
         blank=True,
+        default='',
         help_text='Profile image URL from the platform (may expire)',
     )
     followers_count = models.IntegerField(validators=[MinValueValidator(0)], default=0)
@@ -487,3 +488,41 @@ class InfluencerCategoryScore(models.Model):
 
     def __str__(self):
         return f"{self.influencer.username} - {self.category_name} ({self.score}%)"
+
+
+class CeleryTask(models.Model):
+    """
+    Track Celery task execution for monitoring in admin panel
+    """
+    task_id = models.CharField(max_length=255, unique=True, db_index=True)
+    task_name = models.CharField(max_length=255)
+    status = models.CharField(
+        max_length=50,
+        choices=[
+            ('PENDING', 'Pending'),
+            ('STARTED', 'Started'),
+            ('SUCCESS', 'Success'),
+            ('FAILURE', 'Failure'),
+            ('RETRY', 'Retry'),
+            ('REVOKED', 'Revoked'),
+        ],
+        default='PENDING'
+    )
+    result = models.JSONField(default=dict, blank=True, null=True)
+    error = models.TextField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        db_table = 'celery_tasks'
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['task_id']),
+            models.Index(fields=['status']),
+            models.Index(fields=['task_name']),
+            models.Index(fields=['created_at']),
+        ]
+
+    def __str__(self):
+        return f"{self.task_name} ({self.task_id[:8]}...) - {self.status}"
