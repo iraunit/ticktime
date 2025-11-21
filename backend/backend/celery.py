@@ -7,11 +7,23 @@ os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'backend.settings')
 
 app = Celery('backend')
 
+# Explicitly set broker and result backend from environment variables first
+# This prevents Celery from defaulting to RabbitMQ
+broker_url = os.environ.get('CELERY_BROKER_URL', 'redis://localhost:6379/0')
+result_backend = os.environ.get('CELERY_RESULT_BACKEND', 'redis://localhost:6379/0')
+
+app.conf.broker_url = broker_url
+app.conf.result_backend = result_backend
+
 # Using a string here means the worker doesn't have to serialize
 # the configuration object to child processes.
 # - namespace='CELERY' means all celery-related configuration keys
 #   should have a `CELERY_` prefix.
 app.config_from_object('django.conf:settings', namespace='CELERY')
+
+# Ensure broker and result backend are explicitly set (in case config_from_object overrides)
+app.conf.broker_url = broker_url
+app.conf.result_backend = result_backend
 
 # Load task modules from all registered Django apps.
 app.autodiscover_tasks()
