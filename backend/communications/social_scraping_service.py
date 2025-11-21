@@ -283,6 +283,11 @@ class SocialScrapingService:
             if profile_image is not None:
                 account.profile_image_url = profile_image or ''
             
+            # Fetch profile_image_base64 from API response
+            profile_image_base64 = user_data.get('profile_image_base64')
+            if profile_image_base64 is not None:
+                account.profile_image_base64 = profile_image_base64 or ''
+            
             if 'is_verified' in user_data:
                 account.platform_verified = bool(user_data.get('is_verified', False))
 
@@ -310,6 +315,7 @@ class SocialScrapingService:
             'external_url',
             'is_private',
             'profile_image_url',
+            'profile_image_base64',
             'platform_verified',
             'last_synced_at',
             'updated_at',

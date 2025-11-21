@@ -402,7 +402,9 @@ class SocialMediaAccountAdmin(admin.ModelAdmin):
     search_fields = ['influencer__username', 'handle', 'profile_url']
     readonly_fields = [
         'last_synced_at', 'last_posted_at', 'engagement_snapshot',
-        'sync_status_display', 'queue_sync_button', 'created_at', 'updated_at'
+        'sync_status_display', 'queue_sync_button', 'created_at', 'updated_at',
+        'display_name', 'bio', 'external_url', 'is_private', 'profile_image_url', 'profile_image_base64_display',
+        'platform_verified'
     ]
     ordering = ['-last_synced_at', '-updated_at']
 
@@ -413,7 +415,9 @@ class SocialMediaAccountAdmin(admin.ModelAdmin):
             'fields': ('influencer', 'platform', 'handle', 'profile_url', 'verified', 'platform_verified', 'is_active')
         }),
         ('Profile Details', {
-            'fields': ('display_name', 'bio', 'external_url', 'is_private', 'profile_image_url')
+            'fields': ('display_name', 'bio', 'external_url', 'is_private', 'profile_image_url',
+                       'profile_image_base64_display'),
+            'description': 'Profile metadata from the social platform'
         }),
         ('Followers & Posts', {
             'fields': ('followers_count', 'following_count', 'posts_count', 'last_posted_at')
@@ -445,6 +449,30 @@ class SocialMediaAccountAdmin(admin.ModelAdmin):
         return obj.influencer.username
 
     influencer_username.short_description = 'Influencer'
+
+    def profile_image_base64_display(self, obj):
+        """Display profile image from base64 data"""
+        if obj.profile_image_base64:
+            # Show image preview if base64 data exists
+            image_data = obj.profile_image_base64
+            # Remove data URL prefix if present
+            if image_data.startswith('data:image'):
+                image_data = image_data.split(',')[1] if ',' in image_data else image_data
+            elif not image_data.startswith('/9j/') and len(image_data) > 100:
+                # Assume it's already base64 without prefix
+                pass
+            return format_html(
+                '<img src="data:image/jpeg;base64,{}" style="max-width: 200px; max-height: 200px; border-radius: 8px; border: 2px solid #ddd;" />',
+                image_data
+            )
+        elif obj.profile_image_url:
+            return format_html(
+                '<img src="{}" style="max-width: 200px; max-height: 200px; border-radius: 8px; border: 2px solid #ddd;" onerror="this.style.display=\'none\'" />',
+                obj.profile_image_url
+            )
+        return 'No profile image available'
+
+    profile_image_base64_display.short_description = 'Profile Image (Base64)'
 
     def last_synced_display(self, obj):
         """Display last synced time with color coding"""
