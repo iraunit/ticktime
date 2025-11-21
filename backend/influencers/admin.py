@@ -400,19 +400,36 @@ class SocialMediaAccountAdmin(admin.ModelAdmin):
     ]
     list_filter = ['platform', 'verified', 'is_active', 'created_at']
     search_fields = ['influencer__username', 'handle', 'profile_url']
-    readonly_fields = ['last_synced_at', 'sync_status_display', 'queue_sync_button', 'created_at', 'updated_at']
+    readonly_fields = [
+        'last_synced_at', 'last_posted_at', 'engagement_snapshot',
+        'sync_status_display', 'queue_sync_button', 'created_at', 'updated_at'
+    ]
     ordering = ['-last_synced_at', '-updated_at']
 
     inlines = [SocialMediaPostInline]
 
     fieldsets = (
         ('Account Information', {
-            'fields': ('influencer', 'platform', 'handle', 'profile_url', 'verified', 'is_active')
+            'fields': ('influencer', 'platform', 'handle', 'profile_url', 'verified', 'platform_verified', 'is_active')
         }),
-        ('Metrics', {
-            'fields': ('followers_count', 'following_count', 'posts_count', 'engagement_rate',
-                       'average_likes', 'average_comments', 'average_shares',
+        ('Profile Details', {
+            'fields': ('display_name', 'bio', 'external_url', 'is_private', 'profile_image_url')
+        }),
+        ('Followers & Posts', {
+            'fields': ('followers_count', 'following_count', 'posts_count', 'last_posted_at')
+        }),
+        ('Engagement Metrics', {
+            'fields': ('engagement_rate', 'average_likes', 'average_comments', 'average_shares',
                        'average_video_views', 'average_video_likes', 'average_video_comments')
+        }),
+        ('Growth Metrics', {
+            'fields': ('follower_growth_rate', 'subscriber_growth_rate'),
+            'classes': ('collapse',)
+        }),
+        ('Engagement Snapshot', {
+            'fields': ('engagement_snapshot',),
+            'classes': ('collapse',),
+            'description': 'Cached engagement metrics computed from recent posts'
         }),
         ('Sync Information', {
             'fields': ('last_synced_at', 'sync_status_display', 'queue_sync_button'),

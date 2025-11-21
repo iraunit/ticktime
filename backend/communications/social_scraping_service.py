@@ -236,8 +236,16 @@ class SocialScrapingService:
         user_data = {}
         try:
             user_data = (profile_data.raw_payload or {}).get('data', {}).get('user', {}) or {}
-        except Exception:
+            if user_data:
+                logger.debug(f"Found user_data keys for {account.handle}: {list(user_data.keys())}")
+        except Exception as e:
+            logger.warning(f"Error extracting user_data for {account.handle}: {e}")
             user_data = {}
+        
+        if profile_data.raw_payload:
+            logger.debug(f"Raw payload keys for {account.handle}: {list(profile_data.raw_payload.keys())}")
+            if 'data' in profile_data.raw_payload:
+                logger.debug(f"Payload data keys for {account.handle}: {list(profile_data.raw_payload.get('data', {}).keys())}")
 
         logger.debug(
             "Persisting %s data for %s (user=%s)",
@@ -254,14 +262,29 @@ class SocialScrapingService:
 
         # Map user metadata onto the social account
         if user_data:
-            account.display_name = user_data.get('display_name') or account.display_name
-            account.bio = user_data.get('bio') or account.bio
-            account.external_url = user_data.get('external_url') or account.external_url
-            account.is_private = bool(user_data.get('is_private', account.is_private))
-            account.profile_image_url = user_data.get('profile_image_url') or account.profile_image_url
-            # Platform blue tick / official verification on the social platform itself
+            display_name = user_data.get('display_name') or user_data.get('full_name')
+            if display_name is not None:
+                account.display_name = display_name or ''
+            
+            bio = user_data.get('bio') or user_data.get('biography')
+            if bio is not None:
+                account.bio = bio or ''
+            
+            external_url = user_data.get('external_url') or user_data.get('external_link')
+            if external_url is not None:
+                account.external_url = external_url or ''
+            
+            if 'is_private' in user_data:
+                account.is_private = bool(user_data.get('is_private', False))
+            
+            profile_image = (user_data.get('profile_image_url') or
+                           user_data.get('profile_pic_url') or 
+                           user_data.get('profile_pic_url_hd'))
+            if profile_image is not None:
+                account.profile_image_url = profile_image or ''
+            
             if 'is_verified' in user_data:
-                account.platform_verified = bool(user_data.get('is_verified'))
+                account.platform_verified = bool(user_data.get('is_verified', False))
 
         # Update averages using engagement data when available
         account.average_likes = engagement_data.get('average_likes', account.average_likes)
