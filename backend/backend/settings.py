@@ -272,12 +272,9 @@ DISCORD_SUPPORT_BOT_TOKEN = os.environ.get("SUPPORT_CHANNEL_BOT_TOKEN", "")
 BRANDS_ONBOARDING_CHANNEL_ID = os.environ.get("BRANDS_ONBOARDING_CHANNEL_ID", "")
 
 # Celery Configuration
-# Use REDIS_URL directly for Celery broker and result backend
 REDIS_URL = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
-# If CELERY_BROKER_URL is empty/None, use REDIS_URL (empty string is treated as unset)
 celery_broker_url = os.environ.get("CELERY_BROKER_URL", "").strip()
 CELERY_BROKER_URL = celery_broker_url if celery_broker_url else REDIS_URL
-# If CELERY_RESULT_BACKEND is empty/None, use REDIS_URL
 celery_result_backend = os.environ.get("CELERY_RESULT_BACKEND", "").strip()
 CELERY_RESULT_BACKEND = celery_result_backend if celery_result_backend else REDIS_URL
 CELERY_ACCEPT_CONTENT = ["json"]
