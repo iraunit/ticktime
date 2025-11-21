@@ -1,13 +1,13 @@
 import pytest
-from django.contrib.auth import get_user_model
-from django.core.exceptions import ValidationError
-from django.db import IntegrityError
+from brands.models import Brand
 from core.models import Campaign
 from deals.models import Deal
+from django.contrib.auth import get_user_model
+from django.db import IntegrityError
 from influencers.models import InfluencerProfile, SocialMediaAccount
-from brands.models import Brand
 
 User = get_user_model()
+
 
 @pytest.mark.django_db
 class TestInfluencerProfile:
@@ -21,7 +21,7 @@ class TestInfluencerProfile:
             bio='Test bio',
             address='123 Test St'
         )
-        
+
         assert profile.user == user
         assert profile.username == 'testuser'
         assert profile.industry == 'tech_gaming'
@@ -37,13 +37,13 @@ class TestInfluencerProfile:
             username='testuser',
             industry='tech_gaming'
         )
-        
+
         # Create another user
         user2 = User.objects.create_user(
             email='test2@example.com',
             password='testpass123'
         )
-        
+
         # Try to create profile with same username
         with pytest.raises(IntegrityError):
             InfluencerProfile.objects.create(
@@ -58,6 +58,7 @@ class TestInfluencerProfile:
         expected = f"{influencer_profile.user.get_full_name()} (@{influencer_profile.username})"
         assert str(influencer_profile) == expected
 
+
 @pytest.mark.django_db
 class TestSocialMediaAccount:
     def test_create_social_account(self, influencer_profile):
@@ -70,7 +71,7 @@ class TestSocialMediaAccount:
             followers_count=10000,
             engagement_rate=4.5
         )
-        
+
         assert account.influencer == influencer_profile
         assert account.platform == 'instagram'
         assert account.handle == 'testuser'
@@ -79,7 +80,7 @@ class TestSocialMediaAccount:
         assert account.is_active  # Default value
 
     def test_unique_platform_handle_constraint(self, influencer_profile):
-        """Test that platform and handle combination must be unique per influencer."""
+        """Test that influencer, platform and handle combination must be unique."""
         SocialMediaAccount.objects.create(
             influencer=influencer_profile,
             platform='instagram',
@@ -87,7 +88,7 @@ class TestSocialMediaAccount:
             followers_count=1000,
             engagement_rate=3.0
         )
-        
+
         # Try to create another account with same platform and handle
         with pytest.raises(IntegrityError):
             SocialMediaAccount.objects.create(
@@ -110,6 +111,7 @@ class TestSocialMediaAccount:
         )
         assert account.engagement_rate == 5.5
 
+
 @pytest.mark.django_db
 class TestBrand:
     def test_create_brand(self):
@@ -120,7 +122,7 @@ class TestBrand:
             description='Test brand description',
             website='https://testbrand.com'
         )
-        
+
         assert brand.name == 'TestBrand'
         assert brand.email == 'brand@test.com'
         assert brand.description == 'Test brand description'
@@ -132,13 +134,14 @@ class TestBrand:
         """Test string representation of brand."""
         assert str(brand) == brand.name
 
+
 @pytest.mark.django_db
 class TestCampaign:
     def test_create_campaign(self, brand):
         """Test creating a campaign."""
         from datetime import timedelta
         from django.utils import timezone
-        
+
         campaign = Campaign.objects.create(
             brand=brand,
             title='Test Campaign',
@@ -151,7 +154,7 @@ class TestCampaign:
             campaign_start_date=timezone.now() + timedelta(days=14),
             campaign_end_date=timezone.now() + timedelta(days=44)
         )
-        
+
         assert campaign.brand == brand
         assert campaign.title == 'Test Campaign'
         assert campaign.deal_type == 'paid'
@@ -163,8 +166,9 @@ class TestCampaign:
         campaign.cash_amount = 300.00
         campaign.product_value = 200.00
         campaign.save()
-        
+
         assert campaign.total_value == 500.00
+
 
 @pytest.mark.django_db
 class TestDeal:
@@ -175,7 +179,7 @@ class TestDeal:
             influencer=influencer_profile,
             status='invited'
         )
-        
+
         assert deal.campaign == campaign
         assert deal.influencer == influencer_profile
         assert deal.status == 'invited'
@@ -190,7 +194,7 @@ class TestDeal:
             influencer=influencer_profile,
             status='invited'
         )
-        
+
         # Try to create another deal with same campaign and influencer
         with pytest.raises(IntegrityError):
             Deal.objects.create(

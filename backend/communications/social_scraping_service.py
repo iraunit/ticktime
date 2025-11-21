@@ -40,12 +40,18 @@ class BasePlatformScraper:
         self.session = session or requests.Session()
 
     def build_url(self, username: str) -> str:
-        return f"{self.base_url}/users/{username}/posts?platform={self.platform}"
+        return f"{self.base_url}/users/{username}/analytics?platform={self.platform}"
 
     def fetch(self, username: str, timeout: int) -> PlatformProfileData:
         url = self.build_url(username)
         logger.debug("Fetching %s profile for %s", self.platform, username)
         response = self.session.get(url, timeout=timeout)
+
+        # Handle 404 errors gracefully before raise_for_status
+        if response.status_code == 404:
+            error_msg = response.json().get('error', 'User not found') if response.text else 'User not found'
+            raise ScraperError(f"User not found: {error_msg}")
+
         response.raise_for_status()
         payload = response.json()
         return self.parse_response(username, payload)
@@ -136,15 +142,17 @@ class SocialScrapingService:
             return None
         try:
             profile_data = scraper.fetch(account.handle, timeout=self.timeout)
-        except requests.HTTPError as exc:
-            logger.error(
-                "HTTP error fetching %s data for %s: %s",
-                account.platform,
-                account.handle,
-                exc,
-            )
-            raise
         except ScraperError as exc:
+            # Handle ScraperError (including 404 converted to ScraperError) - don't requeue, just skip
+            error_msg = str(exc).lower()
+            if 'not found' in error_msg or '404' in error_msg:
+                logger.warning(
+                    "Account %s/%s not found on scraper API. Skipping sync and consuming message.",
+                    account.platform,
+                    account.handle,
+                )
+                return None
+            # For other scraper errors, log and requeue
             logger.warning(
                 "Scraper error for %s/%s: %s. Requeuing scrape request.",
                 account.platform,
@@ -153,6 +161,15 @@ class SocialScrapingService:
             )
             self.queue_scrape_request(account)
             return None
+        except requests.HTTPError as exc:
+            # Handle other HTTP errors (non-404)
+            logger.error(
+                "HTTP error fetching %s data for %s: %s",
+                account.platform,
+                account.handle,
+                exc,
+            )
+            raise
         except Exception as exc:
             logger.exception(
                 "Unexpected error fetching %s data for %s",
@@ -215,6 +232,21 @@ class SocialScrapingService:
         account_data = profile_data.account_metrics or {}
         engagement_data = profile_data.engagement_data or {}
 
+        # User-level metadata from scraper (bio, display name, etc.)
+        user_data = {}
+        try:
+            user_data = (profile_data.raw_payload or {}).get('data', {}).get('user', {}) or {}
+            if user_data:
+                logger.debug(f"Found user_data keys for {account.handle}: {list(user_data.keys())}")
+        except Exception as e:
+            logger.warning(f"Error extracting user_data for {account.handle}: {e}")
+            user_data = {}
+        
+        if profile_data.raw_payload:
+            logger.debug(f"Raw payload keys for {account.handle}: {list(profile_data.raw_payload.keys())}")
+            if 'data' in profile_data.raw_payload:
+                logger.debug(f"Payload data keys for {account.handle}: {list(profile_data.raw_payload.get('data', {}).keys())}")
+
         logger.debug(
             "Persisting %s data for %s (user=%s)",
             profile_data.platform,
@@ -222,10 +254,42 @@ class SocialScrapingService:
             profile_data.username,
         )
 
-        account.platform_handle = profile_data.username or account.platform_handle
+        if profile_data.username:
+            account.handle = profile_data.username
         account.followers_count = account_data.get('followers_count', account.followers_count)
         account.following_count = account_data.get('following_count', account.following_count)
         account.posts_count = account_data.get('media_count', account.posts_count)
+
+        # Map user metadata onto the social account
+        if user_data:
+            display_name = user_data.get('display_name') or user_data.get('full_name')
+            if display_name is not None:
+                account.display_name = display_name or ''
+            
+            bio = user_data.get('bio') or user_data.get('biography')
+            if bio is not None:
+                account.bio = bio or ''
+            
+            external_url = user_data.get('external_url') or user_data.get('external_link')
+            if external_url is not None:
+                account.external_url = external_url or ''
+            
+            if 'is_private' in user_data:
+                account.is_private = bool(user_data.get('is_private', False))
+            
+            profile_image = (user_data.get('profile_image_url') or
+                           user_data.get('profile_pic_url') or 
+                           user_data.get('profile_pic_url_hd'))
+            if profile_image is not None:
+                account.profile_image_url = profile_image or ''
+            
+            # Fetch profile_image_base64 from API response
+            profile_image_base64 = user_data.get('profile_image_base64')
+            if profile_image_base64 is not None:
+                account.profile_image_base64 = profile_image_base64 or ''
+            
+            if 'is_verified' in user_data:
+                account.platform_verified = bool(user_data.get('is_verified', False))
 
         # Update averages using engagement data when available
         account.average_likes = engagement_data.get('average_likes', account.average_likes)
@@ -236,8 +300,7 @@ class SocialScrapingService:
         account.average_video_comments = engagement_data.get('average_video_comments', account.average_video_comments)
 
         account.last_synced_at = timezone.now()
-        account.save(update_fields=[
-            'platform_handle',
+        update_fields = [
             'followers_count',
             'following_count',
             'posts_count',
@@ -247,9 +310,19 @@ class SocialScrapingService:
             'average_video_views',
             'average_video_likes',
             'average_video_comments',
+            'display_name',
+            'bio',
+            'external_url',
+            'is_private',
+            'profile_image_url',
+            'profile_image_base64',
+            'platform_verified',
             'last_synced_at',
             'updated_at',
-        ])
+        ]
+        if profile_data.username:
+            update_fields.insert(0, 'handle')
+        account.save(update_fields=update_fields)
 
         latest_posted_at = self._save_posts(account, profile_data.posts)
         if latest_posted_at and (not account.last_posted_at or latest_posted_at > account.last_posted_at):
@@ -257,8 +330,46 @@ class SocialScrapingService:
             account.save(update_fields=['last_posted_at', 'updated_at'])
 
         metrics_summary = calculate_engagement_metrics(account)
-        account.engagement_rate = Decimal(
-            str(metrics_summary['overall_engagement_rate'])) if metrics_summary else account.engagement_rate
+
+        # Safely update engagement_rate and related metrics from calculated summary
+        if metrics_summary:
+            # Clamp engagement rate to the valid range for the DB field (0-100)
+            try:
+                overall_rate = Decimal(str(metrics_summary.get('overall_engagement_rate', 0)))
+            except Exception:
+                overall_rate = Decimal('0')
+
+            if overall_rate < Decimal('0'):
+                overall_rate = Decimal('0')
+            if overall_rate > Decimal('100'):
+                logger.warning(
+                    "Clamping engagement_rate for account %s/%s from %s to 100.00",
+                    account.platform,
+                    account.handle,
+                    overall_rate,
+                )
+                overall_rate = Decimal('100.00')
+
+            account.engagement_rate = overall_rate
+
+            account.average_likes = int(round(
+                metrics_summary.get('average_post_likes', account.average_likes)
+            ))
+            account.average_comments = int(round(
+                metrics_summary.get('average_post_comments', account.average_comments)
+            ))
+            account.average_video_likes = int(round(
+                metrics_summary.get('average_video_likes', account.average_video_likes)
+            ))
+            account.average_video_comments = int(round(
+                metrics_summary.get('average_video_comments', account.average_video_comments)
+            ))
+            account.average_video_views = int(round(
+                metrics_summary.get('average_video_views', account.average_video_views)
+            ))
+            account.engagement_snapshot = metrics_summary
+
+        # Persist updated engagement metrics (if any)
         account.average_likes = int(round(metrics_summary.get('average_post_likes',
                                                               account.average_likes))) if metrics_summary else account.average_likes
         account.average_comments = int(round(metrics_summary.get('average_post_comments',
@@ -282,6 +393,9 @@ class SocialScrapingService:
         ])
 
         self._update_influencer_summary(account.influencer)
+
+        # Enforce a maximum number of posts per influencer profile to keep data manageable
+        self._enforce_post_limit(account.influencer, max_posts=50)
 
     def process_scrape_out_queue(self, limit: int = 10) -> int:
         """
@@ -309,6 +423,22 @@ class SocialScrapingService:
                 else:
                     # Nothing to do for this event, acknowledge to avoid redelivery
                     self.rabbitmq.ack_message(method_frame.delivery_tag)
+            except ScraperError as exc:
+                # Handle ScraperError (including 404 converted to ScraperError) - consume message
+                error_msg = str(exc).lower()
+                if 'not found' in error_msg or '404' in error_msg:
+                    logger.warning(
+                        "Account not found (404) handling scrape completion. Consuming message to move to next one."
+                    )
+                    self.rabbitmq.ack_message(method_frame.delivery_tag)
+                else:
+                    # For other scraper errors, requeue
+                    logger.exception("Scraper error handling scrape completion message: %s", exc)
+                    self.rabbitmq.nack_message(method_frame.delivery_tag, requeue=True)
+            except requests.HTTPError as exc:
+                # Handle HTTP errors (non-404) - requeue
+                logger.exception("HTTP error handling scrape completion message: %s", exc)
+                self.rabbitmq.nack_message(method_frame.delivery_tag, requeue=True)
             except Exception as exc:
                 logger.exception("Error handling scrape completion message: %s", exc)
                 self.rabbitmq.nack_message(method_frame.delivery_tag, requeue=True)
@@ -356,6 +486,29 @@ class SocialScrapingService:
         influencer.average_interaction = f"{avg_engagement:.2f}%"
         influencer.average_views = f"{int(round(avg_video_views))}"
         influencer.save(update_fields=['average_interaction', 'average_views', 'updated_at'])
+
+    def _enforce_post_limit(self, influencer: InfluencerProfile, max_posts: int = 50) -> None:
+        """
+        Ensure we only keep up to `max_posts` SocialMediaPost records per influencer profile.
+        Older posts (by posted_at/last_fetched_at) are deleted when the limit is exceeded.
+        """
+        from influencers.models import SocialMediaPost  # local import to avoid circulars in some contexts
+
+        queryset = SocialMediaPost.objects.filter(
+            account__influencer=influencer
+        ).order_by('-posted_at', '-last_fetched_at')
+
+        total = queryset.count()
+        if total <= max_posts:
+            return
+
+        keep_ids = list(queryset.values_list('id', flat=True)[:max_posts])
+        if not keep_ids:
+            return
+
+        SocialMediaPost.objects.filter(
+            account__influencer=influencer
+        ).exclude(id__in=keep_ids).delete()
 
     def _save_posts(self, account: SocialMediaAccount, posts: List[Dict[str, Any]]) -> Optional[datetime]:
         """

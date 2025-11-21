@@ -1,0 +1,61 @@
+{% extends "admin/change_list.html" %}
+{% load i18n admin_urls static %}
+
+{% block extrastyle %}
+    {{ block.super }}
+    <style>
+        .queue-sync-button {
+            background: linear-gradient(to bottom, #417690 0%, #205067 100%);
+            border: 1px solid #205067;
+            color: #fff;
+            padding: 8px 15px;
+            border-radius: 4px;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 13px;
+            font-weight: normal;
+            line-height: 1.4;
+            transition: all 0.2s ease;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+            margin-left: 10px;
+        }
+
+        .queue-sync-button:hover {
+            background: linear-gradient(to bottom, #205067 0%, #417690 100%);
+            border-color: #417690;
+            color: #fff;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+            transform: translateY(-1px);
+        }
+
+        .queue-sync-button:active {
+            transform: translateY(0);
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
+        }
+
+        .queue-sync-button:focus {
+            outline: 2px solid #417690;
+            outline-offset: 2px;
+        }
+
+        .queue-sync-button::before {
+            content: "🔄 ";
+            margin-right: 5px;
+            font-size: 14px;
+        }
+    </style>
+{% endblock %}
+
+{% block object-tools-items %}
+    {{ block.super }}
+    {% if show_queue_sync_button %}
+        <li>
+            <a href="{% url 'admin:influencers_socialmediaaccount_queue_sync_all' %}"
+               class="queue-sync-button"
+               onclick="return confirm('This will queue sync for all accounts that need updating (last synced more than 7 days ago or never synced). Continue?');">
+                Queue Sync for All
+            </a>
+        </li>
+    {% endif %}
+{% endblock %}
+

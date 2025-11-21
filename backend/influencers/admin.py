@@ -1,5 +1,9 @@
 from django.contrib import admin
+from django.contrib import messages
 from django.db.models import Q
+from django.shortcuts import redirect
+from django.urls import path
+from django.utils import timezone
 from django.utils.html import format_html
 from users.models import UserProfile
 
@@ -9,6 +13,7 @@ from .models import (
     SocialMediaPost,
     InfluencerAudienceInsight,
     InfluencerCategoryScore,
+    CeleryTask,
 )
 
 
@@ -390,17 +395,280 @@ class SocialMediaPostInline(admin.TabularInline):
 class SocialMediaAccountAdmin(admin.ModelAdmin):
     list_display = [
         'influencer_username', 'platform', 'handle', 'followers_count',
-        'engagement_rate', 'verified', 'is_active'
+        'engagement_rate', 'verified', 'is_active', 'last_synced_display',
+        'updated_at_display', 'sync_status_button'
     ]
     list_filter = ['platform', 'verified', 'is_active', 'created_at']
     search_fields = ['influencer__username', 'handle', 'profile_url']
+    readonly_fields = [
+        'last_synced_at', 'last_posted_at', 'engagement_snapshot',
+        'sync_status_display', 'queue_sync_button', 'created_at', 'updated_at',
+        'display_name', 'bio', 'external_url', 'is_private', 'profile_image_url', 'profile_image_base64_display',
+        'platform_verified'
+    ]
+    ordering = ['-last_synced_at', '-updated_at']
 
     inlines = [SocialMediaPostInline]
+
+    fieldsets = (
+        ('Account Information', {
+            'fields': ('influencer', 'platform', 'handle', 'profile_url', 'verified', 'platform_verified', 'is_active')
+        }),
+        ('Profile Details', {
+            'fields': ('display_name', 'bio', 'external_url', 'is_private', 'profile_image_url',
+                       'profile_image_base64_display'),
+            'description': 'Profile metadata from the social platform'
+        }),
+        ('Followers & Posts', {
+            'fields': ('followers_count', 'following_count', 'posts_count', 'last_posted_at')
+        }),
+        ('Engagement Metrics', {
+            'fields': ('engagement_rate', 'average_likes', 'average_comments', 'average_shares',
+                       'average_video_views', 'average_video_likes', 'average_video_comments')
+        }),
+        ('Growth Metrics', {
+            'fields': ('follower_growth_rate', 'subscriber_growth_rate'),
+            'classes': ('collapse',)
+        }),
+        ('Engagement Snapshot', {
+            'fields': ('engagement_snapshot',),
+            'classes': ('collapse',),
+            'description': 'Cached engagement metrics computed from recent posts'
+        }),
+        ('Sync Information', {
+            'fields': ('last_synced_at', 'sync_status_display', 'queue_sync_button'),
+            'description': 'Sync status and manual queue trigger'
+        }),
+        ('Timestamps', {
+            'fields': ('created_at', 'updated_at'),
+            'classes': ('collapse',)
+        }),
+    )
 
     def influencer_username(self, obj):
         return obj.influencer.username
 
     influencer_username.short_description = 'Influencer'
+
+    def profile_image_base64_display(self, obj):
+        """Display profile image from base64 data"""
+        if obj.profile_image_base64:
+            # Show image preview if base64 data exists
+            image_data = obj.profile_image_base64
+            # Remove data URL prefix if present
+            if image_data.startswith('data:image'):
+                image_data = image_data.split(',')[1] if ',' in image_data else image_data
+            elif not image_data.startswith('/9j/') and len(image_data) > 100:
+                # Assume it's already base64 without prefix
+                pass
+            return format_html(
+                '<img src="data:image/jpeg;base64,{}" style="max-width: 200px; max-height: 200px; border-radius: 8px; border: 2px solid #ddd;" />',
+                image_data
+            )
+        elif obj.profile_image_url:
+            return format_html(
+                '<img src="{}" style="max-width: 200px; max-height: 200px; border-radius: 8px; border: 2px solid #ddd;" onerror="this.style.display=\'none\'" />',
+                obj.profile_image_url
+            )
+        return 'No profile image available'
+
+    profile_image_base64_display.short_description = 'Profile Image (Base64)'
+
+    def last_synced_display(self, obj):
+        """Display last synced time with color coding"""
+        if not obj.last_synced_at:
+            return format_html('<span style="color: red;">Never synced</span>')
+
+        days_ago = (timezone.now() - obj.last_synced_at).days
+        if days_ago >= 7:
+            color = 'red'
+            status = f'{days_ago} days ago (needs sync)'
+        elif days_ago >= 3:
+            color = 'orange'
+            status = f'{days_ago} days ago'
+        else:
+            color = 'green'
+            status = f'{days_ago} days ago'
+
+        return format_html(
+            '<span style="color: {};">{}</span>',
+            color,
+            status
+        )
+
+    last_synced_display.short_description = 'Last Synced'
+    last_synced_display.admin_order_field = 'last_synced_at'
+
+    def updated_at_display(self, obj):
+        """Display updated at time"""
+        if not obj.updated_at:
+            return 'N/A'
+        return obj.updated_at.strftime('%Y-%m-%d %H:%M:%S')
+
+    updated_at_display.short_description = 'Last Updated'
+    updated_at_display.admin_order_field = 'updated_at'
+
+    def sync_status_button(self, obj):
+        """Display sync status button in list view"""
+        needs_sync = self._needs_sync(obj)
+        if needs_sync:
+            url = f'/admin/influencers/socialmediaaccount/{obj.id}/queue-sync/'
+            return format_html(
+                '<a class="button" href="{}" style="background-color: #ff6b6b; color: white; padding: 5px 10px; text-decoration: none; border-radius: 3px;">Queue Sync</a>',
+                url
+            )
+        else:
+            return format_html('<span style="color: green;">✓ Up to date</span>')
+
+    sync_status_button.short_description = 'Sync Status'
+
+    def sync_status_display(self, obj):
+        """Display sync status in detail view"""
+        needs_sync = self._needs_sync(obj)
+        if needs_sync:
+            days_ago = (timezone.now() - obj.last_synced_at).days if obj.last_synced_at else None
+            if days_ago is None:
+                message = "This account has never been synced and needs an update."
+            else:
+                message = f"This account was last synced {days_ago} days ago (more than 7 days) and needs an update."
+            return format_html(
+                '<div style="padding: 10px; background-color: #fff3cd; border: 1px solid #ffc107; border-radius: 4px; margin: 10px 0;">'
+                '<strong>⚠️ Sync Required:</strong><br>{}'
+                '</div>',
+                message
+            )
+        else:
+            days_ago = (timezone.now() - obj.last_synced_at).days if obj.last_synced_at else 0
+            return format_html(
+                '<div style="padding: 10px; background-color: #d4edda; border: 1px solid #28a745; border-radius: 4px; margin: 10px 0;">'
+                '<strong>✓ Up to Date:</strong><br>Last synced {} days ago.'
+                '</div>',
+                days_ago
+            )
+
+    sync_status_display.short_description = 'Sync Status'
+
+    def queue_sync_button(self, obj):
+        """Display queue sync button in detail view"""
+        needs_sync = self._needs_sync(obj)
+        if needs_sync:
+            url = f'/admin/influencers/socialmediaaccount/{obj.id}/queue-sync/'
+            return format_html(
+                '<a class="button" href="{}" style="background-color: #007cba; color: white; padding: 10px 20px; text-decoration: none; border-radius: 4px; display: inline-block; margin: 10px 0;">'
+                '🔄 Queue Sync Now'
+                '</a>',
+                url
+            )
+        else:
+            return format_html(
+                '<span style="color: green; padding: 10px; display: inline-block;">✓ Account is up to date (no sync needed)</span>'
+            )
+
+    queue_sync_button.short_description = 'Queue Sync'
+
+    def _needs_sync(self, obj):
+        """Check if account needs sync (last_synced_at is None or older than 7 days)"""
+        if not obj.last_synced_at:
+            return True
+        delta = timezone.now() - obj.last_synced_at
+        return delta.days >= 7
+
+    def get_urls(self):
+        """Add custom URL for queue sync action"""
+        urls = super().get_urls()
+        custom_urls = [
+            path(
+                '<int:object_id>/queue-sync/',
+                self.admin_site.admin_view(self.queue_sync_view),
+                name='influencers_socialmediaaccount_queue_sync',
+            ),
+            path(
+                'queue-sync-all/',
+                self.admin_site.admin_view(self.queue_sync_all_view),
+                name='influencers_socialmediaaccount_queue_sync_all',
+            ),
+        ]
+        return custom_urls + urls
+
+    def changelist_view(self, request, extra_context=None):
+        """Override changelist to add custom button"""
+        extra_context = extra_context or {}
+        extra_context['show_queue_sync_button'] = True
+        return super().changelist_view(request, extra_context)
+
+    def queue_sync_view(self, request, object_id):
+        """Handle queue sync action"""
+        try:
+            account = SocialMediaAccount.objects.get(pk=object_id)
+        except SocialMediaAccount.DoesNotExist:
+            messages.error(request, 'Social media account not found.')
+            return redirect('admin:influencers_socialmediaaccount_changelist')
+
+        needs_sync = self._needs_sync(account)
+
+        if not needs_sync:
+            messages.info(
+                request,
+                f'Account {account.handle} ({account.platform}) is up to date. '
+                f'Last synced {((timezone.now() - account.last_synced_at).days)} days ago.'
+            )
+        else:
+            try:
+                from communications.social_scraping_service import get_social_scraping_service
+                scraping_service = get_social_scraping_service()
+                message_id = scraping_service.queue_scrape_request(account, priority='high')
+
+                if message_id:
+                    messages.success(
+                        request,
+                        f'Successfully queued sync for {account.handle} ({account.platform}). '
+                        f'Message ID: {message_id}'
+                    )
+                else:
+                    messages.error(
+                        request,
+                        f'Failed to queue sync for {account.handle} ({account.platform}). '
+                        f'Please check RabbitMQ connection.'
+                    )
+            except Exception as e:
+                messages.error(
+                    request,
+                    f'Error queueing sync: {str(e)}'
+                )
+
+        # Redirect back to the change page or list
+        if 'next' in request.GET:
+            return redirect(request.GET['next'])
+        return redirect('admin:influencers_socialmediaaccount_change', object_id)
+
+    def queue_sync_all_view(self, request):
+        """Handle queue sync for all accounts that need it - runs in background"""
+        from influencers.tasks import sync_all_social_accounts
+        from influencers.models import CeleryTask
+
+        # Trigger background task
+        task = sync_all_social_accounts.delay()
+
+        # Create a record in CeleryTask for tracking
+        CeleryTask.objects.update_or_create(
+            task_id=task.id,
+            defaults={
+                'task_name': 'sync_all_social_accounts',
+                'status': 'PENDING',
+            }
+        )
+
+        messages.success(
+            request,
+            format_html(
+                'Background sync task has been queued (Task ID: {}). '
+                'The sync will run in the background and process all accounts that need updating. '
+                'You can monitor the progress in the <a href="/admin/influencers/celerytask/">Celery Tasks</a> section.',
+                task.id
+            )
+        )
+
+        return redirect('admin:influencers_socialmediaaccount_changelist')
 
 
 # Add inline relationships
@@ -513,3 +781,54 @@ class SocialMediaPostAdmin(admin.ModelAdmin):
         return obj.account.influencer.username
 
     influencer_username.short_description = 'Influencer'
+
+
+@admin.register(CeleryTask)
+class CeleryTaskAdmin(admin.ModelAdmin):
+    list_display = [
+        'task_name', 'task_id_short', 'status', 'created_at', 'completed_at', 'duration_display'
+    ]
+    list_filter = ['status', 'task_name', 'created_at']
+    search_fields = ['task_id', 'task_name']
+    readonly_fields = [
+        'task_id', 'task_name', 'status', 'result', 'error', 'created_at', 'updated_at', 'completed_at'
+    ]
+    ordering = ['-created_at']
+
+    fieldsets = (
+        ('Task Information', {
+            'fields': ('task_id', 'task_name', 'status')
+        }),
+        ('Results', {
+            'fields': ('result', 'error'),
+            'classes': ('collapse',)
+        }),
+        ('Timestamps', {
+            'fields': ('created_at', 'updated_at', 'completed_at'),
+            'classes': ('collapse',)
+        }),
+    )
+
+    def task_id_short(self, obj):
+        return obj.task_id[:16] + '...' if len(obj.task_id) > 16 else obj.task_id
+
+    task_id_short.short_description = 'Task ID'
+
+    def duration_display(self, obj):
+        if obj.completed_at and obj.created_at:
+            delta = obj.completed_at - obj.created_at
+            total_seconds = int(delta.total_seconds())
+            hours, remainder = divmod(total_seconds, 3600)
+            minutes, seconds = divmod(remainder, 60)
+            if hours > 0:
+                return f"{hours}h {minutes}m {seconds}s"
+            elif minutes > 0:
+                return f"{minutes}m {seconds}s"
+            else:
+                return f"{seconds}s"
+        return '-'
+
+    duration_display.short_description = 'Duration'
+
+    def has_add_permission(self, request):
+        return False  # Tasks are created automatically, not manually

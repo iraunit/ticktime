@@ -69,6 +69,7 @@ export function UnifiedSidebar({userType}: UnifiedSidebarProps) {
         brandName: "TickTime",
         brandLogo: null
     });
+    const [influencerProfileId, setInfluencerProfileId] = useState<number | null>(null);
     const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
 
     // Close profile menu when clicking outside
@@ -97,6 +98,13 @@ export function UnifiedSidebar({userType}: UnifiedSidebarProps) {
                             brandLogo: response.data.brand.logo,
                             brandName: response.data.brand.name
                         }));
+                    }
+                } else if (userType === 'influencer') {
+                    // Fetch influencer profile to get public profile ID
+                    const response = await api.get('/influencers/profile/');
+                    const profile = response.data?.profile;
+                    if (profile?.id) {
+                        setInfluencerProfileId(profile.id);
                     }
                 }
                 const profileImage = user?.profile_image;
@@ -388,6 +396,45 @@ export function UnifiedSidebar({userType}: UnifiedSidebarProps) {
                         />
                     </div>
 
+                    {/* Influencer Public Profile Link */}
+                    {userType === 'influencer' && user && (
+                        <div className="px-2 pb-4">
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    if (!influencerProfileId) {
+                                        return;
+                                    }
+                                    const baseUrl = typeof window !== "undefined"
+                                        ? window.location.origin
+                                        : "http://localhost:3000";
+                                    const url = `${baseUrl}/influencer/${influencerProfileId}`;
+                                    window.open(url, "_blank", "noopener,noreferrer");
+                                }}
+                                className={`group flex items-center w-full px-3 py-2.5 text-sm font-medium rounded-xl transition-all duration-300 relative overflow-hidden ${
+                                    isExpanded
+                                        ? 'bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-700 border border-blue-100 shadow-sm hover:shadow-md'
+                                        : 'text-gray-700 hover:bg-gradient-to-r hover:from-gray-50 hover:to-gray-100 hover:text-gray-900'
+                                }`}
+                                title={!isExpanded ? 'Public Profile' : undefined}
+                            >
+                                <div
+                                    className={`relative h-5 w-5 p-0.5 rounded-lg transition-all duration-300 flex-shrink-0 ${
+                                        isExpanded
+                                            ? 'bg-gradient-to-r from-blue-500 to-indigo-500 text-white shadow-md'
+                                            : 'text-gray-400 group-hover:text-gray-600 group-hover:bg-gray-100'
+                                    } ${isExpanded ? 'mr-3' : ''}`}>
+                                    <HiUserCircle className="w-full h-full"/>
+                                </div>
+                                {isExpanded && (
+                                    <span className="transition-all duration-300 font-medium whitespace-nowrap">
+                                        Public Profile
+                                    </span>
+                                )}
+                            </button>
+                        </div>
+                    )}
+
                     {/* Enhanced User Profile Section with Logout */}
                     <div
                         className="border-t border-red-200 pl-1 p-3 bg-gradient-to-br from-gray-50 via-white to-gray-50 relative">
@@ -447,6 +494,7 @@ export function UnifiedSidebar({userType}: UnifiedSidebarProps) {
                                         Settings
                                     </Link>
                                     <button
+                                        type="button"
                                         onClick={handleLogout}
                                         className="w-full flex items-center px-3 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
                                     >

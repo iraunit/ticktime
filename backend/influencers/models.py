@@ -1,8 +1,7 @@
+from backend.storage_backends import private_media_storage, private_upload_path
 from common.models import Industry, ContentCategory, PLATFORM_CHOICES
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.db import models
-
-from backend.storage_backends import private_media_storage, private_upload_path
 
 
 class InfluencerProfile(models.Model):
@@ -152,17 +151,6 @@ class InfluencerProfile(models.Model):
         help_text='Keywords found in bio'
     )
 
-    # Platform-specific flags
-    has_instagram = models.BooleanField(default=False)
-    has_youtube = models.BooleanField(default=False)
-    has_tiktok = models.BooleanField(default=False)
-    has_twitter = models.BooleanField(default=False)
-    has_facebook = models.BooleanField(default=False)
-    has_linkedin = models.BooleanField(default=False)
-
-    # Instagram verified
-    instagram_verified = models.BooleanField(default=False)
-
     # Brand safety and content quality
     brand_safety_score = models.DecimalField(
         max_digits=3,
@@ -229,10 +217,6 @@ class InfluencerProfile(models.Model):
             models.Index(fields=['campaign_ready']),
             models.Index(fields=['barter_ready']),
             models.Index(fields=['faster_responses']),
-            models.Index(fields=['instagram_verified']),
-            models.Index(fields=['has_instagram']),
-            models.Index(fields=['has_youtube']),
-            models.Index(fields=['has_tiktok']),
         ]
 
     def __str__(self):
@@ -267,17 +251,6 @@ class InfluencerProfile(models.Model):
             parts.append(self.country)
         return ', '.join(parts) if parts else ''
 
-    def update_platform_flags(self):
-        """Update platform availability flags based on social accounts"""
-        self.has_instagram = self.social_accounts.filter(platform='instagram', is_active=True).exists()
-        self.has_youtube = self.social_accounts.filter(platform='youtube', is_active=True).exists()
-        self.has_tiktok = self.social_accounts.filter(platform='tiktok', is_active=True).exists()
-        self.has_twitter = self.social_accounts.filter(platform='twitter', is_active=True).exists()
-        self.has_facebook = self.social_accounts.filter(platform='facebook', is_active=True).exists()
-        self.has_linkedin = self.social_accounts.filter(platform='linkedin', is_active=True).exists()
-        self.save(
-            update_fields=['has_instagram', 'has_youtube', 'has_tiktok', 'has_twitter', 'has_facebook', 'has_linkedin'])
-
     def update_profile_verification(self):
         """Update profile_verified based on aadhar, email, and phone verification status"""
         # Check if all required verifications are complete
@@ -304,6 +277,37 @@ class SocialMediaAccount(models.Model):
     platform = models.CharField(max_length=20, choices=PLATFORM_CHOICES)
     handle = models.CharField(max_length=100)
     profile_url = models.URLField(blank=True)
+
+    # Platform profile metadata (synced from scraper)
+    display_name = models.CharField(
+        max_length=150,
+        blank=True,
+        default='',
+        help_text='Display name on the social platform',
+    )
+    bio = models.TextField(
+        blank=True,
+        default='',
+        help_text='Bio/description from the social platform',
+    )
+    external_url = models.URLField(
+        blank=True,
+        help_text='External URL / link in bio set on the platform',
+    )
+    is_private = models.BooleanField(
+        default=False,
+        help_text='Whether the account is private on the platform',
+    )
+    profile_image_url = models.TextField(
+        blank=True,
+        default='',
+        help_text='Profile image URL from the platform (may expire)',
+    )
+    profile_image_base64 = models.TextField(
+        blank=True,
+        default='',
+        help_text='Profile image as base64 string from scraper API',
+    )
     followers_count = models.IntegerField(validators=[MinValueValidator(0)], default=0)
     following_count = models.IntegerField(validators=[MinValueValidator(0)], default=0)
     posts_count = models.IntegerField(validators=[MinValueValidator(0)], default=0)
@@ -319,14 +323,6 @@ class SocialMediaAccount(models.Model):
     average_video_views = models.IntegerField(validators=[MinValueValidator(0)], default=0)
     average_video_likes = models.IntegerField(validators=[MinValueValidator(0)], default=0)
     average_video_comments = models.IntegerField(validators=[MinValueValidator(0)], default=0)
-
-    # Platform-specific handles and profile links
-    platform_handle = models.CharField(
-        max_length=100,
-        blank=True,
-        help_text='Platform-specific handle (e.g., @username)'
-    )
-    platform_profile_link = models.URLField(blank=True, help_text='Direct link to platform profile')
 
     # Growth metrics
     follower_growth_rate = models.DecimalField(
@@ -346,31 +342,20 @@ class SocialMediaAccount(models.Model):
 
     # Performance metrics
     last_posted_at = models.DateTimeField(null=True, blank=True)
-    last_synced_at = models.DateTimeField(null=True, blank=True,
-                                          help_text='When this account was last synced from scraper')
-    post_performance_score = models.DecimalField(
-        max_digits=3,
-        decimal_places=2,
+    last_synced_at = models.DateTimeField(
         null=True,
         blank=True,
-        help_text='Overall post performance score (0-10)'
-    )
-
-    # CPM and monetization
-    avg_cpm = models.DecimalField(
-        max_digits=8,
-        decimal_places=2,
-        null=True,
-        blank=True,
-        help_text='Average cost per mille (CPM)'
+        help_text='When this account was last synced from scraper',
     )
     engagement_snapshot = models.JSONField(
         default=dict,
         blank=True,
         help_text='Cached engagement metrics computed from recent posts'
     )
-
+    # Whether TickTime has manually verified that this account belongs to the user
     verified = models.BooleanField(default=False)
+    # Whether the account is verified/badged on the social platform itself (blue tick etc.)
+    platform_verified = models.BooleanField(default=False)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -391,9 +376,7 @@ class SocialMediaAccount(models.Model):
         return f"{self.influencer.username} - {self.platform} (@{self.handle})"
 
     def save(self, *args, **kwargs):
-        # Update platform flags on the influencer profile
         super().save(*args, **kwargs)
-        self.influencer.update_platform_flags()
 
 
 class SocialMediaPost(models.Model):
@@ -510,3 +493,41 @@ class InfluencerCategoryScore(models.Model):
 
     def __str__(self):
         return f"{self.influencer.username} - {self.category_name} ({self.score}%)"
+
+
+class CeleryTask(models.Model):
+    """
+    Track Celery task execution for monitoring in admin panel
+    """
+    task_id = models.CharField(max_length=255, unique=True, db_index=True)
+    task_name = models.CharField(max_length=255)
+    status = models.CharField(
+        max_length=50,
+        choices=[
+            ('PENDING', 'Pending'),
+            ('STARTED', 'Started'),
+            ('SUCCESS', 'Success'),
+            ('FAILURE', 'Failure'),
+            ('RETRY', 'Retry'),
+            ('REVOKED', 'Revoked'),
+        ],
+        default='PENDING'
+    )
+    result = models.JSONField(default=dict, blank=True, null=True)
+    error = models.TextField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        db_table = 'celery_tasks'
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['task_id']),
+            models.Index(fields=['status']),
+            models.Index(fields=['task_name']),
+            models.Index(fields=['created_at']),
+        ]
+
+    def __str__(self):
+        return f"{self.task_name} ({self.task_id[:8]}...) - {self.status}"
