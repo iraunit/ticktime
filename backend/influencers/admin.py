@@ -88,12 +88,6 @@ class InfluencerProfileAdmin(admin.ModelAdmin):
             'fields': ('collaboration_types_display', 'minimum_collaboration_amount'),
             'description': 'Collaboration type preferences and requirements'
         }),
-        ('Platform Flags', {
-            'fields': ('has_instagram', 'has_youtube', 'has_tiktok', 'has_twitter', 'has_facebook', 'has_linkedin',
-                       'instagram_verified'),
-            'classes': ('collapse',),
-            'description': 'Platform presence flags (auto-updated)'
-        }),
         ('Content & Audience', {
             'fields': ('content_keywords_display', 'bio_keywords_display', 'brand_safety_score',
                        'content_quality_score'),

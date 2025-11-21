@@ -502,7 +502,7 @@ def influencer_search_view(request):
             Q(user__last_name__icontains=search) |
             Q(user__username__icontains=search) |
             Q(bio__icontains=search) |
-            Q(industry__icontains=search) |
+            Q(industry__name__icontains=search) |
             Q(social_accounts__handle__icontains=search) |
             Q(content_keywords__contains=[search]) |
             Q(bio_keywords__contains=[search])
