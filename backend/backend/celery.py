@@ -36,8 +36,12 @@ print(f"Final broker_url: {broker_url}")
 print(f"Final result_backend: {result_backend}")
 print("=" * 80)
 
+# Set broker and result backend BEFORE config_from_object
 app.conf.broker_url = broker_url
 app.conf.result_backend = result_backend
+
+print(f"Before config_from_object - broker_url: {app.conf.broker_url}")
+print(f"Before config_from_object - result_backend: {app.conf.result_backend}")
 
 # Using a string here means the worker doesn't have to serialize
 # the configuration object to child processes.
@@ -45,9 +49,25 @@ app.conf.result_backend = result_backend
 #   should have a `CELERY_` prefix.
 app.config_from_object('django.conf:settings', namespace='CELERY')
 
+print(f"After config_from_object - broker_url: {app.conf.broker_url}")
+print(f"After config_from_object - result_backend: {app.conf.result_backend}")
+
 # Ensure broker and result backend are explicitly set (in case config_from_object overrides)
 app.conf.broker_url = broker_url
 app.conf.result_backend = result_backend
+
+print(f"After final override - broker_url: {app.conf.broker_url}")
+print(f"After final override - result_backend: {app.conf.result_backend}")
+
+# Also print what Django settings has
+try:
+    from django.conf import settings
+    print(f"Django settings CELERY_BROKER_URL: {getattr(settings, 'CELERY_BROKER_URL', 'NOT SET')}")
+    print(f"Django settings CELERY_RESULT_BACKEND: {getattr(settings, 'CELERY_RESULT_BACKEND', 'NOT SET')}")
+except Exception as e:
+    print(f"Error reading Django settings: {e}")
+
+print("=" * 80)
 
 # Load task modules from all registered Django apps.
 app.autodiscover_tasks()
