@@ -24,8 +24,12 @@ print(f"Environment CELERY_RESULT_BACKEND: {env_celery_result_backend}")
 print("-" * 80)
 
 redis_url = os.environ.get('REDIS_URL', 'redis://localhost:6379/0')
-broker_url = os.environ.get('CELERY_BROKER_URL', redis_url)
-result_backend = os.environ.get('CELERY_RESULT_BACKEND', redis_url)
+# If CELERY_BROKER_URL is empty/None, use redis_url (empty string is treated as unset)
+celery_broker_url = os.environ.get('CELERY_BROKER_URL', '').strip()
+broker_url = celery_broker_url if celery_broker_url else redis_url
+# If CELERY_RESULT_BACKEND is empty/None, use redis_url
+celery_result_backend = os.environ.get('CELERY_RESULT_BACKEND', '').strip()
+result_backend = celery_result_backend if celery_result_backend else redis_url
 
 print(f"Final redis_url (used as default): {redis_url}")
 print(f"Final broker_url: {broker_url}")
