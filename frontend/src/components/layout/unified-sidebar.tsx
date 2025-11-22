@@ -11,6 +11,7 @@ import {
     HiArrowRightOnRectangle,
     HiBars3,
     HiBookmark,
+    HiCalendar,
     HiChartBar,
     HiChatBubbleLeftRight,
     HiChevronDown,
@@ -363,6 +364,65 @@ export function UnifiedSidebar({userType}: UnifiedSidebarProps) {
                             );
                         })}
                     </nav>
+
+                    {/* Additional Actions - Only for Brands */}
+                    {userType === 'brand' && (
+                        <div className="px-2 pb-2 space-y-2">
+                            {/* Schedule a Meet */}
+                            <a
+                                href="https://calendly.com/ticktime" 
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className={`group flex items-center w-full px-3 py-2.5 text-sm font-medium rounded-xl transition-all duration-300 relative overflow-hidden ${
+                                    isExpanded
+                                        ? 'bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-700 border border-blue-100 shadow-sm hover:shadow-md'
+                                        : 'text-gray-700 hover:bg-gradient-to-r hover:from-gray-50 hover:to-gray-100 hover:text-gray-900'
+                                }`}
+                                title={!isExpanded ? 'Schedule a Meet' : undefined}
+                            >
+                                <div
+                                    className={`relative h-5 w-5 p-0.5 rounded-lg transition-all duration-300 flex-shrink-0 ${
+                                        isExpanded
+                                            ? 'bg-gradient-to-r from-blue-500 to-indigo-500 text-white shadow-md'
+                                            : 'text-gray-400 group-hover:text-gray-600 group-hover:bg-gray-100'
+                                    } ${isExpanded ? 'mr-3' : ''}`}>
+                                    <HiCalendar className="w-full h-full"/>
+                                </div>
+                                {isExpanded && (
+                                    <span className="transition-all duration-300 font-medium whitespace-nowrap">
+                                        Schedule a Meet
+                                    </span>
+                                )}
+                            </a>
+
+                            {/* Documentations */}
+                            <a
+                                href="/support/docs" 
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className={`group flex items-center w-full px-3 py-2.5 text-sm font-medium rounded-xl transition-all duration-300 relative overflow-hidden ${
+                                    isExpanded
+                                        ? 'bg-gradient-to-r from-purple-50 to-pink-50 text-purple-700 border border-purple-100 shadow-sm hover:shadow-md'
+                                        : 'text-gray-700 hover:bg-gradient-to-r hover:from-gray-50 hover:to-gray-100 hover:text-gray-900'
+                                }`}
+                                title={!isExpanded ? 'Documentations' : undefined}
+                            >
+                                <div
+                                    className={`relative h-5 w-5 p-0.5 rounded-lg transition-all duration-300 flex-shrink-0 ${
+                                        isExpanded
+                                            ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-md'
+                                            : 'text-gray-400 group-hover:text-gray-600 group-hover:bg-gray-100'
+                                    } ${isExpanded ? 'mr-3' : ''}`}>
+                                    <HiDocumentText className="w-full h-full"/>
+                                </div>
+                                {isExpanded && (
+                                    <span className="transition-all duration-300 font-medium whitespace-nowrap">
+                                        Documentations
+                                    </span>
+                                )}
+                            </a>
+                        </div>
+                    )}
 
                     {/* Support CTA */}
                     <div className="px-2 pb-4">
