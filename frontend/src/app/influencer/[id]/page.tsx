@@ -8,6 +8,7 @@ import {Badge} from "@/components/ui/badge";
 import {GlobalLoader} from "@/components/ui/global-loader";
 import {toast} from "@/lib/toast";
 import {api} from "@/lib/api";
+import {clearExpiredScraperCache, fetchScraperApiWithCache} from "@/lib/scraper-cache";
 import {CampaignSelectionDialog} from "@/components/campaigns/campaign-selection-dialog";
 import {
     HiArrowLeft,
@@ -353,15 +354,13 @@ export default function InfluencerProfilePage() {
                     const username = handle.replace(/^@/, '');
                     const scraperApiUrl = `https://scraper.ticktime.media/api/users/${encodeURIComponent(username)}/analytics?platform=${platform}`;
 
-                    const response = await fetch(scraperApiUrl);
+                    const data = await fetchScraperApiWithCache(username, platform, scraperApiUrl);
 
-                    if (!response.ok) {
+                    if (!data || !data.ok || !data.data || !data.data.posts) {
                         return;
                     }
 
-                    const data = await response.json();
-
-                    if (data.ok && data.data && data.data.posts) {
+                    if (data.data.posts) {
                         // Create a map of API post IDs to first media URL (use first URL from array)
                         const apiPostMap: Record<string, string> = {};
                         data.data.posts.forEach((apiPost: any) => {
@@ -416,6 +415,8 @@ export default function InfluencerProfilePage() {
             fetchProfile();
             checkBookmarkStatus();
         }
+        // Clean up expired cache entries on mount
+        clearExpiredScraperCache();
     }, [influencerId]);
 
     // Fetch media URLs from scraper API for all posts when profile is loaded

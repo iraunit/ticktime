@@ -1160,7 +1160,7 @@ def public_influencer_profile_view(request, influencer_id):
         # Get the requested influencer profile
         recent_posts_prefetch = Prefetch(
             'posts',
-            queryset=SocialMediaPost.objects.order_by('-posted_at', '-last_fetched_at')[:10],
+            queryset=SocialMediaPost.objects.order_by('-posted_at', '-last_fetched_at')[:50],
             to_attr='recent_posts_prefetched',
         )
 

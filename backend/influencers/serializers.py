@@ -1129,7 +1129,7 @@ class SocialAccountPublicSerializer(serializers.ModelSerializer):
     def get_recent_posts(self, obj):
         prefetched_posts = getattr(obj, 'recent_posts_prefetched', None)
         posts = prefetched_posts if prefetched_posts is not None else obj.posts.order_by('-posted_at',
-                                                                                         '-last_fetched_at')[:10]
+                                                                                         '-last_fetched_at')[:50]
         return SocialMediaPostPublicSerializer(posts, many=True, context=self.context).data
 
 
@@ -1339,7 +1339,7 @@ class InfluencerPublicProfileSerializer(serializers.ModelSerializer):
         for account in obj.social_accounts.all():
             account_posts = getattr(account, 'recent_posts_prefetched', None)
             if account_posts is None:
-                account_posts = account.posts.order_by('-posted_at', '-last_fetched_at')[:10]
+                account_posts = account.posts.order_by('-posted_at', '-last_fetched_at')[:50]
             posts.extend(account_posts)
 
         if not posts:
@@ -1351,7 +1351,7 @@ class InfluencerPublicProfileSerializer(serializers.ModelSerializer):
                 timestamp = timezone.now()
             return timestamp
 
-        posts = sorted(posts, key=sort_key, reverse=True)[:10]
+        posts = sorted(posts, key=sort_key, reverse=True)[:50]
         return SocialMediaPostPublicSerializer(posts, many=True, context=self.context).data
 
     def get_engagement_overview(self, obj):
