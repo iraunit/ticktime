@@ -235,7 +235,7 @@ export const communicationApi = {
     },
 
     /**
-     * Send campaign notifications to influencers
+     * Send campaign notifications to influencers via email
      */
     sendCampaignNotification: async (data: {
         deal_ids: number[];
@@ -243,6 +243,31 @@ export const communicationApi = {
         custom_message?: string;
     }) => {
         return api.post('/communications/send-campaign-notification/', data);
+    },
+
+    /**
+     * Send campaign notifications to influencers via WhatsApp
+     */
+    sendWhatsAppNotification: async (data: {
+        deal_ids: number[];
+        notification_type: 'invitation' | 'status_update' | 'accepted' | 'shipped' | 'completed';
+        custom_message?: string;
+    }) => {
+        return api.post('/communications/send-whatsapp-notification/', data);
+    },
+
+    /**
+     * Send phone verification via WhatsApp
+     */
+    sendPhoneVerification: async () => {
+        return api.post('/communications/send-phone-verification/');
+    },
+
+    /**
+     * Verify phone using token from WhatsApp link
+     */
+    verifyPhone: async (token: string) => {
+        return api.get(`/communications/verify-phone/${token}/`);
     },
 
     /**

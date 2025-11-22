@@ -36,8 +36,8 @@ export const authApi = {
     googleAuth: (token: string) =>
         api.post('/auth/google/', {token}),
 
-    forgotPassword: (email: string) =>
-        api.post('/auth/forgot-password/', {email}),
+    forgotPassword: (data: { email?: string; phone_number?: string; country_code?: string }) =>
+        api.post('/auth/forgot-password/', data),
 
     resetPassword: (token: string, password: string) =>
         api.post('/auth/reset-password/', {token, password}),

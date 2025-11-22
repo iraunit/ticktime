@@ -2,7 +2,10 @@
 
 import {Badge} from '@/components/ui/badge';
 import {Card, CardContent} from '@/components/ui/card';
-import {CheckCircle, Clock, XCircle} from '@/lib/icons';
+import {Button} from '@/components/ui/button';
+import {CheckCircle, Clock, Mail, Phone, XCircle} from '@/lib/icons';
+import {formatTimeRemaining, useEmailVerification} from '@/hooks/use-email-verification';
+import {usePhoneVerification} from '@/hooks/use-phone-verification';
 
 interface VerificationStatusProps {
     profile?: any;
@@ -11,18 +14,44 @@ interface VerificationStatusProps {
 export function VerificationStatus({profile}: VerificationStatusProps) {
     if (!profile) return null;
 
+    const {
+        sending: sendingEmail,
+        canResend: canResendEmail,
+        secondsUntilResend: secondsUntilResendEmail,
+        sendVerificationEmail,
+    } = useEmailVerification();
+
+    const {
+        sending: sendingPhone,
+        canResend: canResendPhone,
+        secondsUntilResend: secondsUntilResendPhone,
+        sendVerificationPhone,
+    } = usePhoneVerification();
+
     const verificationItems = [
         {
             id: 'email',
             label: 'Email Verification',
             verified: profile.email_verified,
-            description: 'Email address has been verified'
+            description: 'Email address has been verified',
+            action: !profile.email_verified ? {
+                label: sendingEmail ? 'Sending...' : canResendEmail ? 'Send Verification Email' : `Resend in ${formatTimeRemaining(secondsUntilResendEmail)}`,
+                onClick: sendVerificationEmail,
+                disabled: !canResendEmail || sendingEmail,
+                icon: Mail,
+            } : null
         },
         {
             id: 'phone',
             label: 'Phone Verification',
             verified: profile.phone_verified,
-            description: 'Phone number has been verified'
+            description: 'Phone number has been verified',
+            action: !profile.phone_verified ? {
+                label: sendingPhone ? 'Sending...' : canResendPhone ? 'Send Verification WhatsApp' : `Resend in ${formatTimeRemaining(secondsUntilResendPhone)}`,
+                onClick: sendVerificationPhone,
+                disabled: !canResendPhone || sendingPhone,
+                icon: Phone,
+            } : null
         },
         {
             id: 'aadhar',
@@ -79,7 +108,21 @@ export function VerificationStatus({profile}: VerificationStatusProps) {
                                         </p>
                                     </div>
                                 </div>
-                                {getStatusBadge(item.verified)}
+                                <div className="flex items-center gap-3">
+                                    {item.action && (
+                                        <Button
+                                            size="sm"
+                                            variant="outline"
+                                            onClick={item.action.onClick}
+                                            disabled={item.action.disabled}
+                                            className="gap-2"
+                                        >
+                                            {item.action.icon && <item.action.icon className="h-4 w-4"/>}
+                                            {item.action.label}
+                                        </Button>
+                                    )}
+                                    {getStatusBadge(item.verified)}
+                                </div>
                             </div>
                         </CardContent>
                     </Card>

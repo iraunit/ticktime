@@ -311,17 +311,42 @@ def verify_email_view(request, token):
 def forgot_password_view(request):
     """
     Password reset request endpoint.
+    Supports both email and phone number (for WhatsApp reset).
     """
     serializer = ForgotPasswordSerializer(data=request.data)
 
     if serializer.is_valid():
-        email = (serializer.validated_data['email'] or '').strip().lower()
-        user = User.objects.filter(email__iexact=email).first()
+        email = (serializer.validated_data.get('email') or '').strip().lower()
+        phone_number = (serializer.validated_data.get('phone_number') or '').strip()
+        country_code = (serializer.validated_data.get('country_code') or '+91').strip()
 
-        success_message = 'If an account with that email exists, a password reset link has been sent.'
+        user = None
+        success_message = None
+        channel = None
+
+        # Find user by email or phone
+        if email:
+            user = User.objects.filter(email__iexact=email).first()
+            success_message = 'If an account with that email exists, a password reset link has been sent.'
+            channel = 'email'
+        elif phone_number:
+            # Find user by phone number
+            try:
+                from users.models import UserProfile
+                user_profile = UserProfile.objects.filter(
+                    phone_number=phone_number,
+                    country_code=country_code
+                ).select_related('user').first()
+                if user_profile:
+                    user = user_profile.user
+                success_message = 'If an account with that phone number exists, a password reset link has been sent via WhatsApp.'
+                channel = 'whatsapp'
+            except Exception as e:
+                logger.error(f"Error finding user by phone: {str(e)}")
 
         if not user:
-            logger.info(f"Password reset requested for non-existent email: {email}")
+            logger.info(
+                f"Password reset requested for non-existent {'email' if email else 'phone'}: {email or phone_number}")
             return api_response(True, result={'message': success_message})
 
         # Generate password reset token payload
@@ -333,26 +358,51 @@ def forgot_password_view(request):
         reset_query = urlencode({'token': signed_token})
         reset_url = f"{settings.FRONTEND_URL}/accounts/reset-password?{reset_query}"
 
-        # Send password reset email via email service
+        # Send password reset via email or WhatsApp
         try:
-            email_service = get_email_service()
             expires_hours = getattr(settings, 'PASSWORD_RESET_TOKEN_EXPIRY_HOURS', 24)
-            email_sent = email_service.send_password_reset_email(
-                user=user,
-                reset_url=reset_url,
-                expires_hours=expires_hours
-            )
 
-            if not email_sent:
-                raise RuntimeError('Failed to queue password reset email.')
+            if channel == 'email':
+                email_service = get_email_service()
+                sent = email_service.send_password_reset_email(
+                    user=user,
+                    reset_url=reset_url,
+                    expires_hours=expires_hours
+                )
+                if not sent:
+                    raise RuntimeError('Failed to queue password reset email.')
+            elif channel == 'whatsapp':
+                from communications.whatsapp_service import get_whatsapp_service
+                from communications.utils import check_whatsapp_rate_limit
+
+                # Check rate limit before queueing
+                allowed, error_msg, time_until_next = check_whatsapp_rate_limit(user, 'forgot_password')
+                if not allowed:
+                    return api_response(
+                        False,
+                        error=error_msg,
+                        status_code=status.HTTP_429_TOO_MANY_REQUESTS
+                    )
+
+                whatsapp_service = get_whatsapp_service()
+                sent = whatsapp_service.send_password_reset_whatsapp(
+                    user=user,
+                    phone_number=phone_number,
+                    country_code=country_code,
+                    reset_url=reset_url,
+                    expires_hours=expires_hours
+                )
+                if not sent:
+                    raise RuntimeError('Failed to queue password reset WhatsApp message.')
 
             return api_response(True, result={'message': success_message})
 
         except Exception as e:
-            logger.error(f"Failed to send password reset email to {email}: {str(e)}")
+            logger.error(
+                f"Failed to send password reset {'email' if channel == 'email' else 'WhatsApp'} to {email or phone_number}: {str(e)}")
             return Response({
                 'status': 'error',
-                'message': 'Failed to send password reset email. Please try again.'
+                'message': f'Failed to send password reset {channel}. Please try again.'
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     return api_response(False, error=format_serializer_errors(serializer.errors), status_code=400)

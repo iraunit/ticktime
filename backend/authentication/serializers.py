@@ -351,8 +351,34 @@ class UserLoginSerializer(serializers.Serializer):
 class ForgotPasswordSerializer(serializers.Serializer):
     """
     Serializer for password reset request.
+    Supports both email and phone number (for WhatsApp reset).
     """
-    email = serializers.EmailField()
+    email = serializers.EmailField(required=False, allow_blank=True)
+    phone_number = serializers.CharField(max_length=15, required=False, allow_blank=True)
+    country_code = serializers.CharField(max_length=5, required=False, allow_blank=True, default='+91')
+
+    def validate(self, attrs):
+        """Ensure either email or phone_number is provided"""
+        email = attrs.get('email', '').strip()
+        phone_number = attrs.get('phone_number', '').strip()
+        country_code = attrs.get('country_code', '+91').strip()
+
+        if not email and not phone_number:
+            raise serializers.ValidationError(
+                "Either email or phone_number must be provided."
+            )
+
+        if email and phone_number:
+            raise serializers.ValidationError(
+                "Please provide either email or phone_number, not both."
+            )
+
+        if phone_number and not country_code:
+            raise serializers.ValidationError(
+                "country_code is required when using phone_number."
+            )
+
+        return attrs
 
 
 class ResetPasswordSerializer(serializers.Serializer):

@@ -15,6 +15,7 @@ class BrandAdmin(admin.ModelAdmin):
         'is_verified',
         'is_locked',
         'has_verification_document',
+        'whatsapp_credits',
         'rating',
         'total_campaigns',
         'created_at'
@@ -45,6 +46,10 @@ class BrandAdmin(admin.ModelAdmin):
                 'is_verified',
                 'is_locked',
             )
+        }),
+        ('WhatsApp Credits', {
+            'fields': ('whatsapp_credits',),
+            'description': 'Manage WhatsApp message credits for this brand'
         }),
         ('Metrics', {
             'fields': ('rating', 'total_campaigns')

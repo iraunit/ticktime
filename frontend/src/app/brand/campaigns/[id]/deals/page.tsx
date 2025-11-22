@@ -14,6 +14,8 @@ import {api} from "@/lib/api";
 import {brandApi} from "@/lib/api-client";
 import {InlineLoader} from "@/components/ui/global-loader";
 import {EmailSender} from "@/components/communications/email-sender";
+import {WhatsAppSender} from "@/components/communications/whatsapp-sender";
+import {NotificationChannelDialog} from "@/components/communications/notification-channel-dialog";
 import {ContentReview, ContentReviewDeal, ContentReviewSubmission} from "@/components/brand/content-review";
 import {
     HiArrowLeft,
@@ -26,8 +28,11 @@ import {
     HiDocumentText,
     HiEnvelope,
     HiFunnel,
+    HiInformationCircle,
     HiMagnifyingGlass,
 } from "react-icons/hi2";
+import {Phone} from "@/lib/icons";
+import {Tooltip} from "@/components/ui/tooltip";
 
 type DealStatus =
     | "invited"
@@ -110,6 +115,12 @@ const statusOptions: { value: string; label: string }[] = [
     {value: "dispute", label: "Dispute"},
 ];
 
+// Helper function to format status names
+const formatStatusName = (status: string): string => {
+    const option = statusOptions.find(opt => opt.value === status);
+    return option ? option.label : status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+};
+
 const submissionEligibleStatuses = new Set<DealStatus>([
     "content_submitted",
     "under_review",
@@ -137,6 +148,9 @@ export default function CampaignDealsPage() {
     const [status, setStatus] = useState<string>("all");
     const [selected, setSelected] = useState<Set<number>>(new Set());
     const [showEmailSender, setShowEmailSender] = useState(false);
+    const [showWhatsAppSender, setShowWhatsAppSender] = useState(false);
+    const [showNotificationDialog, setShowNotificationDialog] = useState(false);
+    const [brandCredits, setBrandCredits] = useState<number | undefined>(undefined);
     const [bulkLoading, setBulkLoading] = useState(false);
     const [sortKey, setSortKey] = useState<string>("invited_desc");
     const [bulkStage, setBulkStage] = useState<string>("");
@@ -242,11 +256,23 @@ export default function CampaignDealsPage() {
         setContentDialogTriggerId(null);
     };
 
+    const fetchBrandCredits = async () => {
+        try {
+            const response = await api.get('/brands/settings/');
+            if (response.data?.brand?.whatsapp_credits !== undefined) {
+                setBrandCredits(response.data.brand.whatsapp_credits);
+            }
+        } catch (error) {
+            console.error('Error fetching brand credits:', error);
+        }
+    };
+
     useEffect(() => {
         // Initialize from query params if present
         const statusQuery = searchParams.get("status") || "all";
         setStatus(statusQuery);
         fetchDeals({page: 1});
+        fetchBrandCredits();
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [campaignId]);
 
@@ -536,7 +562,7 @@ export default function CampaignDealsPage() {
                                 <HiMagnifyingGlass className="h-5 w-5 text-gray-400"/>
                                 <Input placeholder="Search influencer or username" value={search}
                                        onChange={(e) => setSearch(e.target.value)}
-                                       className="border-0 bg-transparent focus:ring-0 focus:border-0 p-0"/>
+                                       className="border border-gray-200 bg-transparent focus:ring-1 focus:ring-blue-500 focus:border-blue-500"/>
                             </div>
                             <div className="flex items-center gap-3">
                                 <Select value={status} onValueChange={setStatus}>
@@ -580,82 +606,106 @@ export default function CampaignDealsPage() {
                     <CardHeader className="pb-3">
                         <div className="flex items-center justify-between">
                             <CardTitle className="text-base">Deals ({pagination.total_count})</CardTitle>
-                            <div className="flex items-center gap-4">
-                                <div className="flex items-center gap-2">
-                                    <Select value={bulkStage} onValueChange={setBulkStage}>
-                                        <SelectTrigger className="w-56">
-                                            <SelectValue placeholder="Set stage for selected"/>
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="invited">Invited</SelectItem>
-                                            <SelectItem value="pending">Pending</SelectItem>
-                                            <SelectItem value="accepted">Accepted</SelectItem>
-                                            <SelectItem value="shortlisted">Shortlisted</SelectItem>
-                                            <SelectItem value="address_requested">Address Requested</SelectItem>
-                                            <SelectItem value="address_provided">Address Provided</SelectItem>
-                                            <SelectItem value="product_shipped">Product Shipped</SelectItem>
-                                            <SelectItem value="product_delivered">Product Delivered</SelectItem>
-                                            <SelectItem value="active">Active</SelectItem>
-                                            <SelectItem value="content_submitted">Content Submitted</SelectItem>
-                                            <SelectItem value="under_review">Under Review</SelectItem>
-                                            <SelectItem value="revision_requested">Revision Requested</SelectItem>
-                                            <SelectItem value="approved">Approved</SelectItem>
-                                            <SelectItem value="completed">Completed</SelectItem>
-                                            <SelectItem value="rejected">Rejected</SelectItem>
-                                            <SelectItem value="cancelled">Cancelled</SelectItem>
-                                            <SelectItem value="dispute">Dispute</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                    <Button size="sm" disabled={bulkLoading || selected.size === 0 || !bulkStage}
-                                            onClick={bulkUpdateStage}>
-                                        {bulkLoading ? <InlineLoader className="mr-2"/> :
-                                            <HiCheckCircle className="w-4 h-4 mr-1"/>} Apply
-                                    </Button>
-                                    <Button
-                                        size="sm"
-                                        variant="outline"
-                                        disabled={selected.size === 0}
-                                        onClick={() => setShowEmailSender(true)}
-                                    >
-                                        <HiEnvelope className="w-4 h-4 mr-1"/>
-                                        Notify Selected
-                                    </Button>
-                                </div>
-
-                                <div className="flex items-center gap-2 border-l pl-4">
-                                    <input
-                                        type="file"
-                                        accept=".csv"
-                                        onChange={handleCsvFileChange}
-                                        className="hidden"
-                                        id="csv-upload"
-                                    />
-                                    <label htmlFor="csv-upload">
-                                        <Button variant="outline" size="sm" asChild>
-                      <span className="cursor-pointer">
-                        <HiCloudArrowUp className="w-4 h-4 mr-1"/>
-                          {csvFile ? csvFile.name : 'Upload CSV'}
-                      </span>
+                            {selected.size > 0 && (
+                                <div className="flex items-center gap-3">
+                                    {/* Status Update */}
+                                    <div className="flex items-center gap-2">
+                                        <Select value={bulkStage} onValueChange={setBulkStage}>
+                                            <SelectTrigger className="w-56">
+                                                <SelectValue placeholder="Set status to..."/>
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="invited">Invited</SelectItem>
+                                                <SelectItem value="pending">Pending</SelectItem>
+                                                <SelectItem value="accepted">Accepted</SelectItem>
+                                                <SelectItem value="shortlisted">Shortlisted</SelectItem>
+                                                <SelectItem value="address_requested">Address Requested</SelectItem>
+                                                <SelectItem value="address_provided">Address Provided</SelectItem>
+                                                <SelectItem value="product_shipped">Product Shipped</SelectItem>
+                                                <SelectItem value="product_delivered">Product Delivered</SelectItem>
+                                                <SelectItem value="active">Active</SelectItem>
+                                                <SelectItem value="content_submitted">Content Submitted</SelectItem>
+                                                <SelectItem value="under_review">Under Review</SelectItem>
+                                                <SelectItem value="revision_requested">Revision Requested</SelectItem>
+                                                <SelectItem value="approved">Approved</SelectItem>
+                                                <SelectItem value="completed">Completed</SelectItem>
+                                                <SelectItem value="rejected">Rejected</SelectItem>
+                                                <SelectItem value="cancelled">Cancelled</SelectItem>
+                                                <SelectItem value="dispute">Dispute</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                        <Button 
+                                            size="sm" 
+                                            disabled={bulkLoading || !bulkStage}
+                                            onClick={bulkUpdateStage}
+                                        >
+                                            {bulkLoading ? (
+                                                <>
+                                                    <InlineLoader className="mr-2"/>
+                                                    Updating...
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <HiCheckCircle className="w-4 h-4 mr-1"/>
+                                                    Update
+                                                </>
+                                            )}
                                         </Button>
-                                    </label>
-                                    <Button
-                                        size="sm"
-                                        variant="outline"
-                                        onClick={downloadTemplate}
-                                    >
-                                        <HiDocumentText className="w-4 h-4 mr-1"/>
-                                        Template
-                                    </Button>
-                                    <Button
-                                        size="sm"
-                                        disabled={csvUploading || !csvFile}
-                                        onClick={uploadCsv}
-                                    >
-                                        {csvUploading ? <InlineLoader className="mr-2"/> :
-                                            <HiCheckCircle className="w-4 h-4 mr-1"/>}
-                                        Process CSV
-                                    </Button>
+                                    </div>
+
+                                    {/* Notify Selected */}
+                                    <div className="border-l pl-3">
+                                        <Button
+                                            size="sm"
+                                            variant="outline"
+                                            onClick={() => {
+                                                fetchBrandCredits();
+                                                setShowNotificationDialog(true);
+                                            }}
+                                        >
+                                            <HiEnvelope className="w-4 h-4 mr-1"/>
+                                            Notify Selected
+                                            <span className="ml-1.5 text-xs font-medium bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">
+                                                {selected.size}
+                                            </span>
+                                        </Button>
+                                    </div>
                                 </div>
+                            )}
+
+                            <div className="flex items-center gap-2 border-l pl-4">
+                                <input
+                                    type="file"
+                                    accept=".csv"
+                                    onChange={handleCsvFileChange}
+                                    className="hidden"
+                                    id="csv-upload"
+                                />
+                                <label htmlFor="csv-upload">
+                                    <Button variant="outline" size="sm" asChild>
+                                        <span className="cursor-pointer">
+                                            <HiCloudArrowUp className="w-4 h-4 mr-1"/>
+                                            {csvFile ? csvFile.name : 'Upload CSV'}
+                                        </span>
+                                    </Button>
+                                </label>
+                                <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={downloadTemplate}
+                                >
+                                    <HiDocumentText className="w-4 h-4 mr-1"/>
+                                    Template
+                                </Button>
+                                <Button
+                                    size="sm"
+                                    disabled={csvUploading || !csvFile}
+                                    onClick={uploadCsv}
+                                >
+                                    {csvUploading ? <InlineLoader className="mr-2"/> :
+                                        <HiCheckCircle className="w-4 h-4 mr-1"/>}
+                                    Process CSV
+                                </Button>
                             </div>
                         </div>
                     </CardHeader>
@@ -761,17 +811,42 @@ export default function CampaignDealsPage() {
                 </Card>
             </div>
 
+            {/* Notification Channel Selection Dialog */}
+            {selected.size > 0 && (
+                <NotificationChannelDialog
+                    open={showNotificationDialog}
+                    onOpenChange={setShowNotificationDialog}
+                    onSelectEmail={() => setShowEmailSender(true)}
+                    onSelectWhatsApp={() => setShowWhatsAppSender(true)}
+                    selectedCount={selected.size}
+                    brandCredits={brandCredits}
+                />
+            )}
+
             {/* Email Sender Dialog */}
             {selected.size > 0 && (
-                <EmailSender
-                    open={showEmailSender}
-                    onOpenChange={setShowEmailSender}
-                    deals={deals.filter(d => selected.has(d.id))}
-                    onSuccess={() => {
-                        fetchDeals();
-                        setSelected(new Set());
-                    }}
-                />
+                <>
+                    <EmailSender
+                        open={showEmailSender}
+                        onOpenChange={setShowEmailSender}
+                        deals={deals.filter(d => selected.has(d.id))}
+                        onSuccess={() => {
+                            fetchDeals();
+                            setSelected(new Set());
+                        }}
+                    />
+                    <WhatsAppSender
+                        open={showWhatsAppSender}
+                        onOpenChange={setShowWhatsAppSender}
+                        deals={deals.filter(d => selected.has(d.id))}
+                        brandCredits={brandCredits}
+                        onSuccess={() => {
+                            fetchDeals();
+                            fetchBrandCredits();
+                            setSelected(new Set());
+                        }}
+                    />
+                </>
             )}
 
             <Dialog open={contentDialogOpen} onOpenChange={(open) => {

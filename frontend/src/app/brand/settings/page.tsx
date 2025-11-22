@@ -81,6 +81,7 @@ interface Brand {
     verification_document_original_name?: string;
     rating: number;
     total_campaigns: number;
+    whatsapp_credits?: number;
     created_at: string;
     updated_at: string;
 }
@@ -1269,6 +1270,25 @@ export default function BrandSettingsPage() {
                                         </div>
                                         <p className="text-xs text-gray-500 mt-1">
                                             Domain cannot be changed for security reasons
+                                        </p>
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                                            WhatsApp Credits
+                                        </label>
+                                        <div className="p-3 bg-blue-50 rounded-md border border-blue-200">
+                                            <div className="flex items-center justify-between">
+                                                <span className="text-2xl font-bold text-blue-900">
+                                                    {brand.whatsapp_credits ?? 0}
+                                                </span>
+                                                <Badge variant="outline"
+                                                       className="bg-blue-100 text-blue-800 border-blue-300">
+                                                    Credits Remaining
+                                                </Badge>
+                                            </div>
+                                        </div>
+                                        <p className="text-xs text-gray-500 mt-2">
+                                            To recharge credits, please contact support/admin
                                         </p>
                                     </div>
                                 </div>

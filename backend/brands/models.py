@@ -52,6 +52,7 @@ class Brand(models.Model):
         validators=[MinValueValidator(0), MaxValueValidator(5)]
     )
     total_campaigns = models.IntegerField(default=0)
+    whatsapp_credits = models.IntegerField(default=100, help_text='WhatsApp message credits available for this brand')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -64,6 +65,7 @@ class Brand(models.Model):
             models.Index(fields=['is_verified']),
             models.Index(fields=['is_locked']),
             models.Index(fields=['rating']),
+            models.Index(fields=['whatsapp_credits']),
         ]
 
     def __str__(self):

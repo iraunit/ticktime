@@ -193,9 +193,14 @@ export function useAuth() {
 
     // Forgot/reset password mutations
     const forgotPasswordMutation = useMutation({
-        mutationFn: (email: string) => authApi.forgotPassword(email),
-        onSuccess: () => {
-            toast.success('Password reset email sent! Please check your inbox.');
+        mutationFn: (data: { email?: string; phone_number?: string; country_code?: string }) =>
+            authApi.forgotPassword(data),
+        onSuccess: (_, variables) => {
+            if (variables.phone_number) {
+                toast.success('Password reset WhatsApp sent! Please check your WhatsApp.');
+            } else {
+                toast.success('Password reset email sent! Please check your inbox.');
+            }
         },
         onError: (error: any) => {
             const errorMessage = formatErrorMessage(error);

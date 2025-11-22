@@ -262,6 +262,7 @@ RABBITMQ_PASSWORD = os.environ.get("RABBITMQ_PASSWORD", "guest")
 RABBITMQ_VHOST = os.environ.get("RABBITMQ_VHOST", "/")
 RABBITMQ_USE_SSL = os.environ.get("RABBITMQ_USE_SSL", "False").lower() == "true"
 RABBITMQ_EMAIL_QUEUE = os.environ.get("RABBITMQ_EMAIL_QUEUE", "email_notifications")
+RABBITMQ_WHATSAPP_QUEUE = os.environ.get("RABBITMQ_WHATSAPP_QUEUE", "whatsapp_notifications")
 
 # Frontend URL for email links
 FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:3000")
@@ -448,3 +449,27 @@ PERFORMANCE_MONITORING = {
 
 # Site URL for absolute URL generation
 SITE_URL = os.environ.get("SITE_URL", "http://localhost:8000")
+
+# WhatsApp / Sensy API Configuration
+SENSY_API_KEY = os.environ.get("SENSY_API_KEY", "")
+SENSY_API_URL = os.environ.get("SENSY_API_URL", "https://api.sensy.ai")
+SENSY_API_TIMEOUT = int(os.environ.get("SENSY_API_TIMEOUT", "30"))
+
+# WhatsApp template names mapping (to be configured based on Sensy template names)
+SENSY_TEMPLATE_NAMES = {
+    'verification': os.environ.get("SENSY_TEMPLATE_VERIFICATION", "verification"),
+    'forgot_password': os.environ.get("SENSY_TEMPLATE_FORGOT_PASSWORD", "forgot_password"),
+    'invitation': os.environ.get("SENSY_TEMPLATE_INVITATION", "invitation"),
+    'status_update': os.environ.get("SENSY_TEMPLATE_STATUS_UPDATE", "status_update"),
+    'accepted': os.environ.get("SENSY_TEMPLATE_ACCEPTED", "accepted"),
+    'shipped': os.environ.get("SENSY_TEMPLATE_SHIPPED", "shipped"),
+    'completed': os.environ.get("SENSY_TEMPLATE_COMPLETED", "completed"),
+}
+
+# WhatsApp rate limiting
+WHATSAPP_RATE_LIMIT_VERIFICATION_PER_MIN = int(os.environ.get("WHATSAPP_RATE_LIMIT_VERIFICATION_PER_MIN", "1"))
+WHATSAPP_RATE_LIMIT_VERIFICATION_PER_HOUR = int(os.environ.get("WHATSAPP_RATE_LIMIT_VERIFICATION_PER_HOUR", "5"))
+
+# WhatsApp credits
+WHATSAPP_DEFAULT_BRAND_CREDITS = int(os.environ.get("WHATSAPP_DEFAULT_BRAND_CREDITS", "100"))
+PASSWORD_RESET_TOKEN_EXPIRY_HOURS = int(os.environ.get("PASSWORD_RESET_TOKEN_EXPIRY_HOURS", "24"))

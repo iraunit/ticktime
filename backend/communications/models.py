@@ -59,6 +59,87 @@ class EmailVerificationToken(models.Model):
         return token, token_obj
 
 
+class PhoneVerificationToken(models.Model):
+    """
+    Store phone verification tokens for magic link authentication via WhatsApp
+    """
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='phone_verification_tokens')
+    token_hash = models.CharField(max_length=64, unique=True, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField()
+    used_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        db_table = 'phone_verification_tokens'
+        indexes = [
+            models.Index(fields=['token_hash']),
+            models.Index(fields=['user']),
+            models.Index(fields=['expires_at']),
+        ]
+
+    def __str__(self):
+        return f"Phone token for {self.user.username} - {'Used' if self.used_at else 'Active'}"
+
+    @staticmethod
+    def generate_token():
+        """Generate a secure random token"""
+        return secrets.token_urlsafe(32)
+
+    @staticmethod
+    def hash_token(token):
+        """Hash the token for storage"""
+        return hashlib.sha256(token.encode()).hexdigest()
+
+    def is_valid(self):
+        """Check if token is still valid"""
+        return not self.used_at and timezone.now() < self.expires_at
+
+    @classmethod
+    def create_token(cls, user):
+        """Create a new verification token for a user"""
+        token = cls.generate_token()
+        token_hash = cls.hash_token(token)
+        expires_at = timezone.now() + timedelta(hours=24)
+
+        # Create the token record
+        token_obj = cls.objects.create(
+            user=user,
+            token_hash=token_hash,
+            expires_at=expires_at
+        )
+
+        return token, token_obj
+
+
+class WhatsAppRateLimit(models.Model):
+    """
+    Track rate limits for WhatsApp messages per user and message type
+    """
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='whatsapp_rate_limits')
+    message_type = models.CharField(
+        max_length=50,
+        help_text='Type of message: verification, forgot_password, invitation, etc.'
+    )
+    last_sent_at = models.DateTimeField(null=True, blank=True)
+    sent_count_hour = models.IntegerField(default=0, help_text='Messages sent in the last hour')
+    sent_count_minute = models.IntegerField(default=0, help_text='Messages sent in the last minute')
+    hour_window_start = models.DateTimeField(null=True, blank=True)
+    minute_window_start = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'whatsapp_rate_limits'
+        unique_together = ['user', 'message_type']
+        indexes = [
+            models.Index(fields=['user', 'message_type']),
+            models.Index(fields=['last_sent_at']),
+        ]
+
+    def __str__(self):
+        return f"Rate limit for {self.user.username} - {self.message_type}"
+
+
 class CommunicationLog(models.Model):
     """
     Log all communications sent through the system
@@ -88,6 +169,39 @@ class CommunicationLog(models.Model):
     # Email specific fields
     subject = models.CharField(max_length=255, blank=True)
 
+    # Sender tracking for credit management
+    SENDER_TYPE_CHOICES = [
+        ('brand', 'Brand'),
+        ('influencer', 'Influencer'),
+        ('system', 'System'),
+    ]
+    sender_type = models.CharField(
+        max_length=20,
+        choices=SENDER_TYPE_CHOICES,
+        null=True,
+        blank=True,
+        help_text='Type of sender (brand, influencer, or system)'
+    )
+    sender_id = models.IntegerField(
+        null=True,
+        blank=True,
+        help_text='ID of the brand or influencer who sent the message'
+    )
+
+    # WhatsApp specific fields
+    phone_number = models.CharField(
+        max_length=15,
+        null=True,
+        blank=True,
+        help_text='Phone number without country code'
+    )
+    country_code = models.CharField(
+        max_length=5,
+        null=True,
+        blank=True,
+        help_text='Country code (e.g., +91, +1)'
+    )
+
     # Tracking
     sent_at = models.DateTimeField(null=True, blank=True)
     error_log = models.TextField(blank=True)
@@ -104,6 +218,7 @@ class CommunicationLog(models.Model):
             models.Index(fields=['recipient']),
             models.Index(fields=['message_id']),
             models.Index(fields=['created_at']),
+            models.Index(fields=['sender_type', 'sender_id']),
         ]
 
     def __str__(self):
