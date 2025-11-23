@@ -421,6 +421,7 @@ class SocialMediaAccountAdmin(admin.ModelAdmin):
     ]
     list_filter = [SyncStatusFilter, 'platform', 'verified', 'is_active', 'created_at']
     search_fields = ['influencer__username', 'handle', 'profile_url']
+    actions = ['queue_sync_selected']
     readonly_fields = [
         'last_synced_at', 'last_posted_at', 'engagement_snapshot',
         'sync_status_display', 'queue_sync_button', 'created_at', 'updated_at',
@@ -772,6 +773,62 @@ class SocialMediaAccountAdmin(admin.ModelAdmin):
         )
 
         return redirect('admin:influencers_socialmediaaccount_changelist')
+
+    def queue_sync_selected(self, request, queryset):
+        """Bulk action to queue sync for selected accounts"""
+        from communications.social_scraping_service import get_social_scraping_service
+
+        success_count = 0
+        error_count = 0
+        up_to_date_count = 0
+        errors = []
+
+        scraping_service = get_social_scraping_service()
+
+        for account in queryset:
+            needs_sync = self._needs_sync(account)
+
+            if not needs_sync:
+                up_to_date_count += 1
+                continue
+
+            try:
+                message_id = scraping_service.queue_scrape_request(account, priority='high')
+                if message_id:
+                    success_count += 1
+                else:
+                    error_count += 1
+                    errors.append(f"{account.handle} ({account.platform}): Failed to queue - RabbitMQ connection issue")
+            except Exception as e:
+                error_count += 1
+                errors.append(f"{account.handle} ({account.platform}): {str(e)}")
+
+        # Build summary message
+        summary_parts = []
+        if success_count > 0:
+            summary_parts.append(f"{success_count} account(s) queued successfully")
+        if up_to_date_count > 0:
+            summary_parts.append(f"{up_to_date_count} account(s) already up to date")
+        if error_count > 0:
+            summary_parts.append(f"{error_count} account(s) failed")
+
+        summary = ". ".join(summary_parts) + "."
+
+        if error_count > 0:
+            messages.warning(
+                request,
+                format_html(
+                    '{}<br><br><strong>Errors:</strong><ul>{}</ul>',
+                    summary,
+                    ''.join([f'<li>{error}</li>' for error in errors])
+                )
+            )
+        elif success_count > 0:
+            messages.success(request, summary)
+        else:
+            messages.info(request, summary)
+
+    queue_sync_selected.short_description = 'Queue sync for selected accounts'
 
 
 # Add inline relationships
