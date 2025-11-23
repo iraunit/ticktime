@@ -1,6 +1,7 @@
 from django.contrib import admin
 from django.contrib import messages
 from django.db.models import Q
+from django.http import HttpResponse
 from django.shortcuts import redirect
 from django.urls import path
 from django.utils import timezone
@@ -385,6 +386,32 @@ class SocialMediaPostInline(admin.TabularInline):
     ordering = ['-posted_at']
 
 
+class SyncStatusFilter(admin.SimpleListFilter):
+    title = 'Sync Status'
+    parameter_name = 'sync_status'
+
+    def lookups(self, request, model_admin):
+        return (
+            ('never_synced', 'Never Last Synced'),
+            ('needs_sync', 'Needs Sync (>7 days)'),
+            ('up_to_date', 'Up to Date'),
+        )
+
+    def queryset(self, request, queryset):
+        if self.value() == 'never_synced':
+            return queryset.filter(last_synced_at__isnull=True)
+        elif self.value() == 'needs_sync':
+            from django.utils import timezone
+            from datetime import timedelta
+            cutoff_date = timezone.now() - timedelta(days=7)
+            return queryset.filter(last_synced_at__lt=cutoff_date)
+        elif self.value() == 'up_to_date':
+            from django.utils import timezone
+            from datetime import timedelta
+            cutoff_date = timezone.now() - timedelta(days=7)
+            return queryset.filter(last_synced_at__gte=cutoff_date)
+
+
 @admin.register(SocialMediaAccount)
 class SocialMediaAccountAdmin(admin.ModelAdmin):
     list_display = [
@@ -392,7 +419,7 @@ class SocialMediaAccountAdmin(admin.ModelAdmin):
         'engagement_rate', 'verified', 'is_active', 'last_synced_display',
         'updated_at_display', 'sync_status_button'
     ]
-    list_filter = ['platform', 'verified', 'is_active', 'created_at']
+    list_filter = [SyncStatusFilter, 'platform', 'verified', 'is_active', 'created_at']
     search_fields = ['influencer__username', 'handle', 'profile_url']
     readonly_fields = [
         'last_synced_at', 'last_posted_at', 'engagement_snapshot',
@@ -508,7 +535,7 @@ class SocialMediaAccountAdmin(admin.ModelAdmin):
         if needs_sync:
             url = f'/admin/influencers/socialmediaaccount/{obj.id}/queue-sync/'
             return format_html(
-                '<a class="button" href="{}" style="background-color: #ff6b6b; color: white; padding: 5px 10px; text-decoration: none; border-radius: 3px;">Queue Sync</a>',
+                '<a class="button" href="{}" target="_blank" style="background-color: #007cba; color: white; padding: 5px 10px; text-decoration: none; border-radius: 3px; white-space: nowrap;">Queue Sync</a>',
                 url
             )
         else:
@@ -591,21 +618,57 @@ class SocialMediaAccountAdmin(admin.ModelAdmin):
         return super().changelist_view(request, extra_context)
 
     def queue_sync_view(self, request, object_id):
-        """Handle queue sync action"""
+        """Handle queue sync action - opens in new tab and auto-closes"""
         try:
             account = SocialMediaAccount.objects.get(pk=object_id)
         except SocialMediaAccount.DoesNotExist:
-            messages.error(request, 'Social media account not found.')
-            return redirect('admin:influencers_socialmediaaccount_changelist')
+            html = """
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>Sync Status</title>
+                <style>
+                    body { font-family: Arial, sans-serif; padding: 20px; text-align: center; }
+                    .error { color: red; }
+                </style>
+            </head>
+            <body>
+                <h2 class="error">Error: Social media account not found.</h2>
+                <p>This window will close automatically...</p>
+                <script>
+                    setTimeout(function() { window.close(); }, 2000);
+                </script>
+            </body>
+            </html>
+            """
+            return HttpResponse(html)
 
         needs_sync = self._needs_sync(account)
 
         if not needs_sync:
-            messages.info(
-                request,
-                f'Account {account.handle} ({account.platform}) is up to date. '
-                f'Last synced {((timezone.now() - account.last_synced_at).days)} days ago.'
-            )
+            days_ago = (timezone.now() - account.last_synced_at).days if account.last_synced_at else 0
+            html = f"""
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>Sync Status</title>
+                <style>
+                    body {{ font-family: Arial, sans-serif; padding: 20px; text-align: center; }}
+                    .info {{ color: #007cba; }}
+                </style>
+            </head>
+            <body>
+                <h2 class="info">Account is up to date</h2>
+                <p>Account {account.handle} ({account.platform}) is up to date.</p>
+                <p>Last synced {days_ago} days ago.</p>
+                <p>This window will close automatically...</p>
+                <script>
+                    setTimeout(function() {{ window.close(); }}, 2000);
+                </script>
+            </body>
+            </html>
+            """
+            return HttpResponse(html)
         else:
             try:
                 from communications.social_scraping_service import get_social_scraping_service
@@ -613,27 +676,73 @@ class SocialMediaAccountAdmin(admin.ModelAdmin):
                 message_id = scraping_service.queue_scrape_request(account, priority='high')
 
                 if message_id:
-                    messages.success(
-                        request,
-                        f'Successfully queued sync for {account.handle} ({account.platform}). '
-                        f'Message ID: {message_id}'
-                    )
+                    html = f"""
+                    <!DOCTYPE html>
+                    <html>
+                    <head>
+                        <title>Sync Queued</title>
+                        <style>
+                            body {{ font-family: Arial, sans-serif; padding: 20px; text-align: center; }}
+                            .success {{ color: #28a745; }}
+                        </style>
+                    </head>
+                    <body>
+                        <h2 class="success">✓ Sync Queued Successfully</h2>
+                        <p>Account: {account.handle} ({account.platform})</p>
+                        <p>Message ID: {message_id}</p>
+                        <p>This window will close automatically...</p>
+                        <script>
+                            setTimeout(function() {{ window.close(); }}, 2000);
+                        </script>
+                    </body>
+                    </html>
+                    """
+                    return HttpResponse(html)
                 else:
-                    messages.error(
-                        request,
-                        f'Failed to queue sync for {account.handle} ({account.platform}). '
-                        f'Please check RabbitMQ connection.'
-                    )
+                    html = f"""
+                    <!DOCTYPE html>
+                    <html>
+                    <head>
+                        <title>Sync Failed</title>
+                        <style>
+                            body {{ font-family: Arial, sans-serif; padding: 20px; text-align: center; }}
+                            .error {{ color: red; }}
+                        </style>
+                    </head>
+                    <body>
+                        <h2 class="error">Failed to queue sync</h2>
+                        <p>Account: {account.handle} ({account.platform})</p>
+                        <p>Please check RabbitMQ connection.</p>
+                        <p>This window will close automatically...</p>
+                        <script>
+                            setTimeout(function() {{ window.close(); }}, 3000);
+                        </script>
+                    </body>
+                    </html>
+                    """
+                    return HttpResponse(html)
             except Exception as e:
-                messages.error(
-                    request,
-                    f'Error queueing sync: {str(e)}'
-                )
-
-        # Redirect back to the change page or list
-        if 'next' in request.GET:
-            return redirect(request.GET['next'])
-        return redirect('admin:influencers_socialmediaaccount_change', object_id)
+                html = f"""
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <title>Sync Error</title>
+                    <style>
+                        body {{ font-family: Arial, sans-serif; padding: 20px; text-align: center; }}
+                        .error {{ color: red; }}
+                    </style>
+                </head>
+                <body>
+                    <h2 class="error">Error queueing sync</h2>
+                    <p>{str(e)}</p>
+                    <p>This window will close automatically...</p>
+                    <script>
+                        setTimeout(function() {{ window.close(); }}, 3000);
+                    </script>
+                </body>
+                </html>
+                """
+                return HttpResponse(html)
 
     def queue_sync_all_view(self, request):
         """Handle queue sync for all accounts that need it - runs in background"""
