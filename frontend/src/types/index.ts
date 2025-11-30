@@ -15,12 +15,6 @@ export interface UserProfile {
     phone_number: string;
     phone_verified: boolean;
     email_verified: boolean;
-    country?: string;
-    state?: string;
-    city?: string;
-    zipcode?: string;
-    address_line1?: string;
-    address_line2?: string;
     profile_image?: string;
     created_at: string;
     updated_at: string;
@@ -34,6 +28,13 @@ export interface InfluencerProfile {
     industry: string;
     categories?: string[];
     bio: string;
+    // Influencer location fields (source of truth)
+    country?: string;
+    state?: string;
+    city?: string;
+    pincode?: string;
+    address_line1?: string;
+    address_line2?: string;
     aadhar_number?: string;
     aadhar_document?: string;
     is_verified: boolean;

@@ -66,7 +66,22 @@ export function ProfileForm({profile}: ProfileFormProps) {
     // Computed values
     const formState = form.formState;
     const watchedValues = form.watch();
-    const requiredFields = ['user.first_name', 'user.last_name', 'user.email', 'user_profile.country_code', 'user_profile.phone_number', 'industry', 'user_profile.country', 'user_profile.state', 'user_profile.city', 'user_profile.zipcode', 'user_profile.address_line1', 'user_profile.address_line2', 'user_profile.gender'];
+    const requiredFields = [
+        'user.first_name',
+        'user.last_name',
+        'user.email',
+        'user_profile.country_code',
+        'user_profile.phone_number',
+        'industry',
+        // Location is now on influencer profile
+        'country',
+        'state',
+        'city',
+        'pincode',
+        'address_line1',
+        'address_line2',
+        'user_profile.gender',
+    ];
 
     const missingFields = useMemo(() => {
         return requiredFields.filter(field => {
@@ -133,7 +148,7 @@ export function ProfileForm({profile}: ProfileFormProps) {
             }).filter(id => id !== undefined);
 
             // Transform the form data to match the expected API format
-                const submitData = {
+            const submitData = {
                 ...data,
                 // Flatten nested fields for API submission
                 first_name: data.user?.first_name,
@@ -141,16 +156,17 @@ export function ProfileForm({profile}: ProfileFormProps) {
                 email: data.user?.email,
                 country_code: data.user_profile?.country_code,
                 phone_number: data.user_profile?.phone_number,
-                country: data.user_profile?.country,
-                state: data.user_profile?.state,
-                city: data.user_profile?.city,
-                zipcode: data.user_profile?.zipcode,
-                address_line1: data.user_profile?.address_line1,
-                address_line2: data.user_profile?.address_line2,
+                // Influencer location fields
+                country: data.country,
+                state: data.state,
+                city: data.city,
+                zipcode: data.pincode,
+                address_line1: data.address_line1,
+                address_line2: data.address_line2,
                 gender: data.user_profile?.gender,
                 categories: categoryIds,
                 bio: data.bio || '',
-                address: data.user_profile?.address_line1 || '',
+                address: data.address_line1 || '',
             };
             await updateProfile.mutateAsync(submitData as any);
 
@@ -190,15 +206,15 @@ export function ProfileForm({profile}: ProfileFormProps) {
 
     const debouncedPincodeLookup = useCallback(async (pincode: string) => {
         console.log('Pincode lookup triggered:', pincode);
-        const country = form.getValues('user_profile.country');
+        const country = form.getValues('country');
         const countryCode = form.getValues('user_profile.country_code');
         console.log('Current country (for location):', country);
         console.log('Current country_code (for phone):', countryCode);
 
         // Clear previous state and city when pincode changes
         if (pincode.length < 4) {
-            form.setValue('user_profile.state', '');
-            form.setValue('user_profile.city', '');
+            form.setValue('state', '');
+            form.setValue('city', '');
             return;
         }
 
@@ -209,14 +225,14 @@ export function ProfileForm({profile}: ProfileFormProps) {
                 const locationData = await lookupPincode(pincode, country);
                 console.log('Location data received:', locationData);
                 if (locationData) {
-                    form.setValue('user_profile.state', locationData.state);
-                    form.setValue('user_profile.city', locationData.city);
+                    form.setValue('state', locationData.state);
+                    form.setValue('city', locationData.city);
                     console.log('Updated state and city fields');
                     toast.success('Location data updated successfully!');
                 } else {
                     console.log('No location data found for pincode:', pincode);
-                    form.setValue('user_profile.state', '');
-                    form.setValue('user_profile.city', '');
+                    form.setValue('state', '');
+                    form.setValue('city', '');
                     if (pincodeError) {
                         toast.error(pincodeError);
                     } else {
@@ -225,8 +241,8 @@ export function ProfileForm({profile}: ProfileFormProps) {
                 }
             } catch (error) {
                 console.error('Error in pincode lookup:', error);
-                form.setValue('user_profile.state', '');
-                form.setValue('user_profile.city', '');
+                form.setValue('state', '');
+                form.setValue('city', '');
                 toast.error('Failed to lookup pincode');
             }
         } else if (pincode.length >= 4 && !country) {
@@ -673,7 +689,7 @@ export function ProfileForm({profile}: ProfileFormProps) {
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <FormField
                                     control={form.control}
-                                    name="user_profile.country"
+                                    name="country"
                                     render={({field}) => (
                                         <FormItem>
                                             <FormLabel>Country *</FormLabel>
@@ -691,7 +707,7 @@ export function ProfileForm({profile}: ProfileFormProps) {
                                 />
                                 <FormField
                                     control={form.control}
-                                    name="user_profile.state"
+                                    name="state"
                                     render={({field}) => {
                                         return (
                                             <FormItem>
@@ -728,7 +744,7 @@ export function ProfileForm({profile}: ProfileFormProps) {
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <FormField
                                     control={form.control}
-                                    name="user_profile.city"
+                                    name="city"
                                     render={({field}) => {
                                         return (
                                             <FormItem>
@@ -762,7 +778,7 @@ export function ProfileForm({profile}: ProfileFormProps) {
                                 />
                                 <FormField
                                     control={form.control}
-                                    name="user_profile.zipcode"
+                                    name="pincode"
                                     render={({field}) => (
                                         <FormItem>
                                             <FormLabel>Zip/Postal Code *</FormLabel>
@@ -786,7 +802,7 @@ export function ProfileForm({profile}: ProfileFormProps) {
                             <div className="grid grid-cols-1 gap-4">
                                 <FormField
                                     control={form.control}
-                                    name="user_profile.address_line1"
+                                    name="address_line1"
                                     render={({field}) => (
                                         <FormItem>
                                             <FormLabel>Address Line 1 *</FormLabel>
@@ -800,7 +816,7 @@ export function ProfileForm({profile}: ProfileFormProps) {
                                 />
                                 <FormField
                                     control={form.control}
-                                    name="user_profile.address_line2"
+                                    name="address_line2"
                                     render={({field}) => (
                                         <FormItem>
                                             <FormLabel>Address Line 2 *</FormLabel>

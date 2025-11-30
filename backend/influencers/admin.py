@@ -50,7 +50,7 @@ class InfluencerProfileAdmin(admin.ModelAdmin):
         }),
         ('Location Details', {
             'fields': ('user_country_display', 'user_state_display', 'user_city_display', 'user_zipcode_display'),
-            'description': 'Geographic location information from user profile'
+            'description': 'Geographic location information from influencer profile'
         }),
         ('Demographics', {
             'fields': ('user_gender_display', 'age_range'),
@@ -138,19 +138,19 @@ class InfluencerProfileAdmin(admin.ModelAdmin):
     phone_number_display.short_description = 'Phone Number'
 
     def address_display(self, obj):
-        """Display address from user profile"""
-        if obj.user_profile and obj.user_profile.address_line1:
-            address_parts = [obj.user_profile.address_line1]
-            if obj.user_profile.address_line2:
-                address_parts.append(obj.user_profile.address_line2)
-            if obj.user_profile.city:
-                address_parts.append(obj.user_profile.city)
-            if obj.user_profile.state:
-                address_parts.append(obj.user_profile.state)
-            if obj.user_profile.zipcode:
-                address_parts.append(obj.user_profile.zipcode)
+        """Display address from influencer profile"""
+        address_parts = []
+        if getattr(obj, 'address_line1', None):
+            address_parts.append(obj.address_line1)
+        if getattr(obj, 'address_line2', None):
+            address_parts.append(obj.address_line2)
+        if obj.city:
+            address_parts.append(obj.city)
+        if obj.state:
+            address_parts.append(obj.state)
+        if obj.pincode:
+            address_parts.append(obj.pincode)
             return ', '.join(address_parts)
-        return 'N/A'
 
     address_display.short_description = 'Address'
 
@@ -349,26 +349,26 @@ class InfluencerProfileAdmin(admin.ModelAdmin):
     bio_keywords_display.short_description = 'Bio Keywords'
 
     def user_country_display(self, obj):
-        """Display country from user profile"""
-        return obj.user_profile.country if obj.user_profile else 'Not set'
+        """Display country from influencer profile"""
+        return obj.country or 'Not set'
 
     user_country_display.short_description = 'Country'
 
     def user_state_display(self, obj):
-        """Display state from user profile"""
-        return obj.user_profile.state if obj.user_profile else 'Not set'
+        """Display state from influencer profile"""
+        return obj.state or 'Not set'
 
     user_state_display.short_description = 'State'
 
     def user_city_display(self, obj):
-        """Display city from user profile"""
-        return obj.user_profile.city if obj.user_profile else 'Not set'
+        """Display city from influencer profile"""
+        return obj.city or 'Not set'
 
     user_city_display.short_description = 'City'
 
     def user_zipcode_display(self, obj):
-        """Display zipcode from user profile"""
-        return obj.user_profile.zipcode if obj.user_profile else 'Not set'
+        """Display zipcode/pincode from influencer profile"""
+        return obj.pincode or 'Not set'
 
     user_zipcode_display.short_description = 'Zipcode'
 

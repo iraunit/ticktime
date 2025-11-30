@@ -618,28 +618,41 @@ class UserAdmin(BaseUserAdmin):
                                     if country_code:
                                         profile.country_code = country_code
 
-                                # Update optional fields
+                                # Update optional non-location fields on UserProfile
                                 if gender and gender.lower() in ['male', 'female', 'other', 'prefer_not_to_say']:
                                     profile.gender = gender.lower()
-                                if country:
-                                    profile.country = country
-                                if state:
-                                    profile.state = state
-                                if city:
-                                    profile.city = city
-                                if zipcode:
-                                    profile.zipcode = zipcode
-                                if address_line1:
-                                    profile.address_line1 = address_line1
-                                if address_line2:
-                                    profile.address_line2 = address_line2
-
                                 profile.save()
                                 updated_count += 1
 
                                 # Handle industry - create/update InfluencerProfile if industry_id provided
+                                influencer_profile = None
                                 if industry_id:
-                                    create_or_update_influencer_profile(user, profile, industry_id, row_num, warnings)
+                                    influencer_profile = create_or_update_influencer_profile(
+                                        user, profile, industry_id, row_num, warnings
+                                    )
+                                else:
+                                    # If influencer profile already exists, use it for location updates
+                                    try:
+                                        from influencers.models import InfluencerProfile
+                                        influencer_profile = InfluencerProfile.objects.get(user=user)
+                                    except Exception:
+                                        influencer_profile = None
+
+                                # If we have an influencer profile, store location on it (not on UserProfile)
+                                if influencer_profile:
+                                    if country:
+                                        influencer_profile.country = country
+                                    if state:
+                                        influencer_profile.state = state
+                                    if city:
+                                        influencer_profile.city = city
+                                    if zipcode:
+                                        influencer_profile.pincode = zipcode
+                                    if address_line1:
+                                        influencer_profile.address_line1 = address_line1
+                                    if address_line2:
+                                        influencer_profile.address_line2 = address_line2
+                                    influencer_profile.save()
 
                                 # Handle Instagram profile link
                                 if instagram_profile_link:
@@ -716,26 +729,38 @@ class UserAdmin(BaseUserAdmin):
                                     is_active=True
                                 )
 
-                                # Create profile
+                                # Create profile (without location fields)
                                 user_profile = UserProfile.objects.create(
                                     user=user,
                                     phone_number=phone_digits,
                                     country_code=country_code,
                                     gender=gender.lower() if gender and gender.lower() in ['male', 'female', 'other',
                                                                                            'prefer_not_to_say'] else None,
-                                    country=country or '',
-                                    state=state or '',
-                                    city=city or '',
-                                    zipcode=zipcode or '',
-                                    address_line1=address_line1 or '',
-                                    address_line2=address_line2 or '',
                                 )
                                 created_count += 1
 
                                 # Handle industry - create InfluencerProfile if industry_id provided
+                                influencer_profile = None
                                 if industry_id:
-                                    create_or_update_influencer_profile(user, user_profile, industry_id, row_num,
-                                                                        warnings)
+                                    influencer_profile = create_or_update_influencer_profile(
+                                        user, user_profile, industry_id, row_num, warnings
+                                    )
+
+                                # If we have an influencer profile, store location on it (not on UserProfile)
+                                if influencer_profile:
+                                    if country:
+                                        influencer_profile.country = country
+                                    if state:
+                                        influencer_profile.state = state
+                                    if city:
+                                        influencer_profile.city = city
+                                    if zipcode:
+                                        influencer_profile.pincode = zipcode
+                                    if address_line1:
+                                        influencer_profile.address_line1 = address_line1
+                                    if address_line2:
+                                        influencer_profile.address_line2 = address_line2
+                                    influencer_profile.save()
 
                                 # Handle Instagram profile link
                                 if instagram_profile_link:
@@ -863,18 +888,15 @@ class UserAdmin(BaseUserAdmin):
 class UserProfileAdmin(admin.ModelAdmin):
     list_display = [
         'user_username', 'user_email', 'phone_number', 'email_verified', 'phone_verified',
-        'country', 'city', 'created_at'
+        'created_at'
     ]
-    list_filter = ['email_verified', 'phone_verified', 'country', 'created_at']
+    list_filter = ['email_verified', 'phone_verified', 'created_at']
     search_fields = ['user__username', 'user__email', 'user__first_name', 'user__last_name', 'phone_number']
     readonly_fields = ['created_at', 'updated_at']
 
     fieldsets = (
         ('User Information', {
             'fields': ('user', 'phone_number', 'email_verified', 'phone_verified')
-        }),
-        ('Location', {
-            'fields': ('country', 'state', 'city', 'zipcode', 'address_line1', 'address_line2')
         }),
         ('Profile', {
             'fields': ('gender', 'profile_image')

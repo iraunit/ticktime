@@ -39,11 +39,13 @@ class InfluencerProfile(models.Model):
     profile_verified = models.BooleanField(default=False,
                                            help_text='Profile is verified when aadhar, email, and phone are all verified')
 
-    # Enhanced location fields
+    # Enhanced location fields (influencer-only)
     country = models.CharField(max_length=100, blank=True, default='')
     state = models.CharField(max_length=100, blank=True, default='')
     city = models.CharField(max_length=100, blank=True, default='')
     pincode = models.CharField(max_length=10, blank=True, default='')
+    address_line1 = models.CharField(max_length=255, blank=True, default='')
+    address_line2 = models.CharField(max_length=255, blank=True, default='')
 
     # Demographics
     gender = models.CharField(max_length=20, choices=[

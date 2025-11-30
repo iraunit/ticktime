@@ -128,13 +128,12 @@ def get_influencer_locations_view(request):
 
     try:
         InfluencerProfile = apps.get_model('influencers', 'InfluencerProfile')
-        # Query location from user_profile (where the actual location data is stored)
+        # Query location directly from influencer profile (source of truth for locations)
         qs = (
             InfluencerProfile.objects
-            .filter(user_profile__isnull=False)
-            .filter(user_profile__city__isnull=False)
-            .exclude(user_profile__city='')
-            .values('user_profile__city', 'user_profile__state')
+            .filter(city__isnull=False)
+            .exclude(city='')
+            .values('city', 'state')
             .distinct()
         )
 
@@ -142,8 +141,8 @@ def get_influencer_locations_view(request):
         locations = []
         seen = set()  # Track unique city-state combinations
         for row in qs:
-            city = (row.get('user_profile__city') or '').strip()
-            state = (row.get('user_profile__state') or '').strip()
+            city = (row.get('city') or '').strip()
+            state = (row.get('state') or '').strip()
             if not city:
                 continue
             # Use tuple for deduplication

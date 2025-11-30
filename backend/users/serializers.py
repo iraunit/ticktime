@@ -135,39 +135,39 @@ class UserProfileSerializer(serializers.ModelSerializer):
         return None
 
     def get_country(self, obj):
-        """Get country."""
-        if hasattr(obj, 'user_profile'):
-            return obj.user_profile.country
+        """Get country (from influencer profile if available)."""
+        if hasattr(obj, 'influencer_profile'):
+            return obj.influencer_profile.country or ''
         return ''
 
     def get_state(self, obj):
-        """Get state."""
-        if hasattr(obj, 'user_profile'):
-            return obj.user_profile.state
+        """Get state (from influencer profile if available)."""
+        if hasattr(obj, 'influencer_profile'):
+            return obj.influencer_profile.state or ''
         return ''
 
     def get_city(self, obj):
-        """Get city."""
-        if hasattr(obj, 'user_profile'):
-            return obj.user_profile.city
+        """Get city (from influencer profile if available)."""
+        if hasattr(obj, 'influencer_profile'):
+            return obj.influencer_profile.city or ''
         return ''
 
     def get_zipcode(self, obj):
-        """Get zipcode."""
-        if hasattr(obj, 'user_profile'):
-            return obj.user_profile.zipcode
+        """Get zipcode/pincode (from influencer profile if available)."""
+        if hasattr(obj, 'influencer_profile'):
+            return obj.influencer_profile.pincode or ''
         return ''
 
     def get_address_line1(self, obj):
-        """Get address line 1."""
-        if hasattr(obj, 'user_profile'):
-            return obj.user_profile.address_line1
+        """Get address line 1 (from influencer profile if available)."""
+        if hasattr(obj, 'influencer_profile'):
+            return getattr(obj.influencer_profile, 'address_line1', '') or ''
         return ''
 
     def get_address_line2(self, obj):
-        """Get address line 2."""
-        if hasattr(obj, 'user_profile'):
-            return obj.user_profile.address_line2
+        """Get address line 2 (from influencer profile if available)."""
+        if hasattr(obj, 'influencer_profile'):
+            return getattr(obj.influencer_profile, 'address_line2', '') or ''
         return ''
 
 
@@ -179,6 +179,7 @@ class UserUpdateSerializer(serializers.ModelSerializer):
     phone_number = serializers.CharField(required=False, allow_blank=True, max_length=15)
     country_code = serializers.CharField(required=False, allow_blank=True, max_length=5)
     gender = serializers.ChoiceField(choices=GENDER_CHOICES, required=False, allow_blank=True)
+    # Location fields are accepted but stored only for influencers
     country = serializers.CharField(required=False, allow_blank=True, max_length=100)
     state = serializers.CharField(required=False, allow_blank=True, max_length=100)
     city = serializers.CharField(required=False, allow_blank=True, max_length=100)
@@ -263,12 +264,11 @@ class UserUpdateSerializer(serializers.ModelSerializer):
 
         instance.save()
 
-        # Get or create UserProfile
+        # Get or create UserProfile (for non-location data)
         user_profile, created = UserProfile.objects.get_or_create(user=instance)
 
-        # Update UserProfile fields
-        profile_fields = ['phone_number', 'country_code', 'gender', 'country', 'state',
-                          'city', 'zipcode', 'address_line1', 'address_line2', 'profile_image']
+        # Update UserProfile non-location fields
+        profile_fields = ['phone_number', 'country_code', 'gender', 'profile_image']
 
         for field in profile_fields:
             if field in validated_data:
@@ -280,6 +280,20 @@ class UserUpdateSerializer(serializers.ModelSerializer):
                     setattr(user_profile, field, value)
 
         user_profile.save()
+
+        # For influencers, store location on InfluencerProfile
+        influencer_profile = getattr(instance, 'influencer_profile', None)
+        if influencer_profile:
+            for field in ['country', 'state', 'city']:
+                if field in validated_data:
+                    setattr(influencer_profile, field, validated_data[field])
+            if 'zipcode' in validated_data:
+                influencer_profile.pincode = validated_data['zipcode']
+            if 'address_line1' in validated_data:
+                influencer_profile.address_line1 = validated_data['address_line1']
+            if 'address_line2' in validated_data:
+                influencer_profile.address_line2 = validated_data['address_line2']
+            influencer_profile.save()
 
         return instance
 

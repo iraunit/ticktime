@@ -81,27 +81,26 @@ class InfluencerProfileSerializer(serializers.ModelSerializer):
         return None
 
     def get_address(self, obj):
-        """Get address from user profile."""
-        if obj.user_profile and obj.user_profile.address_line1:
-            address_parts = [obj.user_profile.address_line1]
-            if obj.user_profile.address_line2:
-                address_parts.append(obj.user_profile.address_line2)
-            if obj.user_profile.city:
-                address_parts.append(obj.user_profile.city)
-            if obj.user_profile.state:
-                address_parts.append(obj.user_profile.state)
-            if obj.user_profile.zipcode:
-                address_parts.append(obj.user_profile.zipcode)
-            # Use a special delimiter to separate address lines from other fields
-            return ' | '.join(address_parts)
-        return ''
+        """Get address from influencer profile (source of truth for location)."""
+        address_parts = []
+        if getattr(obj, 'address_line1', None):
+            address_parts.append(obj.address_line1)
+        if getattr(obj, 'address_line2', None):
+            address_parts.append(obj.address_line2)
+        if obj.city:
+            address_parts.append(obj.city)
+        if obj.state:
+            address_parts.append(obj.state)
+        if obj.pincode:
+            address_parts.append(obj.pincode)
+        return ' | '.join(address_parts) if address_parts else ''
 
     def get_country(self, obj):
-        """Get country from user profile."""
-        return obj.user_profile.country if obj.user_profile else ''
+        """Get country from influencer profile."""
+        return obj.country or ''
 
     def get_country_code(self, obj):
-        """Get country code from user profile."""
+        """Get country code from user profile (phone country code)."""
         return obj.user_profile.country_code if obj.user_profile else ''
 
     def get_gender(self, obj):
@@ -372,11 +371,11 @@ class InfluencerProfileUpdateSerializer(serializers.ModelSerializer):
         last_name = validated_data.pop('last_name', None)
         email = validated_data.pop('email', None)
 
-        # Extract fields that should be updated in UserProfile
+        # Extract fields that should be updated in UserProfile / InfluencerProfile
         phone_number = validated_data.pop('phone_number', None)
         address = validated_data.pop('address', None)
 
-        # Extract individual address fields
+        # Extract individual address/location fields
         address_line1 = validated_data.pop('address_line1', None)
         address_line2 = validated_data.pop('address_line2', None)
         city = validated_data.pop('city', None)
@@ -435,59 +434,42 @@ class InfluencerProfileUpdateSerializer(serializers.ModelSerializer):
         if not instance.user_profile:
             instance.user_profile = UserProfile.objects.create(user=instance.user)
 
-        # Log UserProfile update data
-        user_profile_data = {
-            'phone_number': phone_number.strip() if isinstance(phone_number, str) else phone_number,
-            'gender': gender,
-            'country': country,
-            'country_code': country_code,
-            'state': state,
-            'city': city,
-            'zipcode': zipcode,
-            'address_line1': address_line1,
-            'address_line2': address_line2,
-            'address': address
-        }
-
-        # Update UserProfile fields
+        # Update UserProfile fields (non-location)
         if phone_number is not None:
             cleaned_phone = phone_number.strip() if isinstance(phone_number, str) else phone_number
             instance.user_profile.phone_number = cleaned_phone or None
         if gender is not None:
             instance.user_profile.gender = gender if gender else None
-        if country is not None:
-            instance.user_profile.country = country
         if country_code is not None:
             instance.user_profile.country_code = country_code
+
+        # Save UserProfile if any non-location fields were updated
+        if any(v is not None for v in [phone_number, gender, country_code]):
+            instance.user_profile.save()
+
+        # Update InfluencerProfile location fields (source of truth for location)
+        if country is not None:
+            instance.country = country
         if state is not None:
-            instance.user_profile.state = state
+            instance.state = state
         if city is not None:
-            instance.user_profile.city = city
+            instance.city = city
         if zipcode is not None:
-            instance.user_profile.zipcode = zipcode
+            instance.pincode = zipcode
         if address_line1 is not None:
-            instance.user_profile.address_line1 = address_line1
+            instance.address_line1 = address_line1
         if address_line2 is not None:
-            instance.user_profile.address_line2 = address_line2
+            instance.address_line2 = address_line2
 
         # Handle legacy address field (comma-separated) - only if individual fields are not provided
         if address is not None and not any([address_line1, address_line2, city, state, zipcode]):
             # Parse address into components (simple implementation)
             address_parts = address.split(',')
-            instance.user_profile.address_line1 = address_parts[0].strip() if len(address_parts) > 0 else ''
-            instance.user_profile.address_line2 = address_parts[1].strip() if len(address_parts) > 1 else ''
-            instance.user_profile.city = address_parts[2].strip() if len(address_parts) > 2 else ''
-            instance.user_profile.state = address_parts[3].strip() if len(address_parts) > 3 else ''
-            instance.user_profile.zipcode = address_parts[4].strip() if len(address_parts) > 4 else ''
-        elif address is not None:
-
-            # Save UserProfile if any fields were updated
-            user_profile_fields_updated = [phone_number, gender, country, country_code, state, city, zipcode,
-                                           address_line1, address_line2, address]
-            if any(user_profile_fields_updated):
-                instance.user_profile.save()
-            else:
-                print(f"No UserProfile fields to update for user {instance.user.id}")
+            instance.address_line1 = address_parts[0].strip() if len(address_parts) > 0 else ''
+            instance.address_line2 = address_parts[1].strip() if len(address_parts) > 1 else ''
+            instance.city = address_parts[2].strip() if len(address_parts) > 2 else ''
+            instance.state = address_parts[3].strip() if len(address_parts) > 3 else ''
+            instance.pincode = address_parts[4].strip() if len(address_parts) > 4 else ''
 
         # Reset verification flags if contact details changed
         new_email = (user.email or '').strip().lower()

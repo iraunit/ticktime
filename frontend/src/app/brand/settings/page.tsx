@@ -152,6 +152,7 @@ export default function BrandSettingsPage() {
     const [userPhoneNumber, setUserPhoneNumber] = useState("");
     const [userCountryCode, setUserCountryCode] = useState("+91");
     const [userGender, setUserGender] = useState("");
+    // Location information is now influencer-only; keep local state for display if needed
     const [userCountry, setUserCountry] = useState("");
     const [userState, setUserState] = useState("");
     const [userCity, setUserCity] = useState("");
@@ -484,12 +485,7 @@ export default function BrandSettingsPage() {
             formData.append('phone_number', userPhoneNumber);
             formData.append('country_code', userCountryCode);
             formData.append('gender', userGender);
-            formData.append('country', userCountry);
-            formData.append('state', userState);
-            formData.append('city', userCity);
-            formData.append('zipcode', userZipcode);
-            formData.append('address_line1', userAddressLine1);
-            formData.append('address_line2', userAddressLine2);
+            // Do not send any location fields for brand users – location is influencer-only now
 
             if (profileImageFile) {
                 formData.append('profile_image', profileImageFile);
