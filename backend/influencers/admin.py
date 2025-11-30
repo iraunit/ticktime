@@ -1,3 +1,5 @@
+import csv
+
 from django.contrib import admin
 from django.contrib import messages
 from django.db.models import Q
@@ -36,8 +38,8 @@ class InfluencerProfileAdmin(admin.ModelAdmin):
                        'user_country_display', 'user_state_display', 'user_city_display', 'user_zipcode_display',
                        'user_gender_display']
     filter_horizontal = ['categories']
-    actions = ['verify_aadhar_documents', 'unverify_aadhar_documents', 'mark_as_verified', 'mark_as_unverified',
-               'update_profile_verification']
+    actions = ['verify_aadhar_documents', 'unverify_aadhar_documents', 'mark_as_verified', 'mark_as_unverified']
+    change_list_template = 'admin/influencers/influencerprofile/change_list.html'
 
     fieldsets = (
         ('User Information', {
@@ -242,19 +244,77 @@ class InfluencerProfileAdmin(admin.ModelAdmin):
 
     mark_as_unverified.short_description = 'Mark as unverified'
 
-    def update_profile_verification(self, request, queryset):
-        """Bulk action to update profile verification status"""
-        updated_count = 0
-        for profile in queryset:
-            if profile.update_profile_verification():
-                updated_count += 1
+    def get_urls(self):
+        """Add custom URL for CSV download"""
+        urls = super().get_urls()
+        custom_urls = [
+            path(
+                'download-unverified-csv/',
+                self.admin_site.admin_view(self.download_unverified_csv_view),
+                name='influencers_influencerprofile_download_unverified_csv',
+            ),
+        ]
+        return custom_urls + urls
 
-        self.message_user(
-            request,
-            f'Profile verification status updated for {updated_count} influencer(s).'
-        )
+    def changelist_view(self, request, extra_context=None):
+        """Override changelist to add download CSV button"""
+        extra_context = extra_context or {}
+        extra_context['download_csv_url'] = 'download-unverified-csv/'
+        return super().changelist_view(request, extra_context)
 
-    update_profile_verification.short_description = 'Update profile verification status'
+    def download_unverified_csv_view(self, request):
+        """View to download CSV of unverified users (email, phone, or aadhar not verified)
+        
+        Downloads users where ANY of the three verifications is missing:
+        - Email not verified OR
+        - Phone not verified OR
+        - Aadhar not verified
+        """
+        # Get all profiles that are not fully verified (ANY of the three unverified)
+        unverified_profiles = InfluencerProfile.objects.filter(
+            Q(user_profile__email_verified=False) |
+            Q(user_profile__phone_verified=False) |
+            Q(is_verified=False) |
+            Q(user_profile__isnull=True)
+        ).select_related('user', 'user_profile').distinct().order_by('user__email')
+
+        # Create CSV response
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename="unverified_influencers.csv"'
+
+        writer = csv.writer(response)
+        # Write header
+        writer.writerow([
+            'Email',
+            'Name',
+            'Country Code',
+            'Phone',
+            'Email Verified',
+            'Phone Verified',
+            'Aadhar Verified'
+        ])
+
+        # Write data rows
+        for profile in unverified_profiles:
+            email = profile.user.email if profile.user else 'N/A'
+            name = profile.user.get_full_name() if profile.user else 'N/A'
+            country_code = profile.user_profile.country_code if profile.user_profile else 'N/A'
+            phone = profile.user_profile.phone_number if profile.user_profile else 'N/A'
+            email_verified = 'Yes' if (profile.user_profile and profile.user_profile.email_verified) else 'No'
+            phone_verified = 'Yes' if (profile.user_profile and profile.user_profile.phone_verified) else 'No'
+            aadhar_verified = 'Yes' if profile.is_verified else 'No'
+
+            writer.writerow([
+                email,
+                name,
+                country_code,
+                phone,
+                email_verified,
+                phone_verified,
+                aadhar_verified
+            ])
+
+        return response
 
     def collaboration_types_display(self, obj):
         """Display collaboration types in a readable format"""
@@ -863,8 +923,45 @@ class AadharVerificationFilter(admin.SimpleListFilter):
             return queryset.filter(Q(aadhar_number__isnull=True) | Q(aadhar_number=''))
 
 
-# Add the custom filter to the admin class
-InfluencerProfileAdmin.list_filter = ['industry', 'categories', 'is_verified', 'created_at', AadharVerificationFilter]
+class EmailVerificationFilter(admin.SimpleListFilter):
+    title = 'Email Verification Status'
+    parameter_name = 'email_verified'
+
+    def lookups(self, request, model_admin):
+        return (
+            ('verified', 'Verified'),
+            ('not_verified', 'Not Verified'),
+        )
+
+    def queryset(self, request, queryset):
+        if self.value() == 'verified':
+            return queryset.filter(user_profile__email_verified=True)
+        elif self.value() == 'not_verified':
+            return queryset.filter(Q(user_profile__email_verified=False) | Q(user_profile__isnull=True))
+
+
+class PhoneVerificationFilter(admin.SimpleListFilter):
+    title = 'Phone Verification Status'
+    parameter_name = 'phone_verified'
+
+    def lookups(self, request, model_admin):
+        return (
+            ('verified', 'Verified'),
+            ('not_verified', 'Not Verified'),
+        )
+
+    def queryset(self, request, queryset):
+        if self.value() == 'verified':
+            return queryset.filter(user_profile__phone_verified=True)
+        elif self.value() == 'not_verified':
+            return queryset.filter(Q(user_profile__phone_verified=False) | Q(user_profile__isnull=True))
+
+
+# Add the custom filters to the admin class
+InfluencerProfileAdmin.list_filter = [
+    'industry', 'categories', 'is_verified', 'created_at',
+    AadharVerificationFilter, EmailVerificationFilter, PhoneVerificationFilter
+]
 
 
 @admin.register(InfluencerAudienceInsight)
