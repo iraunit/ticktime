@@ -41,9 +41,9 @@ import {MultiSelectOption, MultiSelectSearch} from "@/components/ui/multi-select
 
 interface Influencer {
     id: number;
-    username: string;
-    full_name: string;
-    industry: string;
+    username: string;            // user.username
+    full_name: string;          // computed full name
+    industry: string;           // industry name
     bio: string;
     profile_image?: string;
     is_verified: boolean;
@@ -51,52 +51,11 @@ interface Influencer {
     avg_engagement: number;
     collaboration_count: number;
     avg_rating: number;
-    platforms: string[];
-    location: string;
-    rate_per_post?: number;
-    avg_likes?: number;
-    avg_views?: number;
-    avg_comments?: number;
-    total_videos?: number;
-    categories?: string[];
-    gender?: string;
-    is_bookmarked?: boolean;
-    platform_handle?: string;
-    platform_url?: string;
-    platform_bio?: string;
-    last_active?: string;
-    engagement_rate?: number;
+    platforms: string[];        // active platforms
+    location: string;           // formatted location from backend
     posts_count?: number;
-
-    // Enhanced fields from competitor analysis
-    name?: string;
-    handle?: string;
-    original_profile_image?: string;
-    score?: string;
-    available_platforms?: string[];
-
-    // Platform-specific data
-    twitter_followers?: string;
-    twitter_handle?: string;
-    twitter_profile_link?: string;
-    youtube_subscribers?: string;
-    youtube_handle?: string;
-    youtube_profile_link?: string;
-    facebook_page_likes?: string;
-    facebook_handle?: string;
-    facebook_profile_link?: string;
-
-    // Interaction metrics
-    average_interaction?: string;
-    average_dislikes?: string;
-
-    // Scored categories
-    category_scores?: Array<{
-        category_name: string;
-        score: string;
-        is_flag: number;
-        is_primary: boolean;
-    }>;
+    rate_per_post?: number;
+    is_bookmarked?: boolean;
 }
 
 // Column configuration
@@ -203,11 +162,55 @@ export default function InfluencerSearchPage() {
     const [sortCombined, setSortCombined] = useState<string>("followers_desc");
     const [selectedCampaign, setSelectedCampaign] = useState<any | null>(null);
     const [campaignFilter, setCampaignFilter] = useState<string>("");
+    const [isInitialised, setIsInitialised] = useState(false);
 
     // Save column visibility to localStorage
     useEffect(() => {
         localStorage.setItem('influencer-table-columns', JSON.stringify(visibleColumns));
     }, [visibleColumns]);
+
+    // Load filters from URL query on first mount so refresh preserves state
+    useEffect(() => {
+        try {
+            if (typeof window === 'undefined') {
+                setIsInitialised(true);
+                return;
+            }
+            const params = new URLSearchParams(window.location.search);
+
+            const search = params.get('search') || '';
+            const platforms = (params.get('platforms') || '').split(',').map(s => s.trim()).filter(Boolean);
+            const locations = (params.get('locations') || '').split(',').map(s => s.trim()).filter(Boolean);
+            const genders = (params.get('genders') || '').split(',').map(s => s.trim()).filter(Boolean);
+            const follower = params.get('follower_range') || '';
+            const categories = (params.get('categories') || '').split(',').map(s => s.trim()).filter(Boolean);
+            const industriesCsv = (params.get('industries') || '').split(',').map(s => s.trim()).filter(Boolean);
+            const sortByParam = params.get('sort_by') || '';
+            const sortOrderParam = params.get('sort_order') || '';
+            const ageRangeParam = params.get('age_range') || '';
+            const collabPrefs = (params.get('collaboration_preferences') || '').split(',').map(s => s.trim()).filter(Boolean);
+            const maxCollab = params.get('max_collab_amount') || '';
+            const campaignId = params.get('campaign_id') || '';
+
+            if (search) setSearchTerm(search);
+            if (platforms.length > 0) setSelectedPlatforms(platforms);
+            if (locations.length > 0) setSelectedLocations(locations);
+            if (genders.length > 0) setGenderFilters(genders);
+            if (follower) setFollowerRange(follower);
+            if (categories.length > 0) setSelectedCategories(categories);
+            if (industriesCsv.length > 0) setSelectedIndustries(industriesCsv);
+            if (sortByParam) setSortBy(sortByParam);
+            if (sortOrderParam === 'asc' || sortOrderParam === 'desc') setSortOrder(sortOrderParam);
+            if (ageRangeParam) setAgeRangesFilter([ageRangeParam]);
+            if (collabPrefs.length > 0) setCollabPrefsFilter(collabPrefs);
+            if (maxCollab) setMaxCollabAmountFilter(maxCollab);
+            if (campaignId) setCampaignFilter(campaignId);
+        } catch {
+            // Ignore URL parse errors and fall back to defaults
+        } finally {
+            setIsInitialised(true);
+        }
+    }, []);
 
     // Load influencers from API
     const fetchInfluencers = useCallback(async (pageNum = 1, append = false) => {
@@ -259,8 +262,9 @@ export default function InfluencerSearchPage() {
         }
     }, [searchTerm, selectedPlatforms, selectedLocations, genderFilters, followerRange, selectedCategories, selectedIndustries, sortBy, sortOrder, ageRangesFilter, collabPrefsFilter, maxCollabAmountFilter, campaignFilter]);
 
-    // Sync filters and sorting to URL
+    // Sync filters and sorting to URL (after initialisation from URL)
     useEffect(() => {
+        if (!isInitialised) return;
         try {
             const params = new URLSearchParams();
             if (searchTerm) params.set('search', searchTerm);
@@ -583,9 +587,10 @@ export default function InfluencerSearchPage() {
     };
 
     useEffect(() => {
+        if (!isInitialised) return;
         setPage(1);
         fetchInfluencers(1, false);
-    }, [fetchInfluencers]);
+    }, [fetchInfluencers, isInitialised]);
 
     const formatNumber = (num: number) => {
         if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
