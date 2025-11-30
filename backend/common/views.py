@@ -121,29 +121,36 @@ def get_influencer_locations_view(request):
 
     Cached in Redis for 1 day.
     """
-    cache_key = 'common:influencer_locations:v1'
+    cache_key = 'common:influencer_locations:v2'  # Updated to v2 to clear old cache
     cached = cache.get(cache_key)
     if cached is not None:
         return api_response(True, result={"locations": cached})
 
     try:
         InfluencerProfile = apps.get_model('influencers', 'InfluencerProfile')
+        # Query location from user_profile (where the actual location data is stored)
         qs = (
             InfluencerProfile.objects
-            .filter(city__isnull=False)
-            .exclude(city='')
-            .values('city', 'state')
+            .filter(user_profile__isnull=False)
+            .filter(user_profile__city__isnull=False)
+            .exclude(user_profile__city='')
+            .values('user_profile__city', 'user_profile__state')
             .distinct()
         )
 
         # Normalize and sort
         locations = []
+        seen = set()  # Track unique city-state combinations
         for row in qs:
-            city = (row.get('city') or '').strip()
-            state = (row.get('state') or '').strip()
+            city = (row.get('user_profile__city') or '').strip()
+            state = (row.get('user_profile__state') or '').strip()
             if not city:
                 continue
-            locations.append({"city": city, "state": state})
+            # Use tuple for deduplication
+            location_key = (city.lower(), state.lower() if state else '')
+            if location_key not in seen:
+                seen.add(location_key)
+                locations.append({"city": city, "state": state})
 
         # Sort by state then city for stable UX
         locations.sort(key=lambda x: (x.get('state') or '', x.get('city') or ''))
