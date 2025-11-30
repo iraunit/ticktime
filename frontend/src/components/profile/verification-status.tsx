@@ -12,8 +12,6 @@ interface VerificationStatusProps {
 }
 
 export function VerificationStatus({profile}: VerificationStatusProps) {
-    if (!profile) return null;
-
     const {
         sending: sendingEmail,
         canResend: canResendEmail,
@@ -27,6 +25,8 @@ export function VerificationStatus({profile}: VerificationStatusProps) {
         secondsUntilResend: secondsUntilResendPhone,
         sendVerificationPhone,
     } = usePhoneVerification();
+
+    if (!profile) return null;
 
     const verificationItems = [
         {

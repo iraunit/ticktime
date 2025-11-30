@@ -133,9 +133,8 @@ export default function InfluencerSearchPage() {
     // Helper to show @username consistently (fallbacks if username missing)
     const getDisplayUsername = useCallback((inf: Influencer) => {
         const user = (inf?.username || '').trim();
-        const handle = (inf?.handle || '').trim();
-        const name = (inf?.name || '').trim();
-        return user || handle || name || '';
+        const name = (inf?.full_name || '').trim();
+        return user || name || '';
     }, []);
 
     // Column visibility state
@@ -1255,8 +1254,7 @@ export default function InfluencerSearchPage() {
                                     {visibleColumns.engagement && (
                                         <td className="px-3 py-2">
                         <span className="font-medium text-gray-900 text-sm">
-                          {(typeof influencer.engagement_rate === 'number' ? influencer.engagement_rate.toFixed(1) : null) ||
-                              (typeof influencer.avg_engagement === 'number' ? influencer.avg_engagement.toFixed(1) : null) ||
+                          {(typeof influencer.avg_engagement === 'number' ? influencer.avg_engagement.toFixed(1) : null) ||
                               "N/A"}%
                         </span>
                                         </td>
@@ -1284,31 +1282,31 @@ export default function InfluencerSearchPage() {
                                     {primaryPlatform === 'instagram' && (
                                         <>
                                             <td className="px-3 py-2"><span
-                                                className="text-gray-700 text-sm">{influencer.avg_likes || '0'}</span>
+                                                className="text-gray-700 text-sm">N/A</span>
                                             </td>
                                             <td className="px-3 py-2"><span
-                                                className="text-gray-700 text-sm">{influencer.avg_comments || '0'}</span>
+                                                className="text-gray-700 text-sm">N/A</span>
                                             </td>
                                         </>
                                     )}
                                     {primaryPlatform === 'youtube' && (
                                         <>
                                             <td className="px-3 py-2"><span
-                                                className="text-gray-700 text-sm">{influencer.youtube_subscribers ?? '0'}</span>
+                                                className="text-gray-700 text-sm">N/A</span>
                                             </td>
                                             <td className="px-3 py-2"><span
-                                                className="text-gray-700 text-sm">{influencer.avg_views || '0'}</span>
+                                                className="text-gray-700 text-sm">N/A</span>
                                             </td>
                                         </>
                                     )}
                                     {primaryPlatform === 'twitter' && (
                                         <td className="px-3 py-2"><span
-                                            className="text-gray-700 text-sm">{influencer.twitter_followers ?? '0'}</span>
+                                            className="text-gray-700 text-sm">N/A</span>
                                         </td>
                                     )}
                                     {primaryPlatform === 'facebook' && (
                                         <td className="px-3 py-2"><span
-                                            className="text-gray-700 text-sm">{influencer.facebook_page_likes ?? '0'}</span>
+                                            className="text-gray-700 text-sm">N/A</span>
                                         </td>
                                     )}
                                     {visibleColumns.actions && (
@@ -1420,8 +1418,7 @@ export default function InfluencerSearchPage() {
                                                                                 className="text-sm font-medium text-green-700">Engagement</span>
                                                                         </div>
                                                                         <p className="text-2xl font-bold text-green-900">
-                                                                            {(typeof selectedInfluencer.engagement_rate === 'number' ? selectedInfluencer.engagement_rate.toFixed(1) : null) ||
-                                                                                (typeof selectedInfluencer.avg_engagement === 'number' ? selectedInfluencer.avg_engagement.toFixed(1) : null) ||
+                                                                            {(typeof selectedInfluencer.avg_engagement === 'number' ? selectedInfluencer.avg_engagement.toFixed(1) : null) ||
                                                                                 "N/A"}%
                                                                         </p>
                                                                     </div>
