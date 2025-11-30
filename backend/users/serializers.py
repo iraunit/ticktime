@@ -87,7 +87,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
         if hasattr(obj, 'influencer_profile'):
             profile = obj.influencer_profile
             return {
-                'username': profile.username,
+                'username': profile.user.username,
                 'full_name': profile.user.get_full_name(),
                 'bio': profile.bio,
                 'is_verified': profile.is_verified,

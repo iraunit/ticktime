@@ -10,7 +10,7 @@ class ContentSubmissionAdmin(admin.ModelAdmin):
         'revision_requested', 'submitted_at'
     ]
     list_filter = ['platform', 'content_type', 'approved', 'revision_requested', 'submitted_at']
-    search_fields = ['deal__campaign__title', 'deal__influencer__username', 'caption']
+    search_fields = ['deal__campaign__title', 'deal__influencer__user__username', 'caption']
     readonly_fields = ['submitted_at', 'approved_at']
 
     fieldsets = (
@@ -30,6 +30,6 @@ class ContentSubmissionAdmin(admin.ModelAdmin):
     )
 
     def deal_info(self, obj):
-        return f"{obj.deal.campaign.title} - {obj.deal.influencer.username}"
+        return f"{obj.deal.campaign.title} - {obj.deal.influencer.user.username}"
 
     deal_info.short_description = 'Deal'

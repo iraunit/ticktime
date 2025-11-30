@@ -211,4 +211,4 @@ class BookmarkedInfluencer(models.Model):
         ]
 
     def __str__(self):
-        return f"{self.brand.name} bookmarked {self.influencer.username}"
+        return f"{self.brand.name} bookmarked {self.influencer.user.username}"

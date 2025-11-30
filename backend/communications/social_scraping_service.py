@@ -197,7 +197,7 @@ class SocialScrapingService:
             influencer=influencer,
             platform=platform,
             defaults={
-                'handle': handle or influencer.username,
+                'handle': handle or influencer.user.username,
             },
         )
 

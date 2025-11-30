@@ -588,21 +588,10 @@ class UserAdmin(BaseUserAdmin):
                                                     default_industry = Industry.objects.first()
 
                                                 if default_industry:
-                                                    # Generate influencer username (use email prefix or user's username)
-                                                    influencer_username_for_profile = email.split('@')[0]
-                                                    # Ensure influencer username is unique
-                                                    base_influencer_username = influencer_username_for_profile
-                                                    counter = 1
-                                                    while InfluencerProfile.objects.filter(
-                                                            username=influencer_username_for_profile).exists():
-                                                        influencer_username_for_profile = f"{base_influencer_username}{counter}"
-                                                        counter += 1
-
-                                                    # Create InfluencerProfile
+                                                    # Auto-create InfluencerProfile using existing user.username
                                                     influencer_profile = InfluencerProfile.objects.create(
                                                         user=user,
                                                         user_profile=profile,
-                                                        username=influencer_username_for_profile,
                                                         industry=default_industry
                                                     )
                                                 else:
@@ -690,27 +679,16 @@ class UserAdmin(BaseUserAdmin):
                                                     default_industry = Industry.objects.first()
 
                                                 if default_industry:
-                                                    # Generate influencer username (use email prefix or user's username)
-                                                    influencer_username_for_profile = email.split('@')[0]
-                                                    # Ensure influencer username is unique
-                                                    base_influencer_username = influencer_username_for_profile
-                                                    counter = 1
-                                                    while InfluencerProfile.objects.filter(
-                                                            username=influencer_username_for_profile).exists():
-                                                        influencer_username_for_profile = f"{base_influencer_username}{counter}"
-                                                        counter += 1
-
                                                     # Get user_profile (should exist since we just created it)
                                                     try:
                                                         user_profile = UserProfile.objects.get(user=user)
                                                     except UserProfile.DoesNotExist:
                                                         user_profile = None
 
-                                                    # Create InfluencerProfile
+                                                    # Create InfluencerProfile using existing user.username
                                                     influencer_profile = InfluencerProfile.objects.create(
                                                         user=user,
                                                         user_profile=user_profile,
-                                                        username=influencer_username_for_profile,
                                                         industry=default_industry
                                                     )
                                                 else:

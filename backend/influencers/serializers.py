@@ -4,6 +4,7 @@ from common.models import (
     Industry, ContentCategory, PLATFORM_CHOICES, DEAL_STATUS_CHOICES,
     DEAL_TYPE_CHOICES, CONTENT_TYPE_CHOICES
 )
+from django.contrib.auth.models import User
 from django.db import models
 from django.utils import timezone
 from rest_framework import serializers
@@ -20,6 +21,7 @@ class InfluencerProfileSerializer(serializers.ModelSerializer):
     user_first_name = serializers.CharField(source='user.first_name', read_only=True)
     user_last_name = serializers.CharField(source='user.last_name', read_only=True)
     user_email = serializers.EmailField(source='user.email', read_only=True)
+    username = serializers.CharField(source='user.username', read_only=True)
     phone_number = serializers.SerializerMethodField()
     profile_image = serializers.SerializerMethodField()
     address = serializers.SerializerMethodField()
@@ -153,21 +155,31 @@ class InfluencerProfileSerializer(serializers.ModelSerializer):
         return data
 
     def validate_username(self, value):
-        """Validate username is unique and follows proper format."""
-        # Check if username is being changed
-        if self.instance and self.instance.username == value:
+        """Validate username is unique and follows proper format (on User model)."""
+        if not value:
             return value
 
-        if InfluencerProfile.objects.filter(username=value).exists():
+        normalized = value.strip()
+
+        # Check if username is being changed
+        user = self.instance.user if self.instance and getattr(self.instance, 'user', None) else None
+        if user and user.username == normalized:
+            return normalized
+
+        existing_qs = User.objects.filter(username=normalized)
+        if user and user.pk:
+            existing_qs = existing_qs.exclude(pk=user.pk)
+
+        if existing_qs.exists():
             raise serializers.ValidationError("This username is already taken.")
 
         # Username should be alphanumeric with underscores and dots allowed
-        if not re.match(r'^[a-zA-Z0-9._]+$', value):
+        if not re.match(r'^[a-zA-Z0-9._]+$', normalized):
             raise serializers.ValidationError(
                 "Username can only contain letters, numbers, dots, and underscores."
             )
 
-        return value
+        return normalized
 
     def validate_phone_number(self, value):
         """Validate phone number format and uniqueness."""
@@ -228,6 +240,7 @@ class InfluencerProfileUpdateSerializer(serializers.ModelSerializer):
     # User fields - handled manually in update method
     first_name = serializers.CharField(required=False)
     last_name = serializers.CharField(required=False)
+    email = serializers.EmailField(required=False)
     phone_number = serializers.CharField(required=False)
     address = serializers.CharField(required=False)
 
@@ -258,7 +271,7 @@ class InfluencerProfileUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = InfluencerProfile
         fields = (
-            'first_name', 'last_name', 'phone_number', 'username', 'industry', 'categories', 'bio', 'address',
+            'first_name', 'last_name', 'email', 'phone_number', 'username', 'industry', 'categories', 'bio', 'address',
             'address_line1', 'address_line2', 'city', 'state', 'zipcode', 'country', 'country_code', 'gender',
             'collaboration_types', 'minimum_collaboration_amount',
             # Demographics
@@ -272,21 +285,50 @@ class InfluencerProfileUpdateSerializer(serializers.ModelSerializer):
         # Note: first_name, last_name, phone_number, address, and address fields are handled manually in update()
 
     def validate_username(self, value):
-        """Validate username is unique and follows proper format."""
-        # Check if username is being changed
-        if self.instance and self.instance.username == value:
+        """Validate username is unique and follows proper format (on User model)."""
+        if not value:
             return value
 
-        if InfluencerProfile.objects.filter(username=value).exists():
+        normalized = value.strip()
+
+        # Check if username is being changed
+        user = self.instance.user if self.instance and getattr(self.instance, 'user', None) else None
+        if user and user.username == normalized:
+            return normalized
+
+        existing_qs = User.objects.filter(username=normalized)
+        if user and user.pk:
+            existing_qs = existing_qs.exclude(pk=user.pk)
+
+        if existing_qs.exists():
             raise serializers.ValidationError("This username is already taken.")
 
         # Username should be alphanumeric with underscores and dots allowed
-        if not re.match(r'^[a-zA-Z0-9._]+$', value):
+        if not re.match(r'^[a-zA-Z0-9._]+$', normalized):
             raise serializers.ValidationError(
                 "Username can only contain letters, numbers, dots, and underscores."
             )
 
-        return value
+        return normalized
+
+    def validate_email(self, value):
+        """Validate email uniqueness across users."""
+        normalized_email = (value or '').strip().lower()
+        if not normalized_email:
+            return value
+
+        # Skip check if email is unchanged
+        if self.instance and self.instance.user and self.instance.user.email.lower() == normalized_email:
+            return normalized_email
+
+        existing_qs = User.objects.filter(email__iexact=normalized_email)
+        if self.instance and self.instance.user_id:
+            existing_qs = existing_qs.exclude(pk=self.instance.user_id)
+
+        if existing_qs.exists():
+            raise serializers.ValidationError("This email is already in use.")
+
+        return normalized_email
 
     def validate_phone_number(self, value):
         """Validate phone number format and uniqueness."""
@@ -328,6 +370,7 @@ class InfluencerProfileUpdateSerializer(serializers.ModelSerializer):
         # Extract user fields that have source='user.field_name'
         first_name = validated_data.pop('first_name', None)
         last_name = validated_data.pop('last_name', None)
+        email = validated_data.pop('email', None)
 
         # Extract fields that should be updated in UserProfile
         phone_number = validated_data.pop('phone_number', None)
@@ -374,7 +417,19 @@ class InfluencerProfileUpdateSerializer(serializers.ModelSerializer):
             user.first_name = first_name
         if last_name is not None:
             user.last_name = last_name
-        if first_name is not None or last_name is not None:
+
+        # Track original values to determine verification reset
+        original_email = (user.email or '').strip().lower()
+        original_phone = (instance.user_profile.phone_number if instance.user_profile else '') or ''
+
+        if email is not None:
+            normalized_email = (email or '').strip().lower()
+            user.email = normalized_email
+
+        if username is not None:
+            user.username = username.strip()
+
+        if first_name is not None or last_name is not None or email is not None or username is not None:
             user.save()
 
         if not instance.user_profile:
@@ -433,6 +488,20 @@ class InfluencerProfileUpdateSerializer(serializers.ModelSerializer):
                 instance.user_profile.save()
             else:
                 print(f"No UserProfile fields to update for user {instance.user.id}")
+
+        # Reset verification flags if contact details changed
+        new_email = (user.email or '').strip().lower()
+        new_phone = (instance.user_profile.phone_number or '').strip() if instance.user_profile else ''
+
+        if email is not None and new_email != original_email:
+            instance.user_profile.email_verified = False
+
+        if phone_number is not None and new_phone != original_phone:
+            instance.user_profile.phone_verified = False
+
+        # Persist verification flag changes
+        if instance.user_profile:
+            instance.user_profile.save()
 
         # Update profile fields explicitly
         if bio is not None:
@@ -825,7 +894,7 @@ class InfluencerSearchSerializer(serializers.ModelSerializer):
 
     def get_name(self, obj):
         """Get full name of the influencer"""
-        return f"{obj.user.first_name} {obj.user.last_name}".strip() or obj.username
+        return f"{obj.user.first_name} {obj.user.last_name}".strip() or obj.user.username
 
     def get_profile_image(self, obj):
         """Get profile image URL"""
@@ -985,6 +1054,7 @@ class InfluencerPublicSerializer(serializers.ModelSerializer):
     """
     Public, brand-facing serializer exposing only non-sensitive influencer fields.
     """
+    username = serializers.CharField(source='user.username', read_only=True)
     name = serializers.SerializerMethodField()
     profile_image = serializers.SerializerMethodField()
     total_followers = serializers.ReadOnlyField()
@@ -1010,7 +1080,7 @@ class InfluencerPublicSerializer(serializers.ModelSerializer):
         )
 
     def get_name(self, obj):
-        return f"{obj.user.first_name} {obj.user.last_name}".strip() or obj.username
+        return f"{obj.user.first_name} {obj.user.last_name}".strip() or obj.user.username
 
     def get_profile_image(self, obj):
         if obj.user_profile and obj.user_profile.profile_image:
@@ -1206,7 +1276,7 @@ class InfluencerPublicProfileSerializer(serializers.ModelSerializer):
         if account and getattr(account, 'display_name', ''):
             return account.display_name
         # Fallback to full name or username
-        return f"{obj.user.first_name} {obj.user.last_name}".strip() or obj.username
+        return f"{obj.user.first_name} {obj.user.last_name}".strip() or obj.user.username
 
     def get_external_url(self, obj):
         account = self._get_primary_social_account(obj)

@@ -55,7 +55,7 @@ class ConversationSerializer(serializers.ModelSerializer):
     brand_name = serializers.CharField(source='deal.campaign.brand.name', read_only=True)
     brand_logo = serializers.SerializerMethodField()
     influencer_name = serializers.CharField(source='deal.influencer.name', read_only=True)
-    influencer_username = serializers.CharField(source='deal.influencer.username', read_only=True)
+    influencer_username = serializers.CharField(source='deal.influencer.user.username', read_only=True)
     influencer_avatar = serializers.SerializerMethodField()
     last_message = MessageSerializer(read_only=True)
     influencer_id = serializers.IntegerField(source='deal.influencer.id', read_only=True)

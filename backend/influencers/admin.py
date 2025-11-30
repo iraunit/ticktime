@@ -26,12 +26,12 @@ class InfluencerProfileAdmin(admin.ModelAdmin):
         'profile_verification_status', 'is_verified', 'created_at'
     ]
     list_filter = ['industry', 'categories', 'is_verified', 'profile_verified', 'created_at']
-    search_fields = ['username', 'user__first_name', 'user__last_name', 'user__email', 'aadhar_number']
+    search_fields = ['user__username', 'user__first_name', 'user__last_name', 'user__email', 'aadhar_number']
     readonly_fields = ['created_at', 'updated_at', 'total_followers', 'average_engagement_rate', 'phone_number_display',
                        'address_display', 'profile_image_display', 'aadhar_document_display',
                        'collaboration_types_display', 'aadhar_verification_status', 'profile_verification_status',
                        'email_verification_status', 'phone_verification_status', 'email_verified_edit',
-                       'phone_verified_edit',
+                       'phone_verified_edit', 'username',
                        'available_platforms_display', 'content_keywords_display', 'bio_keywords_display',
                        'user_country_display', 'user_state_display', 'user_city_display', 'user_zipcode_display',
                        'user_gender_display']
@@ -113,6 +113,11 @@ class InfluencerProfileAdmin(admin.ModelAdmin):
             'classes': ('collapse',)
         }),
     )
+
+    def username(self, obj):
+        return obj.user.username
+
+    username.short_description = 'Username'
 
     def user_full_name(self, obj):
         return obj.user.get_full_name() or obj.user.username
@@ -420,7 +425,7 @@ class SocialMediaAccountAdmin(admin.ModelAdmin):
         'updated_at_display', 'sync_status_button'
     ]
     list_filter = [SyncStatusFilter, 'platform', 'verified', 'is_active', 'created_at']
-    search_fields = ['influencer__username', 'handle', 'profile_url']
+    search_fields = ['influencer__user__username', 'handle', 'profile_url']
     actions = ['queue_sync_selected']
     readonly_fields = [
         'last_synced_at', 'last_posted_at', 'engagement_snapshot',
@@ -468,7 +473,7 @@ class SocialMediaAccountAdmin(admin.ModelAdmin):
     )
 
     def influencer_username(self, obj):
-        return obj.influencer.username
+        return obj.influencer.user.username
 
     influencer_username.short_description = 'Influencer'
 
@@ -869,11 +874,11 @@ class InfluencerAudienceInsightAdmin(admin.ModelAdmin):
         'age_18_24_percentage', 'age_25_34_percentage', 'active_followers_percentage'
     ]
     list_filter = ['platform', 'created_at']
-    search_fields = ['influencer__username']
+    search_fields = ['influencer__user__username']
     readonly_fields = ['created_at', 'updated_at']
 
     def influencer_username(self, obj):
-        return obj.influencer.username
+        return obj.influencer.user.username
 
     influencer_username.short_description = 'Influencer'
 
@@ -884,11 +889,11 @@ class InfluencerCategoryScoreAdmin(admin.ModelAdmin):
         'influencer_username', 'category_name', 'score', 'is_primary', 'is_flag'
     ]
     list_filter = ['category_name', 'is_primary', 'is_flag', 'created_at']
-    search_fields = ['influencer__username', 'category_name']
+    search_fields = ['influencer__user__username', 'category_name']
     readonly_fields = ['created_at', 'updated_at']
 
     def influencer_username(self, obj):
-        return obj.influencer.username
+        return obj.influencer.user.username
 
     influencer_username.short_description = 'Influencer'
 
@@ -910,7 +915,7 @@ class SocialMediaPostAdmin(admin.ModelAdmin):
     search_fields = [
         'platform_post_id',
         'account__handle',
-        'account__influencer__username',
+        'account__influencer__user__username',
         'caption',
     ]
     readonly_fields = [
@@ -938,7 +943,7 @@ class SocialMediaPostAdmin(admin.ModelAdmin):
     account_handle.short_description = 'Account'
 
     def influencer_username(self, obj):
-        return obj.account.influencer.username
+        return obj.account.influencer.user.username
 
     influencer_username.short_description = 'Influencer'
 
