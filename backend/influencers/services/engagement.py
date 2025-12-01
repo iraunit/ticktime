@@ -52,6 +52,7 @@ def _calculate_group_metrics(posts: Iterable[SocialMediaPost], followers: int) -
     engagement_rate = 0.0
     if followers:
         engagement_rate = round((weighted_average / followers) * 100, 2)
+        engagement_rate = min(engagement_rate, 100.0)
 
     return EngagementGroupMetrics(
         posts_considered=count,
@@ -100,6 +101,7 @@ def calculate_engagement_metrics(account: SocialMediaAccount) -> Dict[str, float
     if total_posts and followers:
         overall_average = total_weighted / total_posts
         overall_engagement_rate = round((overall_average / followers) * 100, 2)
+        overall_engagement_rate = min(overall_engagement_rate, 100.0)
 
     return {
         'post_engagement_rate': round(post_metrics.engagement_rate, 2),

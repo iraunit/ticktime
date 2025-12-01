@@ -660,7 +660,7 @@ class SocialMediaAccountAdmin(admin.ModelAdmin):
     ]
     list_filter = [SyncStatusFilter, 'platform', 'verified', 'is_active', 'created_at']
     search_fields = ['influencer__user__username', 'handle', 'profile_url']
-    actions = ['queue_sync_selected']
+    actions = ['queue_sync_selected', 'recalculate_engagement_rate']
     readonly_fields = [
         'influencer', 'platform', 'handle', 'profile_url',
         'display_name', 'bio', 'external_url', 'is_private', 'profile_image_url', 'profile_image_base64_display',
@@ -1074,6 +1074,19 @@ class SocialMediaAccountAdmin(admin.ModelAdmin):
 
     queue_sync_selected.short_description = 'Queue sync for selected accounts'
 
+    def recalculate_engagement_rate(self, request, queryset):
+        """Bulk action to recalculate engagement rate based on social media posts"""
+        from influencers.services.engagement import calculate_engagement_metrics
+        from decimal import Decimal
+
+        for account in queryset:
+            metrics = calculate_engagement_metrics(account)
+            account.engagement_rate = Decimal(str(metrics['overall_engagement_rate']))
+            account.engagement_snapshot = metrics
+            account.save(update_fields=['engagement_rate', 'engagement_snapshot'])
+
+    recalculate_engagement_rate.short_description = 'Recalculate engagement rate from posts'
+
 
 # Add inline relationships
 InfluencerProfileAdmin.inlines = [SocialMediaAccountInline]
@@ -1208,7 +1221,6 @@ class SocialMediaPostAdmin(admin.ModelAdmin):
         'comments_count',
         'views_count',
         'shares_count',
-        'raw_data',
         'last_fetched_at',
     ]
     ordering = ['-posted_at']
