@@ -662,10 +662,15 @@ class SocialMediaAccountAdmin(admin.ModelAdmin):
     search_fields = ['influencer__user__username', 'handle', 'profile_url']
     actions = ['queue_sync_selected']
     readonly_fields = [
-        'last_synced_at', 'last_posted_at', 'engagement_snapshot',
-        'sync_status_display', 'queue_sync_button', 'created_at', 'updated_at',
+        'influencer', 'platform', 'handle', 'profile_url',
         'display_name', 'bio', 'external_url', 'is_private', 'profile_image_url', 'profile_image_base64_display',
-        'platform_verified'
+        'followers_count', 'following_count', 'posts_count', 'last_posted_at',
+        'engagement_rate', 'average_likes', 'average_comments', 'average_shares',
+        'average_video_views', 'average_video_likes', 'average_video_comments',
+        'follower_growth_rate', 'subscriber_growth_rate',
+        'engagement_snapshot', 'platform_verified',
+        'last_synced_at', 'sync_status_display', 'queue_sync_button',
+        'created_at', 'updated_at',
     ]
     ordering = ['-last_synced_at', '-updated_at']
 

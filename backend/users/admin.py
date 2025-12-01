@@ -893,7 +893,15 @@ class UserProfileAdmin(admin.ModelAdmin):
     ]
     list_filter = ['email_verified', 'phone_verified', 'created_at']
     search_fields = ['user__username', 'user__email', 'user__first_name', 'user__last_name', 'phone_number']
-    readonly_fields = ['created_at', 'updated_at']
+    readonly_fields = [
+        'user',
+        'phone_number',
+        'country_code',
+        'gender',
+        'profile_image',
+        'created_at',
+        'updated_at',
+    ]
 
     fieldsets = (
         ('User Information', {
@@ -924,7 +932,7 @@ class OneTapLoginTokenAdmin(admin.ModelAdmin):
     list_display = ['user', 'created_at', 'expires_at', 'use_count', 'is_valid_display']
     list_filter = ['created_at', 'expires_at']
     search_fields = ['user__username', 'user__email']
-    readonly_fields = ['token_hash', 'created_at', 'expires_at', 'use_count', 'is_valid_display']
+    readonly_fields = ['user', 'token_hash', 'created_at', 'expires_at', 'use_count', 'is_valid_display']
 
     fieldsets = (
         ('Token Information', {

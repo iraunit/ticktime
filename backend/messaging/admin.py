@@ -7,7 +7,13 @@ from .models import Conversation, Message
 class ConversationAdmin(admin.ModelAdmin):
     list_display = ['deal_info', 'last_message_preview', 'unread_count_for_influencer', 'updated_at']
     search_fields = ['deal__campaign__title', 'deal__influencer__user__username']
-    readonly_fields = ['created_at', 'updated_at', 'last_message', 'unread_count_for_influencer']
+    readonly_fields = [
+        'deal',
+        'created_at',
+        'updated_at',
+        'last_message',
+        'unread_count_for_influencer',
+    ]
 
     def deal_info(self, obj):
         return f"{obj.deal.campaign.title} - {obj.deal.influencer.user.username}"
@@ -39,7 +45,17 @@ class MessageAdmin(admin.ModelAdmin):
     ]
     list_filter = ['sender_type', 'read_by_influencer', 'read_by_brand', 'created_at']
     search_fields = ['conversation__deal__campaign__title', 'content', 'sender_user__username']
-    readonly_fields = ['created_at', 'read_at']
+    readonly_fields = [
+        'conversation',
+        'sender_type',
+        'sender_user',
+        'content',
+        'file_attachment',
+        'file_name',
+        'file_size',
+        'created_at',
+        'read_at',
+    ]
     date_hierarchy = 'created_at'
 
     def conversation_info(self, obj):
