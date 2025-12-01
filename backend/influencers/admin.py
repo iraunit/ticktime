@@ -8,7 +8,7 @@ from django.shortcuts import redirect
 from django.urls import path
 from django.utils import timezone
 from django.utils.html import format_html
-from users.models import UserProfile
+from users.models import UserProfile, OneTapLoginToken
 
 from .encryption import BankDetailsEncryption
 from .models import (
@@ -54,7 +54,8 @@ class InfluencerProfileAdmin(admin.ModelAdmin):
         'audience_interests', 'audience_languages',
     ]
     filter_horizontal = ['categories']
-    actions = ['verify_aadhar_documents', 'unverify_aadhar_documents', 'mark_as_verified', 'mark_as_unverified']
+    actions = ['verify_aadhar_documents', 'unverify_aadhar_documents', 'mark_as_verified', 'mark_as_unverified',
+               'download_selected_with_login_links']
     change_list_template = 'admin/influencers/influencerprofile/change_list.html'
     change_form_template = 'admin/influencers/influencerprofile/change_form.html'
 
@@ -261,6 +262,69 @@ class InfluencerProfileAdmin(admin.ModelAdmin):
 
     mark_as_unverified.short_description = 'Mark as unverified'
 
+    def download_selected_with_login_links(self, request, queryset):
+        """Download selected influencer profiles as CSV with one-tap login links"""
+        # Get the base URL for login links
+        # Use request's scheme and host for proper URL generation
+        scheme = request.scheme  # 'http' or 'https'
+        host = request.get_host()  # e.g., 'localhost:8000' or 'ticktime.media'
+        base_url = f"{scheme}://{host}"
+
+        # Create CSV response
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename="influencers_with_login_links.csv"'
+
+        writer = csv.writer(response)
+        # Write header
+        writer.writerow([
+            'Name',
+            'Email',
+            'Phone Number',
+            'Phone Verified',
+            'Email Verified',
+            'Aadhar Verified',
+            'One-Tap Login Link'
+        ])
+
+        # Write data rows
+        for profile in queryset.select_related('user', 'user_profile'):
+            # Get user information
+            user = profile.user
+            name = user.get_full_name() or user.username
+            email = user.email or 'N/A'
+
+            # Get phone number
+            phone = 'N/A'
+            if profile.user_profile:
+                phone = profile.user_profile.phone_number or 'N/A'
+
+            # Get verification statuses
+            phone_verified = 'Yes' if (profile.user_profile and profile.user_profile.phone_verified) else 'No'
+            email_verified = 'Yes' if (profile.user_profile and profile.user_profile.email_verified) else 'No'
+            aadhar_verified = 'Yes' if profile.is_verified else 'No'
+
+            # Generate one-tap login token and link
+            try:
+                token, token_obj = OneTapLoginToken.create_token(user)
+                login_link = f"{base_url}/api/auth/one-tap-login/{token}/"
+            except Exception as e:
+                login_link = f"Error generating link: {str(e)}"
+
+            writer.writerow([
+                name,
+                email,
+                phone,
+                phone_verified,
+                email_verified,
+                aadhar_verified,
+                login_link
+            ])
+
+        self.message_user(request, f'Downloaded {queryset.count()} influencer profile(s) with login links.')
+        return response
+
+    download_selected_with_login_links.short_description = 'Download selected with login links (CSV)'
+
     def get_urls(self):
         """Add custom URL for CSV download"""
         urls = super().get_urls()
@@ -402,7 +466,7 @@ class InfluencerProfileAdmin(admin.ModelAdmin):
         """Display bank account number with show/hide toggle"""
         if not obj.bank_account_number:
             return 'Not provided'
-        
+
         try:
             decrypted = BankDetailsEncryption.decrypt_bank_data(obj.bank_account_number)
             if decrypted:
@@ -432,7 +496,7 @@ class InfluencerProfileAdmin(admin.ModelAdmin):
         """Display bank IFSC code with show/hide toggle"""
         if not obj.bank_ifsc_code:
             return 'Not provided'
-        
+
         try:
             decrypted = BankDetailsEncryption.decrypt_bank_data(obj.bank_ifsc_code)
             if decrypted:
@@ -461,7 +525,7 @@ class InfluencerProfileAdmin(admin.ModelAdmin):
         """Display bank account holder name with show/hide toggle"""
         if not obj.bank_account_holder_name:
             return 'Not provided'
-        
+
         try:
             decrypted = BankDetailsEncryption.decrypt_bank_data(obj.bank_account_holder_name)
             if decrypted:

@@ -21,6 +21,7 @@ from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
+from users.models import OneTapLoginToken
 from users.serializers import UserProfileSerializer
 
 from .serializers import (
@@ -113,6 +114,59 @@ def login_view(request):
         })
 
     return api_response(False, error=format_serializer_errors(serializer.errors), status_code=400)
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def one_tap_login_view(request, token):
+    """
+    One-tap login endpoint using a token.
+    Token is valid for 7 days and can be used multiple times.
+    """
+    try:
+        user, token_obj = OneTapLoginToken.get_user_from_token(token)
+
+        if user is None or token_obj is None:
+            return api_response(
+                False,
+                error='Invalid or expired login token.',
+                status_code=status.HTTP_400_BAD_REQUEST
+            )
+
+        if not user.is_active:
+            return api_response(
+                False,
+                error='Account is inactive. Please contact support.',
+                status_code=status.HTTP_403_FORBIDDEN
+            )
+
+        # Log the user in
+        login(request, user)
+
+        # Set session expiry to default (15 days)
+        request.session.set_expiry(settings.SESSION_COOKIE_AGE)
+
+        # Increment use count
+        token_obj.increment_use_count()
+
+        # Ensure UserProfile exists for the user
+        from users.models import UserProfile
+        UserProfile.objects.get_or_create(user=user)
+
+        profile_serializer = UserProfileSerializer(user, context={'request': request})
+
+        return api_response(True, result={
+            'message': 'Login successful',
+            'user': profile_serializer.data,
+        })
+
+    except Exception as e:
+        logger.error(f"One-tap login failed: {str(e)}")
+        return api_response(
+            False,
+            error='Login failed. Please try again or contact support.',
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
 
 
 @api_view(['POST'])

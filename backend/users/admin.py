@@ -14,7 +14,7 @@ from django.http import HttpResponse
 from django.shortcuts import render, redirect
 from django.urls import path
 
-from .models import UserProfile
+from .models import UserProfile, OneTapLoginToken
 
 
 class PhoneVerifiedFilter(admin.SimpleListFilter):
@@ -917,6 +917,35 @@ class UserProfileAdmin(admin.ModelAdmin):
         return obj.user.email
 
     user_email.short_description = 'Email'
+
+
+@admin.register(OneTapLoginToken)
+class OneTapLoginTokenAdmin(admin.ModelAdmin):
+    list_display = ['user', 'created_at', 'expires_at', 'use_count', 'is_valid_display']
+    list_filter = ['created_at', 'expires_at']
+    search_fields = ['user__username', 'user__email']
+    readonly_fields = ['token_hash', 'created_at', 'expires_at', 'use_count', 'is_valid_display']
+
+    fieldsets = (
+        ('Token Information', {
+            'fields': ('user', 'token_hash', 'use_count')
+        }),
+        ('Validity', {
+            'fields': ('created_at', 'expires_at', 'is_valid_display')
+        }),
+    )
+
+    def is_valid_display(self, obj):
+        """Display if token is still valid"""
+        if obj.is_valid():
+            return '✅ Valid'
+        else:
+            return '❌ Expired'
+
+    is_valid_display.short_description = 'Status'
+
+    def has_add_permission(self, request):
+        return False  # Tokens are created programmatically
 
 
 # Unregister the default User admin and register our custom one
