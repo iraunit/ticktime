@@ -241,6 +241,7 @@ class ErrorNotificationMiddleware:
                         error_message="An internal server error occurred in a non-API view",
                         request_path=request.path,
                         user_id=user_id,
+                        request=request,
                     )
                 except Exception as e:
                     # Never let notification errors break the request
@@ -263,6 +264,7 @@ class ErrorNotificationMiddleware:
                     request_path=request.path,
                     user_id=user_id,
                     traceback=''.join(tb.format_exception(type(exc), exc, exc.__traceback__)),
+                    request=request,
                 )
             except Exception as e:
                 logger.error(f"Failed to send error notification to Discord: {e}")

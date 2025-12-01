@@ -170,6 +170,7 @@ def upload_verification_document_view(request):
                 document_type="verification",
                 gstin=None,  # Influencers don't have GSTIN
                 document_name=document_name,
+                request=request,
             )
         except Exception as e:
             # Don't fail the request if Discord notification fails

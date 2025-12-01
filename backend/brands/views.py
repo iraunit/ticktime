@@ -1776,6 +1776,7 @@ def upload_brand_verification_document_view(request):
                 document_type="verification",
                 gstin=brand.gstin,
                 document_name=document.name,
+                request=request,
             )
         except Exception as e:
             # Don't fail the request if Discord notification fails

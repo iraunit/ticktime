@@ -57,6 +57,7 @@ def custom_exception_handler(exc, context):
                 request_path=request_path,
                 user_id=user_id,
                 traceback=traceback_str,
+                request=request,
             )
         except Exception as e:
             # Never let notification errors break the error handling
@@ -92,6 +93,7 @@ def custom_exception_handler(exc, context):
                 error_message=error_message,
                 request_path=request_path,
                 user_id=user_id,
+                request=request,
             )
         except Exception as e:
             logger.error(f"Failed to send Discord notification for error: {e}")

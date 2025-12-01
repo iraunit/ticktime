@@ -230,6 +230,7 @@ def send_critical_error_notification(
         request_path: Optional[str] = None,
         user_id: Optional[int] = None,
         traceback: Optional[str] = None,
+        request=None,
 ) -> bool:
     """
     Send a notification for critical bugs or internal server errors.
@@ -240,6 +241,7 @@ def send_critical_error_notification(
         request_path: Optional request path where error occurred
         user_id: Optional user ID if error is user-specific
         traceback: Optional traceback information
+        request: Optional request object to build admin URL
     """
     fields = {
         "Error Type": error_type,
@@ -250,10 +252,20 @@ def send_critical_error_notification(
         fields["Request Path"] = request_path
     if user_id:
         fields["User ID"] = str(user_id)
+        # Add link to user admin page if user_id is available
+        user_admin_url = _get_user_admin_url(user_id, request)
+        if user_admin_url:
+            fields["User Admin Link"] = f"[View User in Admin]({user_admin_url})"
+
     if traceback:
         # Truncate traceback to fit in Discord field
         traceback_preview = traceback[:1000] if len(traceback) > 1000 else traceback
         fields["Traceback"] = f"```\n{traceback_preview}\n```"
+
+    # Add admin dashboard link
+    admin_dashboard_url = _get_admin_dashboard_url(request)
+    if admin_dashboard_url:
+        fields["Admin Dashboard"] = f"[Open Admin Panel]({admin_dashboard_url})"
 
     return send_server_update(
         title="🚨 Critical Server Error",
@@ -263,6 +275,85 @@ def send_critical_error_notification(
     )
 
 
+def _get_user_admin_url(user_id: int, request=None) -> Optional[str]:
+    """
+    Generate admin URL for viewing a user.
+    
+    Args:
+        user_id: ID of the user
+        request: Optional request object to get the site URL
+    
+    Returns:
+        Admin URL string or None if unable to construct
+    """
+    try:
+        base_url = _get_base_url(request)
+        admin_path = f"/admin/auth/user/{user_id}/change/"
+        return f"{base_url}{admin_path}"
+    except Exception as e:
+        logger.warning(f"Failed to generate user admin URL: {e}")
+        return None
+
+
+def _get_admin_dashboard_url(request=None) -> Optional[str]:
+    """
+    Generate admin dashboard URL.
+    
+    Args:
+        request: Optional request object to get the site URL
+    
+    Returns:
+        Admin dashboard URL string or None if unable to construct
+    """
+    try:
+        base_url = _get_base_url(request)
+        return f"{base_url}/admin/"
+    except Exception as e:
+        logger.warning(f"Failed to generate admin dashboard URL: {e}")
+        return None
+
+
+def _get_base_url(request=None) -> str:
+    """
+    Get the base URL for constructing admin links.
+    
+    Args:
+        request: Optional request object to get the site URL
+    
+    Returns:
+        Base URL string (defaults to https://ticktime.media if unable to determine)
+    """
+    # Try to get from settings first
+    base_url = getattr(settings, 'ADMIN_BASE_URL', None)
+    if base_url:
+        return base_url.rstrip('/')
+
+    # Try to get from request
+    if request:
+        try:
+            from django.contrib.sites.shortcuts import get_current_site
+            site = get_current_site(request)
+            base_url = f"https://{site.domain}" if not site.domain.startswith('http') else site.domain
+            return base_url.rstrip('/')
+        except Exception:
+            # Fallback: construct from request
+            scheme = 'https' if request.is_secure() else 'http'
+            base_url = f"{scheme}://{request.get_host()}"
+            return base_url.rstrip('/')
+
+    # Try to get from Site framework
+    try:
+        from django.contrib.sites.models import Site
+        site = Site.objects.get_current()
+        base_url = f"https://{site.domain}" if not site.domain.startswith('http') else site.domain
+        return base_url.rstrip('/')
+    except Exception:
+        pass
+
+    # Last resort: use a default
+    return "https://ticktime.media"
+
+
 def send_verification_document_notification(
         user_type: str,  # "brand" or "influencer"
         user_id: int,
@@ -270,6 +361,7 @@ def send_verification_document_notification(
         document_type: str = "verification",
         gstin: Optional[str] = None,
         document_name: Optional[str] = None,
+        request=None,
 ) -> bool:
     """
     Send a notification when a user/brand/influencer submits their GST/verification document.
@@ -281,6 +373,7 @@ def send_verification_document_notification(
         document_type: Type of document (e.g., "verification", "gst")
         gstin: Optional GSTIN if provided
         document_name: Optional name of the uploaded document
+        request: Optional request object to build admin URL
     """
     title = f"📄 {user_type.title()} Verification Document Submitted"
     message = f"A {user_type} has submitted a {document_type} document that requires admin/tech team review."
@@ -296,9 +389,43 @@ def send_verification_document_notification(
     if document_name:
         fields["Document Name"] = document_name
 
+    # Add admin review link
+    admin_url = _get_admin_url(user_type, user_id, request)
+    if admin_url:
+        fields["Review Link"] = f"[View in Admin]({admin_url})"
+
     return send_server_update(
         title=title,
         message=message,
         update_type="verification",
         fields=fields,
     )
+
+
+def _get_admin_url(user_type: str, user_id: int, request=None) -> Optional[str]:
+    """
+    Generate admin URL for reviewing a brand or influencer.
+    
+    Args:
+        user_type: "brand" or "influencer"
+        user_id: ID of the brand or influencer
+        request: Optional request object to get the site URL
+    
+    Returns:
+        Admin URL string or None if unable to construct
+    """
+    try:
+        base_url = _get_base_url(request)
+
+        # Construct admin URL based on user type
+        if user_type.lower() == "brand":
+            admin_path = f"/admin/brands/brand/{user_id}/change/"
+        elif user_type.lower() == "influencer":
+            admin_path = f"/admin/influencers/influencerprofile/{user_id}/change/"
+        else:
+            return None
+
+        return f"{base_url}{admin_path}"
+    except Exception as e:
+        logger.warning(f"Failed to generate admin URL: {e}")
+        return None
