@@ -265,7 +265,8 @@ class UserAdmin(BaseUserAdmin):
     )
     search_fields = ('username', 'email', 'first_name', 'last_name')
     ordering = ('-date_joined',)
-    actions = ['download_selected_users_csv']
+    actions = []
+    readonly_fields = ('username', 'first_name', 'last_name', 'email', 'date_joined', 'last_login')
 
     def account_type(self, obj):
         """Display the account type for each user"""
