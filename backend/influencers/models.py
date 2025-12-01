@@ -408,7 +408,6 @@ class SocialMediaPost(models.Model):
     views_count = models.IntegerField(validators=[MinValueValidator(0)], default=0)
     shares_count = models.IntegerField(validators=[MinValueValidator(0)], default=0)
 
-    raw_data = models.JSONField(default=dict, blank=True)
     last_fetched_at = models.DateTimeField(auto_now=True)
 
     class Meta:
