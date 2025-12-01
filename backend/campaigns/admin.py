@@ -11,7 +11,45 @@ class CampaignAdmin(admin.ModelAdmin):
     ]
     list_filter = ['deal_type', 'industry', 'is_active', 'brand', 'created_by', 'created_at']
     search_fields = ['title', 'brand__name', 'description', 'created_by__first_name', 'created_by__last_name']
-    readonly_fields = ['total_value', 'is_expired', 'days_until_deadline', 'created_at', 'updated_at']
+    readonly_fields = [
+        'brand',
+        'created_by',
+        'title',
+        'description',
+        'objectives',
+        'deal_type',
+        'industry',
+        'cash_amount',
+        'product_value',
+        'products',
+        'content_requirements',
+        'platforms_required',
+        'special_instructions',
+        'target_influencers',
+        'content_count',
+        'target_influencer_age_ranges',
+        'target_influencer_collaboration_preferences',
+        'target_influencer_max_collab_amount',
+        'target_influencer_genders',
+        'target_influencer_locations',
+        'industries',
+        'content_categories',
+        'execution_mode',
+        'application_deadline',
+        'product_delivery_date',
+        'submission_deadline',
+        'campaign_live_date',
+        'application_deadline_visible_to_influencers',
+        'payment_schedule',
+        'shipping_details',
+        'custom_terms',
+        'allows_negotiation',
+        'total_value',
+        'is_expired',
+        'days_until_deadline',
+        'created_at',
+        'updated_at',
+    ]
     date_hierarchy = 'application_deadline'
     filter_horizontal = []
 

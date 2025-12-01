@@ -1019,11 +1019,11 @@ class InfluencerSearchSerializer(serializers.ModelSerializer):
         annotated = getattr(obj, 'average_engagement_rate_annotated', None)
         if annotated is not None:
             try:
-                return float(annotated)
+                return round(float(annotated), 2)
             except Exception:
                 pass
         try:
-            return float(obj.average_engagement_rate)
+            return round(float(obj.average_engagement_rate), 2)
         except Exception:
             return 0.0
 
@@ -1085,7 +1085,8 @@ class InfluencerPublicSerializer(serializers.ModelSerializer):
 
     def get_engagement_rate(self, obj):
         """Get average engagement rate."""
-        return float(obj.average_engagement_rate) if obj.average_engagement_rate else 0.0
+        rate = float(obj.average_engagement_rate) if obj.average_engagement_rate else 0.0
+        return round(rate, 2)
 
     def get_rate_per_post(self, obj):
         """Get rate per post (placeholder - can be enhanced later)."""
@@ -1421,7 +1422,7 @@ class InfluencerPublicProfileSerializer(serializers.ModelSerializer):
 
         followers_total = sum(account.followers_count or 0 for account in accounts)
         avg_followers = int(followers_total / len(accounts)) if accounts else 0
-        avg_engagement_rate = float(obj.average_engagement_rate or 0)
+        avg_engagement_rate = round(float(obj.average_engagement_rate or 0), 2)
 
         avg_likes = int(sum(account.average_likes or 0 for account in accounts) / len(accounts))
         avg_comments = int(sum(account.average_comments or 0 for account in accounts) / len(accounts))

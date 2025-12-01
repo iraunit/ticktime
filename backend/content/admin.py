@@ -11,7 +11,26 @@ class ContentSubmissionAdmin(admin.ModelAdmin):
     ]
     list_filter = ['platform', 'content_type', 'approved', 'revision_requested', 'submitted_at']
     search_fields = ['deal__campaign__title', 'deal__influencer__user__username', 'caption']
-    readonly_fields = ['submitted_at', 'approved_at']
+    readonly_fields = [
+        'deal',
+        'platform',
+        'content_type',
+        'file_url',
+        'file_upload',
+        'caption',
+        'hashtags',
+        'mention_brand',
+        'post_url',
+        'title',
+        'description',
+        'additional_links',
+        'submitted_at',
+        'updated_at',
+        'last_revision_update',
+        'reviewed_by',
+        'review_count',
+        'approved_at',
+    ]
 
     fieldsets = (
         ('Submission Details', {

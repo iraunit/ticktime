@@ -10,6 +10,7 @@ from django.utils import timezone
 from django.utils.html import format_html
 from users.models import UserProfile
 
+from .encryption import BankDetailsEncryption
 from .models import (
     InfluencerProfile,
     SocialMediaAccount,
@@ -29,17 +30,33 @@ class InfluencerProfileAdmin(admin.ModelAdmin):
     ]
     list_filter = ['industry', 'categories', 'is_verified', 'profile_verified', 'created_at']
     search_fields = ['user__username', 'user__first_name', 'user__last_name', 'user__email', 'aadhar_number']
-    readonly_fields = ['created_at', 'updated_at', 'total_followers', 'average_engagement_rate', 'phone_number_display',
-                       'address_display', 'profile_image_display', 'aadhar_document_display',
-                       'collaboration_types_display', 'aadhar_verification_status', 'profile_verification_status',
-                       'email_verification_status', 'phone_verification_status', 'email_verified_edit',
-                       'phone_verified_edit', 'username',
-                       'available_platforms_display', 'content_keywords_display', 'bio_keywords_display',
-                       'user_country_display', 'user_state_display', 'user_city_display', 'user_zipcode_display',
-                       'user_gender_display']
+    readonly_fields = [
+        'user', 'username', 'industry', 'bio', 'aadhar_number', 'aadhar_document_display',
+        'country', 'state', 'city', 'pincode', 'address_line1', 'address_line2',
+        'gender', 'age_range', 'created_at', 'updated_at', 'total_followers', 'average_engagement_rate',
+        'phone_number_display', 'address_display', 'profile_image_display',
+        'collaboration_types_display', 'aadhar_verification_status', 'profile_verification_status',
+        'email_verification_status', 'phone_verification_status', 'email_verified_edit', 'phone_verified_edit',
+        'available_platforms_display', 'content_keywords_display', 'bio_keywords_display',
+        'user_country_display', 'user_state_display', 'user_city_display', 'user_zipcode_display',
+        'user_gender_display', 'bank_account_number_display', 'bank_ifsc_code_display',
+        'bank_account_holder_name_display',
+        # Metrics and scores (calculated/system-generated)
+        'influence_score', 'platform_score', 'avg_rating', 'collaboration_count', 'total_earnings',
+        'average_interaction', 'average_views', 'average_dislikes',
+        'brand_safety_score', 'content_quality_score',
+        # User preferences and settings
+        'response_time', 'faster_responses', 'contact_availability',
+        'commerce_ready', 'campaign_ready', 'barter_ready',
+        'minimum_collaboration_amount',
+        # Audience insights (analytics data)
+        'audience_gender_distribution', 'audience_age_distribution', 'audience_locations',
+        'audience_interests', 'audience_languages',
+    ]
     filter_horizontal = ['categories']
     actions = ['verify_aadhar_documents', 'unverify_aadhar_documents', 'mark_as_verified', 'mark_as_unverified']
     change_list_template = 'admin/influencers/influencerprofile/change_list.html'
+    change_form_template = 'admin/influencers/influencerprofile/change_form.html'
 
     fieldsets = (
         ('User Information', {
@@ -104,7 +121,7 @@ class InfluencerProfileAdmin(admin.ModelAdmin):
             'description': 'Audience demographic and interest data'
         }),
         ('Banking Information', {
-            'fields': ('bank_account_number', 'bank_ifsc_code', 'bank_account_holder_name')
+            'fields': ('bank_account_number_display', 'bank_ifsc_code_display', 'bank_account_holder_name_display')
         }),
         ('Statistics', {
             'fields': ('total_followers', 'average_engagement_rate'),
@@ -380,6 +397,99 @@ class InfluencerProfileAdmin(admin.ModelAdmin):
         return 'Not set'
 
     user_gender_display.short_description = 'Gender'
+
+    def bank_account_number_display(self, obj):
+        """Display bank account number with show/hide toggle"""
+        if not obj.bank_account_number:
+            return 'Not provided'
+        
+        try:
+            decrypted = BankDetailsEncryption.decrypt_bank_data(obj.bank_account_number)
+            if decrypted:
+                redacted = BankDetailsEncryption.redact_account_number(decrypted)
+                field_id = f'bank_account_number_{obj.id}'
+                return format_html(
+                    '''
+                    <div>
+                        <span id="{}_hidden">{}</span>
+                        <span id="{}_shown" style="display:none;">{}</span>
+                        <br>
+                        <button type="button" onclick="toggleBankField('{}')" 
+                                style="margin-top: 5px; padding: 5px 10px; background: #007cba; color: white; border: none; border-radius: 3px; cursor: pointer;">
+                            <span id="{}_btn_text">Show</span>
+                        </button>
+                    </div>
+                    ''',
+                    field_id, redacted, field_id, decrypted, field_id, field_id
+                )
+        except Exception:
+            pass
+        return 'Encrypted (decryption failed)'
+
+    bank_account_number_display.short_description = 'Bank Account Number'
+
+    def bank_ifsc_code_display(self, obj):
+        """Display bank IFSC code with show/hide toggle"""
+        if not obj.bank_ifsc_code:
+            return 'Not provided'
+        
+        try:
+            decrypted = BankDetailsEncryption.decrypt_bank_data(obj.bank_ifsc_code)
+            if decrypted:
+                field_id = f'bank_ifsc_code_{obj.id}'
+                return format_html(
+                    '''
+                    <div>
+                        <span id="{}_hidden">****</span>
+                        <span id="{}_shown" style="display:none;">{}</span>
+                        <br>
+                        <button type="button" onclick="toggleBankField('{}')" 
+                                style="margin-top: 5px; padding: 5px 10px; background: #007cba; color: white; border: none; border-radius: 3px; cursor: pointer;">
+                            <span id="{}_btn_text">Show</span>
+                        </button>
+                    </div>
+                    ''',
+                    field_id, field_id, decrypted, field_id, field_id
+                )
+        except Exception:
+            pass
+        return 'Encrypted (decryption failed)'
+
+    bank_ifsc_code_display.short_description = 'Bank IFSC Code'
+
+    def bank_account_holder_name_display(self, obj):
+        """Display bank account holder name with show/hide toggle"""
+        if not obj.bank_account_holder_name:
+            return 'Not provided'
+        
+        try:
+            decrypted = BankDetailsEncryption.decrypt_bank_data(obj.bank_account_holder_name)
+            if decrypted:
+                # Redact name - show first letter and last letter, rest as stars
+                if len(decrypted) > 2:
+                    redacted = decrypted[0] + '*' * (len(decrypted) - 2) + decrypted[-1]
+                else:
+                    redacted = '*' * len(decrypted)
+                field_id = f'bank_account_holder_name_{obj.id}'
+                return format_html(
+                    '''
+                    <div>
+                        <span id="{}_hidden">{}</span>
+                        <span id="{}_shown" style="display:none;">{}</span>
+                        <br>
+                        <button type="button" onclick="toggleBankField('{}')" 
+                                style="margin-top: 5px; padding: 5px 10px; background: #007cba; color: white; border: none; border-radius: 3px; cursor: pointer;">
+                            <span id="{}_btn_text">Show</span>
+                        </button>
+                    </div>
+                    ''',
+                    field_id, redacted, field_id, decrypted, field_id, field_id
+                )
+        except Exception:
+            pass
+        return 'Encrypted (decryption failed)'
+
+    bank_account_holder_name_display.short_description = 'Bank Account Holder Name'
 
     def email_verified_edit(self, obj):
         """Editable email verification field"""

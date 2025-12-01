@@ -239,9 +239,10 @@ class InfluencerProfile(models.Model):
         active_accounts = self.social_accounts.filter(is_active=True)
         if not active_accounts.exists():
             return 0
-        return active_accounts.aggregate(
+        avg = active_accounts.aggregate(
             avg=models.Avg('engagement_rate')
         )['avg'] or 0
+        return round(float(avg), 2) if avg else 0
 
     @property
     def location_display(self):

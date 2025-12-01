@@ -23,6 +23,14 @@ class BrandAdmin(admin.ModelAdmin):
     list_filter = ('industry', 'is_verified', 'is_locked', 'created_at')
     search_fields = ('name', 'domain', 'contact_email', 'description', 'gstin', 'website')
     readonly_fields = (
+        'name',
+        'domain',
+        'logo',
+        'description',
+        'industry',
+        'contact_email',
+        'website',
+        'gstin',
         'created_at',
         'updated_at',
         'rating',
@@ -71,7 +79,7 @@ class BrandUserAdmin(admin.ModelAdmin):
     list_display = ('user', 'brand', 'role', 'is_active', 'joined_at', 'last_activity')
     list_filter = ('role', 'is_active', 'joined_at')
     search_fields = ('user__first_name', 'user__last_name', 'user__email', 'brand__name')
-    readonly_fields = ('invited_at', 'last_activity')
+    readonly_fields = ('user', 'brand', 'invited_by', 'invited_at', 'joined_at', 'last_activity')
     fieldsets = (
         ('User & Brand', {
             'fields': ('user', 'brand')
@@ -129,7 +137,7 @@ class BookmarkedInfluencerAdmin(admin.ModelAdmin):
     list_filter = ('created_at', 'brand')
     search_fields = ('brand__name', 'influencer__user__username', 'influencer__user__first_name',
                      'influencer__user__last_name')
-    readonly_fields = ('created_at',)
+    readonly_fields = ('brand', 'influencer', 'bookmarked_by', 'notes', 'created_at')
     fieldsets = (
         ('Bookmark Details', {
             'fields': ('brand', 'influencer', 'bookmarked_by')

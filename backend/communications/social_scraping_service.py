@@ -335,22 +335,22 @@ class SocialScrapingService:
         if metrics_summary:
             # Clamp engagement rate to the valid range for the DB field (0-100)
             try:
-                overall_rate = Decimal(str(metrics_summary.get('overall_engagement_rate', 0)))
+                overall_rate = round(float(metrics_summary.get('overall_engagement_rate', 0)), 2)
             except Exception:
-                overall_rate = Decimal('0')
+                overall_rate = 0.0
 
-            if overall_rate < Decimal('0'):
-                overall_rate = Decimal('0')
-            if overall_rate > Decimal('100'):
+            if overall_rate < 0:
+                overall_rate = 0.0
+            if overall_rate > 100:
                 logger.warning(
                     "Clamping engagement_rate for account %s/%s from %s to 100.00",
                     account.platform,
                     account.handle,
                     overall_rate,
                 )
-                overall_rate = Decimal('100.00')
+                overall_rate = 100.00
 
-            account.engagement_rate = overall_rate
+            account.engagement_rate = Decimal(str(overall_rate))
 
             account.average_likes = int(round(
                 metrics_summary.get('average_post_likes', account.average_likes)

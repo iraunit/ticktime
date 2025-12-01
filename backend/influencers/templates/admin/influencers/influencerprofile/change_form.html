@@ -1,0 +1,27 @@
+{% extends "admin/change_form.html" %}
+
+{% block extrahead %}
+{{ block.super }}
+<script>
+function toggleBankField(fieldId) {
+    const hiddenSpan = document.getElementById(fieldId + '_hidden');
+    const shownSpan = document.getElementById(fieldId + '_shown');
+    const btnText = document.getElementById(fieldId + '_btn_text');
+    
+    if (hiddenSpan && shownSpan && btnText) {
+        if (hiddenSpan.style.display === 'none') {
+            // Currently showing, hide it
+            hiddenSpan.style.display = 'inline';
+            shownSpan.style.display = 'none';
+            btnText.textContent = 'Show';
+        } else {
+            // Currently hidden, show it
+            hiddenSpan.style.display = 'none';
+            shownSpan.style.display = 'inline';
+            btnText.textContent = 'Hide';
+        }
+    }
+}
+</script>
+{% endblock %}
+

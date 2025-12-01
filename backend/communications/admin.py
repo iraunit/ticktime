@@ -13,7 +13,7 @@ class EmailVerificationTokenAdmin(admin.ModelAdmin):
     list_display = ['user', 'token_hash', 'created_at', 'expires_at', 'used_at']
     list_filter = ['created_at', 'expires_at', 'used_at']
     search_fields = ['user__username', 'user__email']
-    readonly_fields = ['token_hash', 'created_at', 'used_at']
+    readonly_fields = ['user', 'token_hash', 'created_at', 'expires_at', 'used_at']
     date_hierarchy = 'created_at'
 
 
@@ -22,7 +22,7 @@ class PhoneVerificationTokenAdmin(admin.ModelAdmin):
     list_display = ['user', 'token_hash', 'created_at', 'expires_at', 'used_at']
     list_filter = ['created_at', 'expires_at', 'used_at']
     search_fields = ['user__username', 'user__email']
-    readonly_fields = ['token_hash', 'created_at', 'used_at']
+    readonly_fields = ['user', 'token_hash', 'created_at', 'expires_at', 'used_at']
     date_hierarchy = 'created_at'
 
 
@@ -31,7 +31,17 @@ class WhatsAppRateLimitAdmin(admin.ModelAdmin):
     list_display = ['user', 'message_type', 'last_sent_at', 'sent_count_hour', 'sent_count_minute', 'updated_at']
     list_filter = ['message_type', 'last_sent_at', 'updated_at']
     search_fields = ['user__username', 'user__email', 'message_type']
-    readonly_fields = ['created_at', 'updated_at']
+    readonly_fields = [
+        'user',
+        'message_type',
+        'last_sent_at',
+        'sent_count_hour',
+        'sent_count_minute',
+        'hour_window_start',
+        'minute_window_start',
+        'created_at',
+        'updated_at',
+    ]
     fieldsets = (
         ('User & Message Type', {
             'fields': ('user', 'message_type')
@@ -80,11 +90,19 @@ class CommunicationLogAdmin(admin.ModelAdmin):
         'subject'
     ]
     readonly_fields = [
-        'sent_at',
+        'message_type',
         'message_id',
+        'recipient',
+        'phone_number',
+        'country_code',
+        'subject',
+        'sender_type',
+        'sender_id',
+        'metadata',
+        'sent_at',
+        'retry_count',
         'created_at',
         'updated_at',
-        'retry_count'
     ]
     fieldsets = (
         ('Message Details', {

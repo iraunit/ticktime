@@ -132,7 +132,7 @@ def dashboard_stats_view(request):
         'recent_completions': recent_completions,
         'unread_messages': unread_messages,
         'total_followers': profile.total_followers,
-        'average_engagement_rate': float(profile.average_engagement_rate),
+        'average_engagement_rate': round(float(profile.average_engagement_rate), 2),
     }
 
     serializer = DashboardStatsSerializer(stats_data)
