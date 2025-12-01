@@ -11,10 +11,13 @@ class InfluencerProfile(models.Model):
     """
     user = models.OneToOneField('auth.User', on_delete=models.CASCADE, related_name='influencer_profile')
     # Link to common user profile
-    user_profile = models.OneToOneField('users.UserProfile', on_delete=models.CASCADE,
-                                        related_name='influencer_profile', null=True, blank=True)
-
-    username = models.CharField(max_length=50, unique=True)
+    user_profile = models.OneToOneField(
+        'users.UserProfile',
+        on_delete=models.CASCADE,
+        related_name='influencer_profile',
+        null=True,
+        blank=True,
+    )
     industry = models.ForeignKey(Industry, on_delete=models.PROTECT, related_name='influencers')
 
     # Categories the influencer specializes in
@@ -36,11 +39,13 @@ class InfluencerProfile(models.Model):
     profile_verified = models.BooleanField(default=False,
                                            help_text='Profile is verified when aadhar, email, and phone are all verified')
 
-    # Enhanced location fields
+    # Enhanced location fields (influencer-only)
     country = models.CharField(max_length=100, blank=True, default='')
     state = models.CharField(max_length=100, blank=True, default='')
     city = models.CharField(max_length=100, blank=True, default='')
     pincode = models.CharField(max_length=10, blank=True, default='')
+    address_line1 = models.CharField(max_length=255, blank=True, default='')
+    address_line2 = models.CharField(max_length=255, blank=True, default='')
 
     # Demographics
     gender = models.CharField(max_length=20, choices=[
@@ -205,7 +210,6 @@ class InfluencerProfile(models.Model):
     class Meta:
         db_table = 'influencer_profiles'
         indexes = [
-            models.Index(fields=['username']),
             models.Index(fields=['industry']),
             models.Index(fields=['is_verified']),
             models.Index(fields=['country']),
@@ -220,7 +224,7 @@ class InfluencerProfile(models.Model):
         ]
 
     def __str__(self):
-        return f"{self.user.get_full_name()} (@{self.username})"
+        return f"{self.user.get_full_name()} (@{self.user.username})"
 
     @property
     def total_followers(self):
@@ -373,7 +377,7 @@ class SocialMediaAccount(models.Model):
         unique_together = ['influencer', 'platform', 'handle']
 
     def __str__(self):
-        return f"{self.influencer.username} - {self.platform} (@{self.handle})"
+        return f"{self.influencer.user.username} - {self.platform} (@{self.handle})"
 
     def save(self, *args, **kwargs):
         super().save(*args, **kwargs)
@@ -492,7 +496,7 @@ class InfluencerCategoryScore(models.Model):
         ]
 
     def __str__(self):
-        return f"{self.influencer.username} - {self.category_name} ({self.score}%)"
+        return f"{self.influencer.user.username} - {self.category_name} ({self.score}%)"
 
 
 class CeleryTask(models.Model):

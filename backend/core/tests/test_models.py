@@ -23,7 +23,7 @@ class TestInfluencerProfile:
         )
 
         assert profile.user == user
-        assert profile.username == 'testuser'
+    assert profile.user.username == 'testuser'
         assert profile.industry == 'tech_gaming'
         assert not profile.is_verified  # Default value
         assert profile.created_at is not None
@@ -55,7 +55,7 @@ class TestInfluencerProfile:
 
     def test_str_representation(self, influencer_profile):
         """Test string representation of influencer profile."""
-        expected = f"{influencer_profile.user.get_full_name()} (@{influencer_profile.username})"
+    expected = f"{influencer_profile.user.get_full_name()} (@{influencer_profile.user.username})"
         assert str(influencer_profile) == expected
 
 
@@ -205,5 +205,5 @@ class TestDeal:
 
     def test_str_representation(self, deal):
         """Test string representation of deal."""
-        expected = f"{deal.campaign.title} - {deal.influencer.username}"
+    expected = f"{deal.campaign.title} - {deal.influencer.user.username}"
         assert str(deal) == expected

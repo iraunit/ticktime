@@ -124,7 +124,7 @@ export default function Home() {
                                         <div
                                             className="w-6 h-6 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-full border-2 border-white transform rotate-6"></div>
                                     </div>
-                                    <span className="font-semibold">5,000+ active creators</span>
+                                    <span className="font-semibold">50,000+ active creators</span>
                                 </div>
                                 <div
                                     className="bg-white/60 backdrop-blur-sm px-4 py-2 rounded-full border border-orange-200">
@@ -132,7 +132,7 @@ export default function Home() {
                                 </div>
                                 <div
                                     className="bg-white/60 backdrop-blur-sm px-4 py-2 rounded-full border border-orange-200">
-                                    <span className="text-orange-500">🏆</span> <span className="font-semibold">Featured on ProductHunt</span>
+                                    <span className="text-orange-500">🏆</span> <span className="font-semibold">Trusted by Creators Nationwide</span>
                                 </div>
                             </div>
                         </div>
@@ -196,7 +196,7 @@ export default function Home() {
                                         className="bg-gradient-to-br from-red-50 to-pink-50 rounded-2xl p-6 text-center border-2 border-red-100 transform hover:scale-105 transition-transform duration-300 relative overflow-hidden">
                                         <div
                                             className="absolute top-2 right-2 w-4 h-4 bg-yellow-300 rounded-full opacity-60 transform rotate-45"></div>
-                                        <div className="text-3xl font-bold text-red-600 mb-1">₹1,24,000</div>
+                                        <div className="text-3xl font-bold text-red-600 mb-1">₹1,35,000</div>
                                         <div className="text-sm text-gray-700 font-semibold">This month</div>
                                     </div>
                                     <div
@@ -216,6 +216,22 @@ export default function Home() {
                                 </div>
 
                                 <div className="space-y-4">
+                                    <div
+                                        className="flex items-center gap-4 p-4 bg-gradient-to-r from-gray-50 to-pink-50 rounded-2xl border-2 border-pink-100 transform hover:scale-105 transition-transform duration-300 relative">
+                                        <div
+                                            className="absolute top-2 right-2 w-3 h-3 bg-purple-300 rounded-full opacity-60 transform rotate-12"></div>
+                                        <div
+                                            className="w-12 h-12 bg-gradient-to-br from-pink-500 to-purple-600 rounded-2xl flex items-center justify-center text-white font-bold text-lg transform rotate-2 hover:rotate-0 transition-transform duration-300">
+                                            B
+                                        </div>
+                                        <div className="flex-1">
+                                            <div className="font-bold text-gray-900 text-lg">Beauty & Skincare
+                                            </div>
+                                            <div className="text-sm text-gray-700 font-medium">Active</div>
+                                        </div>
+                                        <div className="text-green-600 font-bold text-lg">₹65,000</div>
+                                    </div>
+
                                     <div
                                         className="flex items-center gap-4 p-4 bg-gradient-to-r from-gray-50 to-orange-50 rounded-2xl border-2 border-orange-100 transform hover:scale-105 transition-transform duration-300 relative">
                                         <div
@@ -263,13 +279,13 @@ export default function Home() {
                             <div className="grid md:grid-cols-4 gap-8">
                                 <div>
                                     <div className="text-3xl md:text-4xl font-bold text-red-400 mb-2">
-                                        5,000+
+                                        50,000+
                                     </div>
                                     <div className="text-gray-400">Active Creators</div>
                                 </div>
                                 <div>
                                     <div className="text-3xl md:text-4xl font-bold text-orange-400 mb-2">
-                                        2,800+
+                                        25,800+
                                     </div>
                                     <div className="text-gray-400">Completed Deals</div>
                                 </div>
@@ -281,7 +297,7 @@ export default function Home() {
                                 </div>
                                 <div>
                                     <div className="text-3xl md:text-4xl font-bold text-green-400 mb-2">
-                                        30+
+                                        97+
                                     </div>
                                     <div className="text-gray-400">Indian Brands</div>
                                 </div>

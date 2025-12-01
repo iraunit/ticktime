@@ -29,7 +29,6 @@ import {useIndustries} from "@/hooks/use-industries";
 import {getMediaUrl} from "@/lib/utils";
 import {OptimizedAvatar} from "@/components/ui";
 import {BrandVerificationUploader} from "@/components/brand/brand-verification-uploader";
-import {UnifiedCountrySelect} from "@/components/ui/unified-country-select";
 
 interface TeamMember {
     id: number;
@@ -81,6 +80,7 @@ interface Brand {
     verification_document_original_name?: string;
     rating: number;
     total_campaigns: number;
+    whatsapp_credits?: number;
     created_at: string;
     updated_at: string;
 }
@@ -151,12 +151,6 @@ export default function BrandSettingsPage() {
     const [userPhoneNumber, setUserPhoneNumber] = useState("");
     const [userCountryCode, setUserCountryCode] = useState("+91");
     const [userGender, setUserGender] = useState("");
-    const [userCountry, setUserCountry] = useState("");
-    const [userState, setUserState] = useState("");
-    const [userCity, setUserCity] = useState("");
-    const [userZipcode, setUserZipcode] = useState("");
-    const [userAddressLine1, setUserAddressLine1] = useState("");
-    const [userAddressLine2, setUserAddressLine2] = useState("");
     const [isSavingProfile, setIsSavingProfile] = useState(false);
 
     // Ratings and reviews state
@@ -172,9 +166,7 @@ export default function BrandSettingsPage() {
     const fetchCurrentUser = async () => {
         try {
             const response = await api.get('/auth/profile/');
-            console.log('Current user response:', response.data);
             if (response.data.success !== false) {
-                console.log('Current user data:', response.data.user);
                 setCurrentUser(response.data.user);
                 setUserFirstName(response.data.user.first_name || '');
                 setUserLastName(response.data.user.last_name || '');
@@ -182,12 +174,6 @@ export default function BrandSettingsPage() {
                 setUserPhoneNumber(response.data.user.phone_number || '');
                 setUserCountryCode(response.data.user.country_code || '+91');
                 setUserGender(response.data.user.gender || '');
-                setUserCountry(response.data.user.country || '');
-                setUserState(response.data.user.state || '');
-                setUserCity(response.data.user.city || '');
-                setUserZipcode(response.data.user.zipcode || '');
-                setUserAddressLine1(response.data.user.address_line1 || '');
-                setUserAddressLine2(response.data.user.address_line2 || '');
             }
         } catch (error) {
             console.error('Error fetching current user:', error);
@@ -483,12 +469,7 @@ export default function BrandSettingsPage() {
             formData.append('phone_number', userPhoneNumber);
             formData.append('country_code', userCountryCode);
             formData.append('gender', userGender);
-            formData.append('country', userCountry);
-            formData.append('state', userState);
-            formData.append('city', userCity);
-            formData.append('zipcode', userZipcode);
-            formData.append('address_line1', userAddressLine1);
-            formData.append('address_line2', userAddressLine2);
+            // Do not send any location fields for brand users – location is influencer-only now
 
             if (profileImageFile) {
                 formData.append('profile_image', profileImageFile);
@@ -523,60 +504,12 @@ export default function BrandSettingsPage() {
             setUserPhoneNumber(currentUser.phone_number || '');
             setUserCountryCode(currentUser.country_code || '+91');
             setUserGender(currentUser.gender || '');
-            setUserCountry(currentUser.country || '');
-            setUserState(currentUser.state || '');
-            setUserCity(currentUser.city || '');
-            setUserZipcode(currentUser.zipcode || '');
-            setUserAddressLine1(currentUser.address_line1 || '');
-            setUserAddressLine2(currentUser.address_line2 || '');
         }
         setProfileImageFile(null);
         setIsEditingProfile(false);
     };
 
-    const handlePincodeLookup = async (pincode: string) => {
-        console.log('Brand settings pincode lookup triggered:', pincode);
-        console.log('Current country:', userCountry);
-
-        if (pincode.length >= 4 && userCountry) {
-            console.log('Making pincode lookup request with country:', userCountry);
-            try {
-                const locationData = await lookupPincode(pincode, userCountry);
-                console.log('Location data received:', locationData);
-                if (locationData) {
-                    setUserState(locationData.state);
-                    setUserCity(locationData.city);
-                    toast.success('Location data updated successfully!');
-                } else {
-                    console.log('No location data found for pincode:', pincode);
-                    setUserState('');
-                    setUserCity('');
-                    if (pincodeError) {
-                        toast.error(pincodeError);
-                    } else {
-                        toast.error('No location data found for this pincode');
-                    }
-                }
-            } catch (error) {
-                console.error('Error in pincode lookup:', error);
-                setUserState('');
-                setUserCity('');
-                toast.error('Failed to lookup pincode');
-            }
-        } else if (pincode.length >= 4 && !userCountry) {
-            console.log('Pincode lookup skipped - no country selected');
-            toast.error('Please select a country first');
-        } else {
-            console.log('Pincode lookup skipped - pincode length:', pincode.length, 'country:', userCountry);
-        }
-    };
-
-    // Trigger pincode lookup when country changes and pincode exists
-    useEffect(() => {
-        if (userCountry && userZipcode && userZipcode.length >= 4) {
-            handlePincodeLookup(userZipcode);
-        }
-    }, [userCountry]);
+    // Pincode/location lookup is no longer used for brand user profile (location is influencer-only)
 
     const getIndustryDisplayName = (industry: string) => {
         const industryObj = industries.find(i => i.key === industry);
@@ -1063,9 +996,6 @@ export default function BrandSettingsPage() {
                                                     e.currentTarget.style.display = 'none';
                                                     e.currentTarget.nextElementSibling?.classList.remove('hidden');
                                                 }}
-                                                onLoad={() => {
-                                                    console.log('Logo image loaded successfully:', brand.logo);
-                                                }}
                                             />
                                         ) : null}
                                         <div
@@ -1269,6 +1199,25 @@ export default function BrandSettingsPage() {
                                         </div>
                                         <p className="text-xs text-gray-500 mt-1">
                                             Domain cannot be changed for security reasons
+                                        </p>
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                                            WhatsApp Credits
+                                        </label>
+                                        <div className="p-3 bg-blue-50 rounded-md border border-blue-200">
+                                            <div className="flex items-center justify-between">
+                                                <span className="text-2xl font-bold text-blue-900">
+                                                    {brand.whatsapp_credits ?? 0}
+                                                </span>
+                                                <Badge variant="outline"
+                                                       className="bg-blue-100 text-blue-800 border-blue-300">
+                                                    Credits Remaining
+                                                </Badge>
+                                            </div>
+                                        </div>
+                                        <p className="text-xs text-gray-500 mt-2">
+                                            To recharge credits, please contact support/admin
                                         </p>
                                     </div>
                                 </div>
@@ -1523,141 +1472,7 @@ export default function BrandSettingsPage() {
                                 </div>
                             </div>
 
-                            {/* Address Information */}
-                            <div className="border-t pt-6">
-                                <h4 className="text-lg font-medium text-gray-900 mb-4">Address Information</h4>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                                            Country
-                                        </label>
-                                        {isEditingProfile ? (
-                                            <UnifiedCountrySelect
-                                                value={userCountry || ''}
-                                                onValueChange={setUserCountry}
-                                                disabled={false}
-                                                placeholder="Select country"
-                                                showSearch={true}
-                                            />
-                                        ) : (
-                                            <div className="p-3 bg-gray-50 rounded-md border">
-                                                <span
-                                                    className="text-gray-900">{currentUser?.country || 'Not set'}</span>
-                                            </div>
-                                        )}
-                                    </div>
-
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                                            State/Province
-                                        </label>
-                                        {isEditingProfile ? (
-                                            <div className="space-y-2">
-                                                <Input
-                                                    value={userState}
-                                                    disabled={true}
-                                                    placeholder="Auto-filled from pincode"
-                                                    className="bg-gray-50"
-                                                />
-                                                <p className="text-xs text-gray-500">
-                                                    State will be automatically filled when you enter pincode
-                                                </p>
-                                            </div>
-                                        ) : (
-                                            <div className="p-3 bg-gray-50 rounded-md border">
-                                                <span className="text-gray-900">{currentUser?.state || 'Not set'}</span>
-                                            </div>
-                                        )}
-                                    </div>
-
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                                            City
-                                        </label>
-                                        {isEditingProfile ? (
-                                            <div className="space-y-2">
-                                                <Input
-                                                    value={userCity}
-                                                    disabled={true}
-                                                    placeholder="Auto-filled from pincode"
-                                                    className="bg-gray-50"
-                                                />
-                                                <p className="text-xs text-gray-500">
-                                                    City will be automatically filled when you enter pincode
-                                                </p>
-                                            </div>
-                                        ) : (
-                                            <div className="p-3 bg-gray-50 rounded-md border">
-                                                <span className="text-gray-900">{currentUser?.city || 'Not set'}</span>
-                                            </div>
-                                        )}
-                                    </div>
-
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                                            ZIP/Postal Code
-                                        </label>
-                                        {isEditingProfile ? (
-                                            <div className="space-y-2">
-                                                <Input
-                                                    value={userZipcode}
-                                                    onChange={(e) => {
-                                                        setUserZipcode(e.target.value);
-                                                        handlePincodeLookup(e.target.value);
-                                                    }}
-                                                    placeholder="ZIP/Postal Code"
-                                                    maxLength={10}
-                                                    disabled={pincodeLoading}
-                                                />
-                                                <p className="text-xs text-gray-500">
-                                                    {pincodeLoading ? 'Looking up address...' : 'Enter pincode to auto-fill state and city'}
-                                                </p>
-                                            </div>
-                                        ) : (
-                                            <div className="p-3 bg-gray-50 rounded-md border">
-                                                <span
-                                                    className="text-gray-900">{currentUser?.zipcode || 'Not set'}</span>
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-
-                                <div className="mt-6">
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                                        Address Line 1
-                                    </label>
-                                    {isEditingProfile ? (
-                                        <Input
-                                            value={userAddressLine1}
-                                            onChange={(e) => setUserAddressLine1(e.target.value)}
-                                            placeholder="Street address, P.O. box, company name"
-                                        />
-                                    ) : (
-                                        <div className="p-3 bg-gray-50 rounded-md border">
-                                            <span
-                                                className="text-gray-900">{currentUser?.address_line1 || 'Not set'}</span>
-                                        </div>
-                                    )}
-                                </div>
-
-                                <div className="mt-6">
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                                        Address Line 2
-                                    </label>
-                                    {isEditingProfile ? (
-                                        <Input
-                                            value={userAddressLine2}
-                                            onChange={(e) => setUserAddressLine2(e.target.value)}
-                                            placeholder="Apartment, suite, unit, building, floor, etc."
-                                        />
-                                    ) : (
-                                        <div className="p-3 bg-gray-50 rounded-md border">
-                                            <span
-                                                className="text-gray-900">{currentUser?.address_line2 || 'Not set'}</span>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
+                            {/* Address Information (moved to influencer profile; not editable here) */}
 
                             {/* Account Information */}
                             <div className="border-t pt-6">

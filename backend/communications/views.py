@@ -10,13 +10,16 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 
 from .decorators import rate_limit, require_verified_brand
 from .email_service import get_email_service
-from .models import EmailVerificationToken
+from .models import EmailVerificationToken, PhoneVerificationToken
 from .serializers import (
     SendCampaignNotificationSerializer,
+    SendWhatsAppNotificationSerializer,
     AccountStatusSerializer,
     SupportMessageSerializer,
 )
 from .support_channels import SupportChannelDispatcher, SupportMessagePayload
+from .utils import check_whatsapp_rate_limit, check_brand_credits
+from .whatsapp_service import get_whatsapp_service
 
 logger = logging.getLogger(__name__)
 support_dispatcher = SupportChannelDispatcher()
@@ -57,7 +60,137 @@ def send_verification_email(request):
         )
 
 
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+@rate_limit(max_attempts=3, time_window=3600)  # 3 attempts per hour
+def send_phone_verification(request):
+    """
+    Send phone verification link via WhatsApp to user
+    """
+    user = request.user
+
+    # Check if user has phone number
+    if not hasattr(user, 'user_profile') or not user.user_profile.phone_number:
+        return api_response(
+            False,
+            error='Phone number not found in your profile',
+            status_code=status.HTTP_400_BAD_REQUEST
+        )
+
+    # Check if phone is already verified
+    if user.user_profile.phone_verified:
+        return api_response(
+            False,
+            error='Phone number is already verified',
+            status_code=status.HTTP_400_BAD_REQUEST
+        )
+
+    # Check rate limit
+    allowed, error_msg, time_until_next = check_whatsapp_rate_limit(user, 'verification')
+    if not allowed:
+        return api_response(
+            False,
+            error=error_msg,
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS
+        )
+
+    # Send verification WhatsApp
+    whatsapp_service = get_whatsapp_service()
+    success = whatsapp_service.send_verification_whatsapp(
+        user=user,
+        phone_number=user.user_profile.phone_number,
+        country_code=user.user_profile.country_code
+    )
+
+    if success:
+        return api_response(
+            True,
+            result={'message': 'Verification WhatsApp sent successfully. Please check your WhatsApp.'},
+            status_code=status.HTTP_200_OK
+        )
+    else:
+        return api_response(
+            False,
+            error='Failed to send verification WhatsApp. Please try again later.',
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
 @api_view(['GET'])
+@permission_classes([AllowAny])
+def verify_phone(request, token):
+    """
+    Verify phone using magic link token from WhatsApp
+    """
+    try:
+        # Hash the token
+        token_hash = PhoneVerificationToken.hash_token(token)
+
+        # Find the token
+        token_obj = PhoneVerificationToken.objects.filter(token_hash=token_hash).first()
+
+        if not token_obj:
+            return api_response(
+                False,
+                error='Invalid verification link',
+                status_code=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Check if token is valid
+        if not token_obj.is_valid():
+            if token_obj.used_at:
+                message = 'This verification link has already been used'
+            else:
+                message = 'This verification link has expired'
+
+            return api_response(
+                False,
+                error=message,
+                status_code=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Mark token as used
+        token_obj.used_at = timezone.now()
+        token_obj.save()
+
+        # Verify the user's phone
+        user = token_obj.user
+        if hasattr(user, 'user_profile'):
+            user.user_profile.phone_verified = True
+            user.user_profile.save()
+
+            # Check if influencer profile needs updating
+            if hasattr(user, 'influencer_profile'):
+                influencer = user.influencer_profile
+                # Update profile_verified if all conditions are met
+                if (user.user_profile.email_verified and
+                        user.user_profile.phone_verified and
+                        influencer.aadhar_number):
+                    influencer.profile_verified = True
+                    influencer.save()
+
+        logger.info(f"Phone verified for user {user.username}")
+
+        return api_response(
+            True,
+            result={
+                'message': 'Phone verified successfully!',
+                'phone_verified': True
+            },
+            status_code=status.HTTP_200_OK
+        )
+
+    except Exception as e:
+        logger.error(f"Error verifying phone: {str(e)}")
+        return api_response(
+            False,
+            error='An error occurred while verifying your phone',
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
 def verify_email(request, token):
     """
     Verify email using magic link token
@@ -201,6 +334,105 @@ def send_campaign_notification(request):
         True,
         result={
             'message': f'Notifications sent to {success_count} influencer(s)',
+            'success_count': success_count,
+            'failed_count': failed_count
+        },
+        status_code=status.HTTP_200_OK
+    )
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+@require_verified_brand
+def send_whatsapp_notification(request):
+    """
+    Send campaign notification WhatsApp messages to influencers
+    """
+    serializer = SendWhatsAppNotificationSerializer(data=request.data)
+
+    if not serializer.is_valid():
+        return api_response(
+            False,
+            error='Invalid input data',
+            status_code=status.HTTP_400_BAD_REQUEST
+        )
+
+    deal_ids = serializer.validated_data['deal_ids']
+    notification_type = serializer.validated_data['notification_type']
+    custom_message = serializer.validated_data.get('custom_message', '')
+
+    # Get the brand user
+    brand_user = request.user.brand_user
+    brand = brand_user.brand
+
+    if brand.is_locked:
+        return api_response(
+            False,
+            error='WhatsApp notifications are unavailable while your brand account is locked. Please upgrade or contact support.',
+            status_code=status.HTTP_403_FORBIDDEN
+        )
+
+    # Check brand credits
+    has_credits, credits_remaining = check_brand_credits(brand, required_credits=len(deal_ids))
+    if not has_credits:
+        return api_response(
+            False,
+            error=f'Insufficient WhatsApp credits. You have {credits_remaining} credits remaining, but need {len(deal_ids)}.',
+            status_code=status.HTTP_402_PAYMENT_REQUIRED
+        )
+
+    # Fetch deals
+    deals = Deal.objects.filter(
+        id__in=deal_ids,
+        campaign__brand=brand
+    ).select_related('campaign', 'influencer', 'influencer__user', 'influencer__user__user_profile')
+
+    if not deals.exists():
+        return api_response(
+            False,
+            error='No valid deals found',
+            status_code=status.HTTP_404_NOT_FOUND
+        )
+
+    # Send notifications
+    whatsapp_service = get_whatsapp_service()
+    success_count = 0
+    failed_count = 0
+
+    for deal in deals:
+        try:
+            # Check if influencer has phone number
+            if not hasattr(deal.influencer.user, 'user_profile') or not deal.influencer.user.user_profile.phone_number:
+                logger.warning(f"Influencer {deal.influencer.id} does not have a phone number")
+                failed_count += 1
+                continue
+
+            user_profile = deal.influencer.user.user_profile
+            success = whatsapp_service.send_campaign_notification(
+                influencer=deal.influencer,
+                campaign=deal.campaign,
+                deal=deal,
+                notification_type=notification_type,
+                phone_number=user_profile.phone_number,
+                country_code=user_profile.country_code,
+                custom_message=custom_message,
+                sender_type='brand',
+                sender_id=brand.id
+            )
+
+            if success:
+                success_count += 1
+            else:
+                failed_count += 1
+
+        except Exception as e:
+            logger.error(f"Error sending WhatsApp notification for deal {deal.id}: {str(e)}")
+            failed_count += 1
+
+    return api_response(
+        True,
+        result={
+            'message': f'WhatsApp notifications sent to {success_count} influencer(s)',
             'success_count': success_count,
             'failed_count': failed_count
         },

@@ -64,3 +64,31 @@ class SupportMessageSerializer(serializers.Serializer):
     subject = serializers.CharField(max_length=200)
     message = serializers.CharField(max_length=2000)
     source = serializers.CharField(max_length=64, required=False, allow_blank=True)
+
+
+class SendWhatsAppNotificationSerializer(serializers.Serializer):
+    """
+    Serializer for sending WhatsApp campaign notifications to influencers
+    """
+    deal_ids = serializers.ListField(
+        child=serializers.IntegerField(),
+        required=True,
+        help_text="List of deal IDs to send notifications to"
+    )
+    notification_type = serializers.ChoiceField(
+        choices=[
+            ('invitation', 'Invitation'),
+            ('status_update', 'Status Update'),
+            ('accepted', 'Accepted'),
+            ('shipped', 'Shipped'),
+            ('completed', 'Completed'),
+        ],
+        required=True,
+        help_text="Type of notification to send"
+    )
+    custom_message = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        max_length=1000,
+        help_text="Optional custom message to include in the WhatsApp message"
+    )

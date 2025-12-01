@@ -6,11 +6,11 @@ from .models import Conversation, Message
 @admin.register(Conversation)
 class ConversationAdmin(admin.ModelAdmin):
     list_display = ['deal_info', 'last_message_preview', 'unread_count_for_influencer', 'updated_at']
-    search_fields = ['deal__campaign__title', 'deal__influencer__username']
+    search_fields = ['deal__campaign__title', 'deal__influencer__user__username']
     readonly_fields = ['created_at', 'updated_at', 'last_message', 'unread_count_for_influencer']
 
     def deal_info(self, obj):
-        return f"{obj.deal.campaign.title} - {obj.deal.influencer.username}"
+        return f"{obj.deal.campaign.title} - {obj.deal.influencer.user.username}"
 
     deal_info.short_description = 'Deal'
 
@@ -43,7 +43,7 @@ class MessageAdmin(admin.ModelAdmin):
     date_hierarchy = 'created_at'
 
     def conversation_info(self, obj):
-        return f"{obj.conversation.deal.campaign.title} - {obj.conversation.deal.influencer.username}"
+        return f"{obj.conversation.deal.campaign.title} - {obj.conversation.deal.influencer.user.username}"
 
     conversation_info.short_description = 'Conversation'
 

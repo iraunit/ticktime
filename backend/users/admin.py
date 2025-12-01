@@ -1,6 +1,8 @@
 import csv
 import io
 import re
+import secrets
+import string
 from urllib.parse import urlparse
 
 from django.contrib import admin
@@ -68,6 +70,78 @@ class LastLoginFilter(admin.SimpleListFilter):
             return queryset.exclude(last_login__isnull=True)
         elif self.value() == 'never_logged_in':
             return queryset.filter(last_login__isnull=True)
+
+
+def create_or_update_influencer_profile(user, user_profile, industry_id, row_num, warnings):
+    """
+    Create or update InfluencerProfile for a user if industry_id is provided.
+    Returns the influencer profile if created/updated, None otherwise.
+    """
+    if not industry_id:
+        return None
+
+    try:
+        from influencers.models import InfluencerProfile
+        from common.models import Industry
+
+        # Validate industry_id
+        try:
+            industry = Industry.objects.get(pk=int(industry_id), is_active=True)
+        except (Industry.DoesNotExist, ValueError, TypeError):
+            warnings.append(
+                f'Row {row_num}: Invalid industry ID "{industry_id}". Skipping influencer profile creation.')
+            return None
+
+        # Check if InfluencerProfile already exists
+        try:
+            influencer_profile = user.influencer_profile
+            # Update industry if different
+            if influencer_profile.industry != industry:
+                influencer_profile.industry = industry
+                influencer_profile.save()
+        except InfluencerProfile.DoesNotExist:
+            # Create new InfluencerProfile
+            influencer_profile = InfluencerProfile.objects.create(
+                user=user,
+                user_profile=user_profile,
+                industry=industry
+            )
+
+        return influencer_profile
+    except Exception as e:
+        warnings.append(f'Row {row_num}: Error creating influencer profile: {str(e)}')
+        return None
+
+
+def generate_random_username(length=12):
+    """
+    Generate a random username using alphanumeric characters.
+    Ensures uniqueness by checking against existing users.
+    """
+    alphabet = string.ascii_lowercase + string.digits
+    max_attempts = 100
+
+    for _ in range(max_attempts):
+        # Generate random username
+        username = ''.join(secrets.choice(alphabet) for _ in range(length))
+
+        # Check if it's unique
+        if not User.objects.filter(username=username).exists():
+            return username
+
+    # If we couldn't find a unique one, add random suffix
+    base = ''.join(secrets.choice(alphabet) for _ in range(length - 4))
+    counter = 1
+    while counter < 10000:
+        username = f"{base}{counter:04d}"
+        if not User.objects.filter(username=username).exists():
+            return username
+        counter += 1
+
+    # Last resort: use timestamp-based username
+    import time
+    username = f"user{int(time.time())}{secrets.randbelow(1000):03d}"
+    return username
 
 
 def extract_instagram_username(instagram_input):
@@ -279,7 +353,7 @@ class UserAdmin(BaseUserAdmin):
             ('phone_number', 'Compulsory'),
             ('first_name', 'Optional'),
             ('last_name', 'Optional'),
-            ('username', 'Optional (auto-generated from email if not provided)'),
+            ('username', 'Optional (auto-generated randomly if not provided)'),
             ('country_code', 'Optional (defaults to +91)'),
             ('gender', 'Optional'),
             ('country', 'Optional'),
@@ -288,6 +362,7 @@ class UserAdmin(BaseUserAdmin):
             ('zipcode', 'Optional'),
             ('address_line1', 'Optional'),
             ('address_line2', 'Optional'),
+            ('industry', 'Optional (Industry ID - will create InfluencerProfile if provided)'),
             ('instagram_profile_link', 'Optional (Instagram profile URL or username)'),
         ]
 
@@ -303,7 +378,7 @@ class UserAdmin(BaseUserAdmin):
             '9876543210',
             'John',
             'Doe',
-            'johndoe',
+            '',  # Username will be auto-generated
             '+91',
             'male',
             'India',
@@ -312,6 +387,7 @@ class UserAdmin(BaseUserAdmin):
             '400001',
             '123 Main Street',
             'Apt 4B',
+            '1',  # Industry ID (optional)
             'https://instagram.com/johndoe'
         ])
 
@@ -390,6 +466,8 @@ class UserAdmin(BaseUserAdmin):
                         field_mapping['address_line1'] = field
                     elif field_lower in ['address_line2', 'address_line_2', 'address2', 'address line 2']:
                         field_mapping['address_line2'] = field
+                    elif field_lower in ['industry', 'industry_id', 'industryid']:
+                        field_mapping['industry'] = field
                     elif field_lower in ['instagram_profile_link', 'instagram_link', 'instagram_url', 'instagram',
                                          'insta_profile', 'insta_link', 'insta_url']:
                         field_mapping['instagram_profile_link'] = field
@@ -487,18 +565,13 @@ class UserAdmin(BaseUserAdmin):
                             zipcode = row.get(field_mapping.get('zipcode', ''), '').strip()
                             address_line1 = row.get(field_mapping.get('address_line1', ''), '').strip()
                             address_line2 = row.get(field_mapping.get('address_line2', ''), '').strip()
+                            industry_id = row.get(field_mapping.get('industry', ''), '').strip()
                             instagram_profile_link = row.get(field_mapping.get('instagram_profile_link', ''),
                                                              '').strip()
 
-                            # Generate username from email if not provided
+                            # Generate random username if not provided (to avoid leaking email/phone)
                             if not username:
-                                username = email.split('@')[0]
-                                # Ensure username is unique
-                                base_username = username
-                                counter = 1
-                                while User.objects.filter(username=username).exists():
-                                    username = f"{base_username}{counter}"
-                                    counter += 1
+                                username = generate_random_username()
 
                             # Check if user already exists
                             user = User.objects.filter(email=email).first()
@@ -545,24 +618,41 @@ class UserAdmin(BaseUserAdmin):
                                     if country_code:
                                         profile.country_code = country_code
 
-                                # Update optional fields
+                                # Update optional non-location fields on UserProfile
                                 if gender and gender.lower() in ['male', 'female', 'other', 'prefer_not_to_say']:
                                     profile.gender = gender.lower()
-                                if country:
-                                    profile.country = country
-                                if state:
-                                    profile.state = state
-                                if city:
-                                    profile.city = city
-                                if zipcode:
-                                    profile.zipcode = zipcode
-                                if address_line1:
-                                    profile.address_line1 = address_line1
-                                if address_line2:
-                                    profile.address_line2 = address_line2
-
                                 profile.save()
                                 updated_count += 1
+
+                                # Handle industry - create/update InfluencerProfile if industry_id provided
+                                influencer_profile = None
+                                if industry_id:
+                                    influencer_profile = create_or_update_influencer_profile(
+                                        user, profile, industry_id, row_num, warnings
+                                    )
+                                else:
+                                    # If influencer profile already exists, use it for location updates
+                                    try:
+                                        from influencers.models import InfluencerProfile
+                                        influencer_profile = InfluencerProfile.objects.get(user=user)
+                                    except Exception:
+                                        influencer_profile = None
+
+                                # If we have an influencer profile, store location on it (not on UserProfile)
+                                if influencer_profile:
+                                    if country:
+                                        influencer_profile.country = country
+                                    if state:
+                                        influencer_profile.state = state
+                                    if city:
+                                        influencer_profile.city = city
+                                    if zipcode:
+                                        influencer_profile.pincode = zipcode
+                                    if address_line1:
+                                        influencer_profile.address_line1 = address_line1
+                                    if address_line2:
+                                        influencer_profile.address_line2 = address_line2
+                                    influencer_profile.save()
 
                                 # Handle Instagram profile link
                                 if instagram_profile_link:
@@ -588,21 +678,10 @@ class UserAdmin(BaseUserAdmin):
                                                     default_industry = Industry.objects.first()
 
                                                 if default_industry:
-                                                    # Generate influencer username (use email prefix or user's username)
-                                                    influencer_username_for_profile = email.split('@')[0]
-                                                    # Ensure influencer username is unique
-                                                    base_influencer_username = influencer_username_for_profile
-                                                    counter = 1
-                                                    while InfluencerProfile.objects.filter(
-                                                            username=influencer_username_for_profile).exists():
-                                                        influencer_username_for_profile = f"{base_influencer_username}{counter}"
-                                                        counter += 1
-
-                                                    # Create InfluencerProfile
+                                                    # Auto-create InfluencerProfile using existing user.username
                                                     influencer_profile = InfluencerProfile.objects.create(
                                                         user=user,
                                                         user_profile=profile,
-                                                        username=influencer_username_for_profile,
                                                         industry=default_industry
                                                     )
                                                 else:
@@ -650,21 +729,38 @@ class UserAdmin(BaseUserAdmin):
                                     is_active=True
                                 )
 
-                                # Create profile
-                                UserProfile.objects.create(
+                                # Create profile (without location fields)
+                                user_profile = UserProfile.objects.create(
                                     user=user,
                                     phone_number=phone_digits,
                                     country_code=country_code,
                                     gender=gender.lower() if gender and gender.lower() in ['male', 'female', 'other',
                                                                                            'prefer_not_to_say'] else None,
-                                    country=country or '',
-                                    state=state or '',
-                                    city=city or '',
-                                    zipcode=zipcode or '',
-                                    address_line1=address_line1 or '',
-                                    address_line2=address_line2 or '',
                                 )
                                 created_count += 1
+
+                                # Handle industry - create InfluencerProfile if industry_id provided
+                                influencer_profile = None
+                                if industry_id:
+                                    influencer_profile = create_or_update_influencer_profile(
+                                        user, user_profile, industry_id, row_num, warnings
+                                    )
+
+                                # If we have an influencer profile, store location on it (not on UserProfile)
+                                if influencer_profile:
+                                    if country:
+                                        influencer_profile.country = country
+                                    if state:
+                                        influencer_profile.state = state
+                                    if city:
+                                        influencer_profile.city = city
+                                    if zipcode:
+                                        influencer_profile.pincode = zipcode
+                                    if address_line1:
+                                        influencer_profile.address_line1 = address_line1
+                                    if address_line2:
+                                        influencer_profile.address_line2 = address_line2
+                                    influencer_profile.save()
 
                                 # Handle Instagram profile link
                                 if instagram_profile_link:
@@ -690,27 +786,16 @@ class UserAdmin(BaseUserAdmin):
                                                     default_industry = Industry.objects.first()
 
                                                 if default_industry:
-                                                    # Generate influencer username (use email prefix or user's username)
-                                                    influencer_username_for_profile = email.split('@')[0]
-                                                    # Ensure influencer username is unique
-                                                    base_influencer_username = influencer_username_for_profile
-                                                    counter = 1
-                                                    while InfluencerProfile.objects.filter(
-                                                            username=influencer_username_for_profile).exists():
-                                                        influencer_username_for_profile = f"{base_influencer_username}{counter}"
-                                                        counter += 1
-
                                                     # Get user_profile (should exist since we just created it)
                                                     try:
-                                                        user_profile = UserProfile.objects.get(user=user)
+                                                        user_profile_obj = UserProfile.objects.get(user=user)
                                                     except UserProfile.DoesNotExist:
-                                                        user_profile = None
+                                                        user_profile_obj = None
 
                                                     # Create InfluencerProfile
                                                     influencer_profile = InfluencerProfile.objects.create(
                                                         user=user,
-                                                        user_profile=user_profile,
-                                                        username=influencer_username_for_profile,
+                                                        user_profile=user_profile_obj,
                                                         industry=default_industry
                                                     )
                                                 else:
@@ -803,18 +888,15 @@ class UserAdmin(BaseUserAdmin):
 class UserProfileAdmin(admin.ModelAdmin):
     list_display = [
         'user_username', 'user_email', 'phone_number', 'email_verified', 'phone_verified',
-        'country', 'city', 'created_at'
+        'created_at'
     ]
-    list_filter = ['email_verified', 'phone_verified', 'country', 'created_at']
+    list_filter = ['email_verified', 'phone_verified', 'created_at']
     search_fields = ['user__username', 'user__email', 'user__first_name', 'user__last_name', 'phone_number']
     readonly_fields = ['created_at', 'updated_at']
 
     fieldsets = (
         ('User Information', {
             'fields': ('user', 'phone_number', 'email_verified', 'phone_verified')
-        }),
-        ('Location', {
-            'fields': ('country', 'state', 'city', 'zipcode', 'address_line1', 'address_line2')
         }),
         ('Profile', {
             'fields': ('gender', 'profile_image')

@@ -38,7 +38,7 @@ class TestAuthViews:
         
         # Check profile was created
         assert hasattr(user, 'influencer_profile')
-        assert user.influencer_profile.username == 'johndoe'
+    assert user.username == 'johndoe'
         assert user.influencer_profile.industry == 'tech_gaming'
         assert user.influencer_profile.country_code == '+1'
         assert user.influencer_profile.is_verified  # Should be verified by default
@@ -155,7 +155,7 @@ class TestAuthViews:
         
         assert response.status_code == status.HTTP_200_OK
         assert response.data['email'] == influencer_profile.user.email
-        assert response.data['profile']['username'] == influencer_profile.username
+    assert response.data['profile']['username'] == influencer_profile.user.username
 
     def test_profile_update(self, authenticated_client, influencer_profile):
         """Test updating user profile."""

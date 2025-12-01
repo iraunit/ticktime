@@ -67,21 +67,47 @@ export function useProfile() {
                     last_name: profilePayload?.user?.last_name ?? profilePayload?.user_last_name ?? '',
                     email: profilePayload?.user?.email ?? profilePayload?.user_email ?? '',
                 },
+                // UserProfile keeps only phone/email/gender/profile_image info
                 user_profile: {
                     ...profilePayload?.user_profile,
-                    country_code: profilePayload?.country_code ?? profilePayload?.user_profile?.country_code ?? profilePayload?.user?.country_code ?? '+91',
-                    phone_number: profilePayload?.user_profile?.phone_number ?? profilePayload?.user?.phone_number ?? profilePayload?.phone_number ?? '',
-                    country: profilePayload?.country ?? profilePayload?.user_profile?.country ?? profilePayload?.user?.country ?? '',
-                    state: profilePayload?.user_profile?.state ?? profilePayload?.user?.state ?? profilePayload?.state ?? parsedAddress.state,
-                    city: profilePayload?.user_profile?.city ?? profilePayload?.user?.city ?? profilePayload?.city ?? parsedAddress.city,
-                    zipcode: profilePayload?.user_profile?.zipcode ?? profilePayload?.user?.zipcode ?? profilePayload?.zipcode ?? parsedAddress.zipcode,
-                    address_line1: profilePayload?.user_profile?.address_line1 ?? profilePayload?.user?.address_line1 ?? profilePayload?.address_line1 ?? parsedAddress.address_line1,
-                    address_line2: profilePayload?.user_profile?.address_line2 ?? profilePayload?.user?.address_line2 ?? profilePayload?.address_line2 ?? parsedAddress.address_line2,
-                    gender: profilePayload?.gender ?? profilePayload?.user_profile?.gender ?? profilePayload?.user?.gender ?? '',
-                    profile_image: profilePayload?.user_profile?.profile_image ?? profilePayload?.user?.profile_image ?? profilePayload?.profile_image ?? '',
-                    phone_verified: profilePayload?.user_profile?.phone_verified ?? profilePayload?.user?.phone_verified ?? profilePayload?.phone_verified ?? false,
-                    email_verified: profilePayload?.user_profile?.email_verified ?? profilePayload?.user?.email_verified ?? profilePayload?.email_verified ?? false,
+                    country_code:
+                        profilePayload?.country_code ??
+                        profilePayload?.user_profile?.country_code ??
+                        profilePayload?.user?.country_code ??
+                        '+91',
+                    phone_number:
+                        profilePayload?.user_profile?.phone_number ??
+                        profilePayload?.user?.phone_number ??
+                        profilePayload?.phone_number ??
+                        '',
+                    gender:
+                        profilePayload?.gender ??
+                        profilePayload?.user_profile?.gender ??
+                        profilePayload?.user?.gender ??
+                        '',
+                    profile_image:
+                        profilePayload?.user_profile?.profile_image ??
+                        profilePayload?.user?.profile_image ??
+                        profilePayload?.profile_image ??
+                        '',
+                    phone_verified:
+                        profilePayload?.user_profile?.phone_verified ??
+                        profilePayload?.user?.phone_verified ??
+                        profilePayload?.phone_verified ??
+                        false,
+                    email_verified:
+                        profilePayload?.user_profile?.email_verified ??
+                        profilePayload?.user?.email_verified ??
+                        profilePayload?.email_verified ??
+                        false,
                 },
+                // Normalize influencer location fields directly on profile
+                country: profilePayload?.country ?? parsedAddress.state ? parsedAddress.state && profilePayload?.country : profilePayload?.country ?? '',
+                state: profilePayload?.state ?? parsedAddress.state,
+                city: profilePayload?.city ?? parsedAddress.city,
+                pincode: profilePayload?.pincode ?? profilePayload?.zipcode ?? parsedAddress.zipcode,
+                address_line1: profilePayload?.address_line1 ?? parsedAddress.address_line1,
+                address_line2: profilePayload?.address_line2 ?? parsedAddress.address_line2,
             };
             return normalized;
         },

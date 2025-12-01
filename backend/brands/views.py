@@ -439,7 +439,7 @@ def brand_deals_by_campaigns_view(request):
         campaigns = campaigns.filter(
             Q(title__icontains=search)
             | Q(description__icontains=search)
-            | Q(deals__influencer__username__icontains=search)
+            | Q(deals__influencer__user__username__icontains=search)
             | Q(deals__influencer__user__first_name__icontains=search)
             | Q(deals__influencer__user__last_name__icontains=search)
         ).distinct()
@@ -492,7 +492,7 @@ def brand_deals_by_campaigns_view(request):
         # Apply search filter to deals if specified
         if search:
             campaign_deals = campaign_deals.filter(
-                Q(influencer__username__icontains=search)
+                Q(influencer__user__username__icontains=search)
                 | Q(influencer__user__first_name__icontains=search)
                 | Q(influencer__user__last_name__icontains=search)
             )
@@ -563,7 +563,7 @@ def brand_deals_view(request):
     if search:
         deals = deals.filter(
             Q(campaign__title__icontains=search)
-            | Q(influencer__username__icontains=search)
+            | Q(influencer__user__username__icontains=search)
             | Q(influencer__user__first_name__icontains=search)
             | Q(influencer__user__last_name__icontains=search)
         )
@@ -1017,8 +1017,8 @@ def bookmark_influencer_view(request, influencer_id):
         brand_user.brand,
         request.user,
         'influencer_bookmarked',
-        f"Bookmarked influencer {influencer.username}",
-        {'influencer_id': influencer_id, 'influencer_username': influencer.username}
+        f"Bookmarked influencer {influencer.user.username}",
+        {'influencer_id': influencer_id, 'influencer_username': influencer.user.username}
     )
 
     return Response({
@@ -1045,8 +1045,9 @@ def bookmarked_influencers_view(request):
     search = request.GET.get('search', '').strip()
     if search:
         bookmarks = bookmarks.filter(
-            Q(influencer__name__icontains=search) |
-            Q(influencer__username__icontains=search) |
+            Q(influencer__user__first_name__icontains=search) |
+            Q(influencer__user__last_name__icontains=search) |
+            Q(influencer__user__username__icontains=search) |
             Q(notes__icontains=search)
         )
 
@@ -1106,8 +1107,8 @@ def bookmark_detail_view(request, bookmark_id):
             brand_user.brand,
             request.user,
             'bookmark_updated',
-            f"Updated notes for bookmark {bookmark.influencer.username}",
-            {'bookmark_id': bookmark_id, 'influencer_username': bookmark.influencer.username}
+            f"Updated notes for bookmark {bookmark.influencer.user.username}",
+            {'bookmark_id': bookmark_id, 'influencer_username': bookmark.influencer.user.username}
         )
 
         serializer = BookmarkedInfluencerSerializer(bookmark, context={'request': request})
@@ -1119,7 +1120,7 @@ def bookmark_detail_view(request, bookmark_id):
 
     elif request.method == 'DELETE':
         # Delete bookmark
-        influencer_username = bookmark.influencer.username
+        influencer_username = bookmark.influencer.user.username
         bookmark.delete()
 
         # Log action
@@ -1235,7 +1236,7 @@ def approve_reject_content_view(request, deal_id):
         f"{log_action.replace('_', ' ').title()} for deal {deal.id}",
         {
             'deal_id': deal.id,
-            'influencer_username': deal.influencer.username,
+            'influencer_username': deal.influencer.user.username,
             'campaign_title': deal.campaign.title,
             'feedback': feedback
         }
@@ -1278,8 +1279,9 @@ def brand_conversations_view(request):
     search = request.GET.get('search')
     if search:
         conversations = conversations.filter(
-            Q(deal__influencer__name__icontains=search) |
-            Q(deal__influencer__username__icontains=search) |
+            Q(deal__influencer__user__first_name__icontains=search) |
+            Q(deal__influencer__user__last_name__icontains=search) |
+            Q(deal__influencer__user__username__icontains=search) |
             Q(deal__campaign__title__icontains=search) |
             Q(messages__content__icontains=search)
         ).distinct()
@@ -2009,7 +2011,7 @@ def add_influencers_to_campaign_view(request, campaign_id):
         if existing_deal:
             existing_deals.append({
                 'influencer_id': influencer.id,
-                'influencer_name': (influencer.user.get_full_name() or influencer.username),
+                'influencer_name': (influencer.user.get_full_name() or influencer.user.username),
                 'deal_id': existing_deal.id
             })
         else:
@@ -2021,7 +2023,7 @@ def add_influencers_to_campaign_view(request, campaign_id):
             )
             created_deals.append({
                 'influencer_id': influencer.id,
-                'influencer_name': (influencer.user.get_full_name() or influencer.username),
+                'influencer_name': (influencer.user.get_full_name() or influencer.user.username),
                 'deal_id': deal.id
             })
 
@@ -2036,7 +2038,7 @@ def add_influencers_to_campaign_view(request, campaign_id):
                     notification_type='invitation'
                 )
             except Exception as e:
-                logger.error(f"Failed to send invitation email to {influencer.username}: {str(e)}")
+                logger.error(f"Failed to send invitation email to {influencer.user.username}: {str(e)}")
 
     # Log action
     log_brand_action(
@@ -2129,10 +2131,10 @@ def send_message_to_influencer_view(request, influencer_id):
             brand_user.brand,
             request.user,
             'message_sent_to_influencer',
-            f"Sent message to {influencer.username}",
+            f"Sent message to {influencer.user.username}",
             {
                 'influencer_id': influencer.id,
-                'influencer_username': influencer.username,
+                'influencer_username': influencer.user.username,
                 'conversation_id': conversation.id,
                 'message_id': message.id,
                 'deal_id': existing_deal.id
@@ -2200,8 +2202,8 @@ def remove_bookmark_view(request, influencer_id):
             brand_user.brand,
             request.user,
             'influencer_unbookmarked',
-            f"Removed {bookmark.influencer.username} from bookmarks",
-            {'influencer_id': influencer_id, 'influencer_username': bookmark.influencer.username}
+            f"Removed {bookmark.influencer.user.username} from bookmarks",
+            {'influencer_id': influencer_id, 'influencer_username': bookmark.influencer.user.username}
         )
 
         return Response({
@@ -2357,7 +2359,7 @@ def brand_ratings_and_reviews_view(request):
             'review': deal.influencer_review or '',
             'influencer': {
                 'id': deal.influencer.id,
-                'username': deal.influencer.username,
+                'username': deal.influencer.user.username,
                 'full_name': f"{deal.influencer.user.first_name} {deal.influencer.user.last_name}".strip(),
                 'profile_image': profile_image_url,
             },

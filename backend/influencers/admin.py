@@ -1,6 +1,9 @@
+import csv
+
 from django.contrib import admin
 from django.contrib import messages
 from django.db.models import Q
+from django.http import HttpResponse
 from django.shortcuts import redirect
 from django.urls import path
 from django.utils import timezone
@@ -25,18 +28,18 @@ class InfluencerProfileAdmin(admin.ModelAdmin):
         'profile_verification_status', 'is_verified', 'created_at'
     ]
     list_filter = ['industry', 'categories', 'is_verified', 'profile_verified', 'created_at']
-    search_fields = ['username', 'user__first_name', 'user__last_name', 'user__email', 'aadhar_number']
+    search_fields = ['user__username', 'user__first_name', 'user__last_name', 'user__email', 'aadhar_number']
     readonly_fields = ['created_at', 'updated_at', 'total_followers', 'average_engagement_rate', 'phone_number_display',
                        'address_display', 'profile_image_display', 'aadhar_document_display',
                        'collaboration_types_display', 'aadhar_verification_status', 'profile_verification_status',
                        'email_verification_status', 'phone_verification_status', 'email_verified_edit',
-                       'phone_verified_edit',
+                       'phone_verified_edit', 'username',
                        'available_platforms_display', 'content_keywords_display', 'bio_keywords_display',
                        'user_country_display', 'user_state_display', 'user_city_display', 'user_zipcode_display',
                        'user_gender_display']
     filter_horizontal = ['categories']
-    actions = ['verify_aadhar_documents', 'unverify_aadhar_documents', 'mark_as_verified', 'mark_as_unverified',
-               'update_profile_verification']
+    actions = ['verify_aadhar_documents', 'unverify_aadhar_documents', 'mark_as_verified', 'mark_as_unverified']
+    change_list_template = 'admin/influencers/influencerprofile/change_list.html'
 
     fieldsets = (
         ('User Information', {
@@ -47,7 +50,7 @@ class InfluencerProfileAdmin(admin.ModelAdmin):
         }),
         ('Location Details', {
             'fields': ('user_country_display', 'user_state_display', 'user_city_display', 'user_zipcode_display'),
-            'description': 'Geographic location information from user profile'
+            'description': 'Geographic location information from influencer profile'
         }),
         ('Demographics', {
             'fields': ('user_gender_display', 'age_range'),
@@ -88,12 +91,6 @@ class InfluencerProfileAdmin(admin.ModelAdmin):
             'fields': ('collaboration_types_display', 'minimum_collaboration_amount'),
             'description': 'Collaboration type preferences and requirements'
         }),
-        ('Platform Flags', {
-            'fields': ('has_instagram', 'has_youtube', 'has_tiktok', 'has_twitter', 'has_facebook', 'has_linkedin',
-                       'instagram_verified'),
-            'classes': ('collapse',),
-            'description': 'Platform presence flags (auto-updated)'
-        }),
         ('Content & Audience', {
             'fields': ('content_keywords_display', 'bio_keywords_display', 'brand_safety_score',
                        'content_quality_score'),
@@ -119,6 +116,11 @@ class InfluencerProfileAdmin(admin.ModelAdmin):
         }),
     )
 
+    def username(self, obj):
+        return obj.user.username
+
+    username.short_description = 'Username'
+
     def user_full_name(self, obj):
         return obj.user.get_full_name() or obj.user.username
 
@@ -136,19 +138,19 @@ class InfluencerProfileAdmin(admin.ModelAdmin):
     phone_number_display.short_description = 'Phone Number'
 
     def address_display(self, obj):
-        """Display address from user profile"""
-        if obj.user_profile and obj.user_profile.address_line1:
-            address_parts = [obj.user_profile.address_line1]
-            if obj.user_profile.address_line2:
-                address_parts.append(obj.user_profile.address_line2)
-            if obj.user_profile.city:
-                address_parts.append(obj.user_profile.city)
-            if obj.user_profile.state:
-                address_parts.append(obj.user_profile.state)
-            if obj.user_profile.zipcode:
-                address_parts.append(obj.user_profile.zipcode)
+        """Display address from influencer profile"""
+        address_parts = []
+        if getattr(obj, 'address_line1', None):
+            address_parts.append(obj.address_line1)
+        if getattr(obj, 'address_line2', None):
+            address_parts.append(obj.address_line2)
+        if obj.city:
+            address_parts.append(obj.city)
+        if obj.state:
+            address_parts.append(obj.state)
+        if obj.pincode:
+            address_parts.append(obj.pincode)
             return ', '.join(address_parts)
-        return 'N/A'
 
     address_display.short_description = 'Address'
 
@@ -242,19 +244,77 @@ class InfluencerProfileAdmin(admin.ModelAdmin):
 
     mark_as_unverified.short_description = 'Mark as unverified'
 
-    def update_profile_verification(self, request, queryset):
-        """Bulk action to update profile verification status"""
-        updated_count = 0
-        for profile in queryset:
-            if profile.update_profile_verification():
-                updated_count += 1
+    def get_urls(self):
+        """Add custom URL for CSV download"""
+        urls = super().get_urls()
+        custom_urls = [
+            path(
+                'download-unverified-csv/',
+                self.admin_site.admin_view(self.download_unverified_csv_view),
+                name='influencers_influencerprofile_download_unverified_csv',
+            ),
+        ]
+        return custom_urls + urls
 
-        self.message_user(
-            request,
-            f'Profile verification status updated for {updated_count} influencer(s).'
-        )
+    def changelist_view(self, request, extra_context=None):
+        """Override changelist to add download CSV button"""
+        extra_context = extra_context or {}
+        extra_context['download_csv_url'] = 'download-unverified-csv/'
+        return super().changelist_view(request, extra_context)
 
-    update_profile_verification.short_description = 'Update profile verification status'
+    def download_unverified_csv_view(self, request):
+        """View to download CSV of unverified users (email, phone, or aadhar not verified)
+        
+        Downloads users where ANY of the three verifications is missing:
+        - Email not verified OR
+        - Phone not verified OR
+        - Aadhar not verified
+        """
+        # Get all profiles that are not fully verified (ANY of the three unverified)
+        unverified_profiles = InfluencerProfile.objects.filter(
+            Q(user_profile__email_verified=False) |
+            Q(user_profile__phone_verified=False) |
+            Q(is_verified=False) |
+            Q(user_profile__isnull=True)
+        ).select_related('user', 'user_profile').distinct().order_by('user__email')
+
+        # Create CSV response
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename="unverified_influencers.csv"'
+
+        writer = csv.writer(response)
+        # Write header
+        writer.writerow([
+            'Email',
+            'Name',
+            'Country Code',
+            'Phone',
+            'Email Verified',
+            'Phone Verified',
+            'Aadhar Verified'
+        ])
+
+        # Write data rows
+        for profile in unverified_profiles:
+            email = profile.user.email if profile.user else 'N/A'
+            name = profile.user.get_full_name() if profile.user else 'N/A'
+            country_code = profile.user_profile.country_code if profile.user_profile else 'N/A'
+            phone = profile.user_profile.phone_number if profile.user_profile else 'N/A'
+            email_verified = 'Yes' if (profile.user_profile and profile.user_profile.email_verified) else 'No'
+            phone_verified = 'Yes' if (profile.user_profile and profile.user_profile.phone_verified) else 'No'
+            aadhar_verified = 'Yes' if profile.is_verified else 'No'
+
+            writer.writerow([
+                email,
+                name,
+                country_code,
+                phone,
+                email_verified,
+                phone_verified,
+                aadhar_verified
+            ])
+
+        return response
 
     def collaboration_types_display(self, obj):
         """Display collaboration types in a readable format"""
@@ -289,26 +349,26 @@ class InfluencerProfileAdmin(admin.ModelAdmin):
     bio_keywords_display.short_description = 'Bio Keywords'
 
     def user_country_display(self, obj):
-        """Display country from user profile"""
-        return obj.user_profile.country if obj.user_profile else 'Not set'
+        """Display country from influencer profile"""
+        return obj.country or 'Not set'
 
     user_country_display.short_description = 'Country'
 
     def user_state_display(self, obj):
-        """Display state from user profile"""
-        return obj.user_profile.state if obj.user_profile else 'Not set'
+        """Display state from influencer profile"""
+        return obj.state or 'Not set'
 
     user_state_display.short_description = 'State'
 
     def user_city_display(self, obj):
-        """Display city from user profile"""
-        return obj.user_profile.city if obj.user_profile else 'Not set'
+        """Display city from influencer profile"""
+        return obj.city or 'Not set'
 
     user_city_display.short_description = 'City'
 
     def user_zipcode_display(self, obj):
-        """Display zipcode from user profile"""
-        return obj.user_profile.zipcode if obj.user_profile else 'Not set'
+        """Display zipcode/pincode from influencer profile"""
+        return obj.pincode or 'Not set'
 
     user_zipcode_display.short_description = 'Zipcode'
 
@@ -391,6 +451,32 @@ class SocialMediaPostInline(admin.TabularInline):
     ordering = ['-posted_at']
 
 
+class SyncStatusFilter(admin.SimpleListFilter):
+    title = 'Sync Status'
+    parameter_name = 'sync_status'
+
+    def lookups(self, request, model_admin):
+        return (
+            ('never_synced', 'Never Last Synced'),
+            ('needs_sync', 'Needs Sync (>7 days)'),
+            ('up_to_date', 'Up to Date'),
+        )
+
+    def queryset(self, request, queryset):
+        if self.value() == 'never_synced':
+            return queryset.filter(last_synced_at__isnull=True)
+        elif self.value() == 'needs_sync':
+            from django.utils import timezone
+            from datetime import timedelta
+            cutoff_date = timezone.now() - timedelta(days=7)
+            return queryset.filter(last_synced_at__lt=cutoff_date)
+        elif self.value() == 'up_to_date':
+            from django.utils import timezone
+            from datetime import timedelta
+            cutoff_date = timezone.now() - timedelta(days=7)
+            return queryset.filter(last_synced_at__gte=cutoff_date)
+
+
 @admin.register(SocialMediaAccount)
 class SocialMediaAccountAdmin(admin.ModelAdmin):
     list_display = [
@@ -398,8 +484,9 @@ class SocialMediaAccountAdmin(admin.ModelAdmin):
         'engagement_rate', 'verified', 'is_active', 'last_synced_display',
         'updated_at_display', 'sync_status_button'
     ]
-    list_filter = ['platform', 'verified', 'is_active', 'created_at']
-    search_fields = ['influencer__username', 'handle', 'profile_url']
+    list_filter = [SyncStatusFilter, 'platform', 'verified', 'is_active', 'created_at']
+    search_fields = ['influencer__user__username', 'handle', 'profile_url']
+    actions = ['queue_sync_selected']
     readonly_fields = [
         'last_synced_at', 'last_posted_at', 'engagement_snapshot',
         'sync_status_display', 'queue_sync_button', 'created_at', 'updated_at',
@@ -446,7 +533,7 @@ class SocialMediaAccountAdmin(admin.ModelAdmin):
     )
 
     def influencer_username(self, obj):
-        return obj.influencer.username
+        return obj.influencer.user.username
 
     influencer_username.short_description = 'Influencer'
 
@@ -514,7 +601,7 @@ class SocialMediaAccountAdmin(admin.ModelAdmin):
         if needs_sync:
             url = f'/admin/influencers/socialmediaaccount/{obj.id}/queue-sync/'
             return format_html(
-                '<a class="button" href="{}" style="background-color: #ff6b6b; color: white; padding: 5px 10px; text-decoration: none; border-radius: 3px;">Queue Sync</a>',
+                '<a class="button" href="{}" target="_blank" style="background-color: #007cba; color: white; padding: 5px 10px; text-decoration: none; border-radius: 3px; white-space: nowrap;">Queue Sync</a>',
                 url
             )
         else:
@@ -597,21 +684,57 @@ class SocialMediaAccountAdmin(admin.ModelAdmin):
         return super().changelist_view(request, extra_context)
 
     def queue_sync_view(self, request, object_id):
-        """Handle queue sync action"""
+        """Handle queue sync action - opens in new tab and auto-closes"""
         try:
             account = SocialMediaAccount.objects.get(pk=object_id)
         except SocialMediaAccount.DoesNotExist:
-            messages.error(request, 'Social media account not found.')
-            return redirect('admin:influencers_socialmediaaccount_changelist')
+            html = """
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>Sync Status</title>
+                <style>
+                    body { font-family: Arial, sans-serif; padding: 20px; text-align: center; }
+                    .error { color: red; }
+                </style>
+            </head>
+            <body>
+                <h2 class="error">Error: Social media account not found.</h2>
+                <p>This window will close automatically...</p>
+                <script>
+                    setTimeout(function() { window.close(); }, 2000);
+                </script>
+            </body>
+            </html>
+            """
+            return HttpResponse(html)
 
         needs_sync = self._needs_sync(account)
 
         if not needs_sync:
-            messages.info(
-                request,
-                f'Account {account.handle} ({account.platform}) is up to date. '
-                f'Last synced {((timezone.now() - account.last_synced_at).days)} days ago.'
-            )
+            days_ago = (timezone.now() - account.last_synced_at).days if account.last_synced_at else 0
+            html = f"""
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>Sync Status</title>
+                <style>
+                    body {{ font-family: Arial, sans-serif; padding: 20px; text-align: center; }}
+                    .info {{ color: #007cba; }}
+                </style>
+            </head>
+            <body>
+                <h2 class="info">Account is up to date</h2>
+                <p>Account {account.handle} ({account.platform}) is up to date.</p>
+                <p>Last synced {days_ago} days ago.</p>
+                <p>This window will close automatically...</p>
+                <script>
+                    setTimeout(function() {{ window.close(); }}, 2000);
+                </script>
+            </body>
+            </html>
+            """
+            return HttpResponse(html)
         else:
             try:
                 from communications.social_scraping_service import get_social_scraping_service
@@ -619,27 +742,73 @@ class SocialMediaAccountAdmin(admin.ModelAdmin):
                 message_id = scraping_service.queue_scrape_request(account, priority='high')
 
                 if message_id:
-                    messages.success(
-                        request,
-                        f'Successfully queued sync for {account.handle} ({account.platform}). '
-                        f'Message ID: {message_id}'
-                    )
+                    html = f"""
+                    <!DOCTYPE html>
+                    <html>
+                    <head>
+                        <title>Sync Queued</title>
+                        <style>
+                            body {{ font-family: Arial, sans-serif; padding: 20px; text-align: center; }}
+                            .success {{ color: #28a745; }}
+                        </style>
+                    </head>
+                    <body>
+                        <h2 class="success">✓ Sync Queued Successfully</h2>
+                        <p>Account: {account.handle} ({account.platform})</p>
+                        <p>Message ID: {message_id}</p>
+                        <p>This window will close automatically...</p>
+                        <script>
+                            setTimeout(function() {{ window.close(); }}, 2000);
+                        </script>
+                    </body>
+                    </html>
+                    """
+                    return HttpResponse(html)
                 else:
-                    messages.error(
-                        request,
-                        f'Failed to queue sync for {account.handle} ({account.platform}). '
-                        f'Please check RabbitMQ connection.'
-                    )
+                    html = f"""
+                    <!DOCTYPE html>
+                    <html>
+                    <head>
+                        <title>Sync Failed</title>
+                        <style>
+                            body {{ font-family: Arial, sans-serif; padding: 20px; text-align: center; }}
+                            .error {{ color: red; }}
+                        </style>
+                    </head>
+                    <body>
+                        <h2 class="error">Failed to queue sync</h2>
+                        <p>Account: {account.handle} ({account.platform})</p>
+                        <p>Please check RabbitMQ connection.</p>
+                        <p>This window will close automatically...</p>
+                        <script>
+                            setTimeout(function() {{ window.close(); }}, 3000);
+                        </script>
+                    </body>
+                    </html>
+                    """
+                    return HttpResponse(html)
             except Exception as e:
-                messages.error(
-                    request,
-                    f'Error queueing sync: {str(e)}'
-                )
-
-        # Redirect back to the change page or list
-        if 'next' in request.GET:
-            return redirect(request.GET['next'])
-        return redirect('admin:influencers_socialmediaaccount_change', object_id)
+                html = f"""
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <title>Sync Error</title>
+                    <style>
+                        body {{ font-family: Arial, sans-serif; padding: 20px; text-align: center; }}
+                        .error {{ color: red; }}
+                    </style>
+                </head>
+                <body>
+                    <h2 class="error">Error queueing sync</h2>
+                    <p>{str(e)}</p>
+                    <p>This window will close automatically...</p>
+                    <script>
+                        setTimeout(function() {{ window.close(); }}, 3000);
+                    </script>
+                </body>
+                </html>
+                """
+                return HttpResponse(html)
 
     def queue_sync_all_view(self, request):
         """Handle queue sync for all accounts that need it - runs in background"""
@@ -670,6 +839,62 @@ class SocialMediaAccountAdmin(admin.ModelAdmin):
 
         return redirect('admin:influencers_socialmediaaccount_changelist')
 
+    def queue_sync_selected(self, request, queryset):
+        """Bulk action to queue sync for selected accounts"""
+        from communications.social_scraping_service import get_social_scraping_service
+
+        success_count = 0
+        error_count = 0
+        up_to_date_count = 0
+        errors = []
+
+        scraping_service = get_social_scraping_service()
+
+        for account in queryset:
+            needs_sync = self._needs_sync(account)
+
+            if not needs_sync:
+                up_to_date_count += 1
+                continue
+
+            try:
+                message_id = scraping_service.queue_scrape_request(account, priority='high')
+                if message_id:
+                    success_count += 1
+                else:
+                    error_count += 1
+                    errors.append(f"{account.handle} ({account.platform}): Failed to queue - RabbitMQ connection issue")
+            except Exception as e:
+                error_count += 1
+                errors.append(f"{account.handle} ({account.platform}): {str(e)}")
+
+        # Build summary message
+        summary_parts = []
+        if success_count > 0:
+            summary_parts.append(f"{success_count} account(s) queued successfully")
+        if up_to_date_count > 0:
+            summary_parts.append(f"{up_to_date_count} account(s) already up to date")
+        if error_count > 0:
+            summary_parts.append(f"{error_count} account(s) failed")
+
+        summary = ". ".join(summary_parts) + "."
+
+        if error_count > 0:
+            messages.warning(
+                request,
+                format_html(
+                    '{}<br><br><strong>Errors:</strong><ul>{}</ul>',
+                    summary,
+                    ''.join([f'<li>{error}</li>' for error in errors])
+                )
+            )
+        elif success_count > 0:
+            messages.success(request, summary)
+        else:
+            messages.info(request, summary)
+
+    queue_sync_selected.short_description = 'Queue sync for selected accounts'
+
 
 # Add inline relationships
 InfluencerProfileAdmin.inlines = [SocialMediaAccountInline]
@@ -698,8 +923,45 @@ class AadharVerificationFilter(admin.SimpleListFilter):
             return queryset.filter(Q(aadhar_number__isnull=True) | Q(aadhar_number=''))
 
 
-# Add the custom filter to the admin class
-InfluencerProfileAdmin.list_filter = ['industry', 'categories', 'is_verified', 'created_at', AadharVerificationFilter]
+class EmailVerificationFilter(admin.SimpleListFilter):
+    title = 'Email Verification Status'
+    parameter_name = 'email_verified'
+
+    def lookups(self, request, model_admin):
+        return (
+            ('verified', 'Verified'),
+            ('not_verified', 'Not Verified'),
+        )
+
+    def queryset(self, request, queryset):
+        if self.value() == 'verified':
+            return queryset.filter(user_profile__email_verified=True)
+        elif self.value() == 'not_verified':
+            return queryset.filter(Q(user_profile__email_verified=False) | Q(user_profile__isnull=True))
+
+
+class PhoneVerificationFilter(admin.SimpleListFilter):
+    title = 'Phone Verification Status'
+    parameter_name = 'phone_verified'
+
+    def lookups(self, request, model_admin):
+        return (
+            ('verified', 'Verified'),
+            ('not_verified', 'Not Verified'),
+        )
+
+    def queryset(self, request, queryset):
+        if self.value() == 'verified':
+            return queryset.filter(user_profile__phone_verified=True)
+        elif self.value() == 'not_verified':
+            return queryset.filter(Q(user_profile__phone_verified=False) | Q(user_profile__isnull=True))
+
+
+# Add the custom filters to the admin class
+InfluencerProfileAdmin.list_filter = [
+    'industry', 'categories', 'is_verified', 'created_at',
+    AadharVerificationFilter, EmailVerificationFilter, PhoneVerificationFilter
+]
 
 
 @admin.register(InfluencerAudienceInsight)
@@ -709,11 +971,11 @@ class InfluencerAudienceInsightAdmin(admin.ModelAdmin):
         'age_18_24_percentage', 'age_25_34_percentage', 'active_followers_percentage'
     ]
     list_filter = ['platform', 'created_at']
-    search_fields = ['influencer__username']
+    search_fields = ['influencer__user__username']
     readonly_fields = ['created_at', 'updated_at']
 
     def influencer_username(self, obj):
-        return obj.influencer.username
+        return obj.influencer.user.username
 
     influencer_username.short_description = 'Influencer'
 
@@ -724,11 +986,11 @@ class InfluencerCategoryScoreAdmin(admin.ModelAdmin):
         'influencer_username', 'category_name', 'score', 'is_primary', 'is_flag'
     ]
     list_filter = ['category_name', 'is_primary', 'is_flag', 'created_at']
-    search_fields = ['influencer__username', 'category_name']
+    search_fields = ['influencer__user__username', 'category_name']
     readonly_fields = ['created_at', 'updated_at']
 
     def influencer_username(self, obj):
-        return obj.influencer.username
+        return obj.influencer.user.username
 
     influencer_username.short_description = 'Influencer'
 
@@ -750,7 +1012,7 @@ class SocialMediaPostAdmin(admin.ModelAdmin):
     search_fields = [
         'platform_post_id',
         'account__handle',
-        'account__influencer__username',
+        'account__influencer__user__username',
         'caption',
     ]
     readonly_fields = [
@@ -778,7 +1040,7 @@ class SocialMediaPostAdmin(admin.ModelAdmin):
     account_handle.short_description = 'Account'
 
     def influencer_username(self, obj):
-        return obj.account.influencer.username
+        return obj.account.influencer.user.username
 
     influencer_username.short_description = 'Influencer'
 

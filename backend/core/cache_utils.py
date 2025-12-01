@@ -113,7 +113,7 @@ class CacheManager:
 
                 profile_data = {
                     'id': profile.id,
-                    'username': profile.username,
+                    'username': profile.user.username,
                     'bio': profile.bio,
                     'industry': profile.industry,
                     'profile_image': profile.profile_image.url if profile.profile_image else None,

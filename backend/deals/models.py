@@ -69,7 +69,7 @@ class Deal(models.Model):
         ]
 
     def __str__(self):
-        return f"{self.campaign.title} - {self.influencer.username} ({self.status})"
+        return f"{self.campaign.title} - {self.influencer.user.username} ({self.status})"
 
     def save(self, *args, **kwargs):
         """Override save to ensure proper initialization of all fields"""

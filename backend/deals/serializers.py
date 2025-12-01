@@ -10,6 +10,7 @@ class SimpleInfluencerSerializer(serializers.ModelSerializer):
     """
     Simple serializer for influencer information in deal contexts.
     """
+    username = serializers.CharField(source='user.username', read_only=True)
     full_name = serializers.SerializerMethodField()
     profile_image = serializers.SerializerMethodField()
     followers_count = serializers.SerializerMethodField()
@@ -34,7 +35,7 @@ class SimpleInfluencerSerializer(serializers.ModelSerializer):
         elif obj.user.first_name:
             return obj.user.first_name
         else:
-            return obj.username
+            return obj.user.username
 
     def get_profile_image(self, obj):
         try:

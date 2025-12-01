@@ -284,7 +284,7 @@ def brand_content_review_list(request, deal_id):
         'deal': {
             'id': deal.id,
             'campaign_title': deal.campaign.title,
-            'influencer_username': deal.influencer.username,
+            'influencer_username': deal.influencer.user.username,
             'status': deal.status,
         },
         'submissions': serializer.data,

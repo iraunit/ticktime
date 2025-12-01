@@ -32,14 +32,6 @@ class UserProfile(models.Model):
     phone_verified = models.BooleanField(default=False)
     email_verified = models.BooleanField(default=False)
 
-    # Location details
-    country = models.CharField(max_length=100, blank=True, default='')
-    state = models.CharField(max_length=100, blank=True, default='')
-    city = models.CharField(max_length=100, blank=True, default='')
-    zipcode = models.CharField(max_length=20, blank=True, default='')
-    address_line1 = models.CharField(max_length=255, blank=True, default='')
-    address_line2 = models.CharField(max_length=255, blank=True, default='')
-
     # Profile image shared between all users
     profile_image = models.ImageField(
         upload_to='profiles/',
@@ -55,7 +47,6 @@ class UserProfile(models.Model):
         db_table = 'user_profiles'
         indexes = [
             models.Index(fields=['gender']),
-            models.Index(fields=['country']),
             models.Index(fields=['phone_verified']),
             models.Index(fields=['email_verified']),
             models.Index(fields=['created_at']),

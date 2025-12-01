@@ -4,6 +4,7 @@ from common.models import (
     Industry, ContentCategory, PLATFORM_CHOICES, DEAL_STATUS_CHOICES,
     DEAL_TYPE_CHOICES, CONTENT_TYPE_CHOICES
 )
+from django.contrib.auth.models import User
 from django.db import models
 from django.utils import timezone
 from rest_framework import serializers
@@ -20,6 +21,7 @@ class InfluencerProfileSerializer(serializers.ModelSerializer):
     user_first_name = serializers.CharField(source='user.first_name', read_only=True)
     user_last_name = serializers.CharField(source='user.last_name', read_only=True)
     user_email = serializers.EmailField(source='user.email', read_only=True)
+    username = serializers.CharField(source='user.username', read_only=True)
     phone_number = serializers.SerializerMethodField()
     profile_image = serializers.SerializerMethodField()
     address = serializers.SerializerMethodField()
@@ -79,27 +81,26 @@ class InfluencerProfileSerializer(serializers.ModelSerializer):
         return None
 
     def get_address(self, obj):
-        """Get address from user profile."""
-        if obj.user_profile and obj.user_profile.address_line1:
-            address_parts = [obj.user_profile.address_line1]
-            if obj.user_profile.address_line2:
-                address_parts.append(obj.user_profile.address_line2)
-            if obj.user_profile.city:
-                address_parts.append(obj.user_profile.city)
-            if obj.user_profile.state:
-                address_parts.append(obj.user_profile.state)
-            if obj.user_profile.zipcode:
-                address_parts.append(obj.user_profile.zipcode)
-            # Use a special delimiter to separate address lines from other fields
-            return ' | '.join(address_parts)
-        return ''
+        """Get address from influencer profile (source of truth for location)."""
+        address_parts = []
+        if getattr(obj, 'address_line1', None):
+            address_parts.append(obj.address_line1)
+        if getattr(obj, 'address_line2', None):
+            address_parts.append(obj.address_line2)
+        if obj.city:
+            address_parts.append(obj.city)
+        if obj.state:
+            address_parts.append(obj.state)
+        if obj.pincode:
+            address_parts.append(obj.pincode)
+        return ' | '.join(address_parts) if address_parts else ''
 
     def get_country(self, obj):
-        """Get country from user profile."""
-        return obj.user_profile.country if obj.user_profile else ''
+        """Get country from influencer profile."""
+        return obj.country or ''
 
     def get_country_code(self, obj):
-        """Get country code from user profile."""
+        """Get country code from user profile (phone country code)."""
         return obj.user_profile.country_code if obj.user_profile else ''
 
     def get_gender(self, obj):
@@ -153,21 +154,31 @@ class InfluencerProfileSerializer(serializers.ModelSerializer):
         return data
 
     def validate_username(self, value):
-        """Validate username is unique and follows proper format."""
-        # Check if username is being changed
-        if self.instance and self.instance.username == value:
+        """Validate username is unique and follows proper format (on User model)."""
+        if not value:
             return value
 
-        if InfluencerProfile.objects.filter(username=value).exists():
+        normalized = value.strip()
+
+        # Check if username is being changed
+        user = self.instance.user if self.instance and getattr(self.instance, 'user', None) else None
+        if user and user.username == normalized:
+            return normalized
+
+        existing_qs = User.objects.filter(username=normalized)
+        if user and user.pk:
+            existing_qs = existing_qs.exclude(pk=user.pk)
+
+        if existing_qs.exists():
             raise serializers.ValidationError("This username is already taken.")
 
         # Username should be alphanumeric with underscores and dots allowed
-        if not re.match(r'^[a-zA-Z0-9._]+$', value):
+        if not re.match(r'^[a-zA-Z0-9._]+$', normalized):
             raise serializers.ValidationError(
                 "Username can only contain letters, numbers, dots, and underscores."
             )
 
-        return value
+        return normalized
 
     def validate_phone_number(self, value):
         """Validate phone number format and uniqueness."""
@@ -228,6 +239,7 @@ class InfluencerProfileUpdateSerializer(serializers.ModelSerializer):
     # User fields - handled manually in update method
     first_name = serializers.CharField(required=False)
     last_name = serializers.CharField(required=False)
+    email = serializers.EmailField(required=False)
     phone_number = serializers.CharField(required=False)
     address = serializers.CharField(required=False)
 
@@ -258,7 +270,7 @@ class InfluencerProfileUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = InfluencerProfile
         fields = (
-            'first_name', 'last_name', 'phone_number', 'username', 'industry', 'categories', 'bio', 'address',
+            'first_name', 'last_name', 'email', 'phone_number', 'username', 'industry', 'categories', 'bio', 'address',
             'address_line1', 'address_line2', 'city', 'state', 'zipcode', 'country', 'country_code', 'gender',
             'collaboration_types', 'minimum_collaboration_amount',
             # Demographics
@@ -272,21 +284,50 @@ class InfluencerProfileUpdateSerializer(serializers.ModelSerializer):
         # Note: first_name, last_name, phone_number, address, and address fields are handled manually in update()
 
     def validate_username(self, value):
-        """Validate username is unique and follows proper format."""
-        # Check if username is being changed
-        if self.instance and self.instance.username == value:
+        """Validate username is unique and follows proper format (on User model)."""
+        if not value:
             return value
 
-        if InfluencerProfile.objects.filter(username=value).exists():
+        normalized = value.strip()
+
+        # Check if username is being changed
+        user = self.instance.user if self.instance and getattr(self.instance, 'user', None) else None
+        if user and user.username == normalized:
+            return normalized
+
+        existing_qs = User.objects.filter(username=normalized)
+        if user and user.pk:
+            existing_qs = existing_qs.exclude(pk=user.pk)
+
+        if existing_qs.exists():
             raise serializers.ValidationError("This username is already taken.")
 
         # Username should be alphanumeric with underscores and dots allowed
-        if not re.match(r'^[a-zA-Z0-9._]+$', value):
+        if not re.match(r'^[a-zA-Z0-9._]+$', normalized):
             raise serializers.ValidationError(
                 "Username can only contain letters, numbers, dots, and underscores."
             )
 
-        return value
+        return normalized
+
+    def validate_email(self, value):
+        """Validate email uniqueness across users."""
+        normalized_email = (value or '').strip().lower()
+        if not normalized_email:
+            return value
+
+        # Skip check if email is unchanged
+        if self.instance and self.instance.user and self.instance.user.email.lower() == normalized_email:
+            return normalized_email
+
+        existing_qs = User.objects.filter(email__iexact=normalized_email)
+        if self.instance and self.instance.user_id:
+            existing_qs = existing_qs.exclude(pk=self.instance.user_id)
+
+        if existing_qs.exists():
+            raise serializers.ValidationError("This email is already in use.")
+
+        return normalized_email
 
     def validate_phone_number(self, value):
         """Validate phone number format and uniqueness."""
@@ -328,12 +369,13 @@ class InfluencerProfileUpdateSerializer(serializers.ModelSerializer):
         # Extract user fields that have source='user.field_name'
         first_name = validated_data.pop('first_name', None)
         last_name = validated_data.pop('last_name', None)
+        email = validated_data.pop('email', None)
 
-        # Extract fields that should be updated in UserProfile
+        # Extract fields that should be updated in UserProfile / InfluencerProfile
         phone_number = validated_data.pop('phone_number', None)
         address = validated_data.pop('address', None)
 
-        # Extract individual address fields
+        # Extract individual address/location fields
         address_line1 = validated_data.pop('address_line1', None)
         address_line2 = validated_data.pop('address_line2', None)
         city = validated_data.pop('city', None)
@@ -374,65 +416,74 @@ class InfluencerProfileUpdateSerializer(serializers.ModelSerializer):
             user.first_name = first_name
         if last_name is not None:
             user.last_name = last_name
-        if first_name is not None or last_name is not None:
+
+        # Track original values to determine verification reset
+        original_email = (user.email or '').strip().lower()
+        original_phone = (instance.user_profile.phone_number if instance.user_profile else '') or ''
+
+        if email is not None:
+            normalized_email = (email or '').strip().lower()
+            user.email = normalized_email
+
+        if username is not None:
+            user.username = username.strip()
+
+        if first_name is not None or last_name is not None or email is not None or username is not None:
             user.save()
 
         if not instance.user_profile:
             instance.user_profile = UserProfile.objects.create(user=instance.user)
 
-        # Log UserProfile update data
-        user_profile_data = {
-            'phone_number': phone_number.strip() if isinstance(phone_number, str) else phone_number,
-            'gender': gender,
-            'country': country,
-            'country_code': country_code,
-            'state': state,
-            'city': city,
-            'zipcode': zipcode,
-            'address_line1': address_line1,
-            'address_line2': address_line2,
-            'address': address
-        }
-
-        # Update UserProfile fields
+        # Update UserProfile fields (non-location)
         if phone_number is not None:
             cleaned_phone = phone_number.strip() if isinstance(phone_number, str) else phone_number
             instance.user_profile.phone_number = cleaned_phone or None
         if gender is not None:
             instance.user_profile.gender = gender if gender else None
-        if country is not None:
-            instance.user_profile.country = country
         if country_code is not None:
             instance.user_profile.country_code = country_code
+
+        # Save UserProfile if any non-location fields were updated
+        if any(v is not None for v in [phone_number, gender, country_code]):
+            instance.user_profile.save()
+
+        # Update InfluencerProfile location fields (source of truth for location)
+        if country is not None:
+            instance.country = country
         if state is not None:
-            instance.user_profile.state = state
+            instance.state = state
         if city is not None:
-            instance.user_profile.city = city
+            instance.city = city
         if zipcode is not None:
-            instance.user_profile.zipcode = zipcode
+            instance.pincode = zipcode
         if address_line1 is not None:
-            instance.user_profile.address_line1 = address_line1
+            instance.address_line1 = address_line1
         if address_line2 is not None:
-            instance.user_profile.address_line2 = address_line2
+            instance.address_line2 = address_line2
 
         # Handle legacy address field (comma-separated) - only if individual fields are not provided
         if address is not None and not any([address_line1, address_line2, city, state, zipcode]):
             # Parse address into components (simple implementation)
             address_parts = address.split(',')
-            instance.user_profile.address_line1 = address_parts[0].strip() if len(address_parts) > 0 else ''
-            instance.user_profile.address_line2 = address_parts[1].strip() if len(address_parts) > 1 else ''
-            instance.user_profile.city = address_parts[2].strip() if len(address_parts) > 2 else ''
-            instance.user_profile.state = address_parts[3].strip() if len(address_parts) > 3 else ''
-            instance.user_profile.zipcode = address_parts[4].strip() if len(address_parts) > 4 else ''
-        elif address is not None:
+            instance.address_line1 = address_parts[0].strip() if len(address_parts) > 0 else ''
+            instance.address_line2 = address_parts[1].strip() if len(address_parts) > 1 else ''
+            instance.city = address_parts[2].strip() if len(address_parts) > 2 else ''
+            instance.state = address_parts[3].strip() if len(address_parts) > 3 else ''
+            instance.pincode = address_parts[4].strip() if len(address_parts) > 4 else ''
 
-            # Save UserProfile if any fields were updated
-            user_profile_fields_updated = [phone_number, gender, country, country_code, state, city, zipcode,
-                                           address_line1, address_line2, address]
-            if any(user_profile_fields_updated):
-                instance.user_profile.save()
-            else:
-                print(f"No UserProfile fields to update for user {instance.user.id}")
+        # Reset verification flags if contact details changed
+        new_email = (user.email or '').strip().lower()
+        new_phone = (instance.user_profile.phone_number or '').strip() if instance.user_profile else ''
+
+        if email is not None and new_email != original_email:
+            instance.user_profile.email_verified = False
+
+        if phone_number is not None and new_phone != original_phone:
+            instance.user_profile.phone_verified = False
+
+        # Persist verification flag changes
+        if instance.user_profile:
+            instance.user_profile.save()
 
         # Update profile fields explicitly
         if bio is not None:
@@ -825,7 +876,7 @@ class InfluencerSearchSerializer(serializers.ModelSerializer):
 
     def get_name(self, obj):
         """Get full name of the influencer"""
-        return f"{obj.user.first_name} {obj.user.last_name}".strip() or obj.username
+        return f"{obj.user.first_name} {obj.user.last_name}".strip() or obj.user.username
 
     def get_profile_image(self, obj):
         """Get profile image URL"""
@@ -985,6 +1036,7 @@ class InfluencerPublicSerializer(serializers.ModelSerializer):
     """
     Public, brand-facing serializer exposing only non-sensitive influencer fields.
     """
+    username = serializers.CharField(source='user.username', read_only=True)
     name = serializers.SerializerMethodField()
     profile_image = serializers.SerializerMethodField()
     total_followers = serializers.ReadOnlyField()
@@ -1010,7 +1062,7 @@ class InfluencerPublicSerializer(serializers.ModelSerializer):
         )
 
     def get_name(self, obj):
-        return f"{obj.user.first_name} {obj.user.last_name}".strip() or obj.username
+        return f"{obj.user.first_name} {obj.user.last_name}".strip() or obj.user.username
 
     def get_profile_image(self, obj):
         if obj.user_profile and obj.user_profile.profile_image:
@@ -1129,7 +1181,7 @@ class SocialAccountPublicSerializer(serializers.ModelSerializer):
     def get_recent_posts(self, obj):
         prefetched_posts = getattr(obj, 'recent_posts_prefetched', None)
         posts = prefetched_posts if prefetched_posts is not None else obj.posts.order_by('-posted_at',
-                                                                                         '-last_fetched_at')[:10]
+                                                                                         '-last_fetched_at')[:50]
         return SocialMediaPostPublicSerializer(posts, many=True, context=self.context).data
 
 
@@ -1206,7 +1258,7 @@ class InfluencerPublicProfileSerializer(serializers.ModelSerializer):
         if account and getattr(account, 'display_name', ''):
             return account.display_name
         # Fallback to full name or username
-        return f"{obj.user.first_name} {obj.user.last_name}".strip() or obj.username
+        return f"{obj.user.first_name} {obj.user.last_name}".strip() or obj.user.username
 
     def get_external_url(self, obj):
         account = self._get_primary_social_account(obj)
@@ -1339,7 +1391,7 @@ class InfluencerPublicProfileSerializer(serializers.ModelSerializer):
         for account in obj.social_accounts.all():
             account_posts = getattr(account, 'recent_posts_prefetched', None)
             if account_posts is None:
-                account_posts = account.posts.order_by('-posted_at', '-last_fetched_at')[:10]
+                account_posts = account.posts.order_by('-posted_at', '-last_fetched_at')[:50]
             posts.extend(account_posts)
 
         if not posts:
@@ -1351,7 +1403,7 @@ class InfluencerPublicProfileSerializer(serializers.ModelSerializer):
                 timestamp = timezone.now()
             return timestamp
 
-        posts = sorted(posts, key=sort_key, reverse=True)[:10]
+        posts = sorted(posts, key=sort_key, reverse=True)[:50]
         return SocialMediaPostPublicSerializer(posts, many=True, context=self.context).data
 
     def get_engagement_overview(self, obj):

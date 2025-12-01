@@ -30,7 +30,7 @@ class DealAdmin(admin.ModelAdmin):
     search_fields = [
         'campaign__title',
         'campaign__brand__name',
-        'influencer__username',
+        'influencer__user__username',
         'influencer__user__email',
         'tracking_number',
         'tracking_url',
@@ -102,6 +102,6 @@ class DealAdmin(admin.ModelAdmin):
     campaign_title.short_description = 'Campaign'
 
     def influencer_username(self, obj):
-        return obj.influencer.username
+        return obj.influencer.user.username
 
     influencer_username.short_description = 'Influencer'

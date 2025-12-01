@@ -66,7 +66,22 @@ export function ProfileForm({profile}: ProfileFormProps) {
     // Computed values
     const formState = form.formState;
     const watchedValues = form.watch();
-    const requiredFields = ['user.first_name', 'user.last_name', 'user_profile.country_code', 'user_profile.phone_number', 'industry', 'user_profile.country', 'user_profile.state', 'user_profile.city', 'user_profile.zipcode', 'user_profile.address_line1', 'user_profile.address_line2', 'user_profile.gender'];
+    const requiredFields = [
+        'user.first_name',
+        'user.last_name',
+        'user.email',
+        'user_profile.country_code',
+        'user_profile.phone_number',
+        'industry',
+        // Location is now on influencer profile
+        'country',
+        'state',
+        'city',
+        'pincode',
+        'address_line1',
+        'address_line2',
+        'user_profile.gender',
+    ];
 
     const missingFields = useMemo(() => {
         return requiredFields.filter(field => {
@@ -138,18 +153,20 @@ export function ProfileForm({profile}: ProfileFormProps) {
                 // Flatten nested fields for API submission
                 first_name: data.user?.first_name,
                 last_name: data.user?.last_name,
+                email: data.user?.email,
                 country_code: data.user_profile?.country_code,
                 phone_number: data.user_profile?.phone_number,
-                country: data.user_profile?.country,
-                state: data.user_profile?.state,
-                city: data.user_profile?.city,
-                zipcode: data.user_profile?.zipcode,
-                address_line1: data.user_profile?.address_line1,
-                address_line2: data.user_profile?.address_line2,
+                // Influencer location fields
+                country: data.country,
+                state: data.state,
+                city: data.city,
+                zipcode: data.pincode,
+                address_line1: data.address_line1,
+                address_line2: data.address_line2,
                 gender: data.user_profile?.gender,
                 categories: categoryIds,
                 bio: data.bio || '',
-                address: data.user_profile?.address_line1 || '',
+                address: data.address_line1 || '',
             };
             await updateProfile.mutateAsync(submitData as any);
 
@@ -189,15 +206,15 @@ export function ProfileForm({profile}: ProfileFormProps) {
 
     const debouncedPincodeLookup = useCallback(async (pincode: string) => {
         console.log('Pincode lookup triggered:', pincode);
-        const country = form.getValues('user_profile.country');
+        const country = form.getValues('country');
         const countryCode = form.getValues('user_profile.country_code');
         console.log('Current country (for location):', country);
         console.log('Current country_code (for phone):', countryCode);
 
         // Clear previous state and city when pincode changes
         if (pincode.length < 4) {
-            form.setValue('user_profile.state', '');
-            form.setValue('user_profile.city', '');
+            form.setValue('state', '');
+            form.setValue('city', '');
             return;
         }
 
@@ -208,14 +225,14 @@ export function ProfileForm({profile}: ProfileFormProps) {
                 const locationData = await lookupPincode(pincode, country);
                 console.log('Location data received:', locationData);
                 if (locationData) {
-                    form.setValue('user_profile.state', locationData.state);
-                    form.setValue('user_profile.city', locationData.city);
+                    form.setValue('state', locationData.state);
+                    form.setValue('city', locationData.city);
                     console.log('Updated state and city fields');
                     toast.success('Location data updated successfully!');
                 } else {
                     console.log('No location data found for pincode:', pincode);
-                    form.setValue('user_profile.state', '');
-                    form.setValue('user_profile.city', '');
+                    form.setValue('state', '');
+                    form.setValue('city', '');
                     if (pincodeError) {
                         toast.error(pincodeError);
                     } else {
@@ -224,8 +241,8 @@ export function ProfileForm({profile}: ProfileFormProps) {
                 }
             } catch (error) {
                 console.error('Error in pincode lookup:', error);
-                form.setValue('user_profile.state', '');
-                form.setValue('user_profile.city', '');
+                form.setValue('state', '');
+                form.setValue('city', '');
                 toast.error('Failed to lookup pincode');
             }
         } else if (pincode.length >= 4 && !country) {
@@ -492,40 +509,54 @@ export function ProfileForm({profile}: ProfileFormProps) {
                         </CardHeader>
                         <CardContent className="space-y-4">
                             <div className="space-y-2">
-                                <div className="flex items-center gap-2 text-sm font-medium text-gray-700">
-                                    <span>Email Address</span>
-                                    <div className="relative group inline-flex">
-                                        <button
-                                            type="button"
-                                            className="text-gray-400 hover:text-gray-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500 rounded-full p-0.5"
-                                            aria-label="How to change email"
-                                        >
-                                            <HiInformationCircle className="h-4 w-4"/>
-                                        </button>
-                                        <div
-                                            className="pointer-events-auto absolute left-1/2 top-full z-10 mt-2 w-56 -translate-x-1/2 rounded-md bg-gray-900 px-3 py-2 text-xs text-white opacity-0 shadow-lg transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100">
-                                            Need to change your email? Write to{" "}
-                                            <a
-                                                className="underline text-blue-200"
-                                                href="mailto:support@ticktime.media"
-                                            >
-                                                support@ticktime.media
-                                            </a>
-                                            .
-                                        </div>
-                                    </div>
-                                </div>
-                                <div className="flex items-center gap-2 p-3 bg-gray-50 rounded-lg border">
-                                    <span
-                                        className="text-sm text-gray-600">{profile?.user?.email || 'No email set'}</span>
+                                <FormField
+                                    control={form.control}
+                                    name="user.email"
+                                    render={({field}) => (
+                                        <FormItem>
+                                            <FormLabel className="flex items-center gap-2">
+                                                Email Address *
+                                            </FormLabel>
+                                            <FormControl>
+                                                <Input
+                                                    {...field}
+                                                    type="email"
+                                                    disabled={!isEditing}
+                                                    placeholder="Enter your email address"
+                                                />
+                                            </FormControl>
+                                            <FormMessage/>
+                                        </FormItem>
+                                    )}
+                                />
+                                <div className="flex items-center gap-2">
                                     {profile?.email_verified ? (
                                         <Badge className="bg-green-100 text-green-800 text-xs">Verified</Badge>
                                     ) : (
                                         <Badge className="bg-yellow-100 text-yellow-800 text-xs">Unverified</Badge>
                                     )}
+                                    <p className="text-xs text-gray-500">
+                                        Changing your email will require verification again.
+                                    </p>
                                 </div>
-                                <p className="text-xs text-gray-500">Email verification status is managed by the
-                                    system</p>
+
+                                <FormField
+                                    control={form.control}
+                                    name="username"
+                                    render={({field}) => (
+                                        <FormItem>
+                                            <FormLabel>Username</FormLabel>
+                                            <FormControl>
+                                                <Input
+                                                    {...field}
+                                                    disabled={!isEditing}
+                                                    placeholder="Choose a unique username"
+                                                />
+                                            </FormControl>
+                                            <FormMessage/>
+                                        </FormItem>
+                                    )}
+                                />
                             </div>
 
                             <div className="space-y-2">
@@ -658,7 +689,7 @@ export function ProfileForm({profile}: ProfileFormProps) {
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <FormField
                                     control={form.control}
-                                    name="user_profile.country"
+                                    name="country"
                                     render={({field}) => (
                                         <FormItem>
                                             <FormLabel>Country *</FormLabel>
@@ -676,7 +707,7 @@ export function ProfileForm({profile}: ProfileFormProps) {
                                 />
                                 <FormField
                                     control={form.control}
-                                    name="user_profile.state"
+                                    name="state"
                                     render={({field}) => {
                                         return (
                                             <FormItem>
@@ -713,7 +744,7 @@ export function ProfileForm({profile}: ProfileFormProps) {
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <FormField
                                     control={form.control}
-                                    name="user_profile.city"
+                                    name="city"
                                     render={({field}) => {
                                         return (
                                             <FormItem>
@@ -747,7 +778,7 @@ export function ProfileForm({profile}: ProfileFormProps) {
                                 />
                                 <FormField
                                     control={form.control}
-                                    name="user_profile.zipcode"
+                                    name="pincode"
                                     render={({field}) => (
                                         <FormItem>
                                             <FormLabel>Zip/Postal Code *</FormLabel>
@@ -771,7 +802,7 @@ export function ProfileForm({profile}: ProfileFormProps) {
                             <div className="grid grid-cols-1 gap-4">
                                 <FormField
                                     control={form.control}
-                                    name="user_profile.address_line1"
+                                    name="address_line1"
                                     render={({field}) => (
                                         <FormItem>
                                             <FormLabel>Address Line 1 *</FormLabel>
@@ -785,7 +816,7 @@ export function ProfileForm({profile}: ProfileFormProps) {
                                 />
                                 <FormField
                                     control={form.control}
-                                    name="user_profile.address_line2"
+                                    name="address_line2"
                                     render={({field}) => (
                                         <FormItem>
                                             <FormLabel>Address Line 2 *</FormLabel>
