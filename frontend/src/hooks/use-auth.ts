@@ -197,9 +197,9 @@ export function useAuth() {
             authApi.forgotPassword(data),
         onSuccess: (_, variables) => {
             if (variables.phone_number) {
-                toast.success('Password reset WhatsApp sent! Please check your WhatsApp.');
+                toast.success('Password reset OTP sent! Please check your WhatsApp.');
             } else {
-                toast.success('Password reset email sent! Please check your inbox.');
+                toast.success('Password reset OTP sent! Please check your inbox.');
             }
         },
         onError: (error: any) => {
@@ -208,9 +208,27 @@ export function useAuth() {
         },
     });
 
+    const verifyOTPMutation = useMutation({
+        mutationFn: (data: { email?: string; phone_number?: string; country_code?: string; otp: string }) =>
+            authApi.verifyOTP(data),
+        onSuccess: () => {
+            toast.success('OTP verified successfully!');
+        },
+        onError: (error: any) => {
+            const errorMessage = formatErrorMessage(error);
+            toast.error(errorMessage);
+        },
+    });
+
     const resetPasswordMutation = useMutation({
-        mutationFn: ({token, password}: { token: string; password: string }) =>
-            authApi.resetPassword(token, password),
+        mutationFn: (data: {
+            email?: string;
+            phone_number?: string;
+            country_code?: string;
+            otp: string;
+            password: string
+        }) =>
+            authApi.resetPassword(data),
         onSuccess: () => {
             toast.success('Password reset successful! You can now log in with your new password.');
             router.push('/accounts/login');
@@ -259,6 +277,7 @@ export function useAuth() {
         brandSignup: brandSignupMutation,
         logout: logoutMutation,
         forgotPassword: forgotPasswordMutation,
+        verifyOTP: verifyOTPMutation,
         resetPassword: resetPasswordMutation,
         oneTapLogin: oneTapLoginMutation,
     };

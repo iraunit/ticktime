@@ -140,6 +140,94 @@ class WhatsAppRateLimit(models.Model):
         return f"Rate limit for {self.user.username} - {self.message_type}"
 
 
+class PasswordResetOTP(models.Model):
+    """
+    Store password reset OTPs for email and WhatsApp
+    """
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='password_reset_otps')
+    otp_hash = models.CharField(max_length=64, db_index=True)
+    channel = models.CharField(
+        max_length=20,
+        choices=[('email', 'Email'), ('whatsapp', 'WhatsApp')],
+        help_text='Channel through which OTP was sent'
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField()
+    verified_at = models.DateTimeField(null=True, blank=True)
+    verification_attempts = models.IntegerField(default=0, help_text='Number of verification attempts')
+
+    class Meta:
+        db_table = 'password_reset_otps'
+        indexes = [
+            models.Index(fields=['otp_hash']),
+            models.Index(fields=['user']),
+            models.Index(fields=['expires_at']),
+            models.Index(fields=['created_at']),
+        ]
+
+    def __str__(self):
+        return f"OTP for {self.user.username} via {self.channel} - {'Verified' if self.verified_at else 'Active'}"
+
+    @staticmethod
+    def generate_otp():
+        """Generate a 6-digit OTP"""
+        import random
+        return str(random.randint(100000, 999999))
+
+    @staticmethod
+    def hash_otp(otp):
+        """Hash the OTP for storage"""
+        return hashlib.sha256(otp.encode()).hexdigest()
+
+    def is_valid(self):
+        """Check if OTP is still valid"""
+        return not self.verified_at and timezone.now() < self.expires_at
+
+    @classmethod
+    def create_otp(cls, user, channel='email'):
+        """Create a new OTP for password reset"""
+        otp = cls.generate_otp()
+        otp_hash = cls.hash_otp(otp)
+        expires_at = timezone.now() + timedelta(minutes=15)  # 15 minutes expiry
+
+        # Invalidate any existing unverified OTPs for this user
+        cls.objects.filter(
+            user=user,
+            verified_at__isnull=True,
+            expires_at__gt=timezone.now()
+        ).update(verified_at=timezone.now())
+
+        # Create the OTP record
+        otp_obj = cls.objects.create(
+            user=user,
+            otp_hash=otp_hash,
+            channel=channel,
+            expires_at=expires_at
+        )
+
+        return otp, otp_obj
+
+    @classmethod
+    def verify_otp(cls, user, otp):
+        """Verify an OTP for a user"""
+        otp_hash = cls.hash_otp(otp)
+
+        # Find valid unverified OTP
+        otp_obj = cls.objects.filter(
+            user=user,
+            otp_hash=otp_hash,
+            verified_at__isnull=True,
+            expires_at__gt=timezone.now()
+        ).first()
+
+        if otp_obj:
+            otp_obj.verified_at = timezone.now()
+            otp_obj.save()
+            return otp_obj
+
+        return None
+
+
 class CommunicationLog(models.Model):
     """
     Log all communications sent through the system

@@ -5,7 +5,7 @@ import {useForm} from "react-hook-form";
 import {zodResolver} from "@hookform/resolvers/zod";
 import * as z from "zod";
 import Link from "next/link";
-import {ArrowLeft, CheckCircle, Mail, Phone} from "@/lib/icons";
+import {ArrowLeft, Mail, Phone} from "@/lib/icons";
 import {Button} from "@/components/ui/button";
 import {Input} from "@/components/ui/input";
 import {Card, CardContent, CardDescription, CardHeader, CardTitle} from "@/components/ui/card";
@@ -30,11 +30,29 @@ const forgotPasswordSchema = z.object({
     path: ["email"],
 });
 
+const otpSchema = z.object({
+    otp: z.string().length(6, "OTP must be 6 digits").regex(/^\d+$/, "OTP must contain only numbers"),
+});
+
 type ForgotPasswordFormData = z.infer<typeof forgotPasswordSchema>;
+type OTPFormData = z.infer<typeof otpSchema>;
 
 export function ForgotPasswordForm() {
-    const {forgotPassword} = useAuth();
+    const {forgotPassword, verifyOTP} = useAuth();
     const [channel, setChannel] = useState<"email" | "whatsapp">("email");
+    const [showOTPInput, setShowOTPInput] = useState(false);
+    const [submittedData, setSubmittedData] = useState<{
+        email?: string;
+        phone_number?: string;
+        country_code?: string
+    } | null>(null);
+
+    const otpForm = useForm<OTPFormData>({
+        resolver: zodResolver(otpSchema),
+        defaultValues: {
+            otp: "",
+        },
+    });
 
     const form = useForm<ForgotPasswordFormData>({
         resolver: zodResolver(forgotPasswordSchema),
@@ -58,57 +76,154 @@ export function ForgotPasswordForm() {
             }
 
             await forgotPassword.mutateAsync(payload);
+            setSubmittedData(payload);
+            setShowOTPInput(true);
         } catch (error) {
             // Error toast is already handled in the useAuth hook
             console.error('Forgot password failed:', error);
         }
     };
 
-    if (forgotPassword.isSuccess) {
+    const onOTPSubmit = async (data: OTPFormData) => {
+        try {
+            if (!submittedData) return;
+
+            const payload = {
+                ...submittedData,
+                otp: data.otp,
+            };
+
+            await verifyOTP.mutateAsync(payload);
+            // Redirect to reset password page with OTP
+            const params = new URLSearchParams();
+            if (submittedData.email) {
+                params.set('email', submittedData.email);
+            } else {
+                params.set('phone_number', submittedData.phone_number || '');
+                params.set('country_code', submittedData.country_code || '+91');
+            }
+            params.set('otp', data.otp);
+            window.location.href = `/accounts/reset-password?${params.toString()}`;
+        } catch (error) {
+            // Error toast is already handled in the useAuth hook
+            console.error('OTP verification failed:', error);
+        }
+    };
+
+    if (showOTPInput && forgotPassword.isSuccess) {
         const selectedChannel = form.watch("channel");
         const isWhatsApp = selectedChannel === "whatsapp";
 
         return (
             <Card className="w-full max-w-md mx-auto">
                 <CardHeader className="space-y-1 text-center">
-                    <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                        <CheckCircle className="h-8 w-8 text-green-600"/>
-                    </div>
                     <CardTitle className="text-2xl font-bold">
-                        {isWhatsApp ? "Check your WhatsApp" : "Check your email"}
+                        Enter OTP
                     </CardTitle>
                     <CardDescription>
                         {isWhatsApp
-                            ? "We've sent a password reset link to your WhatsApp"
-                            : "We've sent a password reset link to your email address"}
+                            ? "We've sent a 6-digit OTP to your WhatsApp"
+                            : "We've sent a 6-digit OTP to your email address"}
                     </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                    <div className="text-center space-y-4">
-                        <p className="text-sm text-muted-foreground">
+                    {/* Display where OTP was sent */}
+                    <div className="bg-muted/50 rounded-lg p-3 text-center">
+                        <p className="text-sm text-muted-foreground mb-1">OTP sent to:</p>
+                        <p className="text-sm font-medium">
                             {isWhatsApp
-                                ? "If you don't see the message, please check that TickTime is not blocked in your WhatsApp."
-                                : "If you don't see the email in your inbox, please check your spam folder."}
+                                ? `${submittedData?.country_code || '+91'}${submittedData?.phone_number || ''}`
+                                : submittedData?.email || ''}
                         </p>
-                        <div className="space-y-2">
+                    </div>
+
+                    <Form {...otpForm}>
+                        <form onSubmit={otpForm.handleSubmit(onOTPSubmit)} className="space-y-4">
+                            <FormField
+                                control={otpForm.control}
+                                name="otp"
+                                render={({field}) => (
+                                    <FormItem>
+                                        <FormLabel>Enter 6-digit OTP</FormLabel>
+                                        <FormControl>
+                                            <Input
+                                                {...field}
+                                                type="text"
+                                                placeholder="000000"
+                                                maxLength={6}
+                                                className="text-center text-2xl tracking-widest font-mono"
+                                                disabled={verifyOTP.isPending}
+                                                onChange={(e) => {
+                                                    const value = e.target.value.replace(/\D/g, '').slice(0, 6);
+                                                    field.onChange(value);
+                                                }}
+                                            />
+                                        </FormControl>
+                                        <FormMessage/>
+                                    </FormItem>
+                                )}
+                            />
+
+                            {verifyOTP.error && (
+                                <div className="text-sm text-destructive text-center p-3 bg-destructive/10 rounded-md">
+                                    {(verifyOTP.error as any)?.response?.data?.message ||
+                                        (verifyOTP.error as any)?.response?.data?.error ||
+                                        "Invalid OTP. Please try again."}
+                                </div>
+                            )}
+
                             <Button
-                                type="button"
-                                variant="outline"
+                                type="submit"
                                 className="w-full"
-                                onClick={() => {
-                                    forgotPassword.reset();
-                                    form.reset();
-                                }}
+                                disabled={verifyOTP.isPending}
                             >
-                                Send another {isWhatsApp ? "WhatsApp" : "email"}
+                                {verifyOTP.isPending ? (
+                                    <>
+                                        <div className="flex space-x-1 mr-2">
+                                            {[0, 1, 2].map((i) => (
+                                                <div
+                                                    key={i}
+                                                    className="w-1.5 h-1.5 rounded-full bg-white animate-pulse"
+                                                    style={{
+                                                        animationDelay: `${i * 0.2}s`,
+                                                        animationDuration: '1.4s'
+                                                    }}
+                                                />
+                                            ))}
+                                        </div>
+                                        Verifying...
+                                    </>
+                                ) : (
+                                    "Verify OTP"
+                                )}
                             </Button>
-                            <Button asChild className="w-full">
-                                <Link href="/accounts/login">
-                                    <ArrowLeft className="mr-2 h-4 w-4"/>
-                                    Back to sign in
-                                </Link>
-                            </Button>
-                        </div>
+                        </form>
+                    </Form>
+
+                    <div className="text-center space-y-2">
+                        <p className="text-sm text-muted-foreground">
+                            OTP expires in 15 minutes
+                        </p>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            className="w-full"
+                            onClick={() => {
+                                forgotPassword.reset();
+                                verifyOTP.reset();
+                                otpForm.reset();
+                                setShowOTPInput(false);
+                                setSubmittedData(null);
+                            }}
+                        >
+                            Resend OTP
+                        </Button>
+                        <Button asChild variant="ghost" className="w-full">
+                            <Link href="/accounts/login">
+                                <ArrowLeft className="mr-2 h-4 w-4"/>
+                                Back to sign in
+                            </Link>
+                        </Button>
                     </div>
                 </CardContent>
             </Card>
@@ -120,7 +235,7 @@ export function ForgotPasswordForm() {
             <CardHeader className="space-y-1 text-center">
                 <CardTitle className="text-2xl font-bold">Forgot password?</CardTitle>
                 <CardDescription>
-                    Choose how you'd like to receive your password reset link
+                    Choose how you'd like to receive your password reset OTP
                 </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -208,51 +323,51 @@ export function ForgotPasswordForm() {
                                         </AlertDescription>
                                     </Alert>
                                 )}
-                                 <div className="grid grid-cols-3 gap-2">
-                                     <FormField
-                                         control={form.control}
-                                         name="country_code"
-                                         render={({field}) => (
-                                             <FormItem>
-                                                 <FormLabel>Country Code</FormLabel>
-                                                 <FormControl>
-                                                     <UnifiedCountryCodeSelect
-                                                         value={field.value || "+91"}
-                                                         onValueChange={field.onChange}
-                                                         placeholder="Code"
-                                                         showSearch={true}
-                                                         disabled={forgotPassword.isPending}
-                                                         className="h-10"
-                                                     />
-                                                 </FormControl>
-                                                 <FormMessage/>
-                                             </FormItem>
-                                         )}
-                                     />
-                                     <FormField
-                                         control={form.control}
-                                         name="phone_number"
-                                         render={({field}) => (
-                                             <FormItem className="col-span-2">
-                                                 <FormLabel>Phone Number</FormLabel>
-                                                 <FormControl>
-                                                     <div className="relative">
-                                                         <Phone
-                                                             className="absolute left-3 top-3 h-4 w-4 text-muted-foreground"/>
-                                                         <Input
-                                                             {...field}
-                                                             type="tel"
-                                                             placeholder="Enter your phone number"
-                                                             className="pl-10"
-                                                             disabled={forgotPassword.isPending}
-                                                         />
-                                                     </div>
-                                                 </FormControl>
-                                                 <FormMessage/>
-                                             </FormItem>
-                                         )}
-                                     />
-                                 </div>
+                                <div className="grid grid-cols-3 gap-2">
+                                    <FormField
+                                        control={form.control}
+                                        name="country_code"
+                                        render={({field}) => (
+                                            <FormItem>
+                                                <FormLabel>Country Code</FormLabel>
+                                                <FormControl>
+                                                    <UnifiedCountryCodeSelect
+                                                        value={field.value || "+91"}
+                                                        onValueChange={field.onChange}
+                                                        placeholder="Code"
+                                                        showSearch={true}
+                                                        disabled={forgotPassword.isPending}
+                                                        className="h-10"
+                                                    />
+                                                </FormControl>
+                                                <FormMessage/>
+                                            </FormItem>
+                                        )}
+                                    />
+                                    <FormField
+                                        control={form.control}
+                                        name="phone_number"
+                                        render={({field}) => (
+                                            <FormItem className="col-span-2">
+                                                <FormLabel>Phone Number</FormLabel>
+                                                <FormControl>
+                                                    <div className="relative">
+                                                        <Phone
+                                                            className="absolute left-3 top-3 h-4 w-4 text-muted-foreground"/>
+                                                        <Input
+                                                            {...field}
+                                                            type="tel"
+                                                            placeholder="Enter your phone number"
+                                                            className="pl-10"
+                                                            disabled={forgotPassword.isPending}
+                                                        />
+                                                    </div>
+                                                </FormControl>
+                                                <FormMessage/>
+                                            </FormItem>
+                                        )}
+                                    />
+                                </div>
                             </>
                         )}
 
@@ -286,7 +401,7 @@ export function ForgotPasswordForm() {
                                     Sending...
                                 </>
                             ) : (
-                                `Send reset link via ${channel === "email" ? "Email" : "WhatsApp"}`
+                                `Send OTP via ${channel === "email" ? "Email" : "WhatsApp"}`
                             )}
                         </Button>
                     </form>

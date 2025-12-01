@@ -127,23 +127,21 @@ class WhatsAppService:
             logger.error(f"Failed to send verification WhatsApp to {country_code}{phone_number}: {str(e)}")
             return False
 
-    def send_password_reset_whatsapp(
+    def send_password_reset_otp(
             self,
             user,
             phone_number: str,
             country_code: str,
-            reset_url: str,
-            expires_hours: int = 24
+            otp: str
     ) -> bool:
         """
-        Send password reset link via WhatsApp.
+        Send password reset OTP via WhatsApp.
         
         Args:
             user: Django User object
             phone_number: User's phone number (without country code)
             country_code: User's country code
-            reset_url: Password reset URL
-            expires_hours: Hours until reset link expires
+            otp: 6-digit OTP code
             
         Returns:
             True if message was queued successfully
@@ -151,29 +149,29 @@ class WhatsAppService:
         try:
             # Prepare template parameters
             template_parameters = {
-                'reset_url': reset_url,
+                'otp': otp,
                 'user_name': user.get_full_name() or user.username,
-                'expires_hours': expires_hours,
+                'expires_minutes': 15,
             }
 
             message_id = self.queue_whatsapp_message(
                 phone_number=phone_number,
                 country_code=country_code,
-                whatsapp_type='forgot_password',
+                whatsapp_type='forgot_password_otp',
                 template_parameters=template_parameters,
                 metadata={
                     'user_id': user.id,
-                    'trigger_event': 'password_reset',
+                    'trigger_event': 'password_reset_otp',
                     'sender_type': 'system',
                 },
-                priority=8,  # High priority for password reset messages
+                priority=8,  # High priority for password reset OTP messages
                 requires_credits=False
             )
 
             return message_id is not None
 
         except Exception as e:
-            logger.error(f"Failed to queue password reset WhatsApp to {country_code}{phone_number}: {str(e)}")
+            logger.error(f"Failed to queue password reset OTP WhatsApp to {country_code}{phone_number}: {str(e)}")
             return False
 
     def send_campaign_notification(

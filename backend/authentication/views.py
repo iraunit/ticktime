@@ -1,5 +1,4 @@
 import logging
-from urllib.parse import urlencode
 
 from brands.notifications import send_brand_onboarding_discord_notification
 from common.api_response import api_response, format_serializer_errors
@@ -12,11 +11,7 @@ from communications.email_service import get_email_service
 from django.conf import settings
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.models import User
-from django.contrib.auth.tokens import default_token_generator
-from django.core import signing
 from django.middleware.csrf import get_token
-from django.utils.encoding import force_bytes, force_str
-from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -29,6 +24,7 @@ from .serializers import (
     UserLoginSerializer,
     ForgotPasswordSerializer,
     ResetPasswordSerializer,
+    VerifyOTPSerializer,
     BrandRegistrationSerializer,
 )
 
@@ -366,6 +362,7 @@ def forgot_password_view(request):
     """
     Password reset request endpoint.
     Supports both email and phone number (for WhatsApp reset).
+    Sends 6-digit OTP instead of reset links.
     """
     serializer = ForgotPasswordSerializer(data=request.data)
 
@@ -381,7 +378,7 @@ def forgot_password_view(request):
         # Find user by email or phone
         if email:
             user = User.objects.filter(email__iexact=email).first()
-            success_message = 'If an account with that email exists, a password reset link has been sent.'
+            success_message = 'If an account with that email exists, a password reset OTP has been sent.'
             channel = 'email'
         elif phone_number:
             # Find user by phone number
@@ -393,7 +390,7 @@ def forgot_password_view(request):
                 ).select_related('user').first()
                 if user_profile:
                     user = user_profile.user
-                success_message = 'If an account with that phone number exists, a password reset link has been sent via WhatsApp.'
+                success_message = 'If an account with that phone number exists, a password reset OTP has been sent via WhatsApp.'
                 channel = 'whatsapp'
             except Exception as e:
                 logger.error(f"Error finding user by phone: {str(e)}")
@@ -403,28 +400,20 @@ def forgot_password_view(request):
                 f"Password reset requested for non-existent {'email' if email else 'phone'}: {email or phone_number}")
             return api_response(True, result={'message': success_message})
 
-        # Generate password reset token payload
-        token = default_token_generator.make_token(user)
-        uid = urlsafe_base64_encode(force_bytes(user.pk))
-        signed_token = signing.dumps({'uid': uid, 'token': token})
-
-        # Build frontend reset URL with token
-        reset_query = urlencode({'token': signed_token})
-        reset_url = f"{settings.FRONTEND_URL}/accounts/reset-password?{reset_query}"
-
-        # Send password reset via email or WhatsApp
+        # Generate 6-digit OTP
         try:
-            expires_hours = getattr(settings, 'PASSWORD_RESET_TOKEN_EXPIRY_HOURS', 24)
+            from communications.models import PasswordResetOTP
+            otp, otp_obj = PasswordResetOTP.create_otp(user, channel)
 
+            # Send OTP via email or WhatsApp
             if channel == 'email':
                 email_service = get_email_service()
-                sent = email_service.send_password_reset_email(
+                sent = email_service.send_password_reset_otp(
                     user=user,
-                    reset_url=reset_url,
-                    expires_hours=expires_hours
+                    otp=otp
                 )
                 if not sent:
-                    raise RuntimeError('Failed to queue password reset email.')
+                    raise RuntimeError('Failed to queue password reset OTP email.')
             elif channel == 'whatsapp':
                 from communications.whatsapp_service import get_whatsapp_service
                 from communications.utils import check_whatsapp_rate_limit
@@ -439,24 +428,23 @@ def forgot_password_view(request):
                     )
 
                 whatsapp_service = get_whatsapp_service()
-                sent = whatsapp_service.send_password_reset_whatsapp(
+                sent = whatsapp_service.send_password_reset_otp(
                     user=user,
                     phone_number=phone_number,
                     country_code=country_code,
-                    reset_url=reset_url,
-                    expires_hours=expires_hours
+                    otp=otp
                 )
                 if not sent:
-                    raise RuntimeError('Failed to queue password reset WhatsApp message.')
+                    raise RuntimeError('Failed to queue password reset OTP WhatsApp message.')
 
             return api_response(True, result={'message': success_message})
 
         except Exception as e:
             logger.error(
-                f"Failed to send password reset {'email' if channel == 'email' else 'WhatsApp'} to {email or phone_number}: {str(e)}")
+                f"Failed to send password reset OTP via {'email' if channel == 'email' else 'WhatsApp'} to {email or phone_number}: {str(e)}")
             return Response({
                 'status': 'error',
-                'message': f'Failed to send password reset {channel}. Please try again.'
+                'message': f'Failed to send password reset OTP via {channel}. Please try again.'
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     return api_response(False, error=format_serializer_errors(serializer.errors), status_code=400)
@@ -464,60 +452,172 @@ def forgot_password_view(request):
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
+def verify_otp_view(request):
+    """
+    Verify OTP for password reset.
+    Rate limited to 10 attempts per minute per user.
+    """
+    from django.core.cache import cache
+    from common.decorators import get_client_ip
+
+    # IP-based rate limiting (before user lookup to prevent abuse)
+    client_ip = get_client_ip(request)
+    ip_cache_key = f'otp_verify_rate_limit_ip:{client_ip}'
+    ip_attempts = cache.get(ip_cache_key, 0)
+
+    if ip_attempts >= 10:
+        return api_response(
+            False,
+            error='Too many verification attempts. Please try again after a minute.',
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS
+        )
+
+    serializer = VerifyOTPSerializer(data=request.data)
+
+    if not serializer.is_valid():
+        return api_response(False, error=format_serializer_errors(serializer.errors), status_code=400)
+
+    email = (serializer.validated_data.get('email') or '').strip().lower()
+    phone_number = (serializer.validated_data.get('phone_number') or '').strip()
+    country_code = (serializer.validated_data.get('country_code') or '+91').strip()
+    otp = serializer.validated_data['otp']
+
+    user = None
+
+    # Find user by email or phone
+    if email:
+        user = User.objects.filter(email__iexact=email).first()
+    elif phone_number:
+        try:
+            from users.models import UserProfile
+            user_profile = UserProfile.objects.filter(
+                phone_number=phone_number,
+                country_code=country_code
+            ).select_related('user').first()
+            if user_profile:
+                user = user_profile.user
+        except Exception as e:
+            logger.error(f"Error finding user by phone: {str(e)}")
+
+    if not user:
+        # Don't reveal if user exists or not
+        return Response({
+            'status': 'error',
+            'message': 'Invalid OTP or expired.'
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+    # Verify OTP
+    try:
+        from communications.models import PasswordResetOTP
+        from django.utils import timezone
+
+        # Increment IP-based rate limit counter
+        cache.set(ip_cache_key, ip_attempts + 1, 60)  # 60 seconds TTL
+
+        # Rate limit check: 10 verifications per minute per user
+        cache_key = f'otp_verify_rate_limit:{user.id}'
+        attempts = cache.get(cache_key, 0)
+
+        if attempts >= 10:
+            return api_response(
+                False,
+                error='Too many verification attempts. Please try again after a minute.',
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS
+            )
+
+        # Increment user-based attempts counter
+        cache.set(cache_key, attempts + 1, 60)  # 60 seconds TTL
+
+        # Verify OTP
+        otp_obj = PasswordResetOTP.verify_otp(user, otp)
+
+        if otp_obj:
+            # OTP verified successfully
+            return api_response(True, result={
+                'message': 'OTP verified successfully. You can now reset your password.',
+                'verified': True
+            })
+        else:
+            # Invalid or expired OTP
+            return Response({
+                'status': 'error',
+                'message': 'Invalid OTP or expired. Please request a new one.'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+    except Exception as e:
+        logger.error(f"OTP verification failed: {str(e)}")
+        return Response({
+            'status': 'error',
+            'message': 'OTP verification failed. Please try again.'
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
 def reset_password_view(request):
     """
     Password reset confirmation endpoint.
+    Uses OTP instead of token.
     """
     serializer = ResetPasswordSerializer(data=request.data)
 
     if not serializer.is_valid():
         return api_response(False, error=format_serializer_errors(serializer.errors), status_code=400)
 
-    reset_token = serializer.validated_data['token']
+    email = (serializer.validated_data.get('email') or '').strip().lower()
+    phone_number = (serializer.validated_data.get('phone_number') or '').strip()
+    country_code = (serializer.validated_data.get('country_code') or '+91').strip()
+    otp = serializer.validated_data['otp']
     password = serializer.validated_data['password']
 
+    user = None
+
+    # Find user by email or phone
+    if email:
+        user = User.objects.filter(email__iexact=email).first()
+    elif phone_number:
+        try:
+            from users.models import UserProfile
+            user_profile = UserProfile.objects.filter(
+                phone_number=phone_number,
+                country_code=country_code
+            ).select_related('user').first()
+            if user_profile:
+                user = user_profile.user
+        except Exception as e:
+            logger.error(f"Error finding user by phone: {str(e)}")
+
+    if not user:
+        # Don't reveal if user exists or not
+        return Response({
+            'status': 'error',
+            'message': 'Invalid OTP or expired.'
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+    # Verify OTP before resetting password
     try:
-        max_age_seconds = getattr(settings, 'PASSWORD_RESET_TOKEN_MAX_AGE', 60 * 60 * 24)
-        payload = signing.loads(reset_token, max_age=max_age_seconds)
-        uidb64 = payload.get('uid')
-        raw_token = payload.get('token')
-    except signing.SignatureExpired:
+        from communications.models import PasswordResetOTP
+        otp_obj = PasswordResetOTP.verify_otp(user, otp)
+
+        if not otp_obj:
+            return Response({
+                'status': 'error',
+                'message': 'Invalid OTP or expired. Please request a new one.'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        # OTP verified, reset password
+        user.set_password(password)
+        user.save()
+
+        return api_response(True,
+                            result={'message': 'Password reset successful. You can now login with your new password.'})
+
+    except Exception as e:
+        logger.error(f"Password reset failed: {str(e)}")
         return Response({
             'status': 'error',
-            'message': 'This reset link has expired. Please request a new one.'
-        }, status=status.HTTP_400_BAD_REQUEST)
-    except signing.BadSignature:
-        return Response({
-            'status': 'error',
-            'message': 'Invalid reset token.'
-        }, status=status.HTTP_400_BAD_REQUEST)
-
-    if not uidb64 or not raw_token:
-        return Response({
-            'status': 'error',
-            'message': 'Invalid reset token.'
-        }, status=status.HTTP_400_BAD_REQUEST)
-
-    try:
-        user_id = force_str(urlsafe_base64_decode(uidb64))
-        user = User.objects.get(pk=user_id)
-    except (TypeError, ValueError, OverflowError, User.DoesNotExist):
-        return Response({
-            'status': 'error',
-            'message': 'Invalid reset token.'
-        }, status=status.HTTP_400_BAD_REQUEST)
-
-    if not default_token_generator.check_token(user, raw_token):
-        return Response({
-            'status': 'error',
-            'message': 'Invalid or expired reset token.'
-        }, status=status.HTTP_400_BAD_REQUEST)
-
-    user.set_password(password)
-    user.save()
-
-    return api_response(True,
-                        result={'message': 'Password reset successful. You can now login with your new password.'})
+            'message': 'Password reset failed. Please try again.'
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 @api_view(['GET'])

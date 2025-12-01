@@ -381,15 +381,74 @@ class ForgotPasswordSerializer(serializers.Serializer):
         return attrs
 
 
+class VerifyOTPSerializer(serializers.Serializer):
+    """
+    Serializer for OTP verification.
+    """
+    email = serializers.EmailField(required=False, allow_blank=True)
+    phone_number = serializers.CharField(max_length=15, required=False, allow_blank=True)
+    country_code = serializers.CharField(max_length=5, required=False, allow_blank=True, default='+91')
+    otp = serializers.CharField(max_length=6, min_length=6)
+
+    def validate(self, attrs):
+        """Ensure either email or phone_number is provided"""
+        email = attrs.get('email', '').strip()
+        phone_number = attrs.get('phone_number', '').strip()
+        otp = attrs.get('otp', '').strip()
+
+        if not email and not phone_number:
+            raise serializers.ValidationError(
+                "Either email or phone_number must be provided."
+            )
+
+        if email and phone_number:
+            raise serializers.ValidationError(
+                "Please provide either email or phone_number, not both."
+            )
+
+        if not otp or len(otp) != 6 or not otp.isdigit():
+            raise serializers.ValidationError(
+                "OTP must be a 6-digit number."
+            )
+
+        return attrs
+
+
 class ResetPasswordSerializer(serializers.Serializer):
     """
     Serializer for password reset confirmation.
     """
-    token = serializers.CharField()
+    email = serializers.EmailField(required=False, allow_blank=True)
+    phone_number = serializers.CharField(max_length=15, required=False, allow_blank=True)
+    country_code = serializers.CharField(max_length=5, required=False, allow_blank=True, default='+91')
+    otp = serializers.CharField(max_length=6, min_length=6)
     password = serializers.CharField(
         write_only=True,
         validators=[validate_password]
     )
+
+    def validate(self, attrs):
+        """Ensure either email or phone_number is provided"""
+        email = attrs.get('email', '').strip()
+        phone_number = attrs.get('phone_number', '').strip()
+        otp = attrs.get('otp', '').strip()
+
+        if not email and not phone_number:
+            raise serializers.ValidationError(
+                "Either email or phone_number must be provided."
+            )
+
+        if email and phone_number:
+            raise serializers.ValidationError(
+                "Please provide either email or phone_number, not both."
+            )
+
+        if not otp or len(otp) != 6 or not otp.isdigit():
+            raise serializers.ValidationError(
+                "OTP must be a 6-digit number."
+            )
+
+        return attrs
 
 
 class VerifyEmailSerializer(serializers.Serializer):
