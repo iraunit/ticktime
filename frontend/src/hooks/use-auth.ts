@@ -221,6 +221,35 @@ export function useAuth() {
         },
     });
 
+    // One-tap login mutation
+    const oneTapLoginMutation = useMutation({
+        mutationFn: (token: string) => authApi.oneTapLogin(token),
+        onSuccess: async (response) => {
+            // Only show toast and redirect if not already authenticated
+            if (!isAuthenticatedState) {
+                toast.success('Welcome back!');
+                setIsAuthenticatedState(true);
+                queryClient.invalidateQueries({queryKey: ['user']});
+                await refreshUserContext();
+
+                const next = getNextPath();
+                if (next) {
+                    router.push(next);
+                    return;
+                }
+
+                // Redirect based on account type using utility function
+                const user = response?.data?.user;
+                const dashboardRoute = getDashboardRoute(user);
+                router.push(dashboardRoute);
+            }
+        },
+        onError: (error: any) => {
+            const errorMessage = formatErrorMessage(error);
+            toast.error(errorMessage);
+        },
+    });
+
     return {
         isAuthenticated,
         isAuthLoading,
@@ -231,5 +260,6 @@ export function useAuth() {
         logout: logoutMutation,
         forgotPassword: forgotPasswordMutation,
         resetPassword: resetPasswordMutation,
+        oneTapLogin: oneTapLoginMutation,
     };
 }

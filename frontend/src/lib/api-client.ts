@@ -45,6 +45,10 @@ export const authApi = {
     verifyEmail: (token: string) =>
         api.get(`/auth/verify-email/${token}/`),
 
+    // One-tap login using token
+    oneTapLogin: (token: string) =>
+        api.get(`/auth/one-tap-login/${token}/`),
+
     // Check authentication status via profile endpoint
     checkAuth: () => api.get('/auth/profile/'),
 

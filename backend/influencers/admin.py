@@ -264,11 +264,11 @@ class InfluencerProfileAdmin(admin.ModelAdmin):
 
     def download_selected_with_login_links(self, request, queryset):
         """Download selected influencer profiles as CSV with one-tap login links"""
-        # Get the base URL for login links
-        # Use request's scheme and host for proper URL generation
-        scheme = request.scheme  # 'http' or 'https'
-        host = request.get_host()  # e.g., 'localhost:8000' or 'ticktime.media'
-        base_url = f"{scheme}://{host}"
+        from django.conf import settings
+        frontend_url = getattr(settings, 'FRONTEND_URL', 'http://localhost:3000')
+
+        # Remove trailing slash if present
+        frontend_url = frontend_url.rstrip('/')
 
         # Create CSV response
         response = HttpResponse(content_type='text/csv')
@@ -306,7 +306,7 @@ class InfluencerProfileAdmin(admin.ModelAdmin):
             # Generate one-tap login token and link
             try:
                 token, token_obj = OneTapLoginToken.create_token(user)
-                login_link = f"{base_url}/api/auth/one-tap-login/{token}/"
+                login_link = f"{frontend_url}/accounts/login?token={token}"
             except Exception as e:
                 login_link = f"Error generating link: {str(e)}"
 
