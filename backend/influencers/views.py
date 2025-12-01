@@ -153,6 +153,30 @@ def upload_verification_document_view(request):
     if serializer.is_valid():
         serializer.save()
 
+        # Refresh profile to get updated data
+        profile.refresh_from_db()
+
+        # Send Discord notification for admin/tech team review
+        try:
+            from communications.support_channels.discord import send_verification_document_notification
+            influencer_name = profile.user.get_full_name() or profile.user.username or f"Influencer #{profile.id}"
+            document_name = None
+            if profile.aadhar_document:
+                document_name = profile.aadhar_document.name
+            send_verification_document_notification(
+                user_type="influencer",
+                user_id=profile.id,
+                user_name=influencer_name,
+                document_type="verification",
+                gstin=None,  # Influencers don't have GSTIN
+                document_name=document_name,
+            )
+        except Exception as e:
+            # Don't fail the request if Discord notification fails
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Failed to send Discord notification for influencer verification document: {e}")
+
         return Response({
             'status': 'success',
             'message': 'Verification document uploaded successfully.',

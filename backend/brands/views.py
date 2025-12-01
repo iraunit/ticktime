@@ -1765,6 +1765,24 @@ def upload_brand_verification_document_view(request):
             }
         )
 
+        # Send Discord notification for admin/tech team review
+        try:
+            from communications.support_channels.discord import send_verification_document_notification
+            brand_name = brand.name or f"Brand #{brand.id}"
+            send_verification_document_notification(
+                user_type="brand",
+                user_id=brand.id,
+                user_name=brand_name,
+                document_type="verification",
+                gstin=brand.gstin,
+                document_name=document.name,
+            )
+        except Exception as e:
+            # Don't fail the request if Discord notification fails
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Failed to send Discord notification for brand verification document: {e}")
+
         return api_response(
             True,
             result={

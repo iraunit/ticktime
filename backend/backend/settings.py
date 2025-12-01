@@ -78,6 +78,7 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "common.middleware.SecurityHeadersMiddleware",
     "common.middleware.RateLimitMiddleware",
+    "common.middleware.ErrorNotificationMiddleware",
     "communications.middleware.BrandAccountCheckMiddleware",
 ]
 
@@ -166,6 +167,7 @@ REST_FRAMEWORK = {
         "rest_framework.parsers.FileUploadParser",
         "rest_framework.parsers.FormParser",
     ],
+    "EXCEPTION_HANDLER": "common.exception_handler.custom_exception_handler",
 }
 
 # CORS Configuration
@@ -271,6 +273,7 @@ FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:3000")
 DISCORD_SUPPORT_CHANNEL_ID = os.environ.get("SUPPORT_CHANNEL_ID", "")
 DISCORD_SUPPORT_BOT_TOKEN = os.environ.get("SUPPORT_CHANNEL_BOT_TOKEN", "")
 BRANDS_ONBOARDING_CHANNEL_ID = os.environ.get("BRANDS_ONBOARDING_CHANNEL_ID", "")
+SERVER_UPDATES_CHANNEL_ID = os.environ.get("SERVER_UPDATES_CHANNEL_ID", "1444964145823875123")
 
 # Celery Configuration
 REDIS_URL = os.environ.get("REDIS_URL", "redis://localhost:6379/0")

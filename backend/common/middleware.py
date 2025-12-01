@@ -211,3 +211,61 @@ class JWTAuthCookieMiddleware:
             # Never block the request due to middleware
             pass
         return self.get_response(request)
+
+
+class ErrorNotificationMiddleware:
+    """
+    Middleware to catch critical errors for non-DRF views and send Discord notifications.
+    Note: DRF views are handled by the custom exception handler in common.exception_handler.
+    """
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        try:
+            response = self.get_response(request)
+
+            # Check for 500 errors (internal server errors) for non-API endpoints
+            # API endpoints are handled by DRF exception handler
+            if response.status_code == 500 and not request.path.startswith('/api/'):
+                try:
+                    from communications.support_channels.discord import send_critical_error_notification
+
+                    user_id = None
+                    if hasattr(request, 'user') and request.user.is_authenticated:
+                        user_id = request.user.id
+
+                    send_critical_error_notification(
+                        error_type="InternalServerError",
+                        error_message="An internal server error occurred in a non-API view",
+                        request_path=request.path,
+                        user_id=user_id,
+                    )
+                except Exception as e:
+                    # Never let notification errors break the request
+                    logger.error(f"Failed to send error notification to Discord: {e}")
+
+            return response
+        except Exception as exc:
+            # Catch unhandled exceptions in middleware itself
+            try:
+                from communications.support_channels.discord import send_critical_error_notification
+                import traceback as tb
+
+                user_id = None
+                if hasattr(request, 'user') and request.user.is_authenticated:
+                    user_id = request.user.id
+
+                send_critical_error_notification(
+                    error_type=type(exc).__name__,
+                    error_message=str(exc),
+                    request_path=request.path,
+                    user_id=user_id,
+                    traceback=''.join(tb.format_exception(type(exc), exc, exc.__traceback__)),
+                )
+            except Exception as e:
+                logger.error(f"Failed to send error notification to Discord: {e}")
+
+            # Re-raise the exception
+            raise
