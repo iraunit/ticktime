@@ -401,22 +401,9 @@ def toggle_social_account_status_view(request, account_id):
     }, status=status.HTTP_200_OK)
 
 
-def influencer_search_cache_key(request, *args, **kwargs):
-    """Generate a cache key that varies by user and full querystring."""
-    base_key = "view_cache:influencer_search_view"
-    user_part = f"user:{request.user.id}" if request.user.is_authenticated else "anon"
-    query_pairs = []
-    for key, values in sorted(request.GET.lists()):
-        for value in values:
-            query_pairs.append(f"{key}={value}")
-    query_part = "&".join(query_pairs) if query_pairs else "noquery"
-    return f"{base_key}:{user_part}:{query_part}"
-
-
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 @user_rate_limit(requests_per_minute=30)
-@cache_response(timeout=300, key_func=influencer_search_cache_key)
 def influencer_search_view(request):
     """
     Advanced influencer search with comprehensive filtering and platform-specific features.
