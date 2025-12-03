@@ -227,6 +227,22 @@ class PasswordResetOTP(models.Model):
 
         return None
 
+    @classmethod
+    def check_otp(cls, user, otp):
+        """
+        Check if an OTP is valid for a user without consuming it.
+        Used for the initial "verify OTP" step so that the same OTP
+        can still be used shortly after to actually reset the password.
+        """
+        otp_hash = cls.hash_otp(otp)
+
+        return cls.objects.filter(
+            user=user,
+            otp_hash=otp_hash,
+            verified_at__isnull=True,
+            expires_at__gt=timezone.now()
+        ).first()
+
 
 class CommunicationLog(models.Model):
     """

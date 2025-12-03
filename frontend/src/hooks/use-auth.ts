@@ -203,8 +203,18 @@ export function useAuth() {
             }
         },
         onError: (error: any) => {
-            const errorMessage = formatErrorMessage(error);
-            toast.error(errorMessage);
+            const responseData = (error as any)?.response?.data;
+            const retryAfterSeconds = Number(responseData?.retry_after_seconds);
+
+            // If it's a rate limit error with timer, include the time in toast
+            if ((error as any)?.response?.status === 429 && !Number.isNaN(retryAfterSeconds) && retryAfterSeconds > 0) {
+                const minutes = Math.floor(retryAfterSeconds / 60);
+                const seconds = retryAfterSeconds % 60;
+                toast.error(`Too many requests. Please wait ${minutes}m ${seconds}s before trying again.`);
+            } else {
+                const errorMessage = formatErrorMessage(error);
+                toast.error(errorMessage);
+            }
         },
     });
 
@@ -229,9 +239,43 @@ export function useAuth() {
             password: string
         }) =>
             authApi.resetPassword(data),
-        onSuccess: () => {
-            toast.success('Password reset successful! You can now log in with your new password.');
-            router.push('/accounts/login');
+        onSuccess: async (response, variables) => {
+            toast.success('Password reset successful! Signing you in...');
+
+            try {
+                // After password reset, attempt to log in automatically
+                const identifierEmail = variables.email;
+                const identifierPhone = variables.phone_number;
+
+                let loginResponse;
+                if (identifierEmail) {
+                    loginResponse = await authApi.login(identifierEmail, variables.password, true);
+                } else if (identifierPhone) {
+                    // Try to login with phone number
+                    loginResponse = await authApi.login(identifierPhone, variables.password, true);
+                }
+
+                // Refresh auth state
+                setIsAuthenticatedState(true);
+                queryClient.invalidateQueries({queryKey: ['user']});
+                await refreshUserContext();
+
+                const next = getNextPath();
+                if (next) {
+                    router.push(next);
+                    return;
+                }
+
+                // Redirect to appropriate dashboard based on user type
+                const user = loginResponse?.data?.user;
+                const dashboardRoute = getDashboardRoute(user);
+                router.push(dashboardRoute);
+            } catch (error) {
+                console.error('Auto-login after password reset failed:', error);
+                // If auto-login fails, redirect to login page
+                toast.info('Password reset successful. Please log in.');
+                router.push('/accounts/login');
+            }
         },
         onError: (error: any) => {
             const errorMessage = formatErrorMessage(error);
