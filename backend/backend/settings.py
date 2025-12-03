@@ -453,21 +453,11 @@ PERFORMANCE_MONITORING = {
 # Site URL for absolute URL generation
 SITE_URL = os.environ.get("SITE_URL", "http://localhost:8000")
 
-# WhatsApp / Sensy API Configuration
-SENSY_API_KEY = os.environ.get("SENSY_API_KEY", "")
-SENSY_API_URL = os.environ.get("SENSY_API_URL", "https://api.sensy.ai")
-SENSY_API_TIMEOUT = int(os.environ.get("SENSY_API_TIMEOUT", "30"))
-
-# WhatsApp template names mapping (to be configured based on Sensy template names)
-SENSY_TEMPLATE_NAMES = {
-    'verification': os.environ.get("SENSY_TEMPLATE_VERIFICATION", "verification"),
-    'forgot_password': os.environ.get("SENSY_TEMPLATE_FORGOT_PASSWORD", "forgot_password"),
-    'invitation': os.environ.get("SENSY_TEMPLATE_INVITATION", "invitation"),
-    'status_update': os.environ.get("SENSY_TEMPLATE_STATUS_UPDATE", "status_update"),
-    'accepted': os.environ.get("SENSY_TEMPLATE_ACCEPTED", "accepted"),
-    'shipped': os.environ.get("SENSY_TEMPLATE_SHIPPED", "shipped"),
-    'completed': os.environ.get("SENSY_TEMPLATE_COMPLETED", "completed"),
-}
+# WhatsApp Cloud API (Meta / Facebook) configuration
+WHATSAPP_CLOUD_API_PHONE_NUMBER_ID = os.environ.get("WHATSAPP_CLOUD_API_PHONE_NUMBER_ID", "")
+WHATSAPP_CLOUD_API_ACCESS_TOKEN = os.environ.get("WHATSAPP_CLOUD_API_ACCESS_TOKEN", "")
+WHATSAPP_CLOUD_API_VERSION = os.environ.get("WHATSAPP_CLOUD_API_VERSION", "v22.0")
+WHATSAPP_CLOUD_API_BASE_URL = os.environ.get("WHATSAPP_CLOUD_API_BASE_URL", "https://graph.facebook.com")
 
 # WhatsApp rate limiting
 WHATSAPP_RATE_LIMIT_VERIFICATION_PER_MIN = int(os.environ.get("WHATSAPP_RATE_LIMIT_VERIFICATION_PER_MIN", "1"))

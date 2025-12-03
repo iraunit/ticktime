@@ -1,5 +1,5 @@
 import logging
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 
 from django.conf import settings
 
@@ -7,6 +7,41 @@ from .models import PhoneVerificationToken
 from .rabbitmq_service import get_rabbitmq_service
 
 logger = logging.getLogger(__name__)
+
+# WhatsApp Cloud API template configuration.
+# Template *names* are defined here in code, as requested.
+WHATSAPP_TEMPLATE_CONFIG = {
+    # Auth / verification
+    "verification": {
+        "template_name": "phone_verification",
+        "language_code": "en",
+    },
+    "forgot_password_otp": {
+        "template_name": "password_recovery",
+        "language_code": "en_US",
+    },
+    # Marketing / campaign notifications
+    "invitation": {
+        "template_name": "campaign_invitation",
+        "language_code": "en",
+    },
+    "status_update": {
+        "template_name": "campaign_status_update",
+        "language_code": "en",
+    },
+    "accepted": {
+        "template_name": "campaign_accepted",
+        "language_code": "en",
+    },
+    "shipped": {
+        "template_name": "campaign_shipped",
+        "language_code": "en",
+    },
+    "completed": {
+        "template_name": "campaign_completed",
+        "language_code": "en",
+    },
+}
 
 
 class WhatsAppService:
@@ -19,58 +54,62 @@ class WhatsAppService:
         self.whatsapp_queue = getattr(settings, 'RABBITMQ_WHATSAPP_QUEUE', 'whatsapp_notifications')
         self.frontend_url = getattr(settings, 'FRONTEND_URL', 'http://localhost:3000')
 
-    def queue_whatsapp_message(
+    def _get_template_config(self, whatsapp_type: str) -> Dict[str, Any]:
+        """
+        Resolve template configuration for a logical WhatsApp type.
+        """
+        # Fallback: use the type as template name if not configured
+        base = WHATSAPP_TEMPLATE_CONFIG.get(whatsapp_type, {})
+        template_name = base.get("template_name", whatsapp_type)
+        language_code = base.get("language_code", "en")
+        return {"template_name": template_name, "language_code": language_code}
+
+    def _queue_whatsapp_template(
             self,
+            *,
             phone_number: str,
             country_code: str,
             whatsapp_type: str,
-            template_parameters: Dict[str, Any],
+            template_name: str,
+            language_code: str,
+            components: Optional[List[Dict[str, Any]]] = None,
             metadata: Optional[Dict[str, Any]] = None,
             priority: int = 5,
-            requires_credits: bool = False
+            requires_credits: bool = False,
     ) -> Optional[str]:
         """
-        Queue a WhatsApp message to be sent by the background worker
-        
-        Args:
-            phone_number: Recipient phone number (without country code)
-            country_code: Country code (e.g., +91, +1)
-            whatsapp_type: Type of message (verification, forgot_password, invitation, etc.)
-            template_parameters: Parameters for the WhatsApp template
-            metadata: Additional metadata (user_id, brand_id, sender_type, sender_id, etc.)
-            priority: Message priority (0-9)
-            requires_credits: Whether this message requires brand credits
-            
-        Returns:
-            message_id if successful, None otherwise
+        Queue a WhatsApp template message to be sent by the background worker.
+
+        This single internal function is used for all auth, utility and
+        marketing templates.
         """
         try:
-            # Get template name from settings
-            template_names = getattr(settings, 'SENSY_TEMPLATE_NAMES', {})
-            template_name = template_names.get(whatsapp_type, whatsapp_type)
-
             message_data = {
-                'message_type': 'whatsapp',
-                'whatsapp_type': whatsapp_type,
-                'channel_data': {
-                    'phone_number': phone_number,
-                    'country_code': country_code,
-                    'template_name': template_name,
-                    'parameters': template_parameters,
+                "message_type": "whatsapp",
+                "whatsapp_type": whatsapp_type,
+                "channel_data": {
+                    "phone_number": phone_number,
+                    "country_code": country_code,
+                    "template_name": template_name,
+                    "template_language_code": language_code,
+                    "template_components": components or [],
                 },
-                'metadata': metadata or {},
-                'priority': priority,
-                'requires_credits': requires_credits,
+                "metadata": metadata or {},
+                "priority": priority,
+                "requires_credits": requires_credits,
             }
 
             message_id = self.rabbitmq.publish_message(
                 queue_name=self.whatsapp_queue,
                 message_data=message_data,
-                priority=priority
+                priority=priority,
             )
 
             if message_id:
-                logger.info(f"WhatsApp message queued successfully: {message_id} to {country_code}{phone_number}")
+                logger.info(
+                    f"WhatsApp message queued successfully: {message_id} "
+                    f"to {country_code}{phone_number} using template '{template_name}'"
+                )
             else:
                 logger.error(f"Failed to queue WhatsApp message to {country_code}{phone_number}")
 
@@ -99,26 +138,36 @@ class WhatsAppService:
             # Build verification URL
             verification_url = f"{self.frontend_url}/verify-phone/{token}"
 
-            # Prepare template parameters
-            template_parameters = {
-                'verification_url': verification_url,
-                'user_name': user.get_full_name() or user.username,
-                'expires_hours': 24,
-            }
+            # Resolve template config
+            cfg = self._get_template_config("verification")
+
+            # Components for verification template:
+            # Adjust the order/count to match your WhatsApp template definition.
+            components: List[Dict[str, Any]] = [
+                {
+                    "type": "body",
+                    "parameters": [
+                        {"type": "text", "text": user.get_full_name() or user.username},
+                        {"type": "text", "text": verification_url},
+                    ],
+                },
+            ]
 
             # Queue WhatsApp message
-            message_id = self.queue_whatsapp_message(
+            message_id = self._queue_whatsapp_template(
                 phone_number=phone_number,
                 country_code=country_code,
-                whatsapp_type='verification',
-                template_parameters=template_parameters,
+                whatsapp_type="verification",
+                template_name=cfg["template_name"],
+                language_code=cfg["language_code"],
+                components=components,
                 metadata={
-                    'user_id': user.id,
-                    'trigger_event': 'phone_verification',
-                    'sender_type': 'system',
+                    "user_id": user.id,
+                    "trigger_event": "phone_verification",
+                    "sender_type": "system",
                 },
                 priority=8,  # High priority for verification messages
-                requires_credits=False
+                requires_credits=False,
             )
 
             return message_id is not None
@@ -147,25 +196,46 @@ class WhatsAppService:
             True if message was queued successfully
         """
         try:
-            # Prepare template parameters
-            template_parameters = {
-                'otp': otp,
-                'user_name': user.get_full_name() or user.username,
-                'expires_minutes': 15,
-            }
+            # Resolve template config
+            cfg = self._get_template_config("forgot_password_otp")
 
-            message_id = self.queue_whatsapp_message(
+            # Example components for password reset OTP template:
+            # The user shared a sample payload with a BODY param (OTP)
+            # and a BUTTON param. Here we at least send the OTP in the body.
+            components: List[Dict[str, Any]] = [
+                {
+                    "type": "body",
+                    "parameters": [
+                        {"type": "text", "text": otp},
+                    ],
+                },
+                {
+                    "type": "button",
+                    "sub_type": "url",
+                    "index": 0,
+                    "parameters": [
+                        {
+                            "type": "text",
+                            "text": otp
+                        }
+                    ]
+                }
+            ]
+
+            message_id = self._queue_whatsapp_template(
                 phone_number=phone_number,
                 country_code=country_code,
-                whatsapp_type='forgot_password_otp',
-                template_parameters=template_parameters,
+                whatsapp_type="forgot_password_otp",
+                template_name=cfg["template_name"],
+                language_code=cfg["language_code"],
+                components=components,
                 metadata={
-                    'user_id': user.id,
-                    'trigger_event': 'password_reset_otp',
-                    'sender_type': 'system',
+                    "user_id": user.id,
+                    "trigger_event": "password_reset_otp",
+                    "sender_type": "system",
                 },
                 priority=8,  # High priority for password reset OTP messages
-                requires_credits=False
+                requires_credits=False,
             )
 
             return message_id is not None
@@ -206,53 +276,50 @@ class WhatsAppService:
         try:
             user = influencer.user
 
-            # Map notification types to template parameters
+            # Map notification types to logical template keys
             notification_config = {
-                'invitation': {
-                    'template_type': 'invitation',
-                },
-                'status_update': {
-                    'template_type': 'status_update',
-                },
-                'accepted': {
-                    'template_type': 'accepted',
-                },
-                'shipped': {
-                    'template_type': 'shipped',
-                },
-                'completed': {
-                    'template_type': 'completed',
-                },
+                "invitation": "invitation",
+                "status_update": "status_update",
+                "accepted": "accepted",
+                "shipped": "shipped",
+                "completed": "completed",
             }
 
-            config = notification_config.get(notification_type, notification_config['status_update'])
+            template_key = notification_config.get(notification_type, "status_update")
+            cfg = self._get_template_config(template_key)
 
-            # Prepare template parameters
-            template_parameters = {
-                'user_name': user.get_full_name() or user.username,
-                'campaign_title': campaign.title,
-                'brand_name': campaign.brand.name,
-                'custom_message': custom_message,
-                'campaign_url': f"{self.frontend_url}/influencer/campaigns/{campaign.id}",
-                'deal_url': f"{self.frontend_url}/influencer/deals/{deal.id}",
-            }
+            # Components for campaign notifications.
+            # Adjust to match your WhatsApp template placeholders.
+            components: List[Dict[str, Any]] = [
+                {
+                    "type": "body",
+                    "parameters": [
+                        {"type": "text", "text": user.get_full_name() or user.username},
+                        {"type": "text", "text": campaign.title},
+                        {"type": "text", "text": campaign.brand.name},
+                        {"type": "text", "text": custom_message or ""},
+                    ],
+                },
+            ]
 
             # Queue WhatsApp message
-            message_id = self.queue_whatsapp_message(
+            message_id = self._queue_whatsapp_template(
                 phone_number=phone_number,
                 country_code=country_code,
-                whatsapp_type=config['template_type'],
-                template_parameters=template_parameters,
+                whatsapp_type=template_key,
+                template_name=cfg["template_name"],
+                language_code=cfg["language_code"],
+                components=components,
                 metadata={
-                    'user_id': user.id,
-                    'campaign_id': campaign.id,
-                    'deal_id': deal.id,
-                    'trigger_event': f'campaign_{notification_type}',
-                    'sender_type': sender_type,
-                    'sender_id': sender_id,
+                    "user_id": user.id,
+                    "campaign_id": campaign.id,
+                    "deal_id": deal.id,
+                    "trigger_event": f"campaign_{notification_type}",
+                    "sender_type": sender_type,
+                    "sender_id": sender_id,
                 },
                 priority=6,  # Medium-high priority for campaign notifications
-                requires_credits=True
+                requires_credits=True,
             )
 
             return message_id is not None

@@ -8,8 +8,8 @@ import time
 import pika
 from brands.models import Brand
 from communications.models import CommunicationLog
-from communications.sensy_client import get_sensy_client
 from communications.utils import check_whatsapp_rate_limit, check_brand_credits, deduct_brand_credits
+from communications.whatsapp_cloud_client import get_whatsapp_cloud_client
 from django.contrib.auth.models import User
 from django.core.management.base import BaseCommand
 from django.utils import timezone
@@ -32,9 +32,9 @@ class WhatsAppWorker:
         self.vhost = os.environ.get('RABBITMQ_VHOST', '/')
         self.queue_name = os.environ.get('RABBITMQ_WHATSAPP_QUEUE', 'whatsapp_notifications')
 
-        self.sensy_client = get_sensy_client()
+        self.whatsapp_client = get_whatsapp_cloud_client()
 
-        logger.info(f"Sensy client initialized")
+        logger.info("WhatsApp Cloud API client initialized")
 
     def connect_rabbitmq(self):
         """Establish connection to RabbitMQ"""
@@ -85,7 +85,8 @@ class WhatsAppWorker:
             phone_number = channel_data.get('phone_number')
             country_code = channel_data.get('country_code')
             template_name = channel_data.get('template_name')
-            template_parameters = channel_data.get('parameters', {})
+            language_code = channel_data.get('template_language_code', 'en')
+            template_components = channel_data.get('template_components', [])
 
             # Validate required fields
             if not all([phone_number, country_code, template_name]):
@@ -94,7 +95,7 @@ class WhatsAppWorker:
                 return
 
             # Validate phone number
-            if not self.sensy_client.validate_phone_number(phone_number, country_code):
+            if not self.whatsapp_client.validate_phone_number(phone_number, country_code):
                 logger.error(f"Message {message_id} has invalid phone number: {country_code}{phone_number}")
                 ch.basic_ack(delivery_tag=method.delivery_tag)
                 return
@@ -185,12 +186,12 @@ class WhatsAppWorker:
             # Attempt to send WhatsApp message with retries
             max_retries = 3
             for attempt in range(max_retries):
-                success, error = self.sensy_client.send_template_message(
-                    phone_number=phone_number,
-                    country_code=country_code,
+                full_phone = f"{country_code}{phone_number}"
+                success, error = self.whatsapp_client.send_template_message(
+                    full_phone=full_phone,
                     template_name=template_name,
-                    parameters=template_parameters,
-                    message_type=whatsapp_type
+                    language_code=language_code,
+                    components=template_components,
                 )
 
                 if success:
