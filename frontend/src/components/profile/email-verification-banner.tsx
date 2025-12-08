@@ -34,7 +34,8 @@ export function EmailVerificationBanner({emailVerified}: EmailVerificationBanner
                     </h3>
                     <p className="text-sm text-yellow-800 mb-3">
                         Please verify your email address to unlock all features and start receiving campaign
-                        notifications.
+                        notifications.{' '}
+                        <span className="text-red-600 font-medium">Unverified emails won't receive any campaign updates or notifications.</span>
                     </p>
 
                     {canResend ? (
