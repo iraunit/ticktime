@@ -1,5 +1,6 @@
 import logging
 from typing import Optional, Dict, Any, List
+from urllib.parse import urlparse
 
 from django.conf import settings
 
@@ -144,24 +145,34 @@ class WhatsAppService:
             # Resolve template config
             cfg = self._get_template_config("verification")
 
-            # Components for phone_verification template:
-            # Body parameter: {{1}} = User name
-            # Button parameter: {{1}} = Verification URL
+            parsed_url = urlparse(verification_url.strip())
+            url_suffix = parsed_url.path
+            if parsed_url.query:
+                url_suffix = f"{url_suffix}?{parsed_url.query}"
+
+            if not url_suffix or url_suffix == "/":
+                logger.error(f"URL suffix is empty after parsing verification_url: {verification_url}")
+                return False
+
             components: List[Dict[str, Any]] = [
                 {
                     "type": "body",
                     "parameters": [
-                        {"type": "text", "text": user_name.strip()},
+                        {
+                            "parameter_name": "name",
+                            "type": "text",
+                            "text": user_name.strip(),
+                        },
                     ],
                 },
                 {
                     "type": "button",
                     "sub_type": "url",
-                    "index": 0,
+                    "index": "0",
                     "parameters": [
                         {
                             "type": "text",
-                            "text": verification_url.strip(),
+                            "text": url_suffix,
                         },
                     ],
                 },
