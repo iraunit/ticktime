@@ -27,25 +27,24 @@ export default function VerifyPhonePage() {
         const verifyPhone = async () => {
             try {
                 const response = await communicationApi.verifyPhone(token);
-                if (response.data?.success) {
-                    setStatus('success');
-                    setMessage(response.data?.message || 'Phone verified successfully!');
-                } else {
-                    setStatus('error');
-                    setMessage(response.data?.error || 'Failed to verify phone number');
-                }
+                setStatus('success');
+                setMessage(response.data?.message || 'Phone verified successfully!');
+
+                setTimeout(() => {
+                    router.push('/influencer/dashboard');
+                }, 2000);
             } catch (error: any) {
                 setStatus('error');
                 setMessage(
                     error.response?.data?.error ||
                     error.message ||
-                    'An error occurred while verifying your phone number'
+                    'The verification link may have expired or is invalid.'
                 );
             }
         };
 
         verifyPhone();
-    }, [token]);
+    }, [token, router]);
 
     return (
         <MainLayout showFooter={false}>
@@ -96,11 +95,12 @@ export default function VerifyPhonePage() {
                                 <p className="text-sm text-muted-foreground">
                                     You can now receive important notifications via WhatsApp.
                                 </p>
-                                <Button asChild className="w-full">
-                                    <Link href="/influencer/dashboard">
-                                        Go to Dashboard
-                                        <ArrowRight className="ml-2 h-4 w-4"/>
-                                    </Link>
+                                <p className="text-xs text-muted-foreground">
+                                    Redirecting to dashboard...
+                                </p>
+                                <Button onClick={() => router.push('/influencer/dashboard')} className="w-full">
+                                    Go to Dashboard
+                                    <ArrowRight className="ml-2 h-4 w-4"/>
                                 </Button>
                             </div>
                         )}
