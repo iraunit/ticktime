@@ -215,6 +215,13 @@ class EmailService:
         try:
             user = influencer.user
 
+            if not hasattr(user, 'user_profile') or not user.user_profile.email_verified:
+                logger.warning(
+                    f"Skipping campaign notification email to {user.email} - email not verified. "
+                    f"Campaign: {campaign.title}, Deal: {deal.id}"
+                )
+                return False
+
             # Map notification types to templates and subjects
             notification_config = {
                 'invitation': {
