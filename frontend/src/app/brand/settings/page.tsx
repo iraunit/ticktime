@@ -10,6 +10,7 @@ import {Tabs, TabsContent, TabsList, TabsTrigger} from "@/components/ui/tabs";
 import {Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger} from "@/components/ui/dialog";
 import {Textarea} from "@/components/ui/textarea";
 import {
+    HiCheckCircle,
     HiCog6Tooth,
     HiDocumentText,
     HiEye,
@@ -17,7 +18,8 @@ import {
     HiShieldCheck,
     HiStar,
     HiTrash,
-    HiUserPlus
+    HiUserPlus,
+    HiXCircle
 } from "react-icons/hi2";
 import {api} from "@/lib/api";
 import {toast} from "@/lib/toast";
@@ -1404,8 +1406,20 @@ export default function BrandSettingsPage() {
                                 <label className="block text-sm font-medium text-gray-700 mb-2">
                                     Email Address (Read-only)
                                 </label>
-                                <div className="p-3 bg-gray-50 rounded-md border">
+                                <div className="p-3 bg-gray-50 rounded-md border flex items-center justify-between">
                                     <span className="text-gray-900">{currentUser?.email || 'Not set'}</span>
+                                    {currentUser?.email_verified ? (
+                                        <Badge variant="default"
+                                               className="bg-green-100 text-green-800 hover:bg-green-100">
+                                            <HiCheckCircle className="w-3 h-3 mr-1"/>
+                                            Verified
+                                        </Badge>
+                                    ) : (
+                                        <Badge variant="outline" className="border-orange-300 text-orange-700">
+                                            <HiXCircle className="w-3 h-3 mr-1"/>
+                                            Not Verified
+                                        </Badge>
+                                    )}
                                 </div>
                                 <p className="text-xs text-gray-500 mt-1">
                                     Email address cannot be changed for security reasons
@@ -1418,30 +1432,51 @@ export default function BrandSettingsPage() {
                                         Phone Number
                                     </label>
                                     {isEditingProfile ? (
-                                        <div className="flex gap-2">
-                                            <Select value={userCountryCode} onValueChange={setUserCountryCode}>
-                                                <SelectTrigger className="w-24">
-                                                    <SelectValue/>
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    <SelectItem value="+1">+1</SelectItem>
-                                                    <SelectItem value="+44">+44</SelectItem>
-                                                    <SelectItem value="+91">+91</SelectItem>
-                                                    <SelectItem value="+61">+61</SelectItem>
-                                                    <SelectItem value="+86">+86</SelectItem>
-                                                </SelectContent>
-                                            </Select>
-                                            <Input
-                                                value={userPhoneNumber}
-                                                onChange={(e) => setUserPhoneNumber(e.target.value)}
-                                                placeholder="Phone number"
-                                            />
+                                        <div className="space-y-2">
+                                            <div className="flex gap-2">
+                                                <Select value={userCountryCode} onValueChange={setUserCountryCode}>
+                                                    <SelectTrigger className="w-24">
+                                                        <SelectValue/>
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectItem value="+1">+1</SelectItem>
+                                                        <SelectItem value="+44">+44</SelectItem>
+                                                        <SelectItem value="+91">+91</SelectItem>
+                                                        <SelectItem value="+61">+61</SelectItem>
+                                                        <SelectItem value="+86">+86</SelectItem>
+                                                    </SelectContent>
+                                                </Select>
+                                                <Input
+                                                    value={userPhoneNumber}
+                                                    onChange={(e) => setUserPhoneNumber(e.target.value)}
+                                                    placeholder="Phone number"
+                                                />
+                                            </div>
+                                            <p className="text-xs text-orange-600">
+                                                Changing your phone number will require re-verification
+                                            </p>
                                         </div>
                                     ) : (
-                                        <div className="p-3 bg-gray-50 rounded-md border">
-                        <span className="text-gray-900">
-                          {currentUser?.phone_number ? `${currentUser.country_code} ${currentUser.phone_number}` : 'Not set'}
-                        </span>
+                                        <div
+                                            className="p-3 bg-gray-50 rounded-md border flex items-center justify-between">
+                                            <span className="text-gray-900">
+                                                {currentUser?.phone_number ? `${currentUser.country_code} ${currentUser.phone_number}` : 'Not set'}
+                                            </span>
+                                            {currentUser?.phone_number && (
+                                                currentUser?.phone_verified ? (
+                                                    <Badge variant="default"
+                                                           className="bg-green-100 text-green-800 hover:bg-green-100">
+                                                        <HiCheckCircle className="w-3 h-3 mr-1"/>
+                                                        Verified
+                                                    </Badge>
+                                                ) : (
+                                                    <Badge variant="outline"
+                                                           className="border-orange-300 text-orange-700">
+                                                        <HiXCircle className="w-3 h-3 mr-1"/>
+                                                        Not Verified
+                                                    </Badge>
+                                                )
+                                            )}
                                         </div>
                                     )}
                                 </div>
