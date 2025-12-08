@@ -296,56 +296,91 @@ class BrandRegistrationSerializer(serializers.Serializer):
 class UserLoginSerializer(serializers.Serializer):
     """
     Serializer for user login authentication with automatic account type detection.
+    Accepts either email or phone number for the identifier to support both flows.
     """
-    email = serializers.EmailField()
+    # Keep backward compatibility: if old clients still send `email`, we map it internally
+    identifier = serializers.CharField()
+    email = serializers.CharField(required=False, allow_blank=True, write_only=True)
+    country_code = serializers.CharField(max_length=5, required=False, allow_blank=True, default='+91')
     password = serializers.CharField(write_only=True)
     remember_me = serializers.BooleanField(default=False)
 
+    def _authenticate_by_email(self, email: str, password: str):
+        """Authenticate using email; fall back to username mapped from email."""
+        email = email.strip().lower()
+        user = authenticate(username=email, password=password)
+
+        if not user:
+            try:
+                user_obj = User.objects.get(email__iexact=email)
+                user = authenticate(username=user_obj.username, password=password)
+            except User.DoesNotExist:
+                pass
+
+        return user
+
+    def _authenticate_by_phone(self, phone: str, country_code: str, password: str):
+        """Authenticate using phone number stored on the user profile."""
+        from users.models import UserProfile
+
+        normalized_digits = re.sub(r'\D', '', phone)
+        if len(normalized_digits) < 7 or len(normalized_digits) > 15:
+            raise serializers.ValidationError('Please enter a valid phone number.')
+
+        # Build candidate phone formats to maximize matching flexibility
+        candidates = [phone.strip(), normalized_digits]
+
+        cc = (country_code or '').strip()
+        if cc:
+            if not cc.startswith('+'):
+                cc = f'+{cc}'
+            candidates.append(f'{cc}{normalized_digits}')
+
+        profile = UserProfile.objects.filter(phone_number__in=candidates).first()
+        if not profile:
+            raise serializers.ValidationError('Unable to log in with provided credentials.')
+
+        user = authenticate(username=profile.user.username, password=password)
+        return user
+
     def validate(self, attrs):
-        email = attrs.get('email')
+        identifier = attrs.get('identifier') or attrs.get('email')
         password = attrs.get('password')
+        country_code = attrs.get('country_code') or '+91'
 
-        if email and password:
-            email = email.strip().lower()
-            attrs['email'] = email
-            # Try to authenticate with email first (for brands and some users)
-            user = authenticate(username=email, password=password)
+        if not identifier or not password:
+            raise serializers.ValidationError('Must include "email/phone" and "password".')
 
-            # If that fails, try to find user by email and authenticate with their username
-            if not user:
-                try:
-                    user_obj = User.objects.get(email__iexact=email)
-                    user = authenticate(username=user_obj.username, password=password)
-                except User.DoesNotExist:
-                    pass
+        identifier = identifier.strip()
+        attrs['identifier'] = identifier
 
-            if not user:
-                raise serializers.ValidationError(
-                    'Unable to log in with provided credentials.'
-                )
+        if '@' in identifier:
+            user = self._authenticate_by_email(identifier, password)
+        else:
+            user = self._authenticate_by_phone(identifier, country_code, password)
 
-            if not user.is_active:
-                raise serializers.ValidationError(
-                    'User account is disabled.'
-                )
+        if not user:
+            raise serializers.ValidationError('Unable to log in with provided credentials.')
 
-            # Automatically detect account type
-            if hasattr(user, 'influencer_profile'):
-                account_type = 'influencer'
-            elif hasattr(user, 'brand_user'):
-                account_type = 'brand'
-            else:
-                raise serializers.ValidationError(
-                    'This account is not properly configured. Please contact support.'
-                )
+        if not user.is_active:
+            raise serializers.ValidationError('User account is disabled.')
 
-            attrs['user'] = user
-            attrs['account_type'] = account_type
-            return attrs
+        # Automatically detect account type
+        if hasattr(user, 'influencer_profile'):
+            account_type = 'influencer'
+        elif hasattr(user, 'brand_user'):
+            account_type = 'brand'
         else:
             raise serializers.ValidationError(
-                'Must include "email" and "password".'
+                'This account is not properly configured. Please contact support.'
             )
+
+        attrs['user'] = user
+        attrs['account_type'] = account_type
+        # Preserve normalized email for downstream use when applicable
+        if '@' in identifier:
+            attrs['email'] = identifier.lower()
+        return attrs
 
 
 class ForgotPasswordSerializer(serializers.Serializer):

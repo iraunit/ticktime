@@ -115,8 +115,9 @@ class WhatsAppWorker:
                 except User.DoesNotExist:
                     logger.warning(f"User {user_id} not found for message {message_id}")
 
-            # Check rate limits (for verification and password reset messages)
-            if user and whatsapp_type in ['verification', 'forgot_password']:
+            # Check rate limits only for password reset messages (forgot_password).
+            # Phone verification is handled separately and should not be blocked here.
+            if user and whatsapp_type == 'forgot_password':
                 allowed, error_msg, time_until_next = check_whatsapp_rate_limit(user, whatsapp_type)
                 if not allowed:
                     logger.warning(f"Rate limit exceeded for message {message_id}: {error_msg}")

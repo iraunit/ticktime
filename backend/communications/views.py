@@ -10,7 +10,7 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 
 from .decorators import rate_limit, require_verified_brand
 from .email_service import get_email_service
-from .models import EmailVerificationToken, PhoneVerificationToken
+from .models import EmailVerificationToken, PhoneVerificationOTP, PhoneVerificationToken
 from .serializers import (
     SendCampaignNotificationSerializer,
     SendWhatsAppNotificationSerializer,
@@ -85,33 +85,141 @@ def send_phone_verification(request):
             status_code=status.HTTP_400_BAD_REQUEST
         )
 
-    # Check rate limit
-    allowed, error_msg, time_until_next = check_whatsapp_rate_limit(user, 'verification')
-    if not allowed:
-        return api_response(
-            False,
-            error=error_msg,
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS
+    # Generate verification token for phone verification
+    try:
+        from .models import PhoneVerificationToken
+        token, token_obj = PhoneVerificationToken.create_token(user)
+
+        # Get WhatsApp service to use its frontend_url
+        whatsapp_service = get_whatsapp_service()
+
+        # Validate frontend URL is configured
+        if not whatsapp_service.frontend_url or not whatsapp_service.frontend_url.strip():
+            logger.error("FRONTEND_URL is not configured in settings")
+            return api_response(
+                False,
+                error='Server configuration error. Please contact support.',
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+        # Build verification URL using frontend URL (not backend)
+        verification_url = f"{whatsapp_service.frontend_url.rstrip('/')}/verify-phone/{token}"
+
+        # Validate verification URL is not empty
+        if not verification_url or not verification_url.strip():
+            logger.error(f"Failed to build verification URL for user {user.id}")
+            return api_response(
+                False,
+                error='Failed to generate verification link. Please try again later.',
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+        # Send verification WhatsApp with link
+        success = whatsapp_service.send_verification_whatsapp(
+            user=user,
+            phone_number=user.user_profile.phone_number,
+            country_code=user.user_profile.country_code,
+            verification_url=verification_url
         )
 
-    # Send verification WhatsApp
-    whatsapp_service = get_whatsapp_service()
-    success = whatsapp_service.send_verification_whatsapp(
-        user=user,
-        phone_number=user.user_profile.phone_number,
-        country_code=user.user_profile.country_code
-    )
+        if success:
+            # Only increment rate limit counter AFTER successful send
+            check_whatsapp_rate_limit(user, 'verification', increment=True)
+            
+            return api_response(
+                True,
+                result={
+                    'message': 'Verification link sent to your WhatsApp. Please check your WhatsApp and click the link to verify.'},
+                status_code=status.HTTP_200_OK
+            )
+        else:
+            return api_response(
+                False,
+                error='Failed to send verification WhatsApp. Please try again later.',
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+    except Exception as e:
+        logger.error(f"Failed to send phone verification: {str(e)}")
+        return api_response(
+            False,
+            error='Failed to send verification link. Please try again later.',
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
 
-    if success:
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def verify_phone_otp(request):
+    """
+    Verify phone using OTP sent via WhatsApp
+    """
+    try:
+        otp = request.data.get('otp', '').strip()
+
+        if not otp or len(otp) != 6:
+            return api_response(
+                False,
+                error='Please provide a valid 6-digit OTP',
+                status_code=status.HTTP_400_BAD_REQUEST
+            )
+
+        user = request.user
+
+        # Get user profile
+        if not hasattr(user, 'user_profile'):
+            return api_response(
+                False,
+                error='User profile not found',
+                status_code=status.HTTP_400_BAD_REQUEST
+            )
+
+        user_profile = user.user_profile
+
+        # Verify OTP
+        otp_obj = PhoneVerificationOTP.verify_otp(
+            user=user,
+            otp=otp,
+            phone_number=user_profile.phone_number,
+            country_code=user_profile.country_code
+        )
+
+        if not otp_obj:
+            return api_response(
+                False,
+                error='Invalid or expired OTP. Please request a new one.',
+                status_code=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Mark phone as verified
+        user_profile.phone_verified = True
+        user_profile.save()
+
+        # Check if influencer profile needs updating
+        if hasattr(user, 'influencer_profile'):
+            influencer = user.influencer_profile
+            # Update profile_verified if all conditions are met
+            if (user_profile.email_verified and
+                    user_profile.phone_verified and
+                    influencer.aadhar_number):
+                influencer.profile_verified = True
+                influencer.save()
+
+        logger.info(f"Phone verified for user {user.username} via OTP")
+
         return api_response(
             True,
-            result={'message': 'Verification WhatsApp sent successfully. Please check your WhatsApp.'},
+            result={
+                'message': 'Phone verified successfully!',
+                'phone_verified': True
+            },
             status_code=status.HTTP_200_OK
         )
-    else:
+
+    except Exception as e:
+        logger.error(f"Error verifying phone OTP: {str(e)}")
         return api_response(
             False,
-            error='Failed to send verification WhatsApp. Please try again later.',
+            error='An error occurred while verifying your phone',
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
 
@@ -120,7 +228,7 @@ def send_phone_verification(request):
 @permission_classes([AllowAny])
 def verify_phone(request, token):
     """
-    Verify phone using magic link token from WhatsApp
+    Verify phone using magic link token from WhatsApp (legacy method, kept for backwards compatibility)
     """
     try:
         # Hash the token

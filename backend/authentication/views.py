@@ -68,29 +68,8 @@ def login_view(request):
     """
     serializer = UserLoginSerializer(data=request.data)
     if serializer.is_valid():
-        email = (serializer.validated_data.get('email') or '').strip().lower()
-        password = serializer.validated_data.get('password')
+        user = serializer.validated_data.get('user')
         remember_me = serializer.validated_data.get('remember_me', False)
-
-        # Allow login via email (map to username)
-        try:
-            user_obj = User.objects.get(email__iexact=email)
-            username = user_obj.username
-        except User.DoesNotExist:
-            username = email  # fallback if username is email
-
-        user = authenticate(request, username=username, password=password)
-        if user is None:
-            return Response({
-                'status': 'error',
-                'message': 'Invalid credentials'
-            }, status=status.HTTP_400_BAD_REQUEST)
-
-        if not user.is_active:
-            return Response({
-                'status': 'error',
-                'message': 'Account is inactive. Please verify your email.'
-            }, status=status.HTTP_403_FORBIDDEN)
 
         login(request, user)
         if remember_me:
@@ -639,6 +618,18 @@ def reset_password_view(request):
         # OTP verified, reset password
         user.set_password(password)
         user.save()
+
+        # If password was reset via phone, mark phone as verified
+        if phone_number and not email:
+            try:
+                from users.models import UserProfile
+                user_profile = UserProfile.objects.filter(user=user).first()
+                if user_profile and not user_profile.phone_verified:
+                    user_profile.phone_verified = True
+                    user_profile.save()
+                    logger.info(f"Phone verified for user {user.id} after password reset")
+            except Exception as e:
+                logger.error(f"Failed to mark phone as verified after password reset: {str(e)}")
 
         return api_response(True,
                             result={'message': 'Password reset successful. You can now login with your new password.'})

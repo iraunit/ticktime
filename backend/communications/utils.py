@@ -10,19 +10,21 @@ from .models import WhatsAppRateLimit
 logger = logging.getLogger(__name__)
 
 
-def check_whatsapp_rate_limit(user, message_type: str) -> Tuple[bool, Optional[str], Optional[timedelta]]:
+def check_whatsapp_rate_limit(user, message_type: str, increment: bool = True) -> Tuple[bool, Optional[str], Optional[timedelta]]:
     """
     Check if user can send a WhatsApp message based on rate limits
     
     Args:
         user: Django User object
         message_type: Type of message (verification, forgot_password, invitation, etc.)
+        increment: Whether to increment the counter (default: True). Set to False to only check.
         
     Returns:
         Tuple of (allowed: bool, error_message: str or None, time_until_next: timedelta or None)
     """
-    # Rate limits only apply to verification and password reset messages
-    rate_limited_types = ['verification', 'forgot_password']
+    # Rate limits only apply to password reset messages now.
+    # Phone verification is handled separately and should not be blocked here.
+    rate_limited_types = ['forgot_password']
 
     if message_type not in rate_limited_types:
         # No rate limit for other message types
@@ -42,40 +44,44 @@ def check_whatsapp_rate_limit(user, message_type: str) -> Tuple[bool, Optional[s
 
         now = timezone.now()
 
-        # Check minute limit (1 msg/min)
+        # Reset and check minute limit (1 msg/min)
         if rate_limit.minute_window_start:
             time_since_minute_start = now - rate_limit.minute_window_start
-            if time_since_minute_start < timedelta(minutes=1):
-                if rate_limit.sent_count_minute >= 1:
-                    time_until_next = timedelta(minutes=1) - time_since_minute_start
-                    return False, f"Rate limit exceeded. Please wait {int(time_until_next.total_seconds())} seconds before sending another message.", time_until_next
-            else:
-                # Reset minute counter
+            if time_since_minute_start >= timedelta(minutes=1):
+                # Window expired, reset counter
                 rate_limit.sent_count_minute = 0
                 rate_limit.minute_window_start = now
+            elif rate_limit.sent_count_minute >= 1:
+                # Still in window and limit reached
+                time_until_next = timedelta(minutes=1) - time_since_minute_start
+                return False, f"Rate limit exceeded. Please wait {int(time_until_next.total_seconds())} seconds before sending another message.", time_until_next
+        else:
+            # First time, initialize window
+            rate_limit.minute_window_start = now
+            rate_limit.sent_count_minute = 0
 
-        # Check hour limit (5 msg/hour)
+        # Reset and check hour limit (5 msg/hour)
         if rate_limit.hour_window_start:
             time_since_hour_start = now - rate_limit.hour_window_start
-            if time_since_hour_start < timedelta(hours=1):
-                if rate_limit.sent_count_hour >= 5:
-                    time_until_next = timedelta(hours=1) - time_since_hour_start
-                    return False, f"Rate limit exceeded. Maximum 5 messages per hour. Please wait {int(time_until_next.total_seconds() / 60)} minutes.", time_until_next
-            else:
-                # Reset hour counter
+            if time_since_hour_start >= timedelta(hours=1):
+                # Window expired, reset counter
                 rate_limit.sent_count_hour = 0
                 rate_limit.hour_window_start = now
-
-        # Update counters
-        if not rate_limit.minute_window_start:
-            rate_limit.minute_window_start = now
-        if not rate_limit.hour_window_start:
+            elif rate_limit.sent_count_hour >= 5:
+                # Still in window and limit reached
+                time_until_next = timedelta(hours=1) - time_since_hour_start
+                return False, f"Rate limit exceeded. Maximum 5 messages per hour. Please wait {int(time_until_next.total_seconds() / 60)} minutes.", time_until_next
+        else:
+            # First time, initialize window
             rate_limit.hour_window_start = now
+            rate_limit.sent_count_hour = 0
 
-        rate_limit.sent_count_minute += 1
-        rate_limit.sent_count_hour += 1
-        rate_limit.last_sent_at = now
-        rate_limit.save()
+        # Increment counters only if requested (and we passed all checks)
+        if increment:
+            rate_limit.sent_count_minute += 1
+            rate_limit.sent_count_hour += 1
+            rate_limit.last_sent_at = now
+            rate_limit.save()
 
         return True, None, None
 

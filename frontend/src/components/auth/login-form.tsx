@@ -49,10 +49,9 @@ export function LoginForm() {
 
             try {
                 const rawIdentifier = data.identifier.trim();
-                const isEmail = rawIdentifier.includes("@");
 
                 await login.mutateAsync({
-                    email: rawIdentifier,
+                    identifier: rawIdentifier,
                     password: data.password,
                     remember_me: data.remember_me,
                 } as any);

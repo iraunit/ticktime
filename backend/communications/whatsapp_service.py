@@ -3,7 +3,6 @@ from typing import Optional, Dict, Any, List
 
 from django.conf import settings
 
-from .models import PhoneVerificationToken
 from .rabbitmq_service import get_rabbitmq_service
 
 logger = logging.getLogger(__name__)
@@ -119,7 +118,7 @@ class WhatsAppService:
             logger.error(f"Error queueing WhatsApp message: {str(e)}")
             return None
 
-    def send_verification_whatsapp(self, user, phone_number: str, country_code: str) -> bool:
+    def send_verification_whatsapp(self, user, phone_number: str, country_code: str, verification_url: str) -> bool:
         """
         Send phone verification link via WhatsApp
         
@@ -127,28 +126,43 @@ class WhatsAppService:
             user: Django User object
             phone_number: User's phone number (without country code)
             country_code: User's country code
+            verification_url: URL to verify phone number (contains token)
             
         Returns:
             True if message was queued successfully
         """
         try:
-            # Generate verification token
-            token, token_obj = PhoneVerificationToken.create_token(user)
-
-            # Build verification URL
-            verification_url = f"{self.frontend_url}/verify-phone/{token}"
+            # Validate required parameters are not empty
+            user_name = user.get_full_name() or user.username or user.email or "User"
+            if not user_name or not user_name.strip():
+                user_name = "User"
+            
+            if not verification_url or not verification_url.strip():
+                logger.error(f"Verification URL is empty for user {user.id}")
+                return False
 
             # Resolve template config
             cfg = self._get_template_config("verification")
 
-            # Components for verification template:
-            # Adjust the order/count to match your WhatsApp template definition.
+            # Components for phone_verification template:
+            # Body parameter: {{1}} = User name
+            # Button parameter: {{1}} = Verification URL
             components: List[Dict[str, Any]] = [
                 {
                     "type": "body",
                     "parameters": [
-                        {"type": "text", "text": user.get_full_name() or user.username},
-                        {"type": "text", "text": verification_url},
+                        {"type": "text", "text": user_name.strip()},
+                    ],
+                },
+                {
+                    "type": "button",
+                    "sub_type": "url",
+                    "index": 0,
+                    "parameters": [
+                        {
+                            "type": "text",
+                            "text": verification_url.strip(),
+                        },
                     ],
                 },
             ]
@@ -196,6 +210,11 @@ class WhatsAppService:
             True if message was queued successfully
         """
         try:
+            # Validate OTP is not empty
+            if not otp or not otp.strip():
+                logger.error(f"OTP is empty for user {user.id}")
+                return False
+
             # Resolve template config
             cfg = self._get_template_config("forgot_password_otp")
 
@@ -206,7 +225,7 @@ class WhatsAppService:
                 {
                     "type": "body",
                     "parameters": [
-                        {"type": "text", "text": otp},
+                        {"type": "text", "text": otp.strip()},
                     ],
                 },
                 {
@@ -216,7 +235,7 @@ class WhatsAppService:
                     "parameters": [
                         {
                             "type": "text",
-                            "text": otp
+                            "text": otp.strip()
                         }
                     ]
                 }

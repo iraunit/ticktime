@@ -70,8 +70,8 @@ export function useAuth() {
 
     // Login mutation (creates session)
     const loginMutation = useMutation({
-        mutationFn: ({email, password, remember_me}: { email: string; password: string; remember_me?: boolean }) =>
-            authApi.login(email, password, remember_me),
+        mutationFn: ({identifier, password, remember_me}: { identifier: string; password: string; remember_me?: boolean }) =>
+            authApi.login(identifier, password, remember_me),
         onSuccess: async (response) => {
             toast.success('Welcome back!');
             setIsAuthenticatedState(true);
