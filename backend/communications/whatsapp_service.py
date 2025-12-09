@@ -30,7 +30,7 @@ WHATSAPP_TEMPLATE_CONFIG = {
         "language_code": "en",
     },
     "accepted": {
-        "template_name": "campaign_accepted",
+        "template_name": "campaign_accepted_utility",
         "language_code": "en",
     },
     "shipped": {
@@ -399,6 +399,35 @@ class WhatsAppService:
                                 "type": "text",
                                 "text": url_suffix,
                             },
+                        ],
+                    })
+            elif notification_type == "accepted":
+                # Special handling for accepted notifications (utility template)
+                # Template: {{1}}=name, {{2}}=campaign_title
+                components: List[Dict[str, Any]] = [
+                    {
+                        "type": "body",
+                        "parameters": [
+                            {"type": "text", "text": user_name.strip()},  # {{1}}
+                            {"type": "text", "text": campaign.title},  # {{2}}
+                        ],
+                    },
+                ]
+
+                # Add button with deal URL
+                deal_url = f"{self.frontend_url}/influencer/deals/{deal.id}"
+                parsed_url = urlparse(deal_url.strip())
+                url_suffix = parsed_url.path
+                if parsed_url.query:
+                    url_suffix = f"{url_suffix}?{parsed_url.query}"
+
+                if url_suffix and url_suffix != "/":
+                    components.append({
+                        "type": "button",
+                        "sub_type": "url",
+                        "index": "0",
+                        "parameters": [
+                            {"type": "text", "text": url_suffix},
                         ],
                     })
             elif notification_type == "shipped":
