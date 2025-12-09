@@ -22,7 +22,7 @@ WHATSAPP_TEMPLATE_CONFIG = {
     },
     # Marketing / campaign notifications
     "invitation": {
-        "template_name": "campaign_invitation",
+        "template_name": "campaign_invitation_marketing",
         "language_code": "en",
     },
     "status_update": {
@@ -318,19 +318,58 @@ class WhatsAppService:
             template_key = notification_config.get(notification_type, "status_update")
             cfg = self._get_template_config(template_key)
 
-            # Components for campaign notifications.
-            # Adjust to match your WhatsApp template placeholders.
-            components: List[Dict[str, Any]] = [
-                {
-                    "type": "body",
-                    "parameters": [
-                        {"type": "text", "text": user.get_full_name() or user.username},
-                        {"type": "text", "text": campaign.title},
-                        {"type": "text", "text": campaign.brand.name},
-                        {"type": "text", "text": custom_message or ""},
-                    ],
-                },
-            ]
+            # Prepare user name
+            user_name = user.get_full_name() or user.username or "User"
+            if not user_name or not user_name.strip():
+                user_name = "User"
+
+            # Components for campaign notifications
+            # For invitation: {{1}}=user_name, {{2}}=campaign_title, {{3}}=brand_name, {{4}}=deal_url
+            if notification_type == "invitation":
+                # Build deal URL for the button
+                deal_url = f"{self.frontend_url}/influencer/deals/{deal.id}"
+                parsed_url = urlparse(deal_url.strip())
+                url_suffix = parsed_url.path
+                if parsed_url.query:
+                    url_suffix = f"{url_suffix}?{parsed_url.query}"
+
+                components: List[Dict[str, Any]] = [
+                    {
+                        "type": "body",
+                        "parameters": [
+                            {"type": "text", "text": user_name.strip()},  # {{1}}
+                            {"type": "text", "text": campaign.title},  # {{2}}
+                            {"type": "text", "text": campaign.brand.name},  # {{3}}
+                        ],
+                    },
+                ]
+
+                # Add button with deal URL
+                if url_suffix and url_suffix != "/":
+                    components.append({
+                        "type": "button",
+                        "sub_type": "url",
+                        "index": "0",
+                        "parameters": [
+                            {
+                                "type": "text",
+                                "text": url_suffix,
+                            },
+                        ],
+                    })
+            else:
+                # For other notification types (status_update, accepted, shipped, completed)
+                components: List[Dict[str, Any]] = [
+                    {
+                        "type": "body",
+                        "parameters": [
+                            {"type": "text", "text": user_name.strip()},
+                            {"type": "text", "text": campaign.title},
+                            {"type": "text", "text": campaign.brand.name},
+                            {"type": "text", "text": custom_message or ""},
+                        ],
+                    },
+                ]
 
             # Queue WhatsApp message
             message_id = self._queue_whatsapp_template(

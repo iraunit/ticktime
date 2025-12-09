@@ -268,7 +268,6 @@ export default function BrandSettingsPage() {
             }
         } catch (error: any) {
             console.error('Error inviting user:', error);
-            toast.error(error.response?.data?.message || 'Failed to invite user');
         }
     };
 
@@ -328,7 +327,6 @@ export default function BrandSettingsPage() {
             }
         } catch (error: any) {
             console.error('Error inviting user:', error);
-            toast.error(error.response?.data?.message || 'Failed to invite user');
         }
     };
 
@@ -359,7 +357,6 @@ export default function BrandSettingsPage() {
             }
         } catch (error: any) {
             console.error('Error updating role:', error);
-            toast.error(error.response?.data?.message || 'Failed to update role');
         }
     };
 
@@ -380,7 +377,6 @@ export default function BrandSettingsPage() {
             }
         } catch (error: any) {
             console.error('Error removing team member:', error);
-            toast.error(error.response?.data?.message || 'Failed to remove team member');
         }
     };
 
@@ -426,7 +422,6 @@ export default function BrandSettingsPage() {
             }
         } catch (error: any) {
             console.error('Error updating brand info:', error);
-            toast.error(error.response?.data?.message || 'Failed to update brand information');
         } finally {
             setIsSaving(false);
         }
@@ -492,7 +487,8 @@ export default function BrandSettingsPage() {
             }
         } catch (error: any) {
             console.error('Error updating profile:', error);
-            toast.error(error.response?.data?.message || 'Failed to update profile');
+            // The API interceptor already shows toast for errors, so we don't need to show another one
+            // Only log the error for debugging
         } finally {
             setIsSavingProfile(false);
         }
