@@ -34,7 +34,7 @@ WHATSAPP_TEMPLATE_CONFIG = {
         "language_code": "en",
     },
     "shipped": {
-        "template_name": "campaign_shipped",
+        "template_name": "campaign_shipped_utility",
         "language_code": "en",
     },
     "completed": {
@@ -399,6 +399,48 @@ class WhatsAppService:
                                 "type": "text",
                                 "text": url_suffix,
                             },
+                        ],
+                    })
+            elif notification_type == "shipped":
+                # Special handling for shipped notifications
+                # Template: {{1}}=name, {{2}}=tracking_number, {{3}}=delivery_date
+                from django.utils import timezone
+                from datetime import timedelta
+
+                # Get tracking number or default message
+                tracking_number = getattr(deal, 'tracking_number', '') or getattr(deal, 'tracking_url', '')
+                if not tracking_number:
+                    tracking_number = "Available on dashboard"
+
+                # Calculate delivery date (7 days from now)
+                estimated_delivery = timezone.now() + timedelta(days=7)
+                delivery_date = estimated_delivery.strftime("%B %d, %Y")
+
+                components: List[Dict[str, Any]] = [
+                    {
+                        "type": "body",
+                        "parameters": [
+                            {"parameter_name": "name", "type": "text", "text": user_name.strip()},
+                            {"parameter_name": "tracking_number", "type": "text", "text": tracking_number},
+                            {"parameter_name": "date", "type": "text", "text": delivery_date},
+                        ],
+                    },
+                ]
+
+                # Add button with deal URL
+                deal_url = f"{self.frontend_url}/influencer/deals/{deal.id}"
+                parsed_url = urlparse(deal_url.strip())
+                url_suffix = parsed_url.path
+                if parsed_url.query:
+                    url_suffix = f"{url_suffix}?{parsed_url.query}"
+
+                if url_suffix and url_suffix != "/":
+                    components.append({
+                        "type": "button",
+                        "sub_type": "url",
+                        "index": "0",
+                        "parameters": [
+                            {"type": "text", "text": url_suffix},
                         ],
                     })
             else:
