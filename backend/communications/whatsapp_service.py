@@ -26,7 +26,7 @@ WHATSAPP_TEMPLATE_CONFIG = {
         "language_code": "en",
     },
     "status_update": {
-        "template_name": "campaign_status_update",
+        "template_name": "campaign_status_update_marketing",
         "language_code": "en",
     },
     "accepted": {
@@ -63,6 +63,50 @@ class WhatsAppService:
         template_name = base.get("template_name", whatsapp_type)
         language_code = base.get("language_code", "en")
         return {"template_name": template_name, "language_code": language_code}
+
+    def _generate_update_message(self, deal, campaign, notification_type: str) -> str:
+        """
+        Generate intelligent update message based on deal status, campaign type, and notification type.
+        """
+        deal_type = getattr(campaign, 'deal_type', 'paid')
+        deal_status = getattr(deal, 'status', 'pending')
+
+        if notification_type == "accepted":
+            if deal_type in ['product', 'hybrid']:
+                return "Congratulations! Your application is accepted. Share your shipping address to receive the product."
+            else:
+                return "Congratulations! Your application is accepted. Check deliverables and start creating content."
+
+        elif notification_type == "shipped":
+            tracking_number = getattr(deal, 'tracking_number', '')
+            if tracking_number:
+                return f"Product shipped! Tracking: {tracking_number}. Start content creation upon delivery."
+            else:
+                return "Product has been shipped to your address. Expect delivery soon and start content creation."
+
+        elif notification_type == "completed":
+            payment_status = getattr(deal, 'payment_status', 'pending')
+            if payment_status == 'paid':
+                return "Campaign completed successfully! Payment processed. Thank you for your collaboration."
+            else:
+                return "Campaign marked completed. Payment will be processed shortly. Thank you for your work."
+
+        elif notification_type == "status_update":
+            # Generate status-specific messages
+            if deal_status == 'under_review':
+                return "Your content submission is under review. Brand will respond within 2-3 business days."
+            elif deal_status == 'revision_requested':
+                return "Brand requested revisions on your content. Review feedback and resubmit updated content."
+            elif deal_status == 'approved':
+                return "Content approved! Post as per campaign guidelines. Mark as posted after publishing."
+            elif deal_status == 'address_requested':
+                return "Brand needs your shipping address. Provide it now to receive the product."
+            elif deal_status == 'content_submitted':
+                return "Content received. Brand is reviewing it. You'll be notified of approval or revision requests."
+            else:
+                return "New update on your campaign. Check your dashboard for details and next steps."
+
+        return "New update on your campaign. Review details in your dashboard."
 
     def _queue_whatsapp_template(
             self,
@@ -137,7 +181,7 @@ class WhatsAppService:
             user_name = user.get_full_name() or user.username or user.email or "User"
             if not user_name or not user_name.strip():
                 user_name = "User"
-            
+
             if not verification_url or not verification_url.strip():
                 logger.error(f"Verification URL is empty for user {user.id}")
                 return False
@@ -359,17 +403,41 @@ class WhatsAppService:
                     })
             else:
                 # For other notification types (status_update, accepted, shipped, completed)
+                # Generate intelligent custom message based on deal status and type if not provided
+                if not custom_message:
+                    custom_message = self._generate_update_message(deal, campaign, notification_type)
+
                 components: List[Dict[str, Any]] = [
                     {
                         "type": "body",
                         "parameters": [
-                            {"type": "text", "text": user_name.strip()},
-                            {"type": "text", "text": campaign.title},
-                            {"type": "text", "text": campaign.brand.name},
-                            {"type": "text", "text": custom_message or ""},
+                            {"type": "text", "text": user_name.strip()},  # {{1}}
+                            {"type": "text", "text": campaign.title},  # {{2}}
+                            {"type": "text", "text": campaign.brand.name},  # {{3}}
+                            {"type": "text", "text": custom_message},  # {{4}}
                         ],
                     },
                 ]
+
+                # Add button with deal URL so they can view/act
+                deal_url = f"{self.frontend_url}/influencer/deals/{deal.id}"
+                parsed_url = urlparse(deal_url.strip())
+                url_suffix = parsed_url.path
+                if parsed_url.query:
+                    url_suffix = f"{url_suffix}?{parsed_url.query}"
+
+                if url_suffix and url_suffix != "/":
+                    components.append({
+                        "type": "button",
+                        "sub_type": "url",
+                        "index": "0",
+                        "parameters": [
+                            {
+                                "type": "text",
+                                "text": url_suffix,
+                            },
+                        ],
+                    })
 
             # Queue WhatsApp message
             message_id = self._queue_whatsapp_template(
