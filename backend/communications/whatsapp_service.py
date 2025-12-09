@@ -401,7 +401,7 @@ class WhatsAppService:
                             },
                         ],
                     })
-            elif notification_type == "accepted":
+            elif notification_type == "accepted" or notification_type == "completed":
                 # Special handling for accepted notifications (utility template)
                 # Template: {{1}}=name, {{2}}=campaign_title
                 components: List[Dict[str, Any]] = [
@@ -421,7 +421,7 @@ class WhatsAppService:
                 if parsed_url.query:
                     url_suffix = f"{url_suffix}?{parsed_url.query}"
 
-                if url_suffix and url_suffix != "/":
+                if url_suffix and url_suffix != "/" and notification_type == "accepted":
                     components.append({
                         "type": "button",
                         "sub_type": "url",
