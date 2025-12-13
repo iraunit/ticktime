@@ -1,6 +1,6 @@
 "use client";
 
-import {useCallback, useEffect, useState} from "react";
+import {useEffect, useState} from "react";
 import {useParams, useRouter} from "next/navigation";
 import {Card, CardContent, CardHeader, CardTitle} from "@/components/ui/card";
 import {Button} from "@/components/ui/button";
@@ -8,7 +8,6 @@ import {Badge} from "@/components/ui/badge";
 import {GlobalLoader} from "@/components/ui/global-loader";
 import {toast} from "@/lib/toast";
 import {api} from "@/lib/api";
-import {clearExpiredScraperCache, fetchScraperApiWithCache} from "@/lib/scraper-cache";
 import {CampaignSelectionDialog} from "@/components/campaigns/campaign-selection-dialog";
 import {
     HiArrowLeft,
@@ -223,8 +222,6 @@ export default function InfluencerProfilePage() {
     const [isBookmarked, setIsBookmarked] = useState(false);
     const [isBookmarking, setIsBookmarking] = useState(false);
     const [isRefreshing, setIsRefreshing] = useState(false);
-    // Store fetched media URLs for posts (key: post_id, value: media_urls array)
-    const [postMediaUrls, setPostMediaUrls] = useState<Record<string, string[]>>({});
 
     const fetchProfile = async () => {
         setIsLoading(true);
@@ -292,139 +289,12 @@ export default function InfluencerProfilePage() {
     };
 
 
-    // Fetch media URLs from scraper API for all posts
-    const fetchPostMedia = useCallback(async () => {
-        if (!profile || !profile.recent_posts || profile.recent_posts.length === 0) {
-            return;
-        }
-
-        const recentPosts = safeArray(profile.recent_posts);
-        const socialAccounts = safeArray(profile.social_accounts);
-
-        // Group posts by platform and handle
-        const postsByPlatform: Record<string, { handle: string; platform: string; posts: SocialMediaPost[] }> = {};
-
-        recentPosts.forEach((post) => {
-            // Infer platform from post URL if platform field is empty
-            let postPlatform = post.platform?.toLowerCase() || '';
-            if (!postPlatform && post.post_url) {
-                const url = post.post_url.toLowerCase();
-                if (url.includes('instagram.com')) {
-                    postPlatform = 'instagram';
-                } else if (url.includes('youtube.com') || url.includes('youtu.be')) {
-                    postPlatform = 'youtube';
-                } else if (url.includes('tiktok.com')) {
-                    postPlatform = 'tiktok';
-                } else if (url.includes('twitter.com') || url.includes('x.com')) {
-                    postPlatform = 'twitter';
-                } else if (url.includes('facebook.com')) {
-                    postPlatform = 'facebook';
-                } else if (url.includes('linkedin.com')) {
-                    postPlatform = 'linkedin';
-                }
-            }
-
-            // Find the account handle for this platform
-            const account = socialAccounts.find(
-                acc => acc.platform.toLowerCase() === postPlatform
-            );
-
-            if (!account || !account.handle) {
-                return;
-            }
-
-            const key = `${postPlatform}_${account.handle}`;
-            if (!postsByPlatform[key]) {
-                postsByPlatform[key] = {handle: account.handle, platform: postPlatform, posts: []};
-            }
-            postsByPlatform[key].posts.push(post);
-        });
-
-        // Fetch media for each platform/handle combination
-        const mediaMap: Record<string, string[]> = {};
-
-        if (Object.keys(postsByPlatform).length === 0) {
-            return;
-        }
-
-        await Promise.all(
-            Object.entries(postsByPlatform).map(async ([key, {handle, platform, posts}]) => {
-                try {
-                    // Remove @ from handle if present
-                    const username = handle.replace(/^@/, '');
-                    const scraperApiUrl = `https://scraper.ticktime.media/api/users/${encodeURIComponent(username)}/analytics?platform=${platform}`;
-
-                    const data = await fetchScraperApiWithCache(username, platform, scraperApiUrl);
-
-                    if (!data || !data.ok || !data.data || !data.data.posts) {
-                        return;
-                    }
-
-                    if (data.data.posts) {
-                        // Create a map of API post IDs to first media URL (use first URL from array)
-                        const apiPostMap: Record<string, string> = {};
-                        data.data.posts.forEach((apiPost: any) => {
-                            const postId = String(apiPost.post_id || apiPost.id || '');
-
-                            if (apiPost.media_urls && Array.isArray(apiPost.media_urls) && apiPost.media_urls.length > 0) {
-                                // Store only the first media URL
-                                apiPostMap[postId] = apiPost.media_urls[0];
-                            }
-                        });
-
-                        // Match our posts with API posts
-                        posts.forEach((post) => {
-                            const postIdStr = String(post.platform_post_id || '');
-
-                            // Try exact match first
-                            if (apiPostMap[postIdStr]) {
-                                mediaMap[postIdStr] = [apiPostMap[postIdStr]]; // Store as array for compatibility
-                                return;
-                            }
-
-                            // Try matching by base ID (API sometimes returns post_id with underscore suffix like "123456789_987654321")
-                            // Extract the base ID (part before underscore if exists)
-                            const baseId = postIdStr.includes('_') ? postIdStr.split('_')[0] : postIdStr;
-                            const matchingKey = Object.keys(apiPostMap).find(key => {
-                                const apiBaseId = key.includes('_') ? key.split('_')[0] : key;
-                                return key === postIdStr ||
-                                    apiBaseId === baseId ||
-                                    key.startsWith(baseId + '_') ||
-                                    postIdStr.startsWith(apiBaseId + '_') ||
-                                    baseId === apiBaseId;
-                            });
-                            if (matchingKey) {
-                                mediaMap[postIdStr] = [apiPostMap[matchingKey]]; // Store as array for compatibility
-                            }
-                        });
-                    }
-                } catch (error) {
-                    // Silently fail - no need to log errors
-                }
-            })
-        );
-
-        // Update state with fetched media URLs
-        if (Object.keys(mediaMap).length > 0) {
-            setPostMediaUrls(prev => ({...prev, ...mediaMap}));
-        }
-    }, [profile]);
-
     useEffect(() => {
         if (influencerId) {
             fetchProfile();
             checkBookmarkStatus();
         }
-        // Clean up expired cache entries on mount
-        clearExpiredScraperCache();
     }, [influencerId]);
-
-    // Fetch media URLs from scraper API for all posts when profile is loaded
-    useEffect(() => {
-        if (profile && profile.recent_posts && safeArray(profile.recent_posts).length > 0) {
-            fetchPostMedia();
-        }
-    }, [profile, fetchPostMedia]);
 
     const formatFollowers = (count: number | undefined) => {
         if (count === undefined || count === null) return "0";
@@ -512,8 +382,25 @@ export default function InfluencerProfilePage() {
                 return undefined;
             }
         };
-        const firstFrom = (arr?: unknown[]) =>
-            Array.isArray(arr) ? arr.find((x) => typeof x === 'string' && x.startsWith('http')) : undefined;
+
+        // Normalize URL: add https:// if it looks like a domain but doesn't have a protocol
+        const normalizeUrl = (url: string | undefined): string | undefined => {
+            if (!url || typeof url !== 'string') return undefined;
+            // If already has protocol, return as is
+            if (url.startsWith('http://') || url.startsWith('https://')) {
+                return url;
+            }
+            // If it looks like a domain (contains a dot and looks like a URL path), add https://
+            if (url.includes('.') && (url.includes('/') || url.length > 10)) {
+                return `https://${url}`;
+            }
+            return url;
+        };
+
+        const firstFrom = (arr?: unknown[]) => {
+            const found = Array.isArray(arr) ? arr.find((x) => typeof x === 'string' && x.length > 0) : undefined;
+            return found ? normalizeUrl(found as string) : undefined;
+        };
 
         const directCandidates: Array<unknown> = [
             post.thumbnail_url,
@@ -555,13 +442,27 @@ export default function InfluencerProfilePage() {
             get('entities?.media?.[0]?.media_url'),
         ];
 
-        const validCandidate =
-            directCandidates.find((value) => typeof value === 'string' && value.startsWith('http')) ||
-            candidates.find((value) => typeof value === 'string' && value.startsWith('http')) ||
-            firstFrom(get('display_resources') as unknown[]) ||
-            firstFrom(get('image_versions2?.candidates') as unknown[]);
+        // Check direct candidates first (prioritize media_urls from database)
+        const directValid = directCandidates
+            .map((value) => normalizeUrl(typeof value === 'string' ? value : undefined))
+            .find((value) => typeof value === 'string' && (value.startsWith('http') || value.includes('.')));
 
-        return validCandidate as string | undefined;
+        if (directValid) {
+            return directValid;
+        }
+
+        // Then check other candidates
+        const candidateValid = candidates
+            .map((value) => normalizeUrl(typeof value === 'string' ? value : undefined))
+            .find((value) => typeof value === 'string' && (value.startsWith('http') || value.includes('.')));
+
+        if (candidateValid) {
+            return candidateValid;
+        }
+
+        // Fallback to array searches
+        return firstFrom(get('display_resources') as unknown[]) ||
+            firstFrom(get('image_versions2?.candidates') as unknown[]);
     };
 
     const getPostEmbedUrl = (post: SocialMediaPost): string | null => {
@@ -1730,13 +1631,8 @@ export default function InfluencerProfilePage() {
                                 {safeArray(profile.recent_posts).length > 0 ? (
                                     <div className="space-y-4">
                                         {safeArray(profile.recent_posts).map((post) => {
-                                            // Use fetched media URL if available, otherwise try existing thumbnail
-                                            const fetchedMedia = postMediaUrls[post.platform_post_id];
-                                            const mediaUrl = (fetchedMedia && Array.isArray(fetchedMedia) && fetchedMedia.length > 0)
-                                                ? fetchedMedia[0]
-                                                : (fetchedMedia && typeof fetchedMedia === 'string')
-                                                    ? fetchedMedia
-                                                    : getPrimaryThumbnail(post);
+                                            // Use media_urls from database (now stored directly from scraper)
+                                            const mediaUrl = getPrimaryThumbnail(post);
                                             const hasMedia = Boolean(mediaUrl);
                                             const {icon: PIcon, color, bgColor} = getPlatformIcon(post.platform);
                                             const openPost = () => {

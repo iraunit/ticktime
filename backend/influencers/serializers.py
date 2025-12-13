@@ -1141,6 +1141,7 @@ class SocialMediaPostPublicSerializer(serializers.ModelSerializer):
             'caption',
             'hashtags',
             'mentions',
+            'media_urls',
             'posted_at',
             'likes_count',
             'comments_count',

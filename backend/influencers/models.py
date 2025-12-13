@@ -401,6 +401,11 @@ class SocialMediaPost(models.Model):
     caption = models.TextField(blank=True)
     hashtags = models.JSONField(default=list, blank=True)
     mentions = models.JSONField(default=list, blank=True)
+    media_urls = models.JSONField(
+        default=list,
+        blank=True,
+        help_text='Array of media URLs from the scraper API'
+    )
     posted_at = models.DateTimeField(null=True, blank=True)
 
     likes_count = models.IntegerField(validators=[MinValueValidator(0)], default=0)

@@ -546,6 +546,7 @@ class SocialScrapingService:
                 'caption': post_payload.get('content') or '',
                 'hashtags': post_payload.get('hashtags') or [],
                 'mentions': post_payload.get('mentions') or [],
+                'media_urls': post_payload.get('media_urls') or [],
                 'posted_at': posted_at,
                 'likes_count': metrics.get('likes_count', 0),
                 'comments_count': metrics.get('comments_count', 0),
