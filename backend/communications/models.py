@@ -227,6 +227,83 @@ class PasswordResetOTP(models.Model):
 
         return None
 
+    @classmethod
+    def check_otp(cls, user, otp):
+        """
+        Check if an OTP is valid for a user without consuming it.
+        Used for the initial "verify OTP" step so that the same OTP
+        can still be used shortly after to actually reset the password.
+        """
+        otp_hash = cls.hash_otp(otp)
+
+        return cls.objects.filter(
+            user=user,
+            otp_hash=otp_hash,
+            verified_at__isnull=True,
+            expires_at__gt=timezone.now()
+        ).first()
+
+
+class PhoneVerificationOTP(models.Model):
+    """
+    Store phone verification OTPs
+    """
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='phone_verification_otps')
+    otp_hash = models.CharField(max_length=64, db_index=True)
+    phone_number = models.CharField(max_length=15, help_text='Phone number without country code')
+    country_code = models.CharField(max_length=5, help_text='Country code (e.g., +91, +1)')
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField()
+    verified_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        db_table = 'phone_verification_otps'
+        indexes = [
+            models.Index(fields=['otp_hash']),
+            models.Index(fields=['user']),
+            models.Index(fields=['expires_at']),
+        ]
+
+    def __str__(self):
+        return f"Phone OTP for {self.user.username} - {'Verified' if self.verified_at else 'Active'}"
+
+    @staticmethod
+    def generate_otp():
+        """Generate a 6-digit OTP"""
+        import random
+        return str(random.randint(100000, 999999))
+
+    @staticmethod
+    def hash_otp(otp):
+        """Hash the OTP for storage"""
+        return hashlib.sha256(otp.encode()).hexdigest()
+
+    def is_valid(self):
+        """Check if OTP is still valid"""
+        return not self.verified_at and timezone.now() < self.expires_at
+
+    @classmethod
+    def verify_otp(cls, user, otp, phone_number, country_code):
+        """Verify an OTP for a user and specific phone number"""
+        otp_hash = cls.hash_otp(otp)
+
+        # Find valid unverified OTP for this specific phone number
+        otp_obj = cls.objects.filter(
+            user=user,
+            otp_hash=otp_hash,
+            phone_number=phone_number,
+            country_code=country_code,
+            verified_at__isnull=True,
+            expires_at__gt=timezone.now()
+        ).first()
+
+        if otp_obj:
+            otp_obj.verified_at = timezone.now()
+            otp_obj.save()
+            return otp_obj
+
+        return None
+
 
 class CommunicationLog(models.Model):
     """

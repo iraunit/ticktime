@@ -507,6 +507,8 @@ def influencer_search_view(request):
                                                      filter=models.Q(social_accounts__is_active=True))
     )
 
+    queryset = queryset.filter(social_accounts__is_active=True).distinct()
+
     # Apply search filter
     if search:
         queryset = queryset.filter(

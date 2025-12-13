@@ -4,7 +4,8 @@ from brands.notifications import send_brand_onboarding_discord_notification
 from common.api_response import api_response, format_serializer_errors
 from common.decorators import (
     auth_rate_limit,
-    log_performance
+    log_performance,
+    smart_rate_limit
 )
 from common.utils import generate_email_verification_token, verify_email_verification_token
 from communications.email_service import get_email_service
@@ -67,29 +68,8 @@ def login_view(request):
     """
     serializer = UserLoginSerializer(data=request.data)
     if serializer.is_valid():
-        email = (serializer.validated_data.get('email') or '').strip().lower()
-        password = serializer.validated_data.get('password')
+        user = serializer.validated_data.get('user')
         remember_me = serializer.validated_data.get('remember_me', False)
-
-        # Allow login via email (map to username)
-        try:
-            user_obj = User.objects.get(email__iexact=email)
-            username = user_obj.username
-        except User.DoesNotExist:
-            username = email  # fallback if username is email
-
-        user = authenticate(request, username=username, password=password)
-        if user is None:
-            return Response({
-                'status': 'error',
-                'message': 'Invalid credentials'
-            }, status=status.HTTP_400_BAD_REQUEST)
-
-        if not user.is_active:
-            return Response({
-                'status': 'error',
-                'message': 'Account is inactive. Please verify your email.'
-            }, status=status.HTTP_403_FORBIDDEN)
 
         login(request, user)
         if remember_me:
@@ -363,6 +343,8 @@ def forgot_password_view(request):
     Password reset request endpoint.
     Supports both email and phone number (for WhatsApp reset).
     Sends 6-digit OTP instead of reset links.
+    
+    Rate limit: 1 request per 10 minutes (both email and WhatsApp)
     """
     serializer = ForgotPasswordSerializer(data=request.data)
 
@@ -400,6 +382,38 @@ def forgot_password_view(request):
                 f"Password reset requested for non-existent {'email' if email else 'phone'}: {email or phone_number}")
             return api_response(True, result={'message': success_message})
 
+        # Simple rate limiting: 1 request per 10 minutes for all channels
+        from common.decorators import _parse_rate_limit, _get_cache_ttl
+        from django.core.cache import cache
+
+        if channel == 'email':
+            identifier = f"email:{email}"
+        elif channel == 'whatsapp':
+            identifier = f"phone:{country_code}{phone_number}"
+        else:
+            identifier = f"unknown"
+
+        max_requests, window_seconds = _parse_rate_limit("1/10min")
+        cache_key = f"rate_limit:password_reset:{identifier}"
+        current_count = cache.get(cache_key, 0)
+
+        if current_count >= max_requests:
+            retry_after_seconds = _get_cache_ttl(cache_key)
+            if retry_after_seconds is None or retry_after_seconds <= 0:
+                retry_after_seconds = window_seconds
+
+            minutes = int(retry_after_seconds / 60)
+            seconds = retry_after_seconds % 60
+            from rest_framework.response import Response
+            return Response(
+                {
+                    "success": False,
+                    "message": f"Please wait {minutes}m {seconds}s before requesting another OTP.",
+                    "retry_after_seconds": retry_after_seconds,
+                },
+                status=status.HTTP_429_TOO_MANY_REQUESTS,
+            )
+
         # Generate 6-digit OTP
         try:
             from communications.models import PasswordResetOTP
@@ -416,16 +430,6 @@ def forgot_password_view(request):
                     raise RuntimeError('Failed to queue password reset OTP email.')
             elif channel == 'whatsapp':
                 from communications.whatsapp_service import get_whatsapp_service
-                from communications.utils import check_whatsapp_rate_limit
-
-                # Check rate limit before queueing
-                allowed, error_msg, time_until_next = check_whatsapp_rate_limit(user, 'forgot_password')
-                if not allowed:
-                    return api_response(
-                        False,
-                        error=error_msg,
-                        status_code=status.HTTP_429_TOO_MANY_REQUESTS
-                    )
 
                 whatsapp_service = get_whatsapp_service()
                 sent = whatsapp_service.send_password_reset_otp(
@@ -436,6 +440,12 @@ def forgot_password_view(request):
                 )
                 if not sent:
                     raise RuntimeError('Failed to queue password reset OTP WhatsApp message.')
+
+            # Only increment counter after OTP is successfully queued
+            if current_count == 0:
+                cache.set(cache_key, 1, window_seconds)
+            else:
+                cache.incr(cache_key)
 
             return api_response(True, result={'message': success_message})
 
@@ -506,7 +516,7 @@ def verify_otp_view(request):
             'message': 'Invalid OTP or expired.'
         }, status=status.HTTP_400_BAD_REQUEST)
 
-    # Verify OTP
+    # Verify OTP (without consuming it yet)
     try:
         from communications.models import PasswordResetOTP
         from django.utils import timezone
@@ -528,11 +538,11 @@ def verify_otp_view(request):
         # Increment user-based attempts counter
         cache.set(cache_key, attempts + 1, 60)  # 60 seconds TTL
 
-        # Verify OTP
-        otp_obj = PasswordResetOTP.verify_otp(user, otp)
+        # Check OTP validity without marking it as used
+        otp_obj = PasswordResetOTP.check_otp(user, otp)
 
         if otp_obj:
-            # OTP verified successfully
+            # OTP is valid; final consumption happens in reset_password_view
             return api_response(True, result={
                 'message': 'OTP verified successfully. You can now reset your password.',
                 'verified': True
@@ -608,6 +618,18 @@ def reset_password_view(request):
         # OTP verified, reset password
         user.set_password(password)
         user.save()
+
+        # If password was reset via phone, mark phone as verified
+        if phone_number and not email:
+            try:
+                from users.models import UserProfile
+                user_profile = UserProfile.objects.filter(user=user).first()
+                if user_profile and not user_profile.phone_verified:
+                    user_profile.phone_verified = True
+                    user_profile.save()
+                    logger.info(f"Phone verified for user {user.id} after password reset")
+            except Exception as e:
+                logger.error(f"Failed to mark phone as verified after password reset: {str(e)}")
 
         return api_response(True,
                             result={'message': 'Password reset successful. You can now login with your new password.'})

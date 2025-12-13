@@ -57,7 +57,10 @@ export function AccountLockedBanner({lockReason, message}: AccountLockedBannerPr
                             }`}/>
                             <p className="text-sm text-gray-700 text-left">
                                 {isEmailIssue
-                                    ? 'You cannot create campaigns, manage deals, or access most features until your email is verified.'
+                                    ? <>You cannot create campaigns, manage deals, or access most features until your
+                                        email is verified.{' '}
+                                        <span className="text-red-600 font-medium">Unverified emails won't receive any campaign updates or notifications.</span>
+                                    </>
                                     : 'All account features have been disabled. Please resolve any outstanding payments or contact our support team.'
                                 }
                             </p>

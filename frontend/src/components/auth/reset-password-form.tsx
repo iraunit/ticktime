@@ -6,7 +6,7 @@ import {zodResolver} from "@hookform/resolvers/zod";
 import * as z from "zod";
 import Link from "next/link";
 import {useSearchParams} from "next/navigation";
-import {CheckCircle, Eye, EyeOff, Lock} from "@/lib/icons";
+import {Eye, EyeOff, Lock} from "@/lib/icons";
 import {Button} from "@/components/ui/button";
 import {Input} from "@/components/ui/input";
 import {Card, CardContent, CardDescription, CardHeader, CardTitle} from "@/components/ui/card";
@@ -100,34 +100,6 @@ export function ResetPasswordForm() {
                         <Button asChild variant="ghost" className="w-full mt-2">
                             <Link href="/accounts/login">
                                 Back to sign in
-                            </Link>
-                        </Button>
-                    </div>
-                </CardContent>
-            </Card>
-        );
-    }
-
-    if (resetPassword.isSuccess) {
-        return (
-            <Card className="w-full max-w-md mx-auto">
-                <CardHeader className="space-y-1 text-center">
-                    <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                        <CheckCircle className="h-8 w-8 text-green-600"/>
-                    </div>
-                    <CardTitle className="text-2xl font-bold">Password reset successful</CardTitle>
-                    <CardDescription>
-                        Your password has been successfully updated
-                    </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                    <div className="text-center">
-                        <p className="text-sm text-muted-foreground mb-4">
-                            You can now sign in with your new password.
-                        </p>
-                        <Button asChild className="w-full">
-                            <Link href="/accounts/login">
-                                Continue to sign in
                             </Link>
                         </Button>
                     </div>

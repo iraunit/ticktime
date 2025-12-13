@@ -63,7 +63,7 @@ export default function NotFound() {
                 <div className="mt-8 text-sm text-gray-500">
                     <p>
                         If you think this is an error, please{" "}
-                        <Link href="/contact" className="text-blue-600 hover:text-blue-700 underline">
+                        <Link href="/support" className="text-blue-600 hover:text-blue-700 underline">
                             contact support
                         </Link>
                     </p>

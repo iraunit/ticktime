@@ -2,8 +2,13 @@ import api from './api';
 
 // Auth API functions (session-based)
 export const authApi = {
-    login: (email: string, password: string, remember_me?: boolean) =>
-        api.post('/auth/login/', {email, password, remember_me: !!remember_me}),
+    login: (identifier: string, password: string, remember_me?: boolean, country_code?: string) =>
+        api.post('/auth/login/', {
+            identifier,
+            password,
+            remember_me: !!remember_me,
+            country_code,
+        }),
 
     signup: (data: {
         email: string;

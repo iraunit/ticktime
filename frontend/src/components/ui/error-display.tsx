@@ -53,6 +53,13 @@ export function ErrorDisplay({
                                 Try Again
                             </Button>
                         )}
+
+                        <p className="text-xs text-center text-muted-foreground mt-4">
+                            If you think this is an error, please{" "}
+                            <a href="/support" className="text-primary hover:underline">
+                                contact support
+                            </a>
+                        </p>
                     </CardContent>
                 </Card>
             </div>

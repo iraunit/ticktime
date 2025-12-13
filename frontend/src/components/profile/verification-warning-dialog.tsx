@@ -68,7 +68,8 @@ export function VerificationWarningDialog({
                         <DialogTitle>Verification Required</DialogTitle>
                     </div>
                     <DialogDescription>
-                        Please verify your email and phone to receive important communication messages.
+                        Please verify your email and phone to receive important communication messages.{' '}
+                        <span className="text-red-600 font-medium">Unverified emails and phone numbers won't receive any campaign updates or notifications.</span>
                     </DialogDescription>
                 </DialogHeader>
 

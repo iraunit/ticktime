@@ -1,6 +1,6 @@
 "use client";
 
-import {useState} from "react";
+import {useEffect, useState} from "react";
 import {useForm} from "react-hook-form";
 import {zodResolver} from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -46,6 +46,7 @@ export function ForgotPasswordForm() {
         phone_number?: string;
         country_code?: string
     } | null>(null);
+    const [resendCooldown, setResendCooldown] = useState(0);
 
     const otpForm = useForm<OTPFormData>({
         resolver: zodResolver(otpSchema),
@@ -63,6 +64,46 @@ export function ForgotPasswordForm() {
             country_code: "+91",
         },
     });
+
+    // Countdown timer for resend OTP
+    useEffect(() => {
+        if (resendCooldown > 0) {
+            const timer = setInterval(() => {
+                setResendCooldown(prev => Math.max(0, prev - 1));
+            }, 1000);
+            return () => clearInterval(timer);
+        }
+    }, [resendCooldown]);
+
+    // Extract retry_after_seconds from rate limit error
+    useEffect(() => {
+        const error = forgotPassword.error as any;
+        if (error?.response?.status === 429) {
+            const responseData = error.response.data;
+            const retryAfterSeconds = Number(responseData?.retry_after_seconds);
+
+            if (!Number.isNaN(retryAfterSeconds) && retryAfterSeconds > 0) {
+                // Ensure at least 60 seconds minimum
+                setResendCooldown(Math.max(60, retryAfterSeconds));
+            } else {
+                // Fallback: parse from message
+                const message = responseData?.message || '';
+                const minutesMatch = message.match(/after (\d+) minutes/);
+                if (minutesMatch) {
+                    const minutes = parseInt(minutesMatch[1], 10);
+                    setResendCooldown(Math.max(60, minutes * 60));
+                } else {
+                    setResendCooldown(60);
+                }
+            }
+        }
+    }, [forgotPassword.error]);
+
+    const formatTime = (seconds: number) => {
+        const m = Math.floor(seconds / 60);
+        const s = seconds % 60;
+        return `${m}m ${s}s`;
+    };
 
     const onSubmit = async (data: ForgotPasswordFormData) => {
         try {
@@ -107,6 +148,20 @@ export function ForgotPasswordForm() {
         } catch (error) {
             // Error toast is already handled in the useAuth hook
             console.error('OTP verification failed:', error);
+        }
+    };
+
+    const handleResendOTP = async () => {
+        if (!submittedData || resendCooldown > 0) return;
+
+        try {
+            // Resend OTP with the same data
+            forgotPassword.reset();
+            await forgotPassword.mutateAsync(submittedData);
+            // OTP screen stays visible, just clear the OTP input
+            otpForm.reset();
+        } catch (error) {
+            console.error('Failed to resend OTP:', error);
         }
     };
 
@@ -204,19 +259,21 @@ export function ForgotPasswordForm() {
                         <p className="text-sm text-muted-foreground">
                             OTP expires in 15 minutes
                         </p>
+                        {resendCooldown > 0 && (
+                            <p className="text-sm text-amber-600">
+                                You can request a new OTP after {formatTime(resendCooldown)}
+                            </p>
+                        )}
                         <Button
                             type="button"
                             variant="outline"
                             className="w-full"
-                            onClick={() => {
-                                forgotPassword.reset();
-                                verifyOTP.reset();
-                                otpForm.reset();
-                                setShowOTPInput(false);
-                                setSubmittedData(null);
-                            }}
+                            onClick={handleResendOTP}
+                            disabled={resendCooldown > 0}
                         >
-                            Resend OTP
+                            {resendCooldown > 0
+                                ? `Resend OTP available in ${formatTime(resendCooldown)}`
+                                : "Resend OTP"}
                         </Button>
                         <Button asChild variant="ghost" className="w-full">
                             <Link href="/accounts/login">
@@ -224,6 +281,12 @@ export function ForgotPasswordForm() {
                                 Back to sign in
                             </Link>
                         </Button>
+                        <p className="text-xs text-muted-foreground pt-2">
+                            Need help?{" "}
+                            <Link href="/support" className="text-primary hover:underline">
+                                Contact support
+                            </Link>
+                        </p>
                     </div>
                 </CardContent>
             </Card>
@@ -371,18 +434,49 @@ export function ForgotPasswordForm() {
                             </>
                         )}
 
-                        {forgotPassword.error && (
-                            <div className="text-sm text-destructive text-center p-3 bg-destructive/10 rounded-md">
-                                {(forgotPassword.error as any)?.response?.data?.message ||
-                                    (forgotPassword.error as any)?.response?.data?.error ||
-                                    "Failed to send reset link. Please try again."}
-                            </div>
-                        )}
+                        {forgotPassword.error && (() => {
+                            const error = forgotPassword.error as any;
+                            const is429 = error?.response?.status === 429;
+
+                            // For 429 errors, always show timer (use resendCooldown if available)
+                            if (is429) {
+                                return (
+                                    <div className="text-center p-4 bg-amber-50 border border-amber-200 rounded-md">
+                                        <p className="text-sm font-medium text-amber-900 mb-2">
+                                            Too many requests
+                                        </p>
+                                        {resendCooldown > 0 ? (
+                                            <>
+                                                <p className="text-2xl font-bold text-amber-700 mb-1">
+                                                    {formatTime(resendCooldown)}
+                                                </p>
+                                                <p className="text-xs text-amber-700">
+                                                    Please wait before requesting a new OTP
+                                                </p>
+                                            </>
+                                        ) : (
+                                            <p className="text-sm text-amber-700">
+                                                {error?.response?.data?.message || "Please wait before trying again"}
+                                            </p>
+                                        )}
+                                    </div>
+                                );
+                            }
+
+                            // For other errors, show the error message
+                            return (
+                                <div className="text-sm text-destructive text-center p-3 bg-destructive/10 rounded-md">
+                                    {error?.response?.data?.message ||
+                                        error?.response?.data?.error ||
+                                        "Failed to send OTP. Please try again."}
+                                </div>
+                            );
+                        })()}
 
                         <Button
                             type="submit"
                             className="w-full"
-                            disabled={forgotPassword.isPending}
+                            disabled={forgotPassword.isPending || resendCooldown > 0}
                         >
                             {forgotPassword.isPending ? (
                                 <>
@@ -400,6 +494,8 @@ export function ForgotPasswordForm() {
                                     </div>
                                     Sending...
                                 </>
+                            ) : resendCooldown > 0 ? (
+                                `Available in ${formatTime(resendCooldown)}`
                             ) : (
                                 `Send OTP via ${channel === "email" ? "Email" : "WhatsApp"}`
                             )}
@@ -407,7 +503,7 @@ export function ForgotPasswordForm() {
                     </form>
                 </Form>
 
-                <div className="text-center">
+                <div className="text-center space-y-2">
                     <Link
                         href="/accounts/login"
                         className="text-sm text-primary hover:underline inline-flex items-center"
@@ -415,6 +511,12 @@ export function ForgotPasswordForm() {
                         <ArrowLeft className="mr-1 h-3 w-3"/>
                         Back to sign in
                     </Link>
+                    <p className="text-xs text-muted-foreground">
+                        Need help?{" "}
+                        <Link href="/support" className="text-primary hover:underline">
+                            Contact support
+                        </Link>
+                    </p>
                 </div>
             </CardContent>
         </Card>

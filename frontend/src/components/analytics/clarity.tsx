@@ -17,8 +17,8 @@ export function ClarityScript() {
         // Initialize Clarity
         (window as any).clarity =
             (window as any).clarity ||
-            function () {
-                ((window as any).clarity.q = (window as any).clarity.q || []).push(arguments);
+            function (...args: any[]) {
+                ((window as any).clarity.q = (window as any).clarity.q || []).push(args);
             };
 
         const script = document.createElement("script");

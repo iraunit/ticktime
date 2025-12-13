@@ -127,9 +127,42 @@ api.interceptors.response.use(
 
         // Handle API errors
         const responseData = error.response?.data;
-        const errorMessage = responseData?.error || responseData?.message || getDefaultErrorMessage(error.response?.status);
+
+        // Check for field-specific errors first (most specific and helpful)
+        let errorMessage = getDefaultErrorMessage(error.response?.status);
+
+        if (responseData?.errors && typeof responseData.errors === 'object') {
+            // Extract field-specific errors
+            const fieldErrorMessages: string[] = [];
+            for (const [field, messages] of Object.entries(responseData.errors)) {
+                if (Array.isArray(messages) && messages.length > 0) {
+                    // Capitalize field name and add error messages
+                    const fieldName = field.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+                    messages.forEach((msg: string) => {
+                        fieldErrorMessages.push(`${fieldName}: ${msg}`);
+                    });
+                }
+            }
+
+            if (fieldErrorMessages.length > 0) {
+                // Use the first error message (most relevant)
+                errorMessage = fieldErrorMessages[0];
+            } else {
+                // Fallback to generic message or error field
+                errorMessage = responseData?.error || responseData?.message || errorMessage;
+            }
+        } else {
+            // No field errors, use generic message
+            errorMessage = responseData?.error || responseData?.message || errorMessage;
+        }
+
         toast.error(errorMessage);
-        return Promise.reject({message: errorMessage});
+        // Preserve original error structure for component-level error handling
+        return Promise.reject({
+            message: errorMessage,
+            response: error.response,
+            originalError: error
+        });
     }
 );
 

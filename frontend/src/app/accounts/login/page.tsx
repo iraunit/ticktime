@@ -1,17 +1,28 @@
 "use client";
 
 import {Suspense, useEffect, useRef} from "react";
-import {useSearchParams} from "next/navigation";
+import {useRouter, useSearchParams} from "next/navigation";
 import {MainLayout} from "@/components/layout/main-layout";
 import {LoginForm} from "@/components/auth/login-form";
 import {GlobalLoader} from "@/components/ui/global-loader";
 import {useAuth} from "@/hooks/use-auth";
+import {useUserContext} from "@/components/providers/app-providers";
+import {getDashboardRoute} from "@/lib/redirect-utils";
 
 function LoginPageContent() {
     const searchParams = useSearchParams();
     const {oneTapLogin, isAuthenticatedState} = useAuth();
+    const {user, isLoading} = useUserContext();
+    const router = useRouter();
     const token = searchParams.get('token');
     const hasProcessedToken = useRef(false);
+
+    // If already authenticated, redirect away from login
+    useEffect(() => {
+        if (!isLoading && user) {
+            router.replace(getDashboardRoute(user));
+        }
+    }, [isLoading, router, user]);
 
     useEffect(() => {
         // Only process token once, and only if we have a token and are not authenticated

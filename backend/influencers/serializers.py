@@ -420,9 +420,13 @@ class InfluencerProfileUpdateSerializer(serializers.ModelSerializer):
         # Track original values to determine verification reset
         original_email = (user.email or '').strip().lower()
         original_phone = (instance.user_profile.phone_number if instance.user_profile else '') or ''
+        original_country_code = (instance.user_profile.country_code if instance.user_profile else '') or ''
 
+        email_changed = False
         if email is not None:
             normalized_email = (email or '').strip().lower()
+            if normalized_email != original_email:
+                email_changed = True
             user.email = normalized_email
 
         if username is not None:
@@ -434,17 +438,25 @@ class InfluencerProfileUpdateSerializer(serializers.ModelSerializer):
         if not instance.user_profile:
             instance.user_profile = UserProfile.objects.create(user=instance.user)
 
-        # Update UserProfile fields (non-location)
+        phone_changed = False
         if phone_number is not None:
             cleaned_phone = phone_number.strip() if isinstance(phone_number, str) else phone_number
+            if cleaned_phone != original_phone:
+                phone_changed = True
             instance.user_profile.phone_number = cleaned_phone or None
+        if country_code is not None:
+            if country_code != original_country_code:
+                phone_changed = True
+            instance.user_profile.country_code = country_code
         if gender is not None:
             instance.user_profile.gender = gender if gender else None
-        if country_code is not None:
-            instance.user_profile.country_code = country_code
 
-        # Save UserProfile if any non-location fields were updated
-        if any(v is not None for v in [phone_number, gender, country_code]):
+        if phone_changed:
+            instance.user_profile.phone_verified = False
+        if email_changed:
+            instance.user_profile.email_verified = False
+
+        if any(v is not None for v in [phone_number, gender, country_code]) or phone_changed or email_changed:
             instance.user_profile.save()
 
         # Update InfluencerProfile location fields (source of truth for location)
@@ -1129,6 +1141,7 @@ class SocialMediaPostPublicSerializer(serializers.ModelSerializer):
             'caption',
             'hashtags',
             'mentions',
+            'media_urls',
             'posted_at',
             'likes_count',
             'comments_count',

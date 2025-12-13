@@ -256,6 +256,13 @@ class UserUpdateSerializer(serializers.ModelSerializer):
 
     def update(self, instance, validated_data):
         """Update user and user profile data."""
+        email_changed = False
+        if 'email' in validated_data:
+            new_email = validated_data.pop('email')
+            if instance.email != new_email:
+                email_changed = True
+                instance.email = new_email
+
         # Update User model fields
         if 'first_name' in validated_data:
             instance.first_name = validated_data['first_name']
@@ -267,7 +274,10 @@ class UserUpdateSerializer(serializers.ModelSerializer):
         # Get or create UserProfile (for non-location data)
         user_profile, created = UserProfile.objects.get_or_create(user=instance)
 
-        # Update UserProfile non-location fields
+        phone_changed = False
+        old_phone = user_profile.phone_number
+        old_country_code = user_profile.country_code
+
         profile_fields = ['phone_number', 'country_code', 'gender', 'profile_image']
 
         for field in profile_fields:
@@ -275,9 +285,20 @@ class UserUpdateSerializer(serializers.ModelSerializer):
                 value = validated_data[field]
                 if field == 'phone_number':
                     cleaned_value = value.strip() if isinstance(value, str) else value
+                    if cleaned_value and cleaned_value != old_phone:
+                        phone_changed = True
                     setattr(user_profile, field, cleaned_value or None)
+                elif field == 'country_code':
+                    if value != old_country_code:
+                        phone_changed = True
+                    setattr(user_profile, field, value)
                 else:
                     setattr(user_profile, field, value)
+
+        if phone_changed:
+            user_profile.phone_verified = False
+        if email_changed:
+            user_profile.email_verified = False
 
         user_profile.save()
 
