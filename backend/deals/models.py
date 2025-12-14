@@ -51,7 +51,7 @@ class Deal(models.Model):
     # Barter deal specific fields
     shipping_address = models.JSONField(blank=True, null=True, help_text='Shipping address for barter deals')
     tracking_number = models.CharField(max_length=100, blank=True, help_text='Tracking number for shipped products')
-    tracking_url = models.URLField(blank=True, help_text='Tracking URL for shipped products')
+    tracking_url = models.TextField(blank=True, default='', help_text='Tracking URL for shipped products')
     shipped_at = models.DateTimeField(null=True, blank=True)
     delivered_at = models.DateTimeField(null=True, blank=True)
     address_requested_at = models.DateTimeField(null=True, blank=True)

@@ -30,7 +30,7 @@ class Brand(models.Model):
         default='',
         help_text="Optional GSTIN number used for business verification"
     )
-    website = models.URLField(blank=True, default='')
+    website = models.TextField(blank=True, default='', help_text='Brand website URL')
     industry = models.ForeignKey(Industry, on_delete=models.PROTECT, related_name='brands')
     contact_email = models.EmailField()
     # Removed country_code and contact_phone as they're now in UserProfile

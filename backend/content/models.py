@@ -54,7 +54,7 @@ class ContentSubmission(models.Model):
     deal = models.ForeignKey('deals.Deal', on_delete=models.CASCADE, related_name='content_submissions')
     platform = models.CharField(max_length=20, choices=PLATFORM_CHOICES)
     content_type = models.CharField(max_length=20, choices=CONTENT_TYPE_CHOICES)
-    file_url = models.URLField(blank=True)
+    file_url = models.TextField(blank=True, default='', help_text='URL to the uploaded file')
     file_upload = models.FileField(
         upload_to=private_upload_path('content_submissions'),
         blank=True,
@@ -64,7 +64,7 @@ class ContentSubmission(models.Model):
     caption = models.TextField(blank=True)
     hashtags = models.TextField(blank=True)
     mention_brand = models.BooleanField(default=True)
-    post_url = models.URLField(blank=True)
+    post_url = models.TextField(blank=True, default='', help_text='URL to the published post on social media')
 
     # Enhanced fields for multiple links and descriptions
     title = models.CharField(max_length=255, blank=True, help_text='Title or description of this content piece')

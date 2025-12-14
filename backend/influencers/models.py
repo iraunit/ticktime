@@ -281,7 +281,7 @@ class SocialMediaAccount(models.Model):
     )
     platform = models.CharField(max_length=20, choices=PLATFORM_CHOICES)
     handle = models.CharField(max_length=100)
-    profile_url = models.URLField(blank=True)
+    profile_url = models.TextField(blank=True, default='', help_text='Profile URL on the social platform')
 
     # Platform profile metadata (synced from scraper)
     display_name = models.CharField(
@@ -295,8 +295,9 @@ class SocialMediaAccount(models.Model):
         default='',
         help_text='Bio/description from the social platform',
     )
-    external_url = models.URLField(
+    external_url = models.TextField(
         blank=True,
+        default='',
         help_text='External URL / link in bio set on the platform',
     )
     is_private = models.BooleanField(
@@ -396,7 +397,7 @@ class SocialMediaPost(models.Model):
     )
     platform = models.CharField(max_length=20, choices=PLATFORM_CHOICES)
     platform_post_id = models.CharField(max_length=128)
-    post_url = models.URLField(blank=True)
+    post_url = models.TextField(blank=True, default='', help_text='URL to the post on the social platform')
     post_type = models.CharField(max_length=50, blank=True)
     caption = models.TextField(blank=True)
     hashtags = models.JSONField(default=list, blank=True)
