@@ -1782,7 +1782,7 @@ export default function InfluencerProfilePage() {
                                                                         {formatFollowers(post.comments_count)}
                                                                         </span>
                                                                 )}
-                                                                {post.views_count !== undefined && post.views_count !== null && (
+                                                                {post.views_count !== undefined && post.views_count !== null && post.views_count > 0 && (
                                                                     <span className="inline-flex items-center gap-1">
                                                                             <HiEye className="h-4 w-4 text-amber-500"/>
                                                                         {formatFollowers(post.views_count)}
@@ -1907,7 +1907,7 @@ export default function InfluencerProfilePage() {
                                                                         {formatFollowers(post.comments_count)}
                                                             </span>
                                                                 )}
-                                                                {post.views_count !== undefined && post.views_count !== null && (
+                                                                {post.views_count !== undefined && post.views_count !== null && post.views_count > 0 && (
                                                                     <span
                                                                         className="inline-flex items-center gap-1 text-gray-700">
                                                                         <HiEye className="h-4 w-4 text-amber-500"/>
