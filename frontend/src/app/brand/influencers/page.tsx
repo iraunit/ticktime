@@ -1,6 +1,6 @@
 "use client";
 
-import {useCallback, useEffect, useMemo, useState} from "react";
+import {useCallback, useEffect, useMemo, useRef, useState} from "react";
 import {Card} from "@/components/ui/card";
 import {Button} from "@/components/ui/button";
 import {Badge} from "@/components/ui/badge";
@@ -88,6 +88,7 @@ type IndustryOption = { key: string; name: string };
 export default function InfluencerSearchPage() {
     const [influencers, setInfluencers] = useState<Influencer[]>([]);
     const [isLoading, setIsLoading] = useState(false);
+    const [isLoadingMore, setIsLoadingMore] = useState(false);
     const [hasMore, setHasMore] = useState(true);
     const [page, setPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
@@ -165,6 +166,9 @@ export default function InfluencerSearchPage() {
     const [campaignFilter, setCampaignFilter] = useState<string>("");
     const [isInitialised, setIsInitialised] = useState(false);
 
+    const loadMoreButtonRef = useRef<HTMLButtonElement | null>(null);
+    const autoLoadInFlightRef = useRef(false);
+
     // Save column visibility to localStorage
     useEffect(() => {
         localStorage.setItem('influencer-table-columns', JSON.stringify(visibleColumns));
@@ -215,7 +219,8 @@ export default function InfluencerSearchPage() {
 
     // Load influencers from API
     const fetchInfluencers = useCallback(async (pageNum = 1, append = false) => {
-        if (pageNum === 1) setIsLoading(true);
+        if (append) setIsLoadingMore(true);
+        else setIsLoading(true);
 
         try {
             const response = await api.get('/influencers/search/', {
@@ -259,7 +264,9 @@ export default function InfluencerSearchPage() {
                 'Failed to load influencers. Please try again.';
             toast.error(errorMessage);
         } finally {
-            setIsLoading(false);
+            if (append) setIsLoadingMore(false);
+            else setIsLoading(false);
+            autoLoadInFlightRef.current = false;
         }
     }, [searchTerm, selectedPlatforms, selectedLocations, genderFilters, followerRange, selectedCategories, selectedIndustries, sortBy, sortOrder, ageRangesFilter, collabPrefsFilter, maxCollabAmountFilter, campaignFilter]);
 
@@ -662,6 +669,31 @@ export default function InfluencerSearchPage() {
         setPage(nextPage);
         fetchInfluencers(nextPage, true);
     };
+
+    // Auto-load next page when the Load More button becomes visible
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+        const btn = loadMoreButtonRef.current;
+        if (!btn) return;
+        if (!hasMore) return;
+
+        const observer = new IntersectionObserver(
+            (entries) => {
+                const entry = entries[0];
+                if (!entry?.isIntersecting) return;
+                if (isLoading || isLoadingMore) return;
+                if (autoLoadInFlightRef.current) return;
+                if (!hasMore) return;
+
+                autoLoadInFlightRef.current = true;
+                handleLoadMore();
+            },
+            {root: null, rootMargin: '200px', threshold: 0.1}
+        );
+
+        observer.observe(btn);
+        return () => observer.disconnect();
+    }, [hasMore, isLoading, isLoadingMore, page]);
 
     const toggleColumnVisibility = (columnKey: string) => {
         setVisibleColumns((prev: Record<string, boolean>) => ({
@@ -1593,10 +1625,12 @@ export default function InfluencerSearchPage() {
                         <Button
                             onClick={handleLoadMore}
                             size="lg"
+                            ref={loadMoreButtonRef}
+                            disabled={isLoadingMore}
                             className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white shadow-lg hover:shadow-xl transition-all duration-200 px-8 py-3"
                         >
                             <HiArrowPath className="w-5 h-5 mr-2"/>
-                            Load More Creators
+                            {isLoadingMore ? 'Loading…' : 'Load More Creators'}
                         </Button>
                     </div>
                 )}
