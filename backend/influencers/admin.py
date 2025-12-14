@@ -663,7 +663,7 @@ class SocialMediaAccountAdmin(admin.ModelAdmin):
     actions = ['queue_sync_selected', 'recalculate_engagement_rate']
     readonly_fields = [
         'influencer', 'platform', 'handle', 'profile_url',
-        'display_name', 'bio', 'external_url', 'is_private', 'profile_image_url', 'profile_image_base64_display',
+        'display_name', 'bio', 'external_url', 'is_private', 'profile_image_url_display',
         'followers_count', 'following_count', 'posts_count', 'last_posted_at',
         'engagement_rate', 'average_likes', 'average_comments', 'average_shares',
         'average_video_views', 'average_video_likes', 'average_video_comments',
@@ -681,8 +681,7 @@ class SocialMediaAccountAdmin(admin.ModelAdmin):
             'fields': ('influencer', 'platform', 'handle', 'profile_url', 'verified', 'platform_verified', 'is_active')
         }),
         ('Profile Details', {
-            'fields': ('display_name', 'bio', 'external_url', 'is_private', 'profile_image_url',
-                       'profile_image_base64_display'),
+            'fields': ('display_name', 'bio', 'external_url', 'is_private', 'profile_image_url_display'),
             'description': 'Profile metadata from the social platform'
         }),
         ('Followers & Posts', {
@@ -716,29 +715,16 @@ class SocialMediaAccountAdmin(admin.ModelAdmin):
 
     influencer_username.short_description = 'Influencer'
 
-    def profile_image_base64_display(self, obj):
-        """Display profile image from base64 data"""
-        if obj.profile_image_base64:
-            # Show image preview if base64 data exists
-            image_data = obj.profile_image_base64
-            # Remove data URL prefix if present
-            if image_data.startswith('data:image'):
-                image_data = image_data.split(',')[1] if ',' in image_data else image_data
-            elif not image_data.startswith('/9j/') and len(image_data) > 100:
-                # Assume it's already base64 without prefix
-                pass
-            return format_html(
-                '<img src="data:image/jpeg;base64,{}" style="max-width: 200px; max-height: 200px; border-radius: 8px; border: 2px solid #ddd;" />',
-                image_data
-            )
-        elif obj.profile_image_url:
+    def profile_image_url_display(self, obj):
+        """Display profile image from URL"""
+        if obj.profile_image_url:
             return format_html(
                 '<img src="{}" style="max-width: 200px; max-height: 200px; border-radius: 8px; border: 2px solid #ddd;" onerror="this.style.display=\'none\'" />',
                 obj.profile_image_url
             )
         return 'No profile image available'
 
-    profile_image_base64_display.short_description = 'Profile Image (Base64)'
+    profile_image_url_display.short_description = 'Profile Image'
 
     def last_synced_display(self, obj):
         """Display last synced time with color coding"""

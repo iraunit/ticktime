@@ -309,11 +309,6 @@ class SocialMediaAccount(models.Model):
         default='',
         help_text='Profile image URL from the platform (may expire)',
     )
-    profile_image_base64 = models.TextField(
-        blank=True,
-        default='',
-        help_text='Profile image as base64 string from scraper API',
-    )
     followers_count = models.IntegerField(validators=[MinValueValidator(0)], default=0)
     following_count = models.IntegerField(validators=[MinValueValidator(0)], default=0)
     posts_count = models.IntegerField(validators=[MinValueValidator(0)], default=0)

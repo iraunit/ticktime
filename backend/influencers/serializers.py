@@ -1170,7 +1170,6 @@ class SocialAccountPublicSerializer(serializers.ModelSerializer):
             'external_url',
             'is_private',
             'profile_image_url',
-            'profile_image_base64',
             'followers_count',
             'following_count',
             'posts_count',

@@ -177,7 +177,6 @@ interface SocialAccount {
     external_url?: string;
     is_private?: boolean;
     profile_image_url?: string;
-    profile_image_base64?: string;
     platform_handle?: string;
     platform_profile_link?: string;
     followers_count: number;
@@ -1290,18 +1289,8 @@ export default function InfluencerProfilePage() {
                                         const platformIcon = getPlatformIcon(account.platform);
                                         const IconComponent = platformIcon.icon;
                                         const platformUrl = getPlatformUrl(account.platform, account.handle, account.platform_profile_link);
-                                        // Use profile_image_base64 if available, otherwise fallback to profile_image_url
-                                        const accountProfileImage = (() => {
-                                            if (account.profile_image_base64) {
-                                                // Check if base64 already has data URL prefix
-                                                if (account.profile_image_base64.startsWith('data:image')) {
-                                                    return account.profile_image_base64;
-                                                }
-                                                // Otherwise, add the prefix
-                                                return `data:image/jpeg;base64,${account.profile_image_base64}`;
-                                            }
-                                            return account.profile_image_url;
-                                        })();
+                                        // Use profile_image_url
+                                        const accountProfileImage = account.profile_image_url || '';
 
                                         const primaryStats = [
                                             {
