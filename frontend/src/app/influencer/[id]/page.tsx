@@ -1,6 +1,6 @@
 "use client";
 
-import {useEffect, useState} from "react";
+import {useEffect, useMemo, useState} from "react";
 import {useParams, useRouter} from "next/navigation";
 import {Card, CardContent, CardHeader, CardTitle} from "@/components/ui/card";
 import {Button} from "@/components/ui/button";
@@ -15,6 +15,7 @@ import {
     HiArrowRight,
     HiArrowTrendingUp,
     HiChatBubbleLeft,
+    HiCheckBadge,
     HiCheckCircle,
     HiExclamationTriangle,
     HiEye,
@@ -345,6 +346,24 @@ export default function InfluencerProfilePage() {
         isValidNumber(value) ? value.toFixed(decimals) : fallback;
 
     const safeArray = <T, >(value?: T[] | null): T[] => (Array.isArray(value) ? value : []);
+
+    // Keep these hooks ABOVE any early returns (loading/error) to avoid hook order changes
+    const socialAccounts = profile?.social_accounts;
+    const verifiedPlatforms = useMemo(() => {
+        return new Set(
+            safeArray(socialAccounts)
+                .filter((a) => a?.verified)
+                .map((a) => String(a.platform).toLowerCase())
+        );
+    }, [socialAccounts]);
+
+    const platformVerifiedPlatforms = useMemo(() => {
+        return new Set(
+            safeArray(socialAccounts)
+                .filter((a) => a?.platform_verified)
+                .map((a) => String(a.platform).toLowerCase())
+        );
+    }, [socialAccounts]);
 
     const parseNumericValue = (value?: string | number | null): number | null => {
         if (value === undefined || value === null) return null;
@@ -978,7 +997,7 @@ export default function InfluencerProfilePage() {
     };
 
     return (
-        <div className="min-h-screen">
+        <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100">
             <div className="container mx-auto px-6 py-8 max-w-7xl">
                 {/* Header */}
                 <div className="mb-6">
@@ -1068,13 +1087,27 @@ export default function InfluencerProfilePage() {
                                         <div className="mt-2 flex flex-wrap gap-2">
                                             {platformSummary.map(({platform}) => {
                                                 const {icon: PIcon, bgColor} = getPlatformIcon(platform);
+                                                const key = String(platform).toLowerCase();
+                                                const isVerified = verifiedPlatforms.has(key);
+                                                const isPlatformVerified = platformVerifiedPlatforms.has(key);
                                                 return (
                                                     <div
                                                         key={`platform-${platform}`}
-                                                        className={`h-8 w-8 rounded-full flex items-center justify-center text-white ${bgColor}`}
+                                                        className={`relative h-8 w-8 rounded-full flex items-center justify-center text-white ${bgColor} ${
+                                                            isVerified ? 'ring-2 ring-green-400 ring-offset-2 ring-offset-white' : ''
+                                                        }`}
                                                         title={platform}
                                                     >
                                                         <PIcon className="h-4 w-4"/>
+                                                        {isPlatformVerified && (
+                                                            <span
+                                                                className="absolute -bottom-1 -right-1 z-10 pointer-events-none h-4 w-4 rounded-full bg-blue-600 flex items-center justify-center shadow ring-2 ring-white"
+                                                                title="Platform verified"
+                                                                aria-label="Platform verified"
+                                                            >
+                                                                <HiCheckBadge className="h-3 w-3 text-white"/>
+                                                            </span>
+                                                        )}
                                                     </div>
                                                 );
                                             })}
@@ -1094,9 +1127,14 @@ export default function InfluencerProfilePage() {
                             <CardContent className="space-y-6 p-6">
                                 <div className="flex flex-col gap-6 lg:flex-row">
                                     <div className="flex flex-col items-center gap-4 lg:items-start">
-                                        <div className="relative group">
+                                        <div className="relative group overflow-visible">
                                             <div
-                                                className="relative h-32 w-32 lg:h-36 lg:w-36 overflow-hidden rounded-full border-4 border-gray-200 bg-gradient-to-br from-gray-100 to-gray-200 shadow-lg">
+                                                className={`relative h-32 w-32 lg:h-36 lg:w-36 overflow-hidden rounded-full border-4 bg-gradient-to-br from-gray-100 to-gray-200 shadow-lg ${
+                                                    profile.is_verified ? 'border-green-400' : 'border-gray-200'
+                                                }`}
+                                                title={profile.is_verified ? 'Verified by TickTime' : undefined}
+                                                aria-label={profile.is_verified ? 'Verified by TickTime' : undefined}
+                                            >
                                                 {profileImageSrc ? (
                                                     <img
                                                         src={profileImageSrc}
@@ -1119,13 +1157,16 @@ export default function InfluencerProfilePage() {
                                                         {(displayName || profile.username).charAt(0).toUpperCase()}
                                                     </div>
                                                 )}
-                                                {profile.is_verified && (
-                                                    <div
-                                                        className="absolute -bottom-1 -right-1 h-10 w-10 rounded-full bg-blue-500 flex items-center justify-center shadow-lg border-4 border-white">
-                                                        <HiCheckCircle className="h-6 w-6 text-white"/>
-                                                    </div>
-                                                )}
                                             </div>
+                                            {profile.is_verified && (
+                                                <div
+                                                    className="absolute -bottom-1 -right-1 z-20 pointer-events-none h-10 w-10 rounded-full bg-green-600 flex items-center justify-center shadow-lg ring-4 ring-white"
+                                                    title="Verified by TickTime"
+                                                    aria-label="Verified by TickTime"
+                                                >
+                                                    <HiCheckCircle className="h-6 w-6 text-white"/>
+                                                </div>
+                                            )}
                                         </div>
                                         {profile.external_url && (
                                             <Button
@@ -1142,12 +1183,35 @@ export default function InfluencerProfilePage() {
                                             <div className="flex flex-wrap justify-center lg:justify-start gap-2">
                                                 {safeArray(profile.available_platforms).map((platform) => {
                                                     const {icon: PIcon, color} = getPlatformIcon(platform);
+                                                    const key = String(platform).toLowerCase();
+                                                    const isVerified = verifiedPlatforms.has(key);
+                                                    const isPlatformVerified = platformVerifiedPlatforms.has(key);
                                                     return (
-                                                        <Badge key={platform} variant="outline"
-                                                               className="text-xs uppercase tracking-wide flex items-center gap-1.5">
-                                                            <PIcon className={`h-3.5 w-3.5 ${color}`}/>
-                                                            {platform}
-                                                        </Badge>
+                                                        <div key={platform} className="relative">
+                                                            <Badge
+                                                                variant="outline"
+                                                                className={`text-xs uppercase tracking-wide flex items-center gap-1.5 pr-2 ${
+                                                                    isVerified ? 'border-green-300 bg-green-50 text-green-800' : ''
+                                                                }`}
+                                                                title={
+                                                                    isVerified
+                                                                        ? 'Verified (TickTime)'
+                                                                        : undefined
+                                                                }
+                                                            >
+                                                                <PIcon className={`h-3.5 w-3.5 ${color}`}/>
+                                                                {platform}
+                                                            </Badge>
+                                                            {isPlatformVerified && (
+                                                                <span
+                                                                    className="absolute -bottom-1 -right-1 z-10 pointer-events-none h-4 w-4 rounded-full bg-blue-600 flex items-center justify-center shadow ring-2 ring-white"
+                                                                    title="Platform verified"
+                                                                    aria-label="Platform verified"
+                                                                >
+                                                                    <HiCheckBadge className="h-3 w-3 text-white"/>
+                                                                </span>
+                                                            )}
+                                                        </div>
                                                     );
                                                 })}
                                             </div>
@@ -1354,10 +1418,15 @@ export default function InfluencerProfilePage() {
                                             >
                                                 <div className="flex items-start gap-4">
                                                     {/* Profile Picture */}
-                                                    <div className="relative flex-shrink-0">
+                                                    <div className="relative flex-shrink-0 overflow-visible">
                                                         {accountProfileImage ? (
                                                             <div
-                                                                className="h-20 w-20 rounded-full overflow-hidden border-2 border-gray-200 ring-2 ring-white shadow-md">
+                                                                className={`h-20 w-20 rounded-full overflow-hidden border-2 ring-2 ring-white shadow-md ${
+                                                                    account.verified ? 'border-green-500' : 'border-gray-200'
+                                                                }`}
+                                                                title={account.verified ? 'Verified (TickTime)' : undefined}
+                                                                aria-label={account.verified ? 'Verified (TickTime)' : undefined}
+                                                            >
                                                                 <img
                                                                     src={accountProfileImage}
                                                                     alt={`${account.handle} profile`}
@@ -1369,14 +1438,22 @@ export default function InfluencerProfilePage() {
                                                             </div>
                                                         ) : (
                                                             <div
-                                                                className={`h-20 w-20 rounded-full flex items-center justify-center text-white ${platformIcon.bgColor} border-2 border-gray-200 shadow-md`}>
+                                                                className={`h-20 w-20 rounded-full flex items-center justify-center text-white ${platformIcon.bgColor} border-2 shadow-md ${
+                                                                    account.verified ? 'border-green-500' : 'border-gray-200'
+                                                                }`}
+                                                                title={account.verified ? 'Verified (TickTime)' : undefined}
+                                                                aria-label={account.verified ? 'Verified (TickTime)' : undefined}
+                                                            >
                                                                 <IconComponent className="h-8 w-8"/>
                                                             </div>
                                                         )}
                                                         {account.platform_verified && (
                                                             <div
-                                                                className="absolute -bottom-1 -right-1 h-6 w-6 rounded-full bg-blue-500 flex items-center justify-center shadow-md border-2 border-white">
-                                                                <HiCheckCircle className="h-4 w-4 text-white"/>
+                                                                className="absolute -bottom-1 -right-1 z-10 pointer-events-none h-6 w-6 rounded-full bg-blue-600 flex items-center justify-center shadow-md ring-2 ring-white"
+                                                                title="Platform verified"
+                                                                aria-label="Platform verified"
+                                                            >
+                                                                <HiCheckBadge className="h-4 w-4 text-white"/>
                                                             </div>
                                                         )}
                                                     </div>
@@ -1387,6 +1464,15 @@ export default function InfluencerProfilePage() {
                                                             <span className="text-lg font-bold text-gray-900">
                                                                 @{account.handle ?? 'unknown'}
                                                             </span>
+                                                            {account.verified && (
+                                                                <Badge
+                                                                    variant="outline"
+                                                                    className="border-green-200 text-green-800 bg-green-50 text-xs"
+                                                                    title="Verified (TickTime)"
+                                                                >
+                                                                    Verified
+                                                                </Badge>
+                                                            )}
                                                             {account.is_active && (
                                                                 <Badge
                                                                     className="bg-green-100 text-green-700 border-green-200 text-xs">
