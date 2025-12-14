@@ -10,10 +10,10 @@ import {toast} from "@/lib/toast";
 import {api} from "@/lib/api";
 import {normalizeRemoteUrl} from "@/lib/utils";
 import {CampaignSelectionDialog} from "@/components/campaigns/campaign-selection-dialog";
+import {Dialog, DialogContent,} from "@/components/ui/dialog";
 import {
     HiArrowLeft,
     HiArrowPath,
-    HiArrowRight,
     HiArrowTrendingUp,
     HiChatBubbleLeft,
     HiCheckBadge,
@@ -223,6 +223,7 @@ export default function InfluencerProfilePage() {
     const [isBookmarked, setIsBookmarked] = useState(false);
     const [isBookmarking, setIsBookmarking] = useState(false);
     const [isRefreshing, setIsRefreshing] = useState(false);
+    const [selectedPost, setSelectedPost] = useState<SocialMediaPost | null>(null);
 
     const fetchProfile = async () => {
         setIsLoading(true);
@@ -635,8 +636,8 @@ export default function InfluencerProfilePage() {
                         <span className="text-[10px] uppercase tracking-wide text-white/80">
                             {post.platform}
                         </span>
-                        <p className="text-sm font-medium line-clamp-3 text-white/95">
-                            {post.caption ? truncate(post.caption, 120) : 'Preview unavailable'}
+                        <p className="text-sm font-medium text-white/95 whitespace-pre-wrap break-words line-clamp-4">
+                            {post.caption || 'Preview unavailable'}
                         </p>
                     </div>
                 )}
@@ -1694,282 +1695,6 @@ export default function InfluencerProfilePage() {
                                 </CardContent>
                             </Card>
                         )}
-
-                        {/* Recent Posts */}
-                        <Card className="border border-gray-200 shadow-sm">
-                            <CardHeader className="pb-4 border-b border-gray-100">
-                                <CardTitle className="text-xl font-bold text-gray-900 flex items-center gap-2">
-                                    <HiPresentationChartBar className="w-6 h-6 text-primary"/>
-                                    Recent Posts
-                                </CardTitle>
-                            </CardHeader>
-                            <CardContent className="p-6">
-                                {safeArray(profile.recent_posts).length > 0 ? (
-                                    <div className="space-y-4">
-                                        {safeArray(profile.recent_posts).map((post) => {
-                                            // Use media_urls from database (now stored directly from scraper)
-                                            const mediaUrl = getPrimaryThumbnail(post);
-                                            const hasMedia = Boolean(mediaUrl);
-                                            const {icon: PIcon, color, bgColor} = getPlatformIcon(post.platform);
-                                            const openPost = () => {
-                                                if (post.post_url) {
-                                                    window.open(post.post_url, '_blank', 'noopener,noreferrer');
-                                                }
-                                            };
-                                            const handleKeyDown = (event: React.KeyboardEvent) => {
-                                                if (!post.post_url) return;
-                                                if (event.key === 'Enter' || event.key === ' ') {
-                                                    event.preventDefault();
-                                                    openPost();
-                                                }
-                                            };
-                                            const hasHashtags = safeArray(post.hashtags).length > 0;
-                                            const hasMentions = safeArray(post.mentions).length > 0;
-                                            const hasTags = hasHashtags || hasMentions;
-
-                                            // If no media, show compact detail-only view
-                                            if (!hasMedia) {
-                                                return (
-                                                    <div
-                                                        key={`${post.platform}_${post.platform_post_id}`}
-                                                        role={post.post_url ? 'button' : 'group'}
-                                                        tabIndex={post.post_url ? 0 : -1}
-                                                        onClick={post.post_url ? openPost : undefined}
-                                                        onKeyDown={handleKeyDown}
-                                                        className={`rounded-xl border-2 border-gray-200 bg-white p-4 transition-all ${
-                                                            post.post_url ? 'hover:shadow-lg hover:border-primary/30 cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary' : ''
-                                                        }`}
-                                                    >
-                                                        <div className="space-y-2">
-                                                            <div className="flex items-center gap-2 flex-wrap">
-                                                                    <span
-                                                                        className={`font-semibold text-sm capitalize ${color}`}>
-                                                                        {post.platform}
-                                                                    </span>
-                                                                {post.post_type && (
-                                                                    <>
-                                                                        <span className="text-gray-400">•</span>
-                                                                        <Badge variant="outline" className="text-xs">
-                                                                            {post.post_type.toUpperCase()}
-                                                                        </Badge>
-                                                                    </>
-                                                                )}
-                                                                <span className="text-gray-400">•</span>
-                                                                <span className="text-xs text-gray-500">
-                                                                        {post.posted_at ? formatDateTime(post.posted_at) : 'Unknown date'}
-                                                                    </span>
-                                                            </div>
-
-                                                            {post.caption && (
-                                                                <p className="text-sm text-gray-900 leading-relaxed">
-                                                                    {post.caption}
-                                                                </p>
-                                                            )}
-
-                                                            {/* Engagement Stats */}
-                                                            <div
-                                                                className="flex flex-wrap items-center gap-4 text-xs text-gray-600 pt-1">
-                                                                {post.likes_count !== undefined && post.likes_count !== null && (
-                                                                    <span className="inline-flex items-center gap-1">
-                                                                            <HiHeart className="h-4 w-4 text-rose-500"/>
-                                                                        {formatFollowers(post.likes_count)}
-                                                                        </span>
-                                                                )}
-                                                                {post.comments_count !== undefined && post.comments_count !== null && (
-                                                                    <span className="inline-flex items-center gap-1">
-                                                                            <HiChatBubbleLeft
-                                                                                className="h-4 w-4 text-sky-500"/>
-                                                                        {formatFollowers(post.comments_count)}
-                                                                        </span>
-                                                                )}
-                                                                {post.views_count !== undefined && post.views_count !== null && post.views_count > 0 && (
-                                                                    <span className="inline-flex items-center gap-1">
-                                                                            <HiEye className="h-4 w-4 text-amber-500"/>
-                                                                        {formatFollowers(post.views_count)}
-                                                                        </span>
-                                                                )}
-                                                                {post.shares_count !== undefined && post.shares_count !== null && post.shares_count > 0 && (
-                                                                    <span className="inline-flex items-center gap-1">
-                                                                            <HiLink className="h-4 w-4 text-green-500"/>
-                                                                        {formatFollowers(post.shares_count)}
-                                                                        </span>
-                                                                )}
-                                                            </div>
-
-                                                            {/* Hashtags and Mentions */}
-                                                            {hasTags && (
-                                                                <div
-                                                                    className="flex flex-wrap gap-2 pt-2 border-t border-gray-100">
-                                                                    {hasHashtags && safeArray(post.hashtags).slice(0, 4).map((tag) => (
-                                                                        <Badge
-                                                                            key={`${post.platform_post_id}_tag_${tag}`}
-                                                                            variant="outline"
-                                                                            className="rounded-full bg-purple-50 text-purple-700 border-purple-200 text-xs px-2 py-0.5"
-                                                                        >
-                                                                            #{String(tag).replace(/^#/, "")}
-                                                                        </Badge>
-                                                                    ))}
-                                                                    {hasMentions && safeArray(post.mentions).slice(0, 4).map((mention) => (
-                                                                        <Badge
-                                                                            key={`${post.platform_post_id}_mention_${mention}`}
-                                                                            variant="outline"
-                                                                            className="rounded-full bg-blue-50 text-blue-700 border-blue-200 text-xs px-2 py-0.5"
-                                                                        >
-                                                                            <HiUsers className="w-3 h-3 mr-1 inline"/>
-                                                                            @{String(mention).replace(/^@/, "")}
-                                                                        </Badge>
-                                                                    ))}
-                                                                </div>
-                                                            )}
-
-                                                            {post.post_url && (
-                                                                <div className="pt-1">
-                                                                        <span
-                                                                            className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
-                                                                            View on {post.platform}
-                                                                            <HiArrowRight className="w-3 h-3"/>
-                                                                        </span>
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                );
-                                            }
-
-                                            // If media exists, show card with image
-                                            return (
-                                                <div
-                                                    key={`${post.platform}_${post.platform_post_id}`}
-                                                    role={post.post_url ? 'button' : 'group'}
-                                                    tabIndex={post.post_url ? 0 : -1}
-                                                    onClick={post.post_url ? openPost : undefined}
-                                                    onKeyDown={handleKeyDown}
-                                                    className={`group relative rounded-xl border-2 border-gray-200 bg-white overflow-hidden shadow-sm transition-all ${
-                                                        post.post_url ? 'hover:shadow-lg hover:border-primary/30 cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary' : ''
-                                                    }`}
-                                                >
-                                                    <div className="flex gap-0">
-                                                        {/* Post Image */}
-                                                        <div
-                                                            className="relative w-48 h-48 flex-shrink-0 overflow-hidden bg-gradient-to-br from-gray-100 to-gray-200">
-                                                            {mediaUrl ? (
-                                                                <img
-                                                                    src={mediaUrl}
-                                                                    alt={post.caption || `${post.platform} post`}
-                                                                    className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300"
-                                                                    loading="lazy"
-                                                                    onError={(e) => {
-                                                                        // Fallback to platform icon if image fails to load
-                                                                        e.currentTarget.style.display = 'none';
-                                                                    }}
-                                                                />
-                                                            ) : (
-                                                                <div
-                                                                    className={`h-full w-full flex items-center justify-center ${bgColor} text-white`}>
-                                                                    <PIcon className="h-12 w-12"/>
-                                                                </div>
-                                                            )}
-                                                            {post.post_type && (
-                                                                <div className="absolute top-2 left-2">
-                                                                    <Badge
-                                                                        className="bg-black/70 text-white border-0 backdrop-blur-sm text-xs">
-                                                                        {post.post_type === 'VIDEO' &&
-                                                                            <HiPlay className="w-2.5 h-2.5 mr-1"/>}
-                                                                        {post.post_type.toUpperCase()}
-                                                                    </Badge>
-                                                                </div>
-                                                            )}
-                                                        </div>
-
-                                                        {/* Post Content */}
-                                                        <div className="flex-1 p-4 space-y-3">
-                                                            {/* Caption */}
-                                                            {post.caption && (
-                                                                <p className="text-sm text-gray-900 leading-relaxed line-clamp-3">
-                                                                    {post.caption}
-                                                                </p>
-                                                            )}
-
-                                                            {/* Engagement Stats */}
-                                                            <div className="flex flex-wrap items-center gap-3 text-xs">
-                                                                {post.likes_count !== undefined && post.likes_count !== null && (
-                                                                    <span
-                                                                        className="inline-flex items-center gap-1 text-gray-700">
-                                                                        <HiHeart className="h-4 w-4 text-rose-500"/>
-                                                                        {formatFollowers(post.likes_count)}
-                                                            </span>
-                                                                )}
-                                                                {post.comments_count !== undefined && post.comments_count !== null && (
-                                                                    <span
-                                                                        className="inline-flex items-center gap-1 text-gray-700">
-                                                                        <HiChatBubbleLeft
-                                                                            className="h-4 w-4 text-sky-500"/>
-                                                                        {formatFollowers(post.comments_count)}
-                                                            </span>
-                                                                )}
-                                                                {post.views_count !== undefined && post.views_count !== null && post.views_count > 0 && (
-                                                                    <span
-                                                                        className="inline-flex items-center gap-1 text-gray-700">
-                                                                        <HiEye className="h-4 w-4 text-amber-500"/>
-                                                                        {formatFollowers(post.views_count)}
-                                                                </span>
-                                                                )}
-                                                            </div>
-
-                                                            {/* Hashtags and Mentions */}
-                                                            {hasTags && (
-                                                                <div
-                                                                    className="flex flex-wrap gap-1.5 pt-2 border-t border-gray-100">
-                                                                    {hasHashtags && safeArray(post.hashtags).slice(0, 3).map((tag) => (
-                                                                        <Badge
-                                                                            key={`${post.platform_post_id}_tag_${tag}`}
-                                                                            variant="outline"
-                                                                            className="rounded-full bg-purple-50 text-purple-700 border-purple-200 text-xs px-2 py-0.5"
-                                                                        >
-                                                                            #{String(tag).replace(/^#/, "")}
-                                                                        </Badge>
-                                                                    ))}
-                                                                    {hasMentions && safeArray(post.mentions).slice(0, 3).map((mention) => (
-                                                                        <Badge
-                                                                            key={`${post.platform_post_id}_mention_${mention}`}
-                                                                            variant="outline"
-                                                                            className="rounded-full bg-blue-50 text-blue-700 border-blue-200 text-xs px-2 py-0.5"
-                                                                        >
-                                                                            <HiUsers className="w-3 h-3 mr-1 inline"/>
-                                                                            @{String(mention).replace(/^@/, "")}
-                                                                        </Badge>
-                                                                    ))}
-                                                                </div>
-                                                            )}
-
-                                                            <div
-                                                                className="flex items-center justify-between text-xs text-gray-500 pt-1">
-                                                                <span>{post.posted_at ? formatDateTime(post.posted_at) : 'Unknown date'}</span>
-                                                                {post.post_url && (
-                                                                    <span
-                                                                        className="inline-flex items-center gap-1 text-primary hover:underline">
-                                                                        View
-                                                                        <HiArrowRight className="w-3 h-3"/>
-                                                                    </span>
-                                                                )}
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                ) : (
-                                    <div className="text-center py-12">
-                                        <HiExclamationTriangle className="w-12 h-12 text-gray-300 mx-auto mb-3"/>
-                                        <p className="text-sm font-medium text-gray-600">No recent posts available</p>
-                                        <p className="text-xs text-gray-500 mt-1">Posts will appear here once they're
-                                            synced</p>
-                                    </div>
-                                )}
-                            </CardContent>
-                        </Card>
-
                     </div>
 
                     {/* Sidebar */}
@@ -2215,6 +1940,325 @@ export default function InfluencerProfilePage() {
                         {/* Audience Insights removed for now */}
                     </div>
                 </div>
+
+                {/* Recent Posts - Full Width Instagram-like Grid */}
+                <Card className="border border-gray-200 shadow-sm">
+                    <CardHeader className="pb-4 border-b border-gray-100">
+                        <CardTitle className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                            <HiPresentationChartBar className="w-6 h-6 text-primary"/>
+                            Recent Posts
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-6">
+                        {safeArray(profile.recent_posts).length > 0 ? (
+                            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-1">
+                                {safeArray(profile.recent_posts).map((post) => {
+                                    const mediaUrl = getPrimaryThumbnail(post);
+                                    const hasMedia = Boolean(mediaUrl);
+                                    const {icon: PIcon, color, bgColor} = getPlatformIcon(post.platform);
+
+                                    // If no media, show text card with full details
+                                    if (!hasMedia) {
+                                        return (
+                                            <div
+                                                key={`${post.platform}_${post.platform_post_id}`}
+                                                className="rounded-sm border border-gray-200 bg-white overflow-hidden shadow-sm hover:shadow-md transition-all cursor-pointer"
+                                                onClick={() => setSelectedPost(post)}
+                                            >
+                                                <div className="px-3 py-2 border-b border-gray-100 bg-gray-50">
+                                                    <div className="flex items-center gap-2">
+                                                        <PIcon className={`h-3.5 w-3.5 ${color}`}/>
+                                                        <span
+                                                            className="font-semibold text-xs capitalize text-gray-700">
+                                                            {post.platform}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                                <div className="p-3 space-y-2">
+                                                    {post.caption && (
+                                                        <p className="text-xs text-gray-800 leading-relaxed line-clamp-4">
+                                                            {post.caption}
+                                                        </p>
+                                                    )}
+                                                    <div className="flex items-center gap-3 text-xs text-gray-600 pt-1">
+                                                        {post.likes_count !== undefined && post.likes_count !== null && (
+                                                            <span className="inline-flex items-center gap-1">
+                                                                <HiHeart className="h-3.5 w-3.5 text-rose-500"/>
+                                                                {formatFollowers(post.likes_count)}
+                                                            </span>
+                                                        )}
+                                                        {post.comments_count !== undefined && post.comments_count !== null && (
+                                                            <span className="inline-flex items-center gap-1">
+                                                                <HiChatBubbleLeft className="h-3.5 w-3.5 text-sky-500"/>
+                                                                {formatFollowers(post.comments_count)}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        );
+                                    }
+
+                                    // Instagram-like image card - show only image, view count badge, overlay on hover
+                                    const viewCount = post.views_count || post.likes_count || 0;
+                                    return (
+                                        <div
+                                            key={`${post.platform}_${post.platform_post_id}`}
+                                            className="group relative aspect-square overflow-hidden cursor-pointer bg-gray-900"
+                                            onClick={() => setSelectedPost(post)}
+                                        >
+                                            {/* Image */}
+                                            <img
+                                                src={mediaUrl!}
+                                                alt={post.caption || `${post.platform} post`}
+                                                className="absolute inset-0 h-full w-full object-cover"
+                                                loading="lazy"
+                                            />
+
+                                            {/* View count badge - Instagram style */}
+                                            <div className="absolute top-2 left-2 z-10">
+                                                <div
+                                                    className="inline-flex items-center gap-1.5 rounded-full bg-black/65 px-2.5 py-1 text-white shadow-lg backdrop-blur-sm">
+                                                    <HiEye className="w-4.5 h-4.5"/>
+                                                    <span className="text-sm font-bold leading-none">
+                                                        {formatFollowers(viewCount)}
+                                                    </span>
+                                                </div>
+                                            </div>
+
+                                            {/* Hover overlay with engagement stats - Instagram style */}
+                                            <div
+                                                className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center z-10">
+                                                <div className="text-white flex items-center gap-8">
+                                                    {post.likes_count !== undefined && post.likes_count !== null && (
+                                                        <div className="flex items-center gap-2">
+                                                            <HiHeart className="h-7 w-7 fill-white"/>
+                                                            <span className="font-bold text-xl">
+                                                                {formatFollowers(post.likes_count)}
+                                                            </span>
+                                                        </div>
+                                                    )}
+                                                    {post.comments_count !== undefined && post.comments_count !== null && (
+                                                        <div className="flex items-center gap-2">
+                                                            <HiChatBubbleLeft className="h-7 w-7 fill-white"/>
+                                                            <span className="font-bold text-xl">
+                                                                {formatFollowers(post.comments_count)}
+                                                            </span>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        ) : (
+                            <div className="text-center py-12">
+                                <HiExclamationTriangle className="w-12 h-12 text-gray-300 mx-auto mb-3"/>
+                                <p className="text-sm font-medium text-gray-600">No recent posts available</p>
+                                <p className="text-xs text-gray-500 mt-1">Posts will appear here once they're synced</p>
+                            </div>
+                        )}
+                    </CardContent>
+                </Card>
+
+                {/* Post Detail Dialog - Instagram style */}
+                <Dialog open={!!selectedPost} onOpenChange={(open) => !open && setSelectedPost(null)}>
+                    <DialogContent className="max-w-5xl h-[90vh] p-0 overflow-hidden bg-white gap-0">
+                        {selectedPost && (
+                            <div className="flex h-full">
+                                {/* Left - Image */}
+                                <div className="flex-1 bg-black flex items-center justify-center">
+                                    {getPrimaryThumbnail(selectedPost) ? (
+                                        <img
+                                            src={getPrimaryThumbnail(selectedPost)!}
+                                            alt=""
+                                            className="max-w-full max-h-full object-contain"
+                                        />
+                                    ) : (
+                                        <div className="flex items-center justify-center w-full h-full">
+                                            {(() => {
+                                                const {icon: PIcon, bgColor} = getPlatformIcon(selectedPost.platform);
+                                                return (
+                                                    <div className={`${bgColor} p-8 rounded-full opacity-70`}>
+                                                        <PIcon className="h-20 w-20 text-white"/>
+                                                    </div>
+                                                );
+                                            })()}
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Right - Details */}
+                                <div className="w-[400px] flex flex-col bg-white border-l border-gray-300">
+                                    {/* Header */}
+                                    <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-200">
+                                        <div className="h-8 w-8 rounded-full overflow-hidden flex-shrink-0">
+                                            {profileImageSrc ? (
+                                                <img src={profileImageSrc} alt=""
+                                                     className="h-full w-full object-cover"/>
+                                            ) : (
+                                                <div
+                                                    className="h-full w-full bg-gradient-to-br from-purple-400 via-pink-500 to-red-400 flex items-center justify-center text-white text-xs font-bold">
+                                                    {(displayName || profile.username).charAt(0).toUpperCase()}
+                                                </div>
+                                            )}
+                                        </div>
+                                        <span className="text-sm font-semibold text-gray-900">
+                                            {displayName || profile.username}
+                                        </span>
+                                        <div className="ml-auto flex items-center gap-2">
+                                            {selectedPost.post_url && (
+                                                <button
+                                                    onClick={() => window.open(selectedPost.post_url, '_blank', 'noopener,noreferrer')}
+                                                    className="text-xs font-semibold text-blue-500 hover:text-blue-700"
+                                                >
+                                                    View Original
+                                                </button>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {/* Comments/Content - Scrollable */}
+                                    <div className="flex-1 overflow-y-auto px-4 py-4">
+                                        {/* Caption as first comment */}
+                                        {selectedPost.caption && (
+                                            <div className="flex gap-3 mb-6">
+                                                <div className="h-8 w-8 rounded-full overflow-hidden flex-shrink-0">
+                                                    {profileImageSrc ? (
+                                                        <img src={profileImageSrc} alt=""
+                                                             className="h-full w-full object-cover"/>
+                                                    ) : (
+                                                        <div
+                                                            className="h-full w-full bg-gradient-to-br from-purple-400 via-pink-500 to-red-400 flex items-center justify-center text-white text-xs font-bold">
+                                                            {(displayName || profile.username).charAt(0).toUpperCase()}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="text-sm">
+                                                        <span
+                                                            className="font-semibold mr-2">{displayName || profile.username}</span>
+                                                        <span
+                                                            className="text-gray-900 whitespace-pre-wrap break-words">{selectedPost.caption}</span>
+                                                    </div>
+                                                    {/* Hashtags */}
+                                                    {safeArray(selectedPost.hashtags).length > 0 && (
+                                                        <div className="text-sm text-[#00376b] mt-2 space-x-1">
+                                                            {safeArray(selectedPost.hashtags).map((tag, i) => (
+                                                                <span key={i}
+                                                                      className="hover:underline cursor-pointer">
+                                                                    #{String(tag).replace(/^#/, "")}
+                                                                </span>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                    <div className="text-xs text-gray-400 mt-2">
+                                                        {selectedPost.posted_at ? (() => {
+                                                            const diff = Date.now() - new Date(selectedPost.posted_at).getTime();
+                                                            const weeks = Math.floor(diff / (1000 * 60 * 60 * 24 * 7));
+                                                            if (weeks < 1) return 'This week';
+                                                            return `${weeks}w`;
+                                                        })() : ''}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {/* Stats info */}
+                                        {(selectedPost.comments_count || selectedPost.views_count || selectedPost.shares_count) && (
+                                            <div className="text-xs text-gray-500 space-y-1 mb-4">
+                                                {selectedPost.comments_count !== undefined && selectedPost.comments_count > 0 && (
+                                                    <p>{formatFollowers(selectedPost.comments_count)} comments</p>
+                                                )}
+                                                {selectedPost.views_count !== undefined && selectedPost.views_count > 0 && (
+                                                    <p>{formatFollowers(selectedPost.views_count)} views</p>
+                                                )}
+                                                {selectedPost.shares_count !== undefined && selectedPost.shares_count > 0 && (
+                                                    <p>{formatFollowers(selectedPost.shares_count)} shares</p>
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* Actions section */}
+                                    <div className="border-t border-gray-200">
+                                        {/* Action icons */}
+                                        <div className="flex items-center justify-between px-4 py-2">
+                                            <div className="flex items-center gap-4">
+                                                <button className="hover:opacity-50 transition-opacity">
+                                                    <svg className="w-6 h-6" fill="none" stroke="currentColor"
+                                                         viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round"
+                                                              strokeWidth={2}
+                                                              d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/>
+                                                    </svg>
+                                                </button>
+                                                <button className="hover:opacity-50 transition-opacity">
+                                                    <svg className="w-6 h-6" fill="none" stroke="currentColor"
+                                                         viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round"
+                                                              strokeWidth={2}
+                                                              d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
+                                                    </svg>
+                                                </button>
+                                                <button className="hover:opacity-50 transition-opacity">
+                                                    <svg className="w-6 h-6" fill="none" stroke="currentColor"
+                                                         viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round"
+                                                              strokeWidth={2}
+                                                              d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"/>
+                                                    </svg>
+                                                </button>
+                                            </div>
+                                            <button className="hover:opacity-50 transition-opacity">
+                                                <svg className="w-6 h-6" fill="none" stroke="currentColor"
+                                                     viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                                                          d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"/>
+                                                </svg>
+                                            </button>
+                                        </div>
+
+                                        {/* Likes */}
+                                        <div className="px-4 pb-2">
+                                            <p className="text-sm font-semibold">{formatFollowers(selectedPost.likes_count || 0)} likes</p>
+                                        </div>
+
+                                        {/* Date */}
+                                        <div className="px-4 pb-3">
+                                            <p className="text-[10px] text-gray-500 uppercase tracking-wide">
+                                                {selectedPost.posted_at ? new Date(selectedPost.posted_at).toLocaleDateString('en-US', {
+                                                    month: 'long',
+                                                    day: 'numeric',
+                                                    year: 'numeric'
+                                                }) : ''}
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    {/* Add comment */}
+                                    <div className="border-t border-gray-200 px-4 py-3 flex items-center gap-3">
+                                        <button className="hover:opacity-50 transition-opacity">
+                                            <svg className="w-6 h-6" fill="none" stroke="currentColor"
+                                                 viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                                                      d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                            </svg>
+                                        </button>
+                                        <input
+                                            type="text"
+                                            placeholder="Add a comment..."
+                                            className="flex-1 text-sm outline-none"
+                                            disabled
+                                        />
+                                        <button className="text-sm font-semibold text-blue-400">Post</button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                    </DialogContent>
+                </Dialog>
             </div>
         </div>
     );
