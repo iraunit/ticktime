@@ -47,6 +47,8 @@ interface Influencer {
     bio: string;
     profile_image?: string;
     is_verified: boolean;
+    platform_verified_platforms?: string[]; // e.g. ["instagram", "youtube"]
+    verified_platforms?: string[]; // e.g. ["instagram"] (TickTime-owned verification for that account)
     total_followers: number;
     avg_engagement: number;
     collaboration_count: number;
@@ -668,14 +670,33 @@ export default function InfluencerSearchPage() {
         }));
     };
 
-    const PlatformIcon = ({platform}: { platform: string }) => {
+    const PlatformIcon = ({
+                              platform,
+                              isVerified,
+                              isPlatformVerified
+                          }: { platform: string; isVerified?: boolean; isPlatformVerified?: boolean }) => {
         const config = platformConfig[platform as keyof typeof platformConfig];
         if (!config) return null;
 
         const IconComponent = config.icon;
         return (
-            <div className={`w-6 h-6 ${config.bg} ${config.border} border rounded-md flex items-center justify-center`}>
+            <div
+                className={`relative w-6 h-6 ${config.bg} border rounded-md flex items-center justify-center ${
+                    isVerified ? 'border-2 border-green-500' : config.border
+                }`}
+                title={isVerified ? 'Verified' : undefined}
+                aria-label={isVerified ? 'Verified' : undefined}
+            >
                 <IconComponent className={`w-3 h-3 ${config.color}`}/>
+                {isPlatformVerified && (
+                    <div
+                        className="absolute -bottom-1 -right-1 w-3.5 h-3.5 bg-blue-500 border border-white rounded-full flex items-center justify-center"
+                        title="Platform verified"
+                        aria-label="Platform verified"
+                    >
+                        <HiCheckBadge className="w-3 h-3 text-white"/>
+                    </div>
+                )}
             </div>
         );
     };
@@ -1194,7 +1215,10 @@ export default function InfluencerSearchPage() {
                                             <div className="flex items-center gap-2">
                                                 <div className="relative">
                                                     <div
-                                                        className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full overflow-hidden border border-white shadow-sm">
+                                                        className={`w-12 h-12 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full overflow-hidden border-2 shadow-sm ${
+                                                            influencer.is_verified ? 'border-blue-500' : 'border-white'
+                                                        }`}
+                                                    >
                                                         {influencer.profile_image ? (
                                                             <img
                                                                 src={influencer.profile_image}
@@ -1210,8 +1234,12 @@ export default function InfluencerSearchPage() {
                                                     </div>
                                                     {influencer.is_verified && (
                                                         <div
-                                                            className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-blue-500 border border-white rounded-full flex items-center justify-center">
-                                                            <HiCheckBadge className="w-2 h-2 text-white"/>
+                                                            className="absolute -bottom-0.5 -right-0.5 w-4 h-4 bg-blue-500 border border-white rounded-full flex items-center justify-center">
+                                                            <HiCheckBadge
+                                                                className="w-4 h-4 text-white"
+                                                                title="Verified by TickTime"
+                                                                aria-label="Verified by TickTime"
+                                                            />
                                                         </div>
                                                     )}
                                                 </div>
@@ -1222,7 +1250,12 @@ export default function InfluencerSearchPage() {
                                                     <p className="text-xs text-gray-500 mb-1">{getDisplayUsername(influencer) ? `@${getDisplayUsername(influencer)}` : ''}</p>
                                                     <div className="flex items-center gap-1">
                                                         {influencer.platforms.slice(0, 2).map(platform => (
-                                                            <PlatformIcon key={platform} platform={platform}/>
+                                                            <PlatformIcon
+                                                                key={platform}
+                                                                platform={platform}
+                                                                isVerified={influencer.verified_platforms?.includes(platform)}
+                                                                isPlatformVerified={influencer.platform_verified_platforms?.includes(platform)}
+                                                            />
                                                         ))}
                                                         {influencer.platforms.length > 2 && (
                                                             <Badge variant="secondary" className="text-xs px-1 py-0">
@@ -1336,7 +1369,10 @@ export default function InfluencerSearchPage() {
                                                                 <div className="flex items-start gap-6">
                                                                     <div className="relative">
                                                                         <div
-                                                                            className="w-24 h-24 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full overflow-hidden border-4 border-white shadow-xl">
+                                                                            className={`w-24 h-24 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full overflow-hidden border-4 shadow-xl ${
+                                                                                selectedInfluencer.is_verified ? 'border-blue-500' : 'border-white'
+                                                                            }`}
+                                                                        >
                                                                             {selectedInfluencer.profile_image ? (
                                                                                 <img
                                                                                     src={selectedInfluencer.profile_image}
@@ -1352,9 +1388,12 @@ export default function InfluencerSearchPage() {
                                                                         </div>
                                                                         {selectedInfluencer.is_verified && (
                                                                             <div
-                                                                                className="absolute -bottom-2 -right-2 w-8 h-8 bg-blue-500 border-4 border-white rounded-full flex items-center justify-center">
+                                                                                className="absolute -bottom-2 -right-2 w-9 h-9 bg-blue-500 border-4 border-white rounded-full flex items-center justify-center"
+                                                                                title="Verified by TickTime"
+                                                                                aria-label="Verified by TickTime"
+                                                                            >
                                                                                 <HiCheckBadge
-                                                                                    className="w-4 h-4 text-white"/>
+                                                                                    className="w-5 h-5 text-white"/>
                                                                             </div>
                                                                         )}
                                                                     </div>
@@ -1366,8 +1405,12 @@ export default function InfluencerSearchPage() {
                                                                         <p className="text-gray-700 mb-4">{selectedInfluencer.bio || "No bio available"}</p>
                                                                         <div className="flex items-center gap-3">
                                                                             {selectedInfluencer.platforms.map(platform => (
-                                                                                <PlatformIcon key={platform}
-                                                                                              platform={platform}/>
+                                                                                <PlatformIcon
+                                                                                    key={platform}
+                                                                                    platform={platform}
+                                                                                    isVerified={selectedInfluencer.verified_platforms?.includes(platform)}
+                                                                                    isPlatformVerified={selectedInfluencer.platform_verified_platforms?.includes(platform)}
+                                                                                />
                                                                             ))}
                                                                         </div>
                                                                     </div>
@@ -1691,7 +1734,10 @@ export default function InfluencerSearchPage() {
                             {messageInfluencer && (
                                 <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
                                     <div
-                                        className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full overflow-hidden">
+                                        className={`w-11 h-11 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full overflow-hidden border-2 ${
+                                            messageInfluencer?.is_verified ? 'border-blue-500' : 'border-transparent'
+                                        }`}
+                                    >
                                         {messageInfluencer.profile_image ? (
                                             <img
                                                 src={messageInfluencer.profile_image}

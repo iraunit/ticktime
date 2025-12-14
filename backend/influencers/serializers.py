@@ -843,6 +843,7 @@ class InfluencerSearchSerializer(serializers.ModelSerializer):
     score = serializers.SerializerMethodField()
     is_verified = serializers.BooleanField()
     available_platforms = serializers.SerializerMethodField()
+    platform_verified_platforms = serializers.SerializerMethodField()
 
     # Platform-specific data
     twitter_followers = serializers.SerializerMethodField()
@@ -876,7 +877,7 @@ class InfluencerSearchSerializer(serializers.ModelSerializer):
         model = InfluencerProfile
         fields = (
             'id', 'name', 'handle', 'profile_image', 'original_profile_image',
-            'categories', 'location', 'score', 'is_verified', 'available_platforms',
+            'categories', 'location', 'score', 'is_verified', 'available_platforms', 'platform_verified_platforms',
             'twitter_followers', 'twitter_handle', 'twitter_profile_link',
             'youtube_subscribers', 'youtube_handle', 'youtube_profile_link',
             'facebook_page_likes', 'facebook_handle', 'facebook_profile_link',
@@ -922,6 +923,17 @@ class InfluencerSearchSerializer(serializers.ModelSerializer):
             return obj.available_platforms
         # Fallback to checking social accounts
         return list(obj.social_accounts.filter(is_active=True).values_list('platform', flat=True))
+
+    def get_platform_verified_platforms(self, obj):
+        """
+        Return the list of platforms where this influencer is verified on the platform
+        (blue tick, etc.) based on SocialMediaAccount.platform_verified.
+        """
+        return list(
+            obj.social_accounts.filter(is_active=True, platform_verified=True)
+            .values_list('platform', flat=True)
+            .distinct()
+        )
 
     def get_twitter_followers(self, obj):
         """Get Twitter followers count"""
@@ -1480,6 +1492,8 @@ class InfluencerSearchSerializer(serializers.ModelSerializer):
     collaboration_count = serializers.IntegerField(read_only=True)
     avg_rating = serializers.SerializerMethodField()
     platforms = serializers.SerializerMethodField()
+    platform_verified_platforms = serializers.SerializerMethodField()
+    verified_platforms = serializers.SerializerMethodField()
     posts_count = serializers.SerializerMethodField()
     rate_per_post = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)
     is_bookmarked = serializers.SerializerMethodField()
@@ -1490,7 +1504,7 @@ class InfluencerSearchSerializer(serializers.ModelSerializer):
             'id', 'username', 'full_name', 'industry', 'bio', 'profile_image',
             'is_verified', 'total_followers', 'avg_engagement', 'collaboration_count',
             'avg_rating', 'platforms', 'location', 'posts_count', 'rate_per_post',
-            'is_bookmarked'
+            'is_bookmarked', 'platform_verified_platforms', 'verified_platforms'
         ]
 
     def get_full_name(self, obj):
@@ -1547,6 +1561,22 @@ class InfluencerSearchSerializer(serializers.ModelSerializer):
     def get_platforms(self, obj):
         """Get list of active platforms"""
         return list(obj.social_accounts.filter(is_active=True).values_list('platform', flat=True))
+
+    def get_platform_verified_platforms(self, obj):
+        """Get list of platforms where the influencer is verified on that platform (blue tick, etc.)."""
+        return list(
+            obj.social_accounts.filter(is_active=True, platform_verified=True)
+            .values_list('platform', flat=True)
+            .distinct()
+        )
+
+    def get_verified_platforms(self, obj):
+        """Get list of platforms where the influencer is verified by TickTime (SocialMediaAccount.verified)."""
+        return list(
+            obj.social_accounts.filter(is_active=True, verified=True)
+            .values_list('platform', flat=True)
+            .distinct()
+        )
 
     def get_avg_rating(self, obj):
         """Get average rating as a number"""
