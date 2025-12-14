@@ -8,6 +8,7 @@ import {Badge} from "@/components/ui/badge";
 import {GlobalLoader} from "@/components/ui/global-loader";
 import {toast} from "@/lib/toast";
 import {api} from "@/lib/api";
+import {normalizeRemoteUrl} from "@/lib/utils";
 import {CampaignSelectionDialog} from "@/components/campaigns/campaign-selection-dialog";
 import {
     HiArrowLeft,
@@ -1354,7 +1355,7 @@ export default function InfluencerProfilePage() {
                                         const IconComponent = platformIcon.icon;
                                         const platformUrl = getPlatformUrl(account.platform, account.handle, account.platform_profile_link);
                                         // Use profile_image_url
-                                        const accountProfileImage = account.profile_image_url || '';
+                                        const accountProfileImage = normalizeRemoteUrl(account.profile_image_url) || '';
 
                                         const primaryStats = [
                                             {
