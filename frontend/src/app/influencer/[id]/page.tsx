@@ -556,6 +556,32 @@ export default function InfluencerProfilePage() {
         return aliasMap[normalized] ?? label.replace(/\s+/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase());
     };
 
+    const renderCaptionWithHighlights = (caption: string) => {
+        if (!caption) return null;
+
+        const parts = caption.split(/(\s+)/);
+
+        return parts.map((part, index) => {
+            const trimmed = part.trim();
+            const isHashtag = trimmed.startsWith('#') && trimmed.length > 1;
+            const isMention = trimmed.startsWith('@') && trimmed.length > 1;
+
+            if (isHashtag || isMention) {
+                return (
+                    <span key={index} className="text-blue-600 break-words break-all">
+                        {part}
+                    </span>
+                );
+            }
+
+            return (
+                <span key={index} className="break-words break-all">
+                    {part}
+                </span>
+            );
+        });
+    };
+
     const RecentPostTile = ({post}: { post: SocialMediaPost }) => {
         const initialThumbnail = getPrimaryThumbnail(post);
         const [thumbnail, setThumbnail] = useState<string | null>(initialThumbnail || null);
@@ -1942,7 +1968,7 @@ export default function InfluencerProfilePage() {
                 </div>
 
                 {/* Recent Posts - Full Width Instagram-like Grid */}
-                <Card className="border border-gray-200 shadow-sm">
+                <Card className="border border-gray-200 shadow-sm mt-6">
                     <CardHeader className="pb-4 border-b border-gray-100">
                         <CardTitle className="text-xl font-bold text-gray-900 flex items-center gap-2">
                             <HiPresentationChartBar className="w-6 h-6 text-primary"/>
@@ -1951,7 +1977,7 @@ export default function InfluencerProfilePage() {
                     </CardHeader>
                     <CardContent className="p-6">
                         {safeArray(profile.recent_posts).length > 0 ? (
-                            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-1">
+                            <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-[3px]">
                                 {safeArray(profile.recent_posts).map((post) => {
                                     const mediaUrl = getPrimaryThumbnail(post);
                                     const hasMedia = Boolean(mediaUrl);
@@ -1999,7 +2025,7 @@ export default function InfluencerProfilePage() {
                                         );
                                     }
 
-                                    // Instagram-like image card - show only image, view count badge, overlay on hover
+                                    // Instagram-like image card - compact image grid with key metrics
                                     const viewCount = post.views_count || post.likes_count || 0;
                                     return (
                                         <div
@@ -2015,38 +2041,45 @@ export default function InfluencerProfilePage() {
                                                 loading="lazy"
                                             />
 
-                                            {/* View count badge - Instagram style */}
-                                            <div className="absolute top-2 left-2 z-10">
+                                            {/* Top-left view badge - always visible */}
+                                            <div className="absolute top-1.5 left-1.5 z-10">
                                                 <div
-                                                    className="inline-flex items-center gap-1.5 rounded-full bg-black/65 px-2.5 py-1 text-white shadow-lg backdrop-blur-sm">
-                                                    <HiEye className="w-4.5 h-4.5"/>
-                                                    <span className="text-sm font-bold leading-none">
+                                                    className="inline-flex items-center gap-1 rounded-full bg-black/70 px-2 py-0.5 text-white shadow-sm backdrop-blur">
+                                                    <HiEye className="w-3.5 h-3.5"/>
+                                                    <span className="text-[11px] font-semibold leading-none">
                                                         {formatFollowers(viewCount)}
                                                     </span>
                                                 </div>
                                             </div>
 
-                                            {/* Hover overlay with engagement stats - Instagram style */}
+                                            {/* Bottom metrics row - likes & comments always visible */}
                                             <div
-                                                className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center z-10">
-                                                <div className="text-white flex items-center gap-8">
+                                                className="absolute inset-x-0 bottom-0 z-10 bg-gradient-to-t from-black/70 via-black/40 to-transparent px-2.5 py-1.5">
+                                                <div
+                                                    className="flex items-center justify-end gap-3 text-white text-[11px]">
                                                     {post.likes_count !== undefined && post.likes_count !== null && (
-                                                        <div className="flex items-center gap-2">
-                                                            <HiHeart className="h-7 w-7 fill-white"/>
-                                                            <span className="font-bold text-xl">
+                                                        <span className="inline-flex items-center gap-1">
+                                                            <HiHeart className="h-3 w-3"/>
+                                                            <span className="font-medium">
                                                                 {formatFollowers(post.likes_count)}
                                                             </span>
-                                                        </div>
+                                                        </span>
                                                     )}
                                                     {post.comments_count !== undefined && post.comments_count !== null && (
-                                                        <div className="flex items-center gap-2">
-                                                            <HiChatBubbleLeft className="h-7 w-7 fill-white"/>
-                                                            <span className="font-bold text-xl">
+                                                        <span className="inline-flex items-center gap-1">
+                                                            <HiChatBubbleLeft className="h-3 w-3"/>
+                                                            <span className="font-medium">
                                                                 {formatFollowers(post.comments_count)}
                                                             </span>
-                                                        </div>
+                                                        </span>
                                                     )}
                                                 </div>
+                                            </div>
+
+                                            {/* Hover overlay for stronger focus (no extra icons) */}
+                                            <div
+                                                className="absolute inset-0 bg-black/25 opacity-0 group-hover:opacity-100 transition-opacity duration-150 z-5"
+                                            >
                                             </div>
                                         </div>
                                     );
@@ -2064,11 +2097,12 @@ export default function InfluencerProfilePage() {
 
                 {/* Post Detail Dialog - Instagram style */}
                 <Dialog open={!!selectedPost} onOpenChange={(open) => !open && setSelectedPost(null)}>
-                    <DialogContent className="max-w-5xl h-[90vh] p-0 overflow-hidden bg-white gap-0">
+                    <DialogContent
+                        className="max-w-4xl max-h-[82vh] w-full p-0 overflow-hidden overflow-x-hidden bg-white gap-0 [&>button]:hidden">
                         {selectedPost && (
-                            <div className="flex h-full">
-                                {/* Left - Image */}
-                                <div className="flex-1 bg-black flex items-center justify-center">
+                            <div className="flex h-full w-full overflow-hidden">
+                                {/* Left - Image (compact) */}
+                                <div className="flex-1 min-w-0 bg-black flex items-center justify-center max-h-[80vh]">
                                     {getPrimaryThumbnail(selectedPost) ? (
                                         <img
                                             src={getPrimaryThumbnail(selectedPost)!}
@@ -2090,9 +2124,9 @@ export default function InfluencerProfilePage() {
                                 </div>
 
                                 {/* Right - Details */}
-                                <div className="w-[400px] flex flex-col bg-white border-l border-gray-300">
+                                <div className="w-[360px] min-w-0 flex flex-col bg-white border-l border-gray-300">
                                     {/* Header */}
-                                    <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-200">
+                                    <div className="flex items-center gap-3 px-4 py-2 border-b border-gray-200">
                                         <div className="h-8 w-8 rounded-full overflow-hidden flex-shrink-0">
                                             {profileImageSrc ? (
                                                 <img src={profileImageSrc} alt=""
@@ -2107,7 +2141,7 @@ export default function InfluencerProfilePage() {
                                         <span className="text-sm font-semibold text-gray-900">
                                             {displayName || profile.username}
                                         </span>
-                                        <div className="ml-auto flex items-center gap-2">
+                                        <div className="ml-auto flex items-center gap-2 mr-8">
                                             {selectedPost.post_url && (
                                                 <button
                                                     onClick={() => window.open(selectedPost.post_url, '_blank', 'noopener,noreferrer')}
@@ -2120,139 +2154,69 @@ export default function InfluencerProfilePage() {
                                     </div>
 
                                     {/* Comments/Content - Scrollable */}
-                                    <div className="flex-1 overflow-y-auto px-4 py-4">
-                                        {/* Caption as first comment */}
+                                    <div className="flex-1 overflow-y-auto overflow-x-hidden px-4 py-4">
+                                        {/* Caption */}
                                         {selectedPost.caption && (
-                                            <div className="flex gap-3 mb-6">
-                                                <div className="h-8 w-8 rounded-full overflow-hidden flex-shrink-0">
-                                                    {profileImageSrc ? (
-                                                        <img src={profileImageSrc} alt=""
-                                                             className="h-full w-full object-cover"/>
-                                                    ) : (
-                                                        <div
-                                                            className="h-full w-full bg-gradient-to-br from-purple-400 via-pink-500 to-red-400 flex items-center justify-center text-white text-xs font-bold">
-                                                            {(displayName || profile.username).charAt(0).toUpperCase()}
-                                                        </div>
-                                                    )}
+                                            <div className="mb-4">
+                                                <div
+                                                    className="text-sm text-gray-900 whitespace-pre-wrap break-words break-all">
+                                                    {renderCaptionWithHighlights(selectedPost.caption)}
                                                 </div>
-                                                <div className="flex-1 min-w-0">
-                                                    <div className="text-sm">
-                                                        <span
-                                                            className="font-semibold mr-2">{displayName || profile.username}</span>
-                                                        <span
-                                                            className="text-gray-900 whitespace-pre-wrap break-words">{selectedPost.caption}</span>
+                                                {/* Tagged accounts (from mentions) */}
+                                                {safeArray(selectedPost.mentions).length > 0 && (
+                                                    <div className="text-sm text-blue-600 mt-2 space-x-1">
+                                                        {safeArray(selectedPost.mentions).map((tag, i) => (
+                                                            <span key={i} className="hover:underline cursor-pointer">
+                                                                @{String(tag).replace(/^@/, "")}
+                                                            </span>
+                                                        ))}
                                                     </div>
-                                                    {/* Hashtags */}
-                                                    {safeArray(selectedPost.hashtags).length > 0 && (
-                                                        <div className="text-sm text-[#00376b] mt-2 space-x-1">
-                                                            {safeArray(selectedPost.hashtags).map((tag, i) => (
-                                                                <span key={i}
-                                                                      className="hover:underline cursor-pointer">
-                                                                    #{String(tag).replace(/^#/, "")}
-                                                                </span>
-                                                            ))}
-                                                        </div>
-                                                    )}
-                                                    <div className="text-xs text-gray-400 mt-2">
-                                                        {selectedPost.posted_at ? (() => {
-                                                            const diff = Date.now() - new Date(selectedPost.posted_at).getTime();
-                                                            const weeks = Math.floor(diff / (1000 * 60 * 60 * 24 * 7));
-                                                            if (weeks < 1) return 'This week';
-                                                            return `${weeks}w`;
-                                                        })() : ''}
-                                                    </div>
-                                                </div>
+                                                )}
                                             </div>
                                         )}
 
                                         {/* Stats info */}
-                                        {(selectedPost.comments_count || selectedPost.views_count || selectedPost.shares_count) && (
-                                            <div className="text-xs text-gray-500 space-y-1 mb-4">
-                                                {selectedPost.comments_count !== undefined && selectedPost.comments_count > 0 && (
-                                                    <p>{formatFollowers(selectedPost.comments_count)} comments</p>
-                                                )}
-                                                {selectedPost.views_count !== undefined && selectedPost.views_count > 0 && (
-                                                    <p>{formatFollowers(selectedPost.views_count)} views</p>
-                                                )}
-                                                {selectedPost.shares_count !== undefined && selectedPost.shares_count > 0 && (
-                                                    <p>{formatFollowers(selectedPost.shares_count)} shares</p>
-                                                )}
-                                            </div>
-                                        )}
-                                    </div>
+                                        {(() => {
+                                            const likes = selectedPost.likes_count ?? 0;
+                                            const comments = selectedPost.comments_count ?? 0;
+                                            const views = selectedPost.views_count ?? likes ?? 0;
+                                            const shares = selectedPost.shares_count ?? 0;
+                                            const hasAny =
+                                                (likes && likes > 0) ||
+                                                (comments && comments > 0) ||
+                                                (views && views > 0) ||
+                                                (shares && shares > 0);
+                                            if (!hasAny) return null;
+                                            return (
+                                                <div className="text-xs text-gray-700 space-y-1 mb-4">
+                                                    {likes > 0 && (
+                                                        <p className="font-medium">
+                                                            {formatFollowers(likes)} likes
+                                                        </p>
+                                                    )}
+                                                    {comments > 0 && (
+                                                        <p>{formatFollowers(comments)} comments</p>
+                                                    )}
+                                                    {views > 0 && (
+                                                        <p>{formatFollowers(views)} views</p>
+                                                    )}
+                                                    {shares > 0 && (
+                                                        <p>{formatFollowers(shares)} shares</p>
+                                                    )}
+                                                </div>
+                                            );
+                                        })()}
 
-                                    {/* Actions section */}
-                                    <div className="border-t border-gray-200">
-                                        {/* Action icons */}
-                                        <div className="flex items-center justify-between px-4 py-2">
-                                            <div className="flex items-center gap-4">
-                                                <button className="hover:opacity-50 transition-opacity">
-                                                    <svg className="w-6 h-6" fill="none" stroke="currentColor"
-                                                         viewBox="0 0 24 24">
-                                                        <path strokeLinecap="round" strokeLinejoin="round"
-                                                              strokeWidth={2}
-                                                              d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/>
-                                                    </svg>
-                                                </button>
-                                                <button className="hover:opacity-50 transition-opacity">
-                                                    <svg className="w-6 h-6" fill="none" stroke="currentColor"
-                                                         viewBox="0 0 24 24">
-                                                        <path strokeLinecap="round" strokeLinejoin="round"
-                                                              strokeWidth={2}
-                                                              d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
-                                                    </svg>
-                                                </button>
-                                                <button className="hover:opacity-50 transition-opacity">
-                                                    <svg className="w-6 h-6" fill="none" stroke="currentColor"
-                                                         viewBox="0 0 24 24">
-                                                        <path strokeLinecap="round" strokeLinejoin="round"
-                                                              strokeWidth={2}
-                                                              d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"/>
-                                                    </svg>
-                                                </button>
-                                            </div>
-                                            <button className="hover:opacity-50 transition-opacity">
-                                                <svg className="w-6 h-6" fill="none" stroke="currentColor"
-                                                     viewBox="0 0 24 24">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                                                          d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"/>
-                                                </svg>
-                                            </button>
-                                        </div>
-
-                                        {/* Likes */}
-                                        <div className="px-4 pb-2">
-                                            <p className="text-sm font-semibold">{formatFollowers(selectedPost.likes_count || 0)} likes</p>
-                                        </div>
-
-                                        {/* Date */}
-                                        <div className="px-4 pb-3">
-                                            <p className="text-[10px] text-gray-500 uppercase tracking-wide">
-                                                {selectedPost.posted_at ? new Date(selectedPost.posted_at).toLocaleDateString('en-US', {
+                                        {/* Relative date */}
+                                        {selectedPost.posted_at && (
+                                            <div className="text-[11px] text-gray-500">
+                                                {new Date(selectedPost.posted_at).toLocaleDateString('en-US', {
                                                     month: 'long',
                                                     day: 'numeric',
-                                                    year: 'numeric'
-                                                }) : ''}
-                                            </p>
-                                        </div>
-                                    </div>
-
-                                    {/* Add comment */}
-                                    <div className="border-t border-gray-200 px-4 py-3 flex items-center gap-3">
-                                        <button className="hover:opacity-50 transition-opacity">
-                                            <svg className="w-6 h-6" fill="none" stroke="currentColor"
-                                                 viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                                                      d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                                            </svg>
-                                        </button>
-                                        <input
-                                            type="text"
-                                            placeholder="Add a comment..."
-                                            className="flex-1 text-sm outline-none"
-                                            disabled
-                                        />
-                                        <button className="text-sm font-semibold text-blue-400">Post</button>
+                                                    year: 'numeric',
+                                                })}
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             </div>
