@@ -406,9 +406,25 @@ def toggle_social_account_status_view(request, account_id):
 @user_rate_limit(requests_per_minute=30)
 def influencer_search_view(request):
     """
-    Advanced influencer search with comprehensive filtering and platform-specific features.
-    Only accessible to users with brand profiles.
+    Advanced influencer search with recommendation-based ranking.
+
+    The recommendation system ranks influencers based on configurable rules.
+    See influencers/services/recommendation.py for rule configuration.
+
+    Ranking Priority (default):
+    1. TickTime Profile Verified (highest)
+    2. Email + Phone Verified
+    3. TickTime Rating
+    4. Platform Verified (blue tick)
+    5. Engagement Rate
+    6. Follower Count
+
+    To change ranking priorities, edit RANKING_RULES in the RecommendationService.
     """
+    from django.core.paginator import Paginator
+
+    from .services.recommendation import RecommendationService
+
     # Check if user has a brand profile
     brand_user = getattr(request.user, 'brand_user', None)
     if not brand_user:
@@ -417,498 +433,67 @@ def influencer_search_view(request):
             'message': 'Access denied. Only brand users can search for influencers.'
         }, status=status.HTTP_403_FORBIDDEN)
     brand = brand_user.brand
-    from django.db.models import Q
-    from django.core.paginator import Paginator
-    from brands.models import BookmarkedInfluencer
-    from datetime import datetime, timedelta
 
-    # Get query parameters
-    search = request.GET.get('search', '').strip()
-    platform = request.GET.get('platform', 'all')  # legacy single platform for column view
-    # Preferred (soft) filters as CSVs
-    preferred_platforms = [p.strip().lower() for p in request.GET.get('platforms', '').split(',') if p.strip()]
-    preferred_locations = [p.strip() for p in request.GET.get('locations', '').split(',') if p.strip()]
-    preferred_genders = [p.strip().lower() for p in request.GET.get('genders', '').split(',') if p.strip()]
-    preferred_industry_tokens = [p.strip() for p in request.GET.get('industries', '').split(',') if p.strip()]
-    preferred_industry_ids = []
-    preferred_industry_keys = []
-    preferred_industry_name_tokens = []
-    for token in preferred_industry_tokens:
-        try:
-            preferred_industry_ids.append(int(token))
-        except (TypeError, ValueError):
-            preferred_industry_keys.append(token.lower())
-            preferred_industry_name_tokens.append(token)
-    location = request.GET.get('location', '')  # legacy single location
-    gender = request.GET.get('gender', '')  # legacy single gender
-    follower_range = request.GET.get('follower_range', '')
-    categories = request.GET.get('categories', '').split(',') if request.GET.get('categories') else []
-    industry = request.GET.get('industry', '')  # legacy single industry
-    sort_by = request.GET.get('sort_by', 'followers')
-    sort_order = request.GET.get('sort_order', 'desc')
-    page = int(request.GET.get('page', 1))
-    page_size = int(request.GET.get('page_size', 50))
-    campaign_id_raw = request.GET.get('campaign_id')
+    # Parse query parameters
+    params = _parse_search_params(request)
 
-    # Platform-specific filters
-    influence_score_min = request.GET.get('influence_score_min')
-    faster_responses = request.GET.get('faster_responses', '').lower() == 'true'
-    commerce_ready = request.GET.get('commerce_ready', '').lower() == 'true'
-    campaign_ready = request.GET.get('campaign_ready', '').lower() == 'true'
-    barter_ready = request.GET.get('barter_ready', '').lower() == 'true'
-    instagram_verified = request.GET.get('instagram_verified', '').lower() == 'true'
-    has_instagram = request.GET.get('has_instagram', '').lower() == 'true'
-    has_youtube = request.GET.get('has_youtube', '').lower() == 'true'
-
-    # Content and bio keywords
-    caption_keywords = request.GET.get('caption_keywords', '').strip()
-    bio_keywords = request.GET.get('bio_keywords', '').strip()
-
-    # Advanced filters
-    min_followers = request.GET.get('min_followers')
-    max_followers = request.GET.get('max_followers')
-    min_engagement = request.GET.get('min_engagement')
-    max_engagement = request.GET.get('max_engagement')
-    min_rating = request.GET.get('min_rating')
-    max_rating = request.GET.get('max_rating')
-    max_collab_amount = request.GET.get('max_collab_amount')
-
-    # Location filters
-    country = request.GET.get('country', '')
-    state = request.GET.get('state', '')
-    city = request.GET.get('city', '')
-
-    # Audience filters
-    audience_gender = request.GET.get('audience_gender', '')
-    audience_age_range = request.GET.get('audience_age_range', '')
-    audience_location = request.GET.get('audience_location', '')
-    audience_interest = request.GET.get('audience_interest', '')
-    audience_language = request.GET.get('audience_language', '')
-
-    # Additional filters
-    age_range = request.GET.get('age_range', '').strip()
-    collaboration_preferences_raw = request.GET.get('collaboration_preferences', '').strip()
-    collaboration_preferences = [p.strip() for p in collaboration_preferences_raw.split(',') if
-                                 p.strip()] if collaboration_preferences_raw else []
-
-    # Performance filters
-    min_avg_likes = request.GET.get('min_avg_likes')
-    min_avg_views = request.GET.get('min_avg_views')
-    min_avg_comments = request.GET.get('min_avg_comments')
-    last_posted_within = request.GET.get('last_posted_within', '')  # days
-
-    # Start with all influencer profiles and annotate computed fields
-    queryset = InfluencerProfile.objects.select_related('user', 'user_profile', 'industry').prefetch_related(
+    # Start with base queryset
+    queryset = InfluencerProfile.objects.select_related(
+        'user', 'user_profile', 'industry'
+    ).prefetch_related(
         'social_accounts'
-    ).filter(user__is_active=True).annotate(
-        total_followers_annotated=models.Sum('social_accounts__followers_count',
-                                             filter=models.Q(social_accounts__is_active=True)),
-        average_engagement_rate_annotated=models.Avg('social_accounts__engagement_rate',
-                                                     filter=models.Q(social_accounts__is_active=True))
+    ).filter(
+        user__is_active=True,
+        social_accounts__is_active=True
+    ).distinct()
+
+    # Apply filters using the filter service
+    queryset = _apply_search_filters(queryset, params, brand)
+
+    # Determine platforms for recommendation scoring
+    platforms_to_consider = params['preferred_platforms'] or (
+        [params['platform']] if params['platform'] and params['platform'] != 'all' else []
     )
 
-    queryset = queryset.filter(social_accounts__is_active=True).distinct()
-
-    # Apply search filter
-    if search:
-        queryset = queryset.filter(
-            Q(user__first_name__icontains=search) |
-            Q(user__last_name__icontains=search) |
-            Q(user__username__icontains=search) |
-            Q(bio__icontains=search) |
-            Q(industry__name__icontains=search) |
-            Q(social_accounts__handle__icontains=search) |
-            Q(content_keywords__contains=[search]) |
-            Q(bio_keywords__contains=[search])
-        ).distinct()
-
-    # Apply legacy single platform filter for table column adjustments only
-    if not preferred_platforms and platform and platform != 'all':
-        queryset = queryset.filter(social_accounts__platform=platform, social_accounts__is_active=True)
-
-    # Apply hard platform filter when explicit preferred platforms are provided
-    if preferred_platforms:
-        queryset = queryset.filter(
-            social_accounts__platform__in=preferred_platforms,
-            social_accounts__is_active=True
-        ).distinct()
-
-    # Do not hard-filter by preferred location; keep legacy params if explicitly used
-    if country:
-        queryset = queryset.filter(country__icontains=country)
-    if state:
-        queryset = queryset.filter(state__icontains=state)
-    if city:
-        queryset = queryset.filter(city__icontains=city)
-    if location:  # Legacy location filter
-        queryset = queryset.filter(
-            Q(city__icontains=location) |
-            Q(state__icontains=location) |
-            Q(country__icontains=location)
-        )
-
-    # Do not hard-filter by preferred genders; keep legacy param if explicitly used
-    if gender:
-        queryset = queryset.filter(gender=gender)
-
-    # Do not hard-filter by preferred age range; use for scoring only
-
-    # Apply follower range filter
-    if follower_range:
-        if follower_range == '1K - 10K':
-            queryset = queryset.filter(total_followers_annotated__gte=1000, total_followers_annotated__lt=10000)
-        elif follower_range == '10K - 50K':
-            queryset = queryset.filter(total_followers_annotated__gte=10000, total_followers_annotated__lt=50000)
-        elif follower_range == '50K - 100K':
-            queryset = queryset.filter(total_followers_annotated__gte=50000, total_followers_annotated__lt=100000)
-        elif follower_range == '100K - 500K':
-            queryset = queryset.filter(total_followers_annotated__gte=100000, total_followers_annotated__lt=500000)
-        elif follower_range == '500K - 1M':
-            queryset = queryset.filter(total_followers_annotated__gte=500000, total_followers_annotated__lt=1000000)
-        elif follower_range == '1M - 5M':
-            queryset = queryset.filter(total_followers_annotated__gte=1000000, total_followers_annotated__lt=5000000)
-        elif follower_range == '5M+':
-            queryset = queryset.filter(total_followers_annotated__gte=5000000)
-
-    # Apply custom follower range
-    if min_followers:
-        try:
-            min_followers = int(min_followers)
-            queryset = queryset.filter(total_followers_annotated__gte=min_followers)
-        except ValueError:
-            pass
-
-    if max_followers:
-        try:
-            max_followers = int(max_followers)
-            queryset = queryset.filter(total_followers_annotated__lte=max_followers)
-        except ValueError:
-            pass
-
-    # Handle legacy single-industry filter (accept id, key, or name)
-    if industry:
-        try:
-            industry_id = int(industry)
-            queryset = queryset.filter(industry_id=industry_id)
-        except (TypeError, ValueError):
-            queryset = queryset.filter(
-                Q(industry__key__iexact=industry) |
-                Q(industry__name__iexact=industry)
-            )
-
-    # Do not hard-filter by preferred categories; use for scoring only
-
-    # Exclude influencers already tied to the selected campaign
-    if campaign_id_raw:
-        try:
-            campaign_id_val = int(campaign_id_raw)
-            queryset = queryset.exclude(
-                deals__campaign_id=campaign_id_val,
-                deals__campaign__brand=brand
-            )
-        except (TypeError, ValueError):
-            pass
-
-    # Apply platform-specific filters
-    if influence_score_min:
-        try:
-            influence_score_min = float(influence_score_min)
-            queryset = queryset.filter(influence_score__gte=influence_score_min)
-        except ValueError:
-            pass
-
-    if faster_responses:
-        queryset = queryset.filter(faster_responses=True)
-
-    if commerce_ready:
-        queryset = queryset.filter(commerce_ready=True)
-
-    if campaign_ready:
-        queryset = queryset.filter(campaign_ready=True)
-
-    if barter_ready:
-        queryset = queryset.filter(barter_ready=True)
-
-    if instagram_verified:
-        # At least one active Instagram account that is marked as verified on the platform side (blue tick, etc.)
-        queryset = queryset.filter(
-            social_accounts__platform='instagram',
-            social_accounts__is_active=True,
-            social_accounts__platform_verified=True,
-        ).distinct()
-
-    if has_instagram:
-        # At least one active Instagram account
-        queryset = queryset.filter(
-            social_accounts__platform='instagram',
-            social_accounts__is_active=True,
-        ).distinct()
-
-    if has_youtube:
-        # At least one active YouTube account
-        queryset = queryset.filter(
-            social_accounts__platform='youtube',
-            social_accounts__is_active=True,
-        ).distinct()
-
-    # Do not hard-filter by collaboration preferences; use for scoring only
-
-    # Apply content and bio keyword filters
-    if caption_keywords:
-        queryset = queryset.filter(content_keywords__contains=[caption_keywords])
-
-    if bio_keywords:
-        queryset = queryset.filter(bio_keywords__contains=[bio_keywords])
-
-    # Apply engagement filters
-    if min_engagement:
-        try:
-            min_engagement = float(min_engagement)
-            queryset = queryset.filter(average_engagement_rate_annotated__gte=min_engagement)
-        except ValueError:
-            pass
-
-    if max_engagement:
-        try:
-            max_engagement = float(max_engagement)
-            queryset = queryset.filter(average_engagement_rate_annotated__lte=max_engagement)
-        except ValueError:
-            pass
-
-    # Apply rating filters
-    if min_rating:
-        try:
-            min_rating = float(min_rating)
-            queryset = queryset.filter(avg_rating__gte=min_rating)
-        except ValueError:
-            pass
-
-    if max_rating:
-        try:
-            max_rating = float(max_rating)
-            queryset = queryset.filter(avg_rating__lte=max_rating)
-        except ValueError:
-            pass
-
-    # Do not hard-filter by max collaboration amount; use for scoring only
-    max_collab_amount_val = None
-    if max_collab_amount:
-        try:
-            max_collab_amount_val = float(max_collab_amount)
-        except ValueError:
-            max_collab_amount_val = None
-
-    # Apply performance filters
-    if min_avg_likes:
-        try:
-            min_avg_likes = int(min_avg_likes)
-            queryset = queryset.filter(social_accounts__average_likes__gte=min_avg_likes)
-        except ValueError:
-            pass
-
-    if min_avg_views:
-        try:
-            min_avg_views = int(min_avg_views)
-            queryset = queryset.filter(social_accounts__average_video_views__gte=min_avg_views)
-        except ValueError:
-            pass
-
-    if min_avg_comments:
-        try:
-            min_avg_comments = int(min_avg_comments)
-            queryset = queryset.filter(social_accounts__average_comments__gte=min_avg_comments)
-        except ValueError:
-            pass
-
-    # Apply last posted filter
-    if last_posted_within:
-        try:
-            days = int(last_posted_within)
-            cutoff_date = datetime.now() - timedelta(days=days)
-            queryset = queryset.filter(social_accounts__last_posted_at__gte=cutoff_date)
-        except ValueError:
-            pass
-
-    # Apply audience filters
-    if audience_gender:
-        queryset = queryset.filter(audience_gender_distribution__contains={audience_gender: {'$gt': 0}})
-
-    if audience_age_range:
-        queryset = queryset.filter(audience_age_distribution__contains={audience_age_range: {'$gt': 0}})
-
-    if audience_location:
-        queryset = queryset.filter(audience_locations__contains=[audience_location])
-
-    if audience_interest:
-        queryset = queryset.filter(audience_interests__contains=[audience_interest])
-
-    if audience_language:
-        queryset = queryset.filter(audience_languages__contains=[audience_language])
-
-    # Preference scoring (soft ranking)
-    preference_conditions = []
-
-    # Platform preference
-    if preferred_platforms:
-        queryset = queryset.annotate(
-            pref_platform_matches=models.Count('social_accounts', filter=Q(social_accounts__is_active=True,
-                                                                           social_accounts__platform__in=preferred_platforms))
-        )
-        queryset = queryset.annotate(pref_platform_score=models.Case(
-            models.When(pref_platform_matches__gt=0, then=models.Value(2)),
-            default=models.Value(0),
-            output_field=models.IntegerField()
-        ))
-    else:
-        queryset = queryset.annotate(pref_platform_score=models.Value(0, output_field=models.IntegerField()))
-
-    # Industry preference
-    if preferred_industry_ids or preferred_industry_keys or preferred_industry_name_tokens:
-        industry_condition = Q()
-        if preferred_industry_ids:
-            industry_condition |= Q(industry_id__in=preferred_industry_ids)
-        if preferred_industry_keys:
-            industry_condition |= Q(industry__key__in=preferred_industry_keys)
-        if preferred_industry_name_tokens:
-            name_q = Q()
-            for token in preferred_industry_name_tokens:
-                name_q |= Q(industry__name__iexact=token)
-            industry_condition |= name_q
-        queryset = queryset.annotate(pref_industry_score=models.Case(
-            models.When(industry_condition, then=models.Value(2)),
-            default=models.Value(0),
-            output_field=models.IntegerField()
-        ))
-    else:
-        queryset = queryset.annotate(pref_industry_score=models.Value(0, output_field=models.IntegerField()))
-
-    # Categories preference (any overlap)
-    if categories and categories[0]:
-        # ManyToMany to ContentCategory: match by key or name
-        queryset = queryset.annotate(pref_categories_score=models.Case(
-            models.When(models.Q(categories__key__in=categories) | models.Q(categories__name__in=categories),
-                        then=models.Value(1)),
-            default=models.Value(0),
-            output_field=models.IntegerField()
-        ))
-    else:
-        queryset = queryset.annotate(pref_categories_score=models.Value(0, output_field=models.IntegerField()))
-
-    # Gender preference
-    if preferred_genders:
-        queryset = queryset.annotate(pref_gender_score=models.Case(
-            models.When(gender__in=preferred_genders, then=models.Value(1)),
-            default=models.Value(0),
-            output_field=models.IntegerField()
-        ))
-    else:
-        queryset = queryset.annotate(pref_gender_score=models.Value(0, output_field=models.IntegerField()))
-
-    # Location preference (any match in city/state/country)
-    if preferred_locations:
-        from functools import reduce
-        location_q = reduce(
-            lambda acc, loc: acc | Q(city__icontains=loc) | Q(state__icontains=loc) | Q(country__icontains=loc),
-            preferred_locations[1:],
-            Q(city__icontains=preferred_locations[0]) | Q(state__icontains=preferred_locations[0]) | Q(
-                country__icontains=preferred_locations[0]))
-        queryset = queryset.annotate(pref_location_score=models.Case(
-            models.When(location_q, then=models.Value(2)),
-            default=models.Value(0),
-            output_field=models.IntegerField()
-        ))
-    else:
-        queryset = queryset.annotate(pref_location_score=models.Value(0, output_field=models.IntegerField()))
-
-    # Age range preference
-    if age_range:
-        queryset = queryset.annotate(pref_age_score=models.Case(
-            models.When(age_range=age_range, then=models.Value(1)),
-            default=models.Value(0),
-            output_field=models.IntegerField()
-        ))
-    else:
-        queryset = queryset.annotate(pref_age_score=models.Value(0, output_field=models.IntegerField()))
-
-    # Collaboration preferences overlap
-    if collaboration_preferences:
-        queryset = queryset.annotate(pref_collab_score=models.Case(
-            models.When(collaboration_types__overlap=collaboration_preferences, then=models.Value(1)),
-            default=models.Value(0),
-            output_field=models.IntegerField()
-        ))
-    else:
-        queryset = queryset.annotate(pref_collab_score=models.Value(0, output_field=models.IntegerField()))
-
-    # Max collaboration amount preference (skip if negative or invalid)
-    if isinstance(max_collab_amount_val, (int, float)) and max_collab_amount_val >= 0:
-        queryset = queryset.annotate(pref_budget_score=models.Case(
-            models.When(minimum_collaboration_amount__isnull=False,
-                        minimum_collaboration_amount__lte=max_collab_amount_val, then=models.Value(2)),
-            default=models.Value(0),
-            output_field=models.IntegerField()
-        ))
-    else:
-        queryset = queryset.annotate(pref_budget_score=models.Value(0, output_field=models.IntegerField()))
-
-    # Total preference score
-    queryset = queryset.annotate(
-        pref_total_score=models.F('pref_platform_score') + models.F('pref_industry_score') + models.F(
-            'pref_categories_score') + models.F('pref_gender_score') + models.F('pref_location_score') + models.F(
-            'pref_age_score') + models.F('pref_collab_score') + models.F('pref_budget_score')
+    # Apply recommendation scoring and sorting
+    recommendation_service = RecommendationService()
+    queryset = recommendation_service.apply_recommendation(
+        queryset,
+        platform_filter=params['platform'],
+        preferred_platforms=params['preferred_platforms'],
+        user_sort_by=params['sort_by'],
+        user_sort_order=params['sort_order'],
     )
 
-    # Apply sorting (preference score first, then chosen sort)
-    order_prefix = '' if sort_order == 'asc' else '-'
-
-    secondary_order = None
-    if sort_by == 'followers':
-        secondary_order = f'{order_prefix}total_followers_annotated'
-    elif sort_by == 'subscribers':
-        secondary_order = f'{order_prefix}total_followers_annotated'  # Same as followers for now
-    elif sort_by == 'engagement':
-        secondary_order = f'{order_prefix}average_engagement_rate_annotated'
-    elif sort_by == 'rating':
-        secondary_order = f'{order_prefix}avg_rating'
-    elif sort_by == 'influence_score':
-        secondary_order = f'{order_prefix}influence_score'
-    elif sort_by == 'avg_likes':
-        secondary_order = f'{order_prefix}social_accounts__average_likes'
-    elif sort_by == 'avg_views':
-        secondary_order = f'{order_prefix}social_accounts__average_video_views'
-    elif sort_by == 'avg_comments':
-        secondary_order = f'{order_prefix}social_accounts__average_comments'
-    elif sort_by == 'posts':
-        secondary_order = f'{order_prefix}social_accounts__posts_count'
-    elif sort_by == 'recently_active':
-        secondary_order = f'{order_prefix}social_accounts__last_posted_at'
-    elif sort_by == 'growth_rate':
-        secondary_order = f'{order_prefix}social_accounts__follower_growth_rate'
-    else:
-        secondary_order = f'{order_prefix}total_followers_annotated'
-
-    queryset = queryset.order_by('-pref_total_score', secondary_order)
+    # Apply preference scoring for soft filters (industry, categories, etc.)
+    queryset = _apply_preference_scoring(queryset, params)
 
     # Debug logging
-    logger.info(f"Influencer search query: {queryset.query}")
-    logger.info(f"Total influencers found: {queryset.count()}")
+    logger.info(f"Influencer search - Total found: {queryset.count()}")
 
     # Pagination
-    paginator = Paginator(queryset, page_size)
-    page_obj = paginator.get_page(page)
+    paginator = Paginator(queryset, params['page_size'])
+    page_obj = paginator.get_page(params['page'])
 
-    # Serialize results using enhanced serializer
+    # Serialize results
     try:
         from .serializers import InfluencerSearchSerializer
-        serializer = InfluencerSearchSerializer(page_obj, many=True, context={'request': request})
+        serializer = InfluencerSearchSerializer(
+            page_obj,
+            many=True,
+            context={
+                'request': request,
+                'platforms_filter': platforms_to_consider,
+            }
+        )
         results = serializer.data
 
         return Response({
             'status': 'success',
             'results': results,
             'pagination': {
-                'page': page,
-                'page_size': page_size,
+                'page': params['page'],
+                'page_size': params['page_size'],
                 'total_pages': paginator.num_pages,
                 'total_count': paginator.count,
                 'has_next': page_obj.has_next(),
@@ -922,6 +507,403 @@ def influencer_search_view(request):
             'message': 'Failed to process influencer data.',
             'error': str(e)
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+def _parse_search_params(request) -> dict:
+    """Parse and validate all search parameters from the request."""
+
+    def parse_csv(value):
+        return [p.strip() for p in value.split(',') if p.strip()] if value else []
+
+    def parse_int(value, default=None):
+        try:
+            return int(value) if value else default
+        except (TypeError, ValueError):
+            return default
+
+    def parse_float(value, default=None):
+        try:
+            return float(value) if value else default
+        except (TypeError, ValueError):
+            return default
+
+    def parse_bool(value):
+        return value.lower() == 'true' if value else False
+
+    return {
+        # Search and pagination
+        'search': request.GET.get('search', '').strip(),
+        'page': parse_int(request.GET.get('page'), 1),
+        'page_size': parse_int(request.GET.get('page_size'), 50),
+
+        # Platform filters
+        'platform': request.GET.get('platform', 'all'),
+        'preferred_platforms': [p.lower() for p in parse_csv(request.GET.get('platforms', ''))],
+
+        # Location filters
+        'country': request.GET.get('country', ''),
+        'state': request.GET.get('state', ''),
+        'city': request.GET.get('city', ''),
+        'location': request.GET.get('location', ''),
+        'preferred_locations': parse_csv(request.GET.get('locations', '')),
+
+        # Demographics
+        'gender': request.GET.get('gender', ''),
+        'preferred_genders': [g.lower() for g in parse_csv(request.GET.get('genders', ''))],
+        'age_range': request.GET.get('age_range', '').strip(),
+
+        # Industry and categories
+        'industry': request.GET.get('industry', ''),
+        'preferred_industries': parse_csv(request.GET.get('industries', '')),
+        'categories': parse_csv(request.GET.get('categories', '')),
+
+        # Follower filters
+        'follower_range': request.GET.get('follower_range', ''),
+        'min_followers': parse_int(request.GET.get('min_followers')),
+        'max_followers': parse_int(request.GET.get('max_followers')),
+
+        # Engagement filters
+        'min_engagement': parse_float(request.GET.get('min_engagement')),
+        'max_engagement': parse_float(request.GET.get('max_engagement')),
+
+        # Rating filters
+        'min_rating': parse_float(request.GET.get('min_rating')),
+        'max_rating': parse_float(request.GET.get('max_rating')),
+
+        # Collaboration filters
+        'max_collab_amount': parse_float(request.GET.get('max_collab_amount')),
+        'collaboration_preferences': parse_csv(request.GET.get('collaboration_preferences', '')),
+
+        # Performance filters
+        'min_avg_likes': parse_int(request.GET.get('min_avg_likes')),
+        'min_avg_views': parse_int(request.GET.get('min_avg_views')),
+        'min_avg_comments': parse_int(request.GET.get('min_avg_comments')),
+        'last_posted_within': parse_int(request.GET.get('last_posted_within')),
+
+        # Special flags
+        'influence_score_min': parse_float(request.GET.get('influence_score_min')),
+        'faster_responses': parse_bool(request.GET.get('faster_responses', '')),
+        'commerce_ready': parse_bool(request.GET.get('commerce_ready', '')),
+        'campaign_ready': parse_bool(request.GET.get('campaign_ready', '')),
+        'barter_ready': parse_bool(request.GET.get('barter_ready', '')),
+        'instagram_verified': parse_bool(request.GET.get('instagram_verified', '')),
+        'has_instagram': parse_bool(request.GET.get('has_instagram', '')),
+        'has_youtube': parse_bool(request.GET.get('has_youtube', '')),
+
+        # Keyword filters
+        'caption_keywords': request.GET.get('caption_keywords', '').strip(),
+        'bio_keywords': request.GET.get('bio_keywords', '').strip(),
+
+        # Audience filters
+        'audience_gender': request.GET.get('audience_gender', ''),
+        'audience_age_range': request.GET.get('audience_age_range', ''),
+        'audience_location': request.GET.get('audience_location', ''),
+        'audience_interest': request.GET.get('audience_interest', ''),
+        'audience_language': request.GET.get('audience_language', ''),
+
+        # Campaign exclusion
+        'campaign_id': parse_int(request.GET.get('campaign_id')),
+
+        # Sorting
+        'sort_by': request.GET.get('sort_by', 'recommendation'),  # Default to recommendation
+        'sort_order': request.GET.get('sort_order', 'desc'),
+    }
+
+
+def _apply_search_filters(queryset, params: dict, brand):
+    """Apply all filters to the queryset."""
+
+    from .services.recommendation import RecommendationFilterService
+
+    # Text search
+    if params['search']:
+        queryset = RecommendationFilterService.apply_search_filter(queryset, params['search'])
+
+    # Platform filters
+    if params['preferred_platforms']:
+        queryset = RecommendationFilterService.apply_platform_filter(queryset, params['preferred_platforms'])
+    elif params['platform'] and params['platform'] != 'all':
+        queryset = queryset.filter(
+            social_accounts__platform=params['platform'],
+            social_accounts__is_active=True
+        ).distinct()
+
+    # Location filters
+    queryset = RecommendationFilterService.apply_location_filter(
+        queryset,
+        country=params['country'],
+        state=params['state'],
+        city=params['city'],
+        location=params['location']
+    )
+
+    # Gender filter
+    if params['gender']:
+        queryset = RecommendationFilterService.apply_gender_filter(queryset, params['gender'])
+
+    # Industry filter
+    if params['industry']:
+        queryset = RecommendationFilterService.apply_industry_filter(queryset, params['industry'])
+
+    # Campaign exclusion
+    if params['campaign_id']:
+        queryset = RecommendationFilterService.apply_campaign_exclusion(
+            queryset, params['campaign_id'], brand
+        )
+
+    # Special flags
+    queryset = RecommendationFilterService.apply_special_flags_filter(
+        queryset,
+        influence_score_min=params['influence_score_min'],
+        faster_responses=params['faster_responses'],
+        commerce_ready=params['commerce_ready'],
+        campaign_ready=params['campaign_ready'],
+        barter_ready=params['barter_ready'],
+        instagram_verified=params['instagram_verified'],
+        has_instagram=params['has_instagram'],
+        has_youtube=params['has_youtube']
+    )
+
+    # Keyword filters
+    queryset = RecommendationFilterService.apply_keyword_filters(
+        queryset,
+        caption_keywords=params['caption_keywords'],
+        bio_keywords=params['bio_keywords']
+    )
+
+    # Performance filters
+    if any([params['min_avg_likes'], params['min_avg_views'],
+            params['min_avg_comments'], params['last_posted_within']]):
+        queryset = RecommendationFilterService.apply_performance_filters(
+            queryset,
+            min_avg_likes=params['min_avg_likes'],
+            min_avg_views=params['min_avg_views'],
+            min_avg_comments=params['min_avg_comments'],
+            last_posted_within=params['last_posted_within']
+        )
+
+    # Audience filters
+    if params['audience_gender']:
+        queryset = queryset.filter(
+            audience_gender_distribution__contains={params['audience_gender']: {'$gt': 0}}
+        )
+    if params['audience_age_range']:
+        queryset = queryset.filter(
+            audience_age_distribution__contains={params['audience_age_range']: {'$gt': 0}}
+        )
+    if params['audience_location']:
+        queryset = queryset.filter(audience_locations__contains=[params['audience_location']])
+    if params['audience_interest']:
+        queryset = queryset.filter(audience_interests__contains=[params['audience_interest']])
+    if params['audience_language']:
+        queryset = queryset.filter(audience_languages__contains=[params['audience_language']])
+
+    return queryset
+
+
+def _apply_preference_scoring(queryset, params: dict):
+    """Apply soft preference scoring for ranking boosts."""
+    from django.db.models import Q, Case, When, Value, F
+    from functools import reduce
+
+    # Industry preference
+    preferred_industries = params['preferred_industries']
+    if preferred_industries:
+        industry_ids = []
+        industry_keys = []
+        for token in preferred_industries:
+            try:
+                industry_ids.append(int(token))
+            except (TypeError, ValueError):
+                industry_keys.append(token.lower())
+
+        industry_condition = Q()
+        if industry_ids:
+            industry_condition |= Q(industry_id__in=industry_ids)
+        if industry_keys:
+            industry_condition |= Q(industry__key__in=industry_keys)
+            for key in industry_keys:
+                industry_condition |= Q(industry__name__iexact=key)
+
+        queryset = queryset.annotate(
+            pref_industry_score=Case(
+                When(industry_condition, then=Value(5.0)),
+                default=Value(0.0),
+                output_field=models.FloatField()
+            )
+        )
+    else:
+        queryset = queryset.annotate(
+            pref_industry_score=Value(0.0, output_field=models.FloatField())
+        )
+
+    # Categories preference
+    categories = params['categories']
+    if categories and categories[0]:
+        queryset = queryset.annotate(
+            pref_categories_score=Case(
+                When(
+                    Q(categories__key__in=categories) | Q(categories__name__in=categories),
+                    then=Value(3.0)
+                ),
+                default=Value(0.0),
+                output_field=models.FloatField()
+            )
+        )
+    else:
+        queryset = queryset.annotate(
+            pref_categories_score=Value(0.0, output_field=models.FloatField())
+        )
+
+    # Gender preference
+    preferred_genders = params['preferred_genders']
+    if preferred_genders:
+        queryset = queryset.annotate(
+            pref_gender_score=Case(
+                When(gender__in=preferred_genders, then=Value(2.0)),
+                default=Value(0.0),
+                output_field=models.FloatField()
+            )
+        )
+    else:
+        queryset = queryset.annotate(
+            pref_gender_score=Value(0.0, output_field=models.FloatField())
+        )
+
+    # Location preference
+    preferred_locations = params['preferred_locations']
+    if preferred_locations:
+        location_q = reduce(
+            lambda acc, loc: acc | Q(city__icontains=loc) | Q(state__icontains=loc) | Q(country__icontains=loc),
+            preferred_locations[1:],
+            Q(city__icontains=preferred_locations[0]) |
+            Q(state__icontains=preferred_locations[0]) |
+            Q(country__icontains=preferred_locations[0])
+        )
+        queryset = queryset.annotate(
+            pref_location_score=Case(
+                When(location_q, then=Value(4.0)),
+                default=Value(0.0),
+                output_field=models.FloatField()
+            )
+        )
+    else:
+        queryset = queryset.annotate(
+            pref_location_score=Value(0.0, output_field=models.FloatField())
+        )
+
+    # Age range preference
+    if params['age_range']:
+        queryset = queryset.annotate(
+            pref_age_score=Case(
+                When(age_range=params['age_range'], then=Value(2.0)),
+                default=Value(0.0),
+                output_field=models.FloatField()
+            )
+        )
+    else:
+        queryset = queryset.annotate(
+            pref_age_score=Value(0.0, output_field=models.FloatField())
+        )
+
+    # Collaboration preferences
+    collab_prefs = params['collaboration_preferences']
+    if collab_prefs:
+        queryset = queryset.annotate(
+            pref_collab_score=Case(
+                When(collaboration_types__overlap=collab_prefs, then=Value(2.0)),
+                default=Value(0.0),
+                output_field=models.FloatField()
+            )
+        )
+    else:
+        queryset = queryset.annotate(
+            pref_collab_score=Value(0.0, output_field=models.FloatField())
+        )
+
+    # Budget preference
+    max_collab = params['max_collab_amount']
+    if max_collab is not None and max_collab >= 0:
+        from decimal import Decimal
+        max_collab_decimal = Decimal(str(max_collab))
+        queryset = queryset.annotate(
+            pref_budget_score=Case(
+                When(
+                    minimum_collaboration_amount__isnull=False,
+                    minimum_collaboration_amount__lte=max_collab_decimal,
+                    then=Value(3.0)
+                ),
+                default=Value(0.0),
+                output_field=models.FloatField()
+            )
+        )
+    else:
+        queryset = queryset.annotate(
+            pref_budget_score=Value(0.0, output_field=models.FloatField())
+        )
+
+    # Total preference score (added to recommendation score)
+    from django.db.models.functions import Coalesce
+    from django.db.models import ExpressionWrapper
+    queryset = queryset.annotate(
+        pref_total_score=Coalesce(
+            ExpressionWrapper(
+                F('pref_industry_score') +
+                F('pref_categories_score') +
+                F('pref_gender_score') +
+                F('pref_location_score') +
+                F('pref_age_score') +
+                F('pref_collab_score') +
+                F('pref_budget_score'),
+                output_field=models.FloatField()
+            ),
+            Value(0.0),
+            output_field=models.FloatField()
+        )
+    )
+
+    # Apply follower range filter (needs to be after annotations)
+    if params['follower_range']:
+        ranges = {
+            '1K - 10K': (1000, 10000),
+            '10K - 50K': (10000, 50000),
+            '50K - 100K': (50000, 100000),
+            '100K - 500K': (100000, 500000),
+            '500K - 1M': (500000, 1000000),
+            '1M - 5M': (1000000, 5000000),
+            '5M+': (5000000, None),
+        }
+        if params['follower_range'] in ranges:
+            min_f, max_f = ranges[params['follower_range']]
+            queryset = queryset.filter(total_followers_annotated__gte=min_f)
+            if max_f:
+                queryset = queryset.filter(total_followers_annotated__lt=max_f)
+
+    if params['min_followers'] is not None:
+        queryset = queryset.filter(total_followers_annotated__gte=params['min_followers'])
+    if params['max_followers'] is not None:
+        queryset = queryset.filter(total_followers_annotated__lte=params['max_followers'])
+
+    # Engagement filters
+    if params['min_engagement'] is not None:
+        queryset = queryset.filter(average_engagement_rate_annotated__gte=params['min_engagement'])
+    if params['max_engagement'] is not None:
+        queryset = queryset.filter(average_engagement_rate_annotated__lte=params['max_engagement'])
+
+    # Rating filters
+    if params['min_rating'] is not None:
+        queryset = queryset.filter(avg_rating__gte=params['min_rating'])
+    if params['max_rating'] is not None:
+        queryset = queryset.filter(avg_rating__lte=params['max_rating'])
+
+    # Re-order by combined scores
+    queryset = queryset.order_by(
+        '-recommendation_score',
+        '-pref_total_score',
+        '-total_followers_annotated'
+    )
+
+    return queryset
 
 
 @api_view(['POST'])

@@ -159,9 +159,9 @@ export default function InfluencerSearchPage() {
     const [pendingCampaignLocations, setPendingCampaignLocations] = useState<string[]>([]);
     const [selectedIndustries, setSelectedIndustries] = useState<string[]>([]);
     const [industries, setIndustries] = useState<IndustryOption[]>([]);
-    const [sortBy, setSortBy] = useState("followers");
+    const [sortBy, setSortBy] = useState("recommendation");
     const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
-    const [sortCombined, setSortCombined] = useState<string>("followers_desc");
+    const [sortCombined, setSortCombined] = useState<string>("recommendation_desc");
     const [selectedCampaign, setSelectedCampaign] = useState<any | null>(null);
     const [campaignFilter, setCampaignFilter] = useState<string>("");
     const [isInitialised, setIsInitialised] = useState(false);
@@ -206,6 +206,12 @@ export default function InfluencerSearchPage() {
             if (industriesCsv.length > 0) setSelectedIndustries(industriesCsv);
             if (sortByParam) setSortBy(sortByParam);
             if (sortOrderParam === 'asc' || sortOrderParam === 'desc') setSortOrder(sortOrderParam);
+            // Sync sortCombined with sortBy and sortOrder from URL
+            if (sortByParam || sortOrderParam) {
+                const by = sortByParam || 'recommendation';
+                const order = sortOrderParam || 'desc';
+                setSortCombined(`${by}_${order}`);
+            }
             if (ageRangeParam) setAgeRangesFilter([ageRangeParam]);
             if (collabPrefs.length > 0) setCollabPrefsFilter(collabPrefs);
             if (maxCollab) setMaxCollabAmountFilter(maxCollab);
@@ -938,6 +944,7 @@ export default function InfluencerSearchPage() {
                                         <SelectValue/>
                                     </SelectTrigger>
                                     <SelectContent>
+                                        <SelectItem value="recommendation_desc">⭐ Recommended</SelectItem>
                                         <SelectItem value="followers_desc">Followers (High to Low)</SelectItem>
                                         <SelectItem value="followers_asc">Followers (Low to High)</SelectItem>
                                         <SelectItem value="engagement_desc">Engagement (High to Low)</SelectItem>
@@ -1304,7 +1311,7 @@ export default function InfluencerSearchPage() {
                                             <div className="flex items-center gap-1">
                                                 <HiStar className="w-3 h-3 text-yellow-500 fill-current"/>
                                                 <span className="font-medium text-gray-900 text-sm">
-                            {typeof influencer.avg_rating === 'number' && influencer.avg_rating > 0 ? influencer.avg_rating.toFixed(1) : "0.0"}
+                            {influencer.avg_rating > 0 ? influencer.avg_rating.toFixed(1) : "0.0"}
                           </span>
                                             </div>
                                         </td>
@@ -1319,7 +1326,7 @@ export default function InfluencerSearchPage() {
                                     {visibleColumns.engagement && (
                                         <td className="px-3 py-2">
                         <span className="font-medium text-gray-900 text-sm">
-                          {(typeof influencer.avg_engagement === 'number' ? influencer.avg_engagement.toFixed(1) : null) ||
+                          {(influencer.avg_engagement.toFixed(1)) ||
                               "N/A"}%
                         </span>
                                         </td>

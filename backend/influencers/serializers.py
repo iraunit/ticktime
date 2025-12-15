@@ -1480,6 +1480,9 @@ class InfluencerPublicProfileSerializer(serializers.ModelSerializer):
 class InfluencerSearchSerializer(serializers.ModelSerializer):
     """
     Serializer for influencer search results with comprehensive data.
+
+    Supports platform-specific metrics when a platform filter is applied.
+    Pass 'platforms_filter' in context to get metrics specific to those platforms.
     """
     username = serializers.CharField(source='user.username', read_only=True)
     full_name = serializers.SerializerMethodField()
@@ -1487,6 +1490,7 @@ class InfluencerSearchSerializer(serializers.ModelSerializer):
     location = serializers.SerializerMethodField()
     profile_image = serializers.SerializerMethodField()
     is_verified = serializers.BooleanField(read_only=True)
+    profile_verified = serializers.BooleanField(read_only=True)
     total_followers = serializers.SerializerMethodField()
     avg_engagement = serializers.SerializerMethodField()
     collaboration_count = serializers.IntegerField(read_only=True)
@@ -1498,14 +1502,35 @@ class InfluencerSearchSerializer(serializers.ModelSerializer):
     rate_per_post = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)
     is_bookmarked = serializers.SerializerMethodField()
 
+    # Platform-specific metrics (use annotated values when available)
+    avg_likes = serializers.SerializerMethodField()
+    avg_comments = serializers.SerializerMethodField()
+    avg_views = serializers.SerializerMethodField()
+
+    # Recommendation score (for debugging/transparency)
+    recommendation_score = serializers.SerializerMethodField()
+
     class Meta:
         model = InfluencerProfile
         fields = [
             'id', 'username', 'full_name', 'industry', 'bio', 'profile_image',
-            'is_verified', 'total_followers', 'avg_engagement', 'collaboration_count',
-            'avg_rating', 'platforms', 'location', 'posts_count', 'rate_per_post',
-            'is_bookmarked', 'platform_verified_platforms', 'verified_platforms'
+            'is_verified', 'profile_verified', 'total_followers', 'avg_engagement',
+            'collaboration_count', 'avg_rating', 'platforms', 'location', 'posts_count',
+            'rate_per_post', 'is_bookmarked', 'platform_verified_platforms', 'verified_platforms',
+            'avg_likes', 'avg_comments', 'avg_views', 'recommendation_score'
         ]
+
+    def _get_platforms_filter(self):
+        """Get the platform filter from context."""
+        return self.context.get('platforms_filter', [])
+
+    def _get_filtered_accounts(self, obj):
+        """Get social accounts filtered by platform if filter is set."""
+        platforms = self._get_platforms_filter()
+        accounts = obj.social_accounts.filter(is_active=True)
+        if platforms:
+            accounts = accounts.filter(platform__in=platforms)
+        return accounts
 
     def get_full_name(self, obj):
         """Get influencer's full name"""
@@ -1522,7 +1547,6 @@ class InfluencerSearchSerializer(serializers.ModelSerializer):
 
     def get_location(self, obj):
         """Get formatted location"""
-        # Build location from individual fields
         parts = []
         if obj.city:
             parts.append(obj.city)
@@ -1543,20 +1567,74 @@ class InfluencerSearchSerializer(serializers.ModelSerializer):
         return None
 
     def get_total_followers(self, obj):
-        """Get total followers across all platforms"""
-        # Use annotated value if available
-        if hasattr(obj, 'total_followers_annotated') and obj.total_followers_annotated:
+        """
+        Get total followers.
+        Uses platform-specific annotated value when platform filter is applied.
+        """
+        # Use annotated value if available (platform-specific)
+        if hasattr(obj, 'total_followers_annotated') and obj.total_followers_annotated is not None:
             return obj.total_followers_annotated
-        # Fallback to property
-        return obj.total_followers or 0
+
+        # Fallback: calculate from filtered accounts
+        accounts = self._get_filtered_accounts(obj)
+        total = accounts.aggregate(total=models.Sum('followers_count'))['total']
+        return total or 0
 
     def get_avg_engagement(self, obj):
-        """Get average engagement rate"""
-        # Use annotated value if available
-        if hasattr(obj, 'average_engagement_rate_annotated') and obj.average_engagement_rate_annotated:
+        """
+        Get average engagement rate.
+        Uses platform-specific annotated value when platform filter is applied.
+        """
+        # Use annotated value if available (platform-specific)
+        if hasattr(obj, 'average_engagement_rate_annotated') and obj.average_engagement_rate_annotated is not None:
             return round(float(obj.average_engagement_rate_annotated), 2)
-        # Fallback to property
-        return round(float(obj.average_engagement_rate or 0), 2)
+
+        # Fallback: calculate from filtered accounts
+        accounts = self._get_filtered_accounts(obj)
+        avg = accounts.aggregate(avg=models.Avg('engagement_rate'))['avg']
+        return round(float(avg), 2) if avg else 0.0
+
+    def get_avg_likes(self, obj):
+        """
+        Get average likes.
+        Uses platform-specific annotated value when platform filter is applied.
+        """
+        # Use annotated value if available (platform-specific)
+        if hasattr(obj, 'average_likes_annotated') and obj.average_likes_annotated is not None:
+            return int(obj.average_likes_annotated)
+
+        # Fallback: calculate from filtered accounts
+        accounts = self._get_filtered_accounts(obj)
+        avg = accounts.aggregate(avg=models.Avg('average_likes'))['avg']
+        return int(avg) if avg else 0
+
+    def get_avg_comments(self, obj):
+        """
+        Get average comments.
+        Uses platform-specific annotated value when platform filter is applied.
+        """
+        # Use annotated value if available (platform-specific)
+        if hasattr(obj, 'average_comments_annotated') and obj.average_comments_annotated is not None:
+            return int(obj.average_comments_annotated)
+
+        # Fallback: calculate from filtered accounts
+        accounts = self._get_filtered_accounts(obj)
+        avg = accounts.aggregate(avg=models.Avg('average_comments'))['avg']
+        return int(avg) if avg else 0
+
+    def get_avg_views(self, obj):
+        """
+        Get average video views.
+        Uses platform-specific annotated value when platform filter is applied.
+        """
+        # Use annotated value if available (platform-specific)
+        if hasattr(obj, 'average_video_views_annotated') and obj.average_video_views_annotated is not None:
+            return int(obj.average_video_views_annotated)
+
+        # Fallback: calculate from filtered accounts
+        accounts = self._get_filtered_accounts(obj)
+        avg = accounts.aggregate(avg=models.Avg('average_video_views'))['avg']
+        return int(avg) if avg else 0
 
     def get_platforms(self, obj):
         """Get list of active platforms"""
@@ -1564,16 +1642,18 @@ class InfluencerSearchSerializer(serializers.ModelSerializer):
 
     def get_platform_verified_platforms(self, obj):
         """Get list of platforms where the influencer is verified on that platform (blue tick, etc.)."""
+        accounts = self._get_filtered_accounts(obj)
         return list(
-            obj.social_accounts.filter(is_active=True, platform_verified=True)
+            accounts.filter(platform_verified=True)
             .values_list('platform', flat=True)
             .distinct()
         )
 
     def get_verified_platforms(self, obj):
         """Get list of platforms where the influencer is verified by TickTime (SocialMediaAccount.verified)."""
+        accounts = self._get_filtered_accounts(obj)
         return list(
-            obj.social_accounts.filter(is_active=True, verified=True)
+            accounts.filter(verified=True)
             .values_list('platform', flat=True)
             .distinct()
         )
@@ -1585,11 +1665,18 @@ class InfluencerSearchSerializer(serializers.ModelSerializer):
         return 0.0
 
     def get_posts_count(self, obj):
-        """Get total posts count across all platforms"""
-        total_posts = obj.social_accounts.filter(is_active=True).aggregate(
-            total=models.Sum('posts_count')
-        )['total']
-        return total_posts or 0
+        """
+        Get total posts count.
+        Uses platform-specific annotated value when platform filter is applied.
+        """
+        # Use annotated value if available (platform-specific)
+        if hasattr(obj, 'posts_count_annotated') and obj.posts_count_annotated is not None:
+            return obj.posts_count_annotated
+
+        # Fallback: calculate from filtered accounts
+        accounts = self._get_filtered_accounts(obj)
+        total = accounts.aggregate(total=models.Sum('posts_count'))['total']
+        return total or 0
 
     def get_is_bookmarked(self, obj):
         """Check if influencer is bookmarked by the current brand"""
@@ -1601,3 +1688,9 @@ class InfluencerSearchSerializer(serializers.ModelSerializer):
                 influencer=obj
             ).exists()
         return False
+
+    def get_recommendation_score(self, obj):
+        """Get the recommendation score if available (for transparency/debugging)."""
+        if hasattr(obj, 'recommendation_score') and obj.recommendation_score is not None:
+            return float(obj.recommendation_score)
+        return None
