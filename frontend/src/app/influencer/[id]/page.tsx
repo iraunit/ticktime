@@ -2026,7 +2026,8 @@ export default function InfluencerProfilePage() {
                                     }
 
                                     // Instagram-like image card - compact image grid with key metrics
-                                    const viewCount = post.views_count || post.likes_count || 0;
+                                    const viewCount =
+                                        typeof post.views_count === 'number' ? post.views_count : null;
                                     return (
                                         <div
                                             key={`${post.platform}_${post.platform_post_id}`}
@@ -2041,16 +2042,18 @@ export default function InfluencerProfilePage() {
                                                 loading="lazy"
                                             />
 
-                                            {/* Top-left view badge - always visible */}
-                                            <div className="absolute top-1.5 left-1.5 z-10">
-                                                <div
-                                                    className="inline-flex items-center gap-1 rounded-full bg-black/70 px-2 py-0.5 text-white shadow-sm backdrop-blur">
-                                                    <HiEye className="w-3.5 h-3.5"/>
-                                                    <span className="text-[11px] font-semibold leading-none">
-                                                        {formatFollowers(viewCount)}
-                                                    </span>
+                                            {/* Top-left view badge - only when views are available */}
+                                            {viewCount !== null && viewCount > 0 && (
+                                                <div className="absolute top-1.5 left-1.5 z-10">
+                                                    <div
+                                                        className="inline-flex items-center gap-1 rounded-full bg-black/70 px-2 py-0.5 text-white shadow-sm backdrop-blur">
+                                                        <HiEye className="w-3.5 h-3.5"/>
+                                                        <span className="text-[11px] font-semibold leading-none">
+                                                            {formatFollowers(viewCount)}
+                                                        </span>
+                                                    </div>
                                                 </div>
-                                            </div>
+                                            )}
 
                                             {/* Bottom metrics row - likes & comments always visible */}
                                             <div
