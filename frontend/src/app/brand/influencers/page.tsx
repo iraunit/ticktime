@@ -152,6 +152,7 @@ export default function InfluencerSearchPage() {
     const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>([]);
     const [locationOptions, setLocationOptions] = useState<MultiSelectOption[]>([]);
     const [selectedLocations, setSelectedLocations] = useState<string[]>([]);
+    const initialLocationsRef = useRef<string[]>([]);
     const [genderFilters, setGenderFilters] = useState<string[]>([]);
     const [followerRange, setFollowerRange] = useState("All Followers");
     const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
@@ -185,7 +186,31 @@ export default function InfluencerSearchPage() {
 
             const search = params.get('search') || '';
             const platforms = (params.get('platforms') || '').split(',').map(s => s.trim()).filter(Boolean);
-            const locations = (params.get('locations') || '').split(',').map(s => s.trim()).filter(Boolean);
+            // Parse locations from URL
+            // Locations in URL might be in format: "City,State" or "City, State" or already separated
+            // We'll store them as-is and let the normalization function handle the matching
+            const locationsParam = params.get('locations') || '';
+            const locations: string[] = [];
+            if (locationsParam) {
+                // Split by comma and try to reconstruct location pairs
+                // If locations were saved as "City, State" and joined with ',', 
+                // we get "City, State,City, State" which splits to ["City", " State", "City", " State"]
+                const parts = locationsParam.split(',').map(s => s.trim()).filter(Boolean);
+
+                // Try to pair consecutive parts as city-state pairs
+                // This handles cases where "City, State" was joined with commas
+                for (let i = 0; i < parts.length; i++) {
+                    if (i + 1 < parts.length) {
+                        // Check if this looks like a city-state pair
+                        // Pair them as "City, State" format
+                        locations.push(`${parts[i]}, ${parts[i + 1]}`);
+                        i++; // Skip the state part
+                    } else {
+                        // Single part - might be a complete location or just a city
+                        locations.push(parts[i]);
+                    }
+                }
+            }
             const genders = (params.get('genders') || '').split(',').map(s => s.trim()).filter(Boolean);
             const follower = params.get('follower_range') || '';
             const categories = (params.get('categories') || '').split(',').map(s => s.trim()).filter(Boolean);
@@ -199,7 +224,10 @@ export default function InfluencerSearchPage() {
 
             if (search) setSearchTerm(search);
             if (platforms.length > 0) setSelectedPlatforms(platforms);
-            if (locations.length > 0) setSelectedLocations(locations);
+            if (locations.length > 0) {
+                // Store in ref - will be normalized and applied once location options are loaded
+                initialLocationsRef.current = locations;
+            }
             if (genders.length > 0) setGenderFilters(genders);
             if (follower) setFollowerRange(follower);
             if (categories.length > 0) setSelectedCategories(categories);
@@ -573,11 +601,15 @@ export default function InfluencerSearchPage() {
                 return {value: label, label};
             });
             setLocationOptions(opts);
-            // Apply pending campaign locations once options are available
-            if (pendingCampaignLocations.length > 0) {
-                const normalized = normalizeCampaignLocations(pendingCampaignLocations, opts);
+            // Apply pending campaign or initial URL locations once options are available
+            const pending = pendingCampaignLocations.length > 0
+                ? pendingCampaignLocations
+                : initialLocationsRef.current;
+            if (pending.length > 0) {
+                const normalized = normalizeCampaignLocations(pending, opts);
                 setSelectedLocations(normalized);
                 setPendingCampaignLocations([]);
+                initialLocationsRef.current = [];
             }
         }).catch(() => {
         });
@@ -585,17 +617,51 @@ export default function InfluencerSearchPage() {
 
     const normalizeCampaignLocations = (rawList: string[], opts: MultiSelectOption[]) => {
         const lowerToLabel = new Map<string, string>(opts.map(o => [o.label.toLowerCase(), o.label]));
+        const lowerToValue = new Map<string, string>(opts.map(o => [o.value.toLowerCase(), o.value]));
         const results: string[] = [];
         for (const raw of rawList) {
             let base = String(raw || '').trim();
+            if (!base) continue;
+
+            // First, check if it already matches an option exactly (case-insensitive)
+            const exactMatch = lowerToLabel.get(base.toLowerCase()) || lowerToValue.get(base.toLowerCase());
+            if (exactMatch) {
+                results.push(exactMatch);
+                continue;
+            }
+
             // Support delimiter variants like "City||State" or "City, State, India"
             base = base.replace(/\|\|/g, ', ');
             base = base.replace(/,?\s*india$/i, '');
             const parts = base.split(',').map(s => s.trim()).filter(Boolean);
+
+            // Try different formats
             let candidate = base;
-            if (parts.length >= 2) candidate = `${parts[0]}, ${parts[1]}`;
-            const match = lowerToLabel.get(candidate.toLowerCase());
-            results.push(match || candidate);
+            if (parts.length >= 2) {
+                // Format as "City, State" (with space)
+                candidate = `${parts[0]}, ${parts[1]}`;
+            } else if (parts.length === 1) {
+                // Single part - might be just city name
+                candidate = parts[0];
+            }
+
+            // Try to find match
+            const match = lowerToLabel.get(candidate.toLowerCase()) || lowerToValue.get(candidate.toLowerCase());
+            if (match) {
+                results.push(match);
+            } else {
+                // If no match found, try to find by city name only
+                const cityMatch = opts.find(o =>
+                    o.label.toLowerCase().startsWith(parts[0].toLowerCase() + ',') ||
+                    o.value.toLowerCase().startsWith(parts[0].toLowerCase() + ',')
+                );
+                if (cityMatch) {
+                    results.push(cityMatch.value);
+                } else {
+                    // Fallback: use the formatted candidate
+                    results.push(candidate);
+                }
+            }
         }
         return results;
     };
