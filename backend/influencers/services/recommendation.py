@@ -568,12 +568,13 @@ class RecommendationService:
             return queryset.order_by('-recommendation_score', '-total_followers_annotated')
 
         # User specified a sort field
-        secondary_field = sort_field_map.get(user_sort_by, 'total_followers_annotated')
-        secondary_order = f'{order_prefix}{secondary_field}'
+        user_field = sort_field_map.get(user_sort_by, 'total_followers_annotated')
+        user_order = f'{order_prefix}{user_field}'
 
         # Primary sort: recommendation score (always descending for best matches first)
-        # Secondary sort: user preference
-        return queryset.order_by('-recommendation_score', secondary_order)
+        # Secondary sort: user preference with their specified order
+        # Note: pref_total_score is added later by apply_preference_scoring, so we can't sort by it here
+        return queryset.order_by('-recommendation_score', user_order)
 
 
 class RecommendationFilterService:
