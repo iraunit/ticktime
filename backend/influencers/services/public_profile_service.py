@@ -6,7 +6,6 @@ Business logic for public influencer profile operations.
 
 import logging
 
-from communications.social_scraping_service import get_social_scraping_service
 from django.db.models import Prefetch
 
 from ..models import InfluencerProfile, SocialMediaAccount, SocialMediaPost
@@ -64,6 +63,7 @@ class PublicProfileService:
         Returns:
             tuple: (auto_refreshed_platforms: list, auto_refresh_errors: dict)
         """
+        from communications.social_scraping_service import get_social_scraping_service
         scraping_service = get_social_scraping_service()
         auto_refreshed_platforms = []
         auto_refresh_errors = {}
@@ -97,6 +97,7 @@ class PublicProfileService:
         Returns:
             tuple: (queued_requests: list, refreshed_platforms: list, errors: dict)
         """
+        from communications.social_scraping_service import get_social_scraping_service
         scraping_service = get_social_scraping_service()
         queued_requests = []
         refreshed_platforms = []
