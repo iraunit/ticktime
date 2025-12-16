@@ -52,7 +52,7 @@ class WhatsAppService:
     def __init__(self):
         self.rabbitmq = get_rabbitmq_service()
         self.whatsapp_queue = getattr(settings, 'RABBITMQ_WHATSAPP_QUEUE', 'whatsapp_notifications')
-        self.frontend_url = getattr(settings, 'FRONTEND_URL', 'http://localhost:3000')
+        self.frontend_url = settings.FRONTEND_URL
 
     def _get_template_config(self, whatsapp_type: str) -> Dict[str, Any]:
         """

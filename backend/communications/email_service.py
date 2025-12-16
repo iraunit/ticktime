@@ -22,7 +22,7 @@ class EmailService:
         self.email_queue = getattr(settings, 'RABBITMQ_EMAIL_QUEUE', 'email_notifications')
         self.from_email = getattr(settings, 'ZEPTOMAIL_FROM_EMAIL', settings.EMAIL_HOST_USER)
         self.from_name = getattr(settings, 'ZEPTOMAIL_FROM_NAME', 'TickTime')
-        self.frontend_url = getattr(settings, 'FRONTEND_URL', 'http://localhost:3000')
+        self.frontend_url = settings.FRONTEND_URL
 
     def render_email_template(self, template_name: str, context: Dict[str, Any]) -> str:
         """

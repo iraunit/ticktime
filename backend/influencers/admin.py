@@ -24,12 +24,13 @@ from .models import (
 @admin.register(InfluencerProfile)
 class InfluencerProfileAdmin(admin.ModelAdmin):
     list_display = [
-        'username', 'user_full_name', 'industry', 'categories_display', 'total_followers',
+        'username', 'user_full_name', 'user_email', 'industry', 'categories_display', 'total_followers',
         'email_verification_status', 'phone_verification_status', 'aadhar_verification_status',
         'profile_verification_status', 'is_verified', 'created_at'
     ]
     list_filter = ['industry', 'categories', 'is_verified', 'profile_verified', 'created_at']
     search_fields = ['user__username', 'user__first_name', 'user__last_name', 'user__email', 'aadhar_number']
+    ordering = ['-created_at']  # Default sorting by created_at descending
     readonly_fields = [
         'user', 'username', 'industry', 'bio', 'aadhar_number', 'aadhar_document_display',
         'country', 'state', 'city', 'pincode', 'address_line1', 'address_line2',
@@ -138,11 +139,19 @@ class InfluencerProfileAdmin(admin.ModelAdmin):
         return obj.user.username
 
     username.short_description = 'Username'
+    username.admin_order_field = 'user__username'
 
     def user_full_name(self, obj):
         return obj.user.get_full_name() or obj.user.username
 
     user_full_name.short_description = 'Full Name'
+    user_full_name.admin_order_field = 'user__first_name'
+
+    def user_email(self, obj):
+        return obj.user.email or 'N/A'
+
+    user_email.short_description = 'Email'
+    user_email.admin_order_field = 'user__email'
 
     def categories_display(self, obj):
         return ', '.join([cat.name for cat in obj.categories.all()[:3]])
@@ -188,6 +197,7 @@ class InfluencerProfileAdmin(admin.ModelAdmin):
             return '❌ Not Verified'
 
     email_verification_status.short_description = 'Email Status'
+    email_verification_status.admin_order_field = 'user_profile__email_verified'
 
     def phone_verification_status(self, obj):
         """Display phone verification status"""
@@ -197,6 +207,7 @@ class InfluencerProfileAdmin(admin.ModelAdmin):
             return '❌ Not Verified'
 
     phone_verification_status.short_description = 'Phone Status'
+    phone_verification_status.admin_order_field = 'user_profile__phone_verified'
 
     def aadhar_verification_status(self, obj):
         """Display Aadhar verification status with visual indicators"""
@@ -210,6 +221,7 @@ class InfluencerProfileAdmin(admin.ModelAdmin):
             return '❌ Not Provided'
 
     aadhar_verification_status.short_description = 'Aadhar Status'
+    aadhar_verification_status.admin_order_field = 'is_verified'
 
     def profile_verification_status(self, obj):
         """Display overall profile verification status"""
@@ -219,6 +231,7 @@ class InfluencerProfileAdmin(admin.ModelAdmin):
             return '❌ Not Fully Verified'
 
     profile_verification_status.short_description = 'Profile Status'
+    profile_verification_status.admin_order_field = 'profile_verified'
 
     def aadhar_document_display(self, obj):
         """Display Aadhar document with download link"""
@@ -265,7 +278,7 @@ class InfluencerProfileAdmin(admin.ModelAdmin):
     def download_selected_with_login_links(self, request, queryset):
         """Download selected influencer profiles as CSV with one-tap login links"""
         from django.conf import settings
-        frontend_url = getattr(settings, 'FRONTEND_URL', 'http://localhost:3000')
+        frontend_url = settings.FRONTEND_URL
 
         # Remove trailing slash if present
         frontend_url = frontend_url.rstrip('/')
