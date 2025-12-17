@@ -102,7 +102,7 @@ export function Footer() {
 
                 <div className="border-t border-gray-800 mt-6 pt-4 text-center">
                     <p className="text-gray-400 text-sm">
-                        © 2024 TickTime Media Pvt Ltd. All rights reserved.
+                        © 2025 TickTime Media. All rights reserved.
                     </p>
                 </div>
             </div>

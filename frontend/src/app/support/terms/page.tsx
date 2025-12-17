@@ -321,7 +321,8 @@ export default function TermsOfServicePage() {
                                     <div className="space-y-2 text-gray-700">
                                         <p><span className="font-semibold">Email:</span> legal@ticktime.in</p>
                                         <p><span className="font-semibold">Phone:</span> +91 98765 43210</p>
-                                        <p><span className="font-semibold">Address:</span> TickTime Media Pvt Ltd, Bangalore, India</p>
+                                        <p><span className="font-semibold">Address:</span> Ground Floor, Milkat No. 203, Word N, Juno Kadiyali Road, B/h Cahamunda V, Navo Milkat No, Rajula, Amreli, Gujarat, India - 365560</p>
+                                        <p><span className="font-semibold">Legal Entity:</span> TickTime Media (Proprietorship)</p>
                                     </div>
                                 </CardContent>
                             </Card>
