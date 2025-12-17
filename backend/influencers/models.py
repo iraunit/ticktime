@@ -256,6 +256,17 @@ class InfluencerProfile(models.Model):
             parts.append(self.country)
         return ', '.join(parts) if parts else ''
 
+    def save(self, *args, **kwargs):
+        """Override save to ensure bank fields are never None."""
+        # Ensure bank fields are empty strings instead of None to avoid NOT NULL constraint violation
+        if self.bank_account_number is None:
+            self.bank_account_number = ''
+        if self.bank_ifsc_code is None:
+            self.bank_ifsc_code = ''
+        if self.bank_account_holder_name is None:
+            self.bank_account_holder_name = ''
+        super().save(*args, **kwargs)
+
     def update_profile_verification(self):
         """Update profile_verified based on aadhar, email, and phone verification status"""
         # Check if all required verifications are complete

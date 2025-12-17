@@ -114,6 +114,9 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
                 username=username,
                 industry=industry,  # Store the Industry object directly
                 is_verified=True,
+                bank_account_number='',  # Explicitly set to empty string to avoid NOT NULL constraint violation
+                bank_ifsc_code='',
+                bank_account_holder_name='',
             )
 
             # Set empty categories (many-to-many field needs to be set after creation)

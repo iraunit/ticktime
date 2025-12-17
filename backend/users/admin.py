@@ -104,7 +104,10 @@ def create_or_update_influencer_profile(user, user_profile, industry_id, row_num
             influencer_profile = InfluencerProfile.objects.create(
                 user=user,
                 user_profile=user_profile,
-                industry=industry
+                industry=industry,
+                bank_account_number='',  # Explicitly set to empty string to avoid NOT NULL constraint violation
+                bank_ifsc_code='',
+                bank_account_holder_name='',
             )
 
         return influencer_profile
@@ -683,7 +686,10 @@ class UserAdmin(BaseUserAdmin):
                                                     influencer_profile = InfluencerProfile.objects.create(
                                                         user=user,
                                                         user_profile=profile,
-                                                        industry=default_industry
+                                                        industry=default_industry,
+                                                        bank_account_number='',  # Explicitly set to empty string to avoid NOT NULL constraint violation
+                                                        bank_ifsc_code='',
+                                                        bank_account_holder_name='',
                                                     )
                                                 else:
                                                     warnings.append(
@@ -797,7 +803,10 @@ class UserAdmin(BaseUserAdmin):
                                                     influencer_profile = InfluencerProfile.objects.create(
                                                         user=user,
                                                         user_profile=user_profile_obj,
-                                                        industry=default_industry
+                                                        industry=default_industry,
+                                                        bank_account_number='',  # Explicitly set to empty string to avoid NOT NULL constraint violation
+                                                        bank_ifsc_code='',
+                                                        bank_account_holder_name='',
                                                     )
                                                 else:
                                                     warnings.append(

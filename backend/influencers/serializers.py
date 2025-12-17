@@ -529,11 +529,23 @@ class InfluencerProfileUpdateSerializer(serializers.ModelSerializer):
 
         # Update bank details (encrypt sensitive data)
         if bank_account_number is not None:
-            instance.bank_account_number = BankDetailsEncryption.encrypt_bank_data(bank_account_number)
+            # Ensure empty string instead of None to avoid NOT NULL constraint violation
+            if bank_account_number == '' or bank_account_number is None:
+                instance.bank_account_number = ''
+            else:
+                instance.bank_account_number = BankDetailsEncryption.encrypt_bank_data(bank_account_number)
         if bank_ifsc_code is not None:
-            instance.bank_ifsc_code = BankDetailsEncryption.encrypt_bank_data(bank_ifsc_code)
+            # Ensure empty string instead of None to avoid NOT NULL constraint violation
+            if bank_ifsc_code == '' or bank_ifsc_code is None:
+                instance.bank_ifsc_code = ''
+            else:
+                instance.bank_ifsc_code = BankDetailsEncryption.encrypt_bank_data(bank_ifsc_code)
         if bank_account_holder_name is not None:
-            instance.bank_account_holder_name = BankDetailsEncryption.encrypt_bank_data(bank_account_holder_name)
+            # Ensure empty string instead of None to avoid NOT NULL constraint violation
+            if bank_account_holder_name == '' or bank_account_holder_name is None:
+                instance.bank_account_holder_name = ''
+            else:
+                instance.bank_account_holder_name = BankDetailsEncryption.encrypt_bank_data(bank_account_holder_name)
 
         # Update collaboration_types before saving
         if collaboration_types is not None:
@@ -804,6 +816,34 @@ class BankDetailsSerializer(serializers.ModelSerializer):
                     "Account holder name can only contain letters, spaces, and dots."
                 )
         return value
+
+    def update(self, instance, validated_data):
+        """Update bank details with proper handling of empty values."""
+        bank_account_number = validated_data.get('bank_account_number')
+        bank_ifsc_code = validated_data.get('bank_ifsc_code')
+        bank_account_holder_name = validated_data.get('bank_account_holder_name')
+
+        # Ensure empty strings instead of None to avoid NOT NULL constraint violation
+        if bank_account_number is not None:
+            if bank_account_number == '' or bank_account_number is None:
+                instance.bank_account_number = ''
+            else:
+                instance.bank_account_number = BankDetailsEncryption.encrypt_bank_data(bank_account_number)
+
+        if bank_ifsc_code is not None:
+            if bank_ifsc_code == '' or bank_ifsc_code is None:
+                instance.bank_ifsc_code = ''
+            else:
+                instance.bank_ifsc_code = BankDetailsEncryption.encrypt_bank_data(bank_ifsc_code)
+
+        if bank_account_holder_name is not None:
+            if bank_account_holder_name == '' or bank_account_holder_name is None:
+                instance.bank_account_holder_name = ''
+            else:
+                instance.bank_account_holder_name = BankDetailsEncryption.encrypt_bank_data(bank_account_holder_name)
+
+        instance.save()
+        return instance
 
 
 class SocialMediaAccountDetailSerializer(serializers.ModelSerializer):
