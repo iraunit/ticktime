@@ -3,7 +3,8 @@ import logging
 from celery import shared_task
 from communications.social_scraping_service import get_social_scraping_service, ScraperError
 from django.utils import timezone
-from influencers.models import SocialMediaAccount, CeleryTask
+from common.models import CeleryTask
+from influencers.models import SocialMediaAccount
 
 logger = logging.getLogger(__name__)
 

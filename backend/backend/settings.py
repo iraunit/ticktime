@@ -51,6 +51,7 @@ INSTALLED_APPS = [
     "rest_framework",
     "corsheaders",
     "storages",
+    "django_celery_beat",
     "core",
     "common",
     "authentication",
@@ -285,6 +286,7 @@ CELERY_ACCEPT_CONTENT = ["json"]
 CELERY_TASK_SERIALIZER = "json"
 CELERY_RESULT_SERIALIZER = "json"
 CELERY_TIMEZONE = TIME_ZONE
+CELERY_BEAT_SCHEDULER = "django_celery_beat.schedulers:DatabaseScheduler"
 
 # Channels Configuration
 CHANNEL_LAYERS = {

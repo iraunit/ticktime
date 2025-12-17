@@ -133,3 +133,79 @@ class CountryCode(models.Model):
 
     def __str__(self):
         return f"{self.code} ({self.country})"
+
+
+class CeleryTask(models.Model):
+    """
+    Track Celery task execution for monitoring in admin panel.
+
+    NOTE: The underlying DB table was originally created by migrations in another app,
+    but the model is now owned by `common` at the code level while keeping the same table.
+    """
+
+    task_id = models.CharField(max_length=255, unique=True, db_index=True)
+    task_name = models.CharField(max_length=255)
+    status = models.CharField(
+        max_length=50,
+        choices=[
+            ("PENDING", "Pending"),
+            ("STARTED", "Started"),
+            ("SUCCESS", "Success"),
+            ("FAILURE", "Failure"),
+            ("RETRY", "Retry"),
+            ("REVOKED", "Revoked"),
+        ],
+        default="PENDING",
+    )
+    result = models.JSONField(default=dict, blank=True, null=True)
+    error = models.TextField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        db_table = "celery_tasks"
+        # This table may already exist (created historically by influencers migrations).
+        # Keeping it unmanaged prevents Django from trying to create/drop it via migrations.
+        managed = False
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["task_id"]),
+            models.Index(fields=["status"]),
+            models.Index(fields=["task_name"]),
+            models.Index(fields=["created_at"]),
+        ]
+
+    def __str__(self):
+        return f"{self.task_name} ({self.task_id[:8]}...) - {self.status}"
+
+
+try:
+    from django_celery_beat.models import CrontabSchedule, IntervalSchedule, PeriodicTask
+
+
+    class PeriodicTaskProxy(PeriodicTask):
+        class Meta:
+            proxy = True
+            app_label = "common"
+            verbose_name = "Periodic Task"
+            verbose_name_plural = "Periodic Tasks"
+
+
+    class IntervalScheduleProxy(IntervalSchedule):
+        class Meta:
+            proxy = True
+            app_label = "common"
+            verbose_name = "Interval Schedule"
+            verbose_name_plural = "Interval Schedules"
+
+
+    class CrontabScheduleProxy(CrontabSchedule):
+        class Meta:
+            proxy = True
+            app_label = "common"
+            verbose_name = "Crontab Schedule"
+            verbose_name_plural = "Crontab Schedules"
+except Exception:
+    # Safe import when dependency isn't installed yet.
+    pass

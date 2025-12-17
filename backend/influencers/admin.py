@@ -17,7 +17,6 @@ from .models import (
     SocialMediaPost,
     InfluencerAudienceInsight,
     InfluencerCategoryScore,
-    CeleryTask,
 )
 
 
@@ -990,17 +989,17 @@ class SocialMediaAccountAdmin(admin.ModelAdmin):
 
     def queue_sync_all_view(self, request):
         """Handle queue sync for all accounts that need it - runs in background"""
-        from influencers.tasks import sync_all_social_accounts
-        from influencers.models import CeleryTask
+        from common.tasks import queue_social_accounts_needing_sync
+        from common.models import CeleryTask
 
         # Trigger background task
-        task = sync_all_social_accounts.delay()
+        task = queue_social_accounts_needing_sync.delay()
 
         # Create a record in CeleryTask for tracking
         CeleryTask.objects.update_or_create(
             task_id=task.id,
             defaults={
-                'task_name': 'sync_all_social_accounts',
+                'task_name': 'queue_social_accounts_needing_sync',
                 'status': 'PENDING',
             }
         )
@@ -1010,7 +1009,7 @@ class SocialMediaAccountAdmin(admin.ModelAdmin):
             format_html(
                 'Background sync task has been queued (Task ID: {}). '
                 'The sync will run in the background and process all accounts that need updating. '
-                'You can monitor the progress in the <a href="/admin/influencers/celerytask/">Celery Tasks</a> section.',
+                'You can monitor the progress in the <a href="/admin/common/celerytask/">Celery Tasks</a> section.',
                 task.id
             )
         )
@@ -1235,53 +1234,3 @@ class SocialMediaPostAdmin(admin.ModelAdmin):
 
     influencer_username.short_description = 'Influencer'
 
-
-@admin.register(CeleryTask)
-class CeleryTaskAdmin(admin.ModelAdmin):
-    list_display = [
-        'task_name', 'task_id_short', 'status', 'created_at', 'completed_at', 'duration_display'
-    ]
-    list_filter = ['status', 'task_name', 'created_at']
-    search_fields = ['task_id', 'task_name']
-    readonly_fields = [
-        'task_id', 'task_name', 'status', 'result', 'error', 'created_at', 'updated_at', 'completed_at'
-    ]
-    ordering = ['-created_at']
-
-    fieldsets = (
-        ('Task Information', {
-            'fields': ('task_id', 'task_name', 'status')
-        }),
-        ('Results', {
-            'fields': ('result', 'error'),
-            'classes': ('collapse',)
-        }),
-        ('Timestamps', {
-            'fields': ('created_at', 'updated_at', 'completed_at'),
-            'classes': ('collapse',)
-        }),
-    )
-
-    def task_id_short(self, obj):
-        return obj.task_id[:16] + '...' if len(obj.task_id) > 16 else obj.task_id
-
-    task_id_short.short_description = 'Task ID'
-
-    def duration_display(self, obj):
-        if obj.completed_at and obj.created_at:
-            delta = obj.completed_at - obj.created_at
-            total_seconds = int(delta.total_seconds())
-            hours, remainder = divmod(total_seconds, 3600)
-            minutes, seconds = divmod(remainder, 60)
-            if hours > 0:
-                return f"{hours}h {minutes}m {seconds}s"
-            elif minutes > 0:
-                return f"{minutes}m {seconds}s"
-            else:
-                return f"{seconds}s"
-        return '-'
-
-    duration_display.short_description = 'Duration'
-
-    def has_add_permission(self, request):
-        return False  # Tasks are created automatically, not manually
