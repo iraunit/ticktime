@@ -292,6 +292,7 @@ class InfluencerProfileAdmin(admin.ModelAdmin):
             'Name',
             'Email',
             'Phone Number',
+            'Phone Number with Country Code',
             'Phone Verified',
             'Email Verified',
             'Aadhar Verified',
@@ -307,8 +308,15 @@ class InfluencerProfileAdmin(admin.ModelAdmin):
 
             # Get phone number
             phone = 'N/A'
+            phone_with_country_code = 'N/A'
             if profile.user_profile:
                 phone = profile.user_profile.phone_number or 'N/A'
+                if profile.user_profile.phone_number:
+                    country_code = profile.user_profile.country_code or '+91'
+                    country_code_clean = country_code.lstrip('+')
+                    phone_with_country_code = f"{country_code_clean}{profile.user_profile.phone_number}"
+                else:
+                    phone_with_country_code = 'N/A'
 
             # Get verification statuses
             phone_verified = 'Yes' if (profile.user_profile and profile.user_profile.phone_verified) else 'No'
@@ -326,6 +334,7 @@ class InfluencerProfileAdmin(admin.ModelAdmin):
                 name,
                 email,
                 phone,
+                phone_with_country_code,
                 phone_verified,
                 email_verified,
                 aadhar_verified,
@@ -1233,4 +1242,3 @@ class SocialMediaPostAdmin(admin.ModelAdmin):
         return obj.account.influencer.user.username
 
     influencer_username.short_description = 'Influencer'
-
