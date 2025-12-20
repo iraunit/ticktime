@@ -2057,7 +2057,28 @@ def add_influencers_to_campaign_view(request, campaign_id):
                     notification_type='invitation'
                 )
             except Exception as e:
+                import logging
+                logger = logging.getLogger(__name__)
                 logger.error(f"Failed to send invitation email to {influencer.user.username}: {str(e)}")
+
+            # Automatically send invitation WhatsApp
+            try:
+                # Check if influencer has phone number
+                if influencer.user_profile and influencer.user_profile.phone_number:
+                    from communications.whatsapp_service import get_whatsapp_service
+                    whatsapp_service = get_whatsapp_service()
+                    whatsapp_service.send_campaign_notification(
+                        influencer=influencer,
+                        campaign=campaign,
+                        deal=deal,
+                        notification_type='invitation',
+                        phone_number=influencer.user_profile.phone_number,
+                        country_code=influencer.user_profile.country_code or '+91'
+                    )
+            except Exception as e:
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.error(f"Failed to send invitation WhatsApp to {influencer.user.username}: {str(e)}")
 
     # Log action
     log_brand_action(
