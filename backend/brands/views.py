@@ -840,7 +840,7 @@ def bulk_update_csv_view(request):
             try:
                 # Find influencer by username and get their deals with this brand
                 from influencers.models import InfluencerProfile
-                influencer = InfluencerProfile.objects.get(username=username)
+                influencer = InfluencerProfile.objects.get(user__username=username)
                 deals = Deal.objects.filter(
                     campaign__brand=brand_user.brand,
                     influencer=influencer
