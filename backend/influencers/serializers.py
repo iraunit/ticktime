@@ -501,7 +501,8 @@ class InfluencerProfileUpdateSerializer(serializers.ModelSerializer):
         if bio is not None:
             instance.bio = bio
         if username is not None:
-            instance.username = username
+            instance.user.username = username
+            instance.user.save()
         if industry is not None:
             instance.industry = industry
         if minimum_collaboration_amount is not None:
@@ -875,7 +876,7 @@ class InfluencerSearchSerializer(serializers.ModelSerializer):
     """
     id = serializers.IntegerField()
     name = serializers.SerializerMethodField()
-    handle = serializers.CharField(source='username')
+    handle = serializers.CharField(source='user.username')
     profile_image = serializers.SerializerMethodField()
     original_profile_image = serializers.SerializerMethodField()
     categories = CategoryScoreSerializer(source='category_scores', many=True, read_only=True)
