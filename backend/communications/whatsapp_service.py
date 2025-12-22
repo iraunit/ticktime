@@ -530,6 +530,29 @@ class WhatsAppService:
                 requires_credits=True,
             )
 
+            # Automatically send SMS for invitation notifications
+            # This can be extended to other notification types in the future
+            if notification_type == "invitation" and message_id is not None:
+                try:
+                    from communications.sms_service import get_sms_service
+                    sms_service = get_sms_service()
+                    
+                    # Build deal URL for the SMS
+                    deal_url = f"{self.frontend_url}/influencer/deals/{deal.id}"
+                    
+                    # Send SMS invitation
+                    sms_service.send_campaign_invitation(
+                        phone_number=phone_number,
+                        country_code=country_code or '+91',
+                        influencer_name=user_name,
+                        brand_name=campaign.brand.name,
+                        campaign_title=campaign.title,
+                        deal_url=deal_url
+                    )
+                except Exception as e:
+                    # Log error but don't fail the WhatsApp sending
+                    logger.error(f"Failed to send SMS invitation for deal {deal.id}: {str(e)}")
+
             return message_id is not None
 
         except Exception as e:
