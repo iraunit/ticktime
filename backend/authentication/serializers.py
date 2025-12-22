@@ -44,7 +44,7 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         """Validate username is unique."""
         if User.objects.filter(username=value).exists():
             raise serializers.ValidationError("This username is already taken.")
-        if InfluencerProfile.objects.filter(username=value).exists():
+        if InfluencerProfile.objects.filter(user__username=value).exists():
             raise serializers.ValidationError("This username is already taken.")
         return value
 
@@ -67,7 +67,7 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         if username and User.objects.filter(username=username).exists():
             raise serializers.ValidationError({"username": "This username is already taken."})
 
-        if username and InfluencerProfile.objects.filter(username=username).exists():
+        if username and InfluencerProfile.objects.filter(user__username=username).exists():
             raise serializers.ValidationError({"username": "This username is already taken."})
 
         phone_number = attrs.get('phone_number')
