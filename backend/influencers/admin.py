@@ -679,7 +679,7 @@ class SocialMediaAccountAdmin(admin.ModelAdmin):
         'engagement_rate', 'verified', 'is_active', 'last_synced_display',
         'updated_at_display', 'sync_status_button'
     ]
-    list_filter = [SyncStatusFilter, 'platform', 'verified', 'is_active', 'created_at']
+    list_filter = [SyncStatusFilter, 'platform', 'verified', 'is_active', 'is_private', 'created_at']
     search_fields = ['influencer__user__username', 'handle', 'profile_url']
     actions = ['queue_sync_selected', 'recalculate_engagement_rate']
     readonly_fields = [
