@@ -18,7 +18,7 @@ class InfluencerProfile(models.Model):
         null=True,
         blank=True,
     )
-    industry = models.ForeignKey(Industry, on_delete=models.PROTECT, related_name='influencers')
+    industry = models.ForeignKey(Industry, on_delete=models.PROTECT, related_name='influencers', default=1)
 
     # Categories the influencer specializes in
     categories = models.ManyToManyField(
