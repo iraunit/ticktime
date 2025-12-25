@@ -18,6 +18,7 @@ from .models import (
     InfluencerAudienceInsight,
     InfluencerCategoryScore,
 )
+from common.models import Industry
 
 
 @admin.register(InfluencerProfile)
@@ -55,7 +56,7 @@ class InfluencerProfileAdmin(admin.ModelAdmin):
     ]
     filter_horizontal = ['categories']
     actions = ['verify_aadhar_documents', 'unverify_aadhar_documents', 'mark_as_verified', 'mark_as_unverified',
-               'download_selected_with_login_links']
+               'download_selected_with_login_links', 'classify_influencer_industry']
     change_list_template = 'admin/influencers/influencerprofile/change_list.html'
     change_form_template = 'admin/influencers/influencerprofile/change_form.html'
 
@@ -610,6 +611,139 @@ class InfluencerProfileAdmin(admin.ModelAdmin):
                 # Update profile verification status
                 obj.update_profile_verification()
 
+    def classify_influencer_industry(self, request, queryset):
+        """
+        Classifies the influencer's industry and extracts email using Gemini.
+        Only processes influencers with industry set to None, null, or default (1).
+        """
+        import json
+        import os
+        import google.generativeai as genai
+        from django.conf import settings
+
+        # Get API Key
+        api_key = getattr(settings, "GEMINI_API_KEY", os.environ.get("GEMINI_API_KEY"))
+        if not api_key:
+            self.message_user(request, "Gemini API Key not found.", level=messages.ERROR)
+            return
+
+        # Configure Gemini
+        genai.configure(api_key=api_key)
+        model = genai.GenerativeModel('gemini-2.0-flash')
+
+        # Get all industries
+        industries = list(Industry.objects.filter(is_active=True).values("id", "name", "key"))
+        if not industries:
+            self.message_user(request, "No active industries found.", level=messages.ERROR)
+            return
+
+        industry_text = "\n".join([f"ID: {ind['id']}, Name: {ind['name']}" for ind in industries])
+
+        success_count = 0
+        skipped_count = 0
+        error_count = 0
+
+        for profile in queryset:
+            # Check if processing is needed (industry None, 1, or key 'none')
+            needs_classification = False
+            if not profile.industry:
+                needs_classification = True
+            elif profile.industry.id == 1:
+                needs_classification = True
+            elif hasattr(profile.industry, "key") and profile.industry.key == "none":
+                needs_classification = True
+
+            if not needs_classification:
+                skipped_count += 1
+                continue
+
+            # Check for social accounts
+            if not profile.social_accounts.exists():
+                skipped_count += 1
+                continue
+
+            # Gather data
+            bio = profile.bio or ""
+            social_data = []
+            for account in profile.social_accounts.all():
+                acc_data = f"Platform: {account.platform}, Bio: {account.bio}, Verified: {account.verified}"
+                # Get last 5 post captions
+                posts = account.posts.all().order_by("-posted_at")[:5]
+                captions = [p.caption for p in posts if p.caption]
+                if captions:
+                    acc_data += f", Recent Post Captions: {' | '.join(captions)}"
+                social_data.append(acc_data)
+
+            data_context = f"Influencer Bio: {bio}\nSocial Media Data:\n" + "\n".join(social_data)
+
+            # Construct Prompt
+            prompt = f"""
+            You are an AI assistant. Analyze the following influencer data and determine the most relevant industry from the provided list. 
+            Also extract the influencer's email address if available in the text.
+
+            Industries:
+            {industry_text}
+
+            Influencer Data:
+            {data_context}
+
+            Return ONLY a JSON object with the following keys:
+            - "email": The extracted email address (or null if not found).
+            - "industry_id": The ID of the most relevant industry.
+
+            JSON Response:
+            """
+
+            try:
+                # Call Gemini API via SDK
+                response = model.generate_content(
+                    prompt,
+                    generation_config=genai.types.GenerationConfig(
+                        response_mime_type="application/json"
+                    )
+                )
+
+                if response.text:
+                    try:
+                        parsed = json.loads(response.text)
+
+                        # Update Industry
+                        ind_id = parsed.get("industry_id")
+                        if ind_id:
+                            # Verify existence
+                            if Industry.objects.filter(id=ind_id).exists():
+                                profile.industry_id = ind_id
+
+                        # Update Email
+                        email = parsed.get("email")
+                        if email and profile.user:
+                            current_email = profile.user.email
+                            # Update if current is empty or example.com
+                            if not current_email or "@example.com" in current_email:
+                                if email != current_email:
+                                    profile.user.email = email
+                                    profile.user.save()
+
+                        profile.save()
+                        success_count += 1
+                    except (KeyError, IndexError, json.JSONDecodeError) as e:
+                        error_count += 1
+                        print(f"Error parsing Gemini response for {profile}: {e}")
+                else:
+                    error_count += 1
+                    print(f"Empty Gemini response for {profile}")
+
+            except Exception as e:
+                error_count += 1
+                print(f"Request failed for {profile}: {e}")
+
+        self.message_user(
+            request, 
+            f"Processed: {success_count} updated, {skipped_count} skipped, {error_count} errors.",
+            level=messages.INFO if error_count == 0 else messages.WARNING
+        )
+
+    classify_influencer_industry.short_description = "Classify Industry & Extract Email (Gemini)"
 
 # Remove UserProfileInline since UserProfile doesn't have ForeignKey to InfluencerProfile
 
