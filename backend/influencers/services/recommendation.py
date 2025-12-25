@@ -571,10 +571,9 @@ class RecommendationService:
         user_field = sort_field_map.get(user_sort_by, 'total_followers_annotated')
         user_order = f'{order_prefix}{user_field}'
 
-        # Primary sort: recommendation score (always descending for best matches first)
-        # Secondary sort: user preference with their specified order
-        # Note: pref_total_score is added later by apply_preference_scoring, so we can't sort by it here
-        return queryset.order_by('-recommendation_score', user_order)
+        # Primary sort: user preference
+        # Secondary sort: recommendation score (tie breaker)
+        return queryset.order_by(user_order, '-recommendation_score')
 
 
 class RecommendationFilterService:
@@ -641,7 +640,7 @@ class RecommendationFilterService:
 
     @staticmethod
     def apply_location_filter(queryset, country: str = None, state: str = None,
-                              city: str = None, location: str = None):
+                              city: str = None, location: str = None, preferred_locations: List[str] = None):
         """Apply location filters."""
         if country:
             queryset = queryset.filter(country__icontains=country)
@@ -655,29 +654,74 @@ class RecommendationFilterService:
                 Q(state__icontains=location) |
                 Q(country__icontains=location)
             )
+            
+        if preferred_locations:
+            # Strict filter for preferred locations (OR logic for list items)
+            # This matches any of the locations in the list against city/state/country
+            loc_q = Q()
+            for loc in preferred_locations:
+                if not loc: continue
+                loc_q |= Q(city__icontains=loc)
+                loc_q |= Q(state__icontains=loc)
+                loc_q |= Q(country__icontains=loc)
+            
+            if loc_q:
+                queryset = queryset.filter(loc_q)
+
         return queryset
 
     @staticmethod
-    def apply_gender_filter(queryset, gender: str):
+    def apply_gender_filter(queryset, gender: str = None, genders: List[str] = None):
         """Apply gender filter."""
-        if not gender:
-            return queryset
-        return queryset.filter(gender=gender)
+        if gender:
+            return queryset.filter(gender__iexact=gender)
+            
+        if genders:
+            return queryset.filter(gender__in=genders)
+            
+        return queryset
 
     @staticmethod
-    def apply_industry_filter(queryset, industry):
-        """Apply industry filter (accepts id, key, or name)."""
-        if not industry:
+    def apply_industry_filter(queryset, industry=None, industries=None):
+        """
+        Apply industry filter.
+        Accepts single industry or list of industries (ids, keys, or names).
+        """
+        if not industry and not industries:
             return queryset
 
-        try:
-            industry_id = int(industry)
-            return queryset.filter(industry_id=industry_id)
-        except (TypeError, ValueError):
-            return queryset.filter(
-                Q(industry__key__iexact=industry) |
-                Q(industry__name__iexact=industry)
-            )
+        # Combine single and list inputs
+        industry_list = []
+        if industry:
+            industry_list.append(industry)
+        if industries:
+            industry_list.extend(industries)
+
+        if not industry_list:
+            return queryset
+
+        # Separate IDs and text keys
+        industry_ids = []
+        industry_keys = []
+
+        for item in industry_list:
+            try:
+                industry_ids.append(int(item))
+            except (TypeError, ValueError):
+                if isinstance(item, str) and item.strip():
+                    industry_keys.append(item.strip())
+
+        filters = Q()
+        if industry_ids:
+            filters |= Q(industry_id__in=industry_ids)
+
+        if industry_keys:
+            filters |= Q(industry__key__in=industry_keys)
+            # Also check names (case insensitive)
+            for key in industry_keys:
+                filters |= Q(industry__name__iexact=key)
+
+        return queryset.filter(filters).distinct()
 
     @staticmethod
     def apply_engagement_filter(queryset, min_engagement: float = None, max_engagement: float = None):
@@ -750,6 +794,40 @@ class RecommendationFilterService:
         return queryset
 
     @staticmethod
+    def apply_categories_filter(queryset, categories: List[str]):
+        """Apply categories filter."""
+        if not categories or not categories[0]:
+            return queryset
+            
+        return queryset.filter(
+            Q(categories__key__in=categories) | 
+            Q(categories__name__in=categories)
+        ).distinct()
+
+    @staticmethod
+    def apply_collab_pref_filter(queryset, prefs: List[str], max_amount: float = None):
+        """Apply collaboration preference filters."""
+        from decimal import Decimal
+        if prefs:
+            queryset = queryset.filter(collaboration_types__overlap=prefs)
+            
+        if max_amount is not None:
+            max_amount_decimal = Decimal(str(max_amount))
+            queryset = queryset.filter(
+                Q(minimum_collaboration_amount__isnull=True) |
+                Q(minimum_collaboration_amount__lte=max_amount_decimal)
+            )
+            
+        return queryset
+
+    @staticmethod
+    def apply_age_range_filter(queryset, age_range: str):
+        """Apply age range filter."""
+        if not age_range:
+            return queryset
+        return queryset.filter(age_range=age_range)
+
+    @staticmethod
     def apply_performance_filters(queryset, min_avg_likes: int = None,
                                   min_avg_views: int = None, min_avg_comments: int = None,
                                   last_posted_within: int = None):
@@ -766,3 +844,4 @@ class RecommendationFilterService:
             cutoff_date = datetime.now() - timedelta(days=last_posted_within)
             queryset = queryset.filter(social_accounts__last_posted_at__gte=cutoff_date)
         return queryset
+

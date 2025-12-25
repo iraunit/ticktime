@@ -144,16 +144,41 @@ class InfluencerSearchService:
             country=params['country'],
             state=params['state'],
             city=params['city'],
-            location=params['location']
+            location=params['location'],
+            preferred_locations=params['preferred_locations']
         )
 
         # Gender filter
-        if params['gender']:
-            queryset = RecommendationFilterService.apply_gender_filter(queryset, params['gender'])
+        queryset = RecommendationFilterService.apply_gender_filter(
+            queryset, 
+            gender=params['gender'],
+            genders=params['preferred_genders']
+        )
+        
+        # Age range filter
+        if params['age_range']:
+            queryset = RecommendationFilterService.apply_age_range_filter(queryset, params['age_range'])
+
+        # Categories filter
+        if params['categories']:
+            queryset = RecommendationFilterService.apply_categories_filter(queryset, params['categories'])
+
+        # Collaboration filters
+        if params['collaboration_preferences'] or params['max_collab_amount'] is not None:
+            queryset = RecommendationFilterService.apply_collab_pref_filter(
+                queryset,
+                prefs=params['collaboration_preferences'],
+                max_amount=params['max_collab_amount']
+            )
 
         # Industry filter
-        if params['industry']:
-            queryset = RecommendationFilterService.apply_industry_filter(queryset, params['industry'])
+        # Industry filter (strict filter for both single and list params)
+        if params['industry'] or params['preferred_industries']:
+            queryset = RecommendationFilterService.apply_industry_filter(
+                queryset, 
+                industry=params['industry'],
+                industries=params['preferred_industries']
+            )
 
         # Campaign exclusion
         if params['campaign_id']:
