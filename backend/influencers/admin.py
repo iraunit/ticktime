@@ -1,5 +1,6 @@
 import csv
 
+from common.models import Industry
 from django.contrib import admin
 from django.contrib import messages
 from django.db.models import Q
@@ -18,7 +19,6 @@ from .models import (
     InfluencerAudienceInsight,
     InfluencerCategoryScore,
 )
-from common.models import Industry
 
 
 @admin.register(InfluencerProfile)
@@ -664,6 +664,9 @@ class InfluencerProfileAdmin(admin.ModelAdmin):
 
             # Gather data
             bio = profile.bio or ""
+            if not bio or bio == "":
+                skipped_count += 1
+                continue
             social_data = []
             for account in profile.social_accounts.all():
                 acc_data = f"Platform: {account.platform}, Bio: {account.bio}, Verified: {account.verified}"
@@ -738,12 +741,13 @@ class InfluencerProfileAdmin(admin.ModelAdmin):
                 print(f"Request failed for {profile}: {e}")
 
         self.message_user(
-            request, 
+            request,
             f"Processed: {success_count} updated, {skipped_count} skipped, {error_count} errors.",
             level=messages.INFO if error_count == 0 else messages.WARNING
         )
 
     classify_influencer_industry.short_description = "Classify Industry & Extract Email (Gemini)"
+
 
 # Remove UserProfileInline since UserProfile doesn't have ForeignKey to InfluencerProfile
 
