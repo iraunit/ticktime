@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 
 
 @shared_task(bind=True)
-def queue_social_accounts_needing_sync(self, days_threshold: int = 7, priority: str = "high"):
+def queue_social_accounts_needing_sync(self, days_threshold: int = 30, priority: str = "high"):
     """
     Queue scrape/sync requests ONLY for social accounts that need updating.
 

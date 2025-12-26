@@ -30,6 +30,7 @@ import {
     HiUsers
 } from "react-icons/hi2";
 import {
+    FaChrome,
     FaFacebook,
     FaInstagram,
     FaLinkedin,
@@ -40,6 +41,9 @@ import {
     FaYoutube
 } from "react-icons/fa";
 import {getDealTypeConfig} from "@/lib/platform-config";
+
+const TICKTIME_INSTAGRAM_SCRAPER_STORE_URL =
+    "https://chromewebstore.google.com/detail/ticktime-instagram-scrape/lhhmljnmniohfopjonfgdbkmkombkeha";
 
 interface InfluencerProfile {
     id: number;
@@ -833,6 +837,8 @@ export default function InfluencerProfilePage() {
         if (!influencerId) return;
         setIsRefreshing(true);
         try {
+            toast.info("For the freshest Instagram data, install the TickTime Chrome Extension, then refresh again.");
+
             const response = await api.post(`/influencers/${influencerId}/refresh/`);
             const updatedProfile = response.data?.influencer;
             if (updatedProfile) {
@@ -1042,6 +1048,10 @@ export default function InfluencerProfilePage() {
                             )}
                         </div>
                         <div className="flex items-center gap-3">
+                            <Badge variant="outline" className="border-emerald-200 text-emerald-700 bg-emerald-50">
+                                <HiCheckBadge className="w-3 h-3 mr-1"/>
+                                Extension installed
+                            </Badge>
                             <Button
                                 variant="outline"
                                 size="sm"
@@ -1053,6 +1063,40 @@ export default function InfluencerProfilePage() {
                                     className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`}/>
                                 {isRefreshing ? 'Refreshing' : 'Refresh'}
                             </Button>
+                        </div>
+                    </div>
+
+                    <div
+                        className="mt-4 rounded-2xl border border-gray-100 bg-gradient-to-r from-indigo-50 via-white to-pink-50 p-4 shadow-sm">
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                            <div className="min-w-0">
+                                <div className="flex items-center gap-2">
+                                    <FaInstagram className="h-4 w-4 text-pink-600"/>
+                                    <span className="text-sm font-semibold text-gray-900">
+                                            Get the latest Instagram data instantly
+                                        </span>
+                                </div>
+                                <p className="mt-1 text-sm text-gray-600">
+                                    Install <span
+                                    className="font-medium text-gray-900">TickTime - Instagram Scraper</span> to
+                                    keep this profile updated.
+                                    After installing, hit <span
+                                    className="font-medium text-gray-900">Refresh</span> to fetch the latest stats &
+                                    posts.
+                                </p>
+                            </div>
+                            <div className="flex shrink-0 items-center gap-2">
+                                <Button asChild size="sm" className="flex items-center gap-2">
+                                    <a
+                                        href={TICKTIME_INSTAGRAM_SCRAPER_STORE_URL}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                    >
+                                        <FaChrome className="w-4 h-4"/>
+                                        Install now
+                                    </a>
+                                </Button>
+                            </div>
                         </div>
                     </div>
                 </div>
