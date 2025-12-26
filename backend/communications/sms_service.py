@@ -2,6 +2,7 @@ import logging
 
 import requests
 from django.conf import settings
+from unidecode import unidecode
 
 logger = logging.getLogger(__name__)
 
@@ -15,6 +16,34 @@ class SMSService:
         self.authkey = getattr(settings, 'MSG91_AUTHKEY', '')
         self.template_id = getattr(settings, 'MSG91_TEMPLATE_ID', '')
         self.api_base_url = getattr(settings, 'MSG91_API_BASE_URL', 'https://control.msg91.com/api/v5')
+
+    def _sanitize_text(self, text: str) -> str:
+        """
+        Sanitize text for SMS DLT template compliance.
+        1. Access basic Latin characters (transliterate unicode like cursive).
+        2. Remove emojis.
+        3. Strip leading/trailing whitespace.
+        
+        Args:
+            text: Input string to sanitize
+            
+        Returns:
+            Sanitized string safe for SMS
+        """
+        if not text:
+            return ""
+
+        text = unidecode(text)
+
+        # Remove any remaining non-ASCII characters that unidecode might have missed or expanded oddly,
+        # though unidecode usually handles this well. 
+        # For SMS, we want to be safe and keep mostly alphanumerics and basic punctuation.
+        # But DLT templates can accept standard text, so unidecode should be sufficient for the "plain text" requirement.
+
+        # Just in case, let's explicitely remove newlines if they are problematic in variables, 
+        # but usually spaces are fine. 
+
+        return text.strip()
 
     def _format_phone_number(self, phone_number: str, country_code: str = '+91') -> str:
         """
@@ -75,6 +104,11 @@ class SMSService:
             # Format phone number
             formatted_phone = self._format_phone_number(phone_number, country_code)
 
+            # "before sending message using sms remove emojit and convert text to plain text only"
+            safe_influencer_name = self._sanitize_text(influencer_name)
+            safe_brand_name = self._sanitize_text(brand_name)
+            safe_campaign_title = self._sanitize_text(campaign_title)
+
             # Prepare API payload
             url = f"{self.api_base_url}/flow"
             headers = {
@@ -89,9 +123,9 @@ class SMSService:
                 "recipients": [
                     {
                         "mobiles": formatted_phone,
-                        "var1": influencer_name,
-                        "var2": brand_name,
-                        "var3": campaign_title,
+                        "var1": safe_influencer_name,
+                        "var2": safe_brand_name,
+                        "var3": safe_campaign_title,
                         "var4": deal_url
                     }
                 ]
