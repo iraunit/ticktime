@@ -1048,10 +1048,6 @@ export default function InfluencerProfilePage() {
                             )}
                         </div>
                         <div className="flex items-center gap-3">
-                            <Badge variant="outline" className="border-emerald-200 text-emerald-700 bg-emerald-50">
-                                <HiCheckBadge className="w-3 h-3 mr-1"/>
-                                Extension installed
-                            </Badge>
                             <Button
                                 variant="outline"
                                 size="sm"
