@@ -1530,6 +1530,7 @@ class InfluencerSearchSerializer(serializers.ModelSerializer):
     industry = serializers.SerializerMethodField()
     location = serializers.SerializerMethodField()
     profile_image = serializers.SerializerMethodField()
+    social_accounts = serializers.SerializerMethodField()
     is_verified = serializers.BooleanField(read_only=True)
     profile_verified = serializers.BooleanField(read_only=True)
     total_followers = serializers.SerializerMethodField()
@@ -1554,7 +1555,7 @@ class InfluencerSearchSerializer(serializers.ModelSerializer):
     class Meta:
         model = InfluencerProfile
         fields = [
-            'id', 'username', 'full_name', 'industry', 'bio', 'profile_image',
+            'id', 'username', 'full_name', 'industry', 'bio', 'profile_image', 'social_accounts',
             'is_verified', 'profile_verified', 'total_followers', 'avg_engagement',
             'collaboration_count', 'avg_rating', 'platforms', 'location', 'posts_count',
             'rate_per_post', 'is_bookmarked', 'platform_verified_platforms', 'verified_platforms',
@@ -1606,6 +1607,15 @@ class InfluencerSearchSerializer(serializers.ModelSerializer):
                     return obj.user_profile.profile_image.url
             return obj.user_profile.profile_image.url
         return None
+
+    def get_social_accounts(self, obj):
+        """
+        Lightweight list of active social accounts so the frontend can open the
+        real Instagram/YouTube/etc profile URL (not derived from TickTime username).
+        """
+        return list(
+            obj.social_accounts.filter(is_active=True).values('platform', 'handle', 'profile_url')
+        )
 
     def get_total_followers(self, obj):
         """
