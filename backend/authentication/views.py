@@ -404,7 +404,6 @@ def forgot_password_view(request):
 
             minutes = int(retry_after_seconds / 60)
             seconds = retry_after_seconds % 60
-            from rest_framework.response import Response
             return Response(
                 {
                     "success": False,

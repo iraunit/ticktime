@@ -51,6 +51,7 @@ INSTALLED_APPS = [
     "rest_framework",
     "corsheaders",
     "storages",
+    "django_celery_beat",
     "core",
     "common",
     "authentication",
@@ -273,7 +274,7 @@ FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:3000")
 DISCORD_SUPPORT_CHANNEL_ID = os.environ.get("SUPPORT_CHANNEL_ID", "")
 DISCORD_SUPPORT_BOT_TOKEN = os.environ.get("SUPPORT_CHANNEL_BOT_TOKEN", "")
 BRANDS_ONBOARDING_CHANNEL_ID = os.environ.get("BRANDS_ONBOARDING_CHANNEL_ID", "")
-SERVER_UPDATES_CHANNEL_ID = os.environ.get("SERVER_UPDATES_CHANNEL_ID", "1444964145823875123")
+SERVER_UPDATES_CHANNEL_ID = os.environ.get("SERVER_UPDATES_CHANNEL_ID", "")
 
 # Celery Configuration
 REDIS_URL = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
@@ -285,6 +286,7 @@ CELERY_ACCEPT_CONTENT = ["json"]
 CELERY_TASK_SERIALIZER = "json"
 CELERY_RESULT_SERIALIZER = "json"
 CELERY_TIMEZONE = TIME_ZONE
+CELERY_BEAT_SCHEDULER = "django_celery_beat.schedulers:DatabaseScheduler"
 
 # Channels Configuration
 CHANNEL_LAYERS = {
@@ -466,3 +468,8 @@ WHATSAPP_RATE_LIMIT_VERIFICATION_PER_HOUR = int(os.environ.get("WHATSAPP_RATE_LI
 # WhatsApp credits
 WHATSAPP_DEFAULT_BRAND_CREDITS = int(os.environ.get("WHATSAPP_DEFAULT_BRAND_CREDITS", "100"))
 PASSWORD_RESET_TOKEN_EXPIRY_HOURS = int(os.environ.get("PASSWORD_RESET_TOKEN_EXPIRY_HOURS", "24"))
+
+# MSG91 SMS API configuration
+MSG91_AUTHKEY = os.environ.get("MSG91_AUTHKEY", "")
+MSG91_TEMPLATE_ID = os.environ.get("MSG91_TEMPLATE_ID", "69484ce85647c078cb4035f6")
+MSG91_API_BASE_URL = os.environ.get("MSG91_API_BASE_URL", "https://control.msg91.com/api/v5")

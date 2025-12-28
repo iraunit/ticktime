@@ -105,7 +105,7 @@ class DiscordSupportChannel(BaseSupportChannel):
         """
         # Use provided channel_id or get from settings
         target_channel_id = channel_id or getattr(
-            settings, "SERVER_UPDATES_CHANNEL_ID", "1444964145823875123"
+            settings, "SERVER_UPDATES_CHANNEL_ID", ""
         )
 
         if not target_channel_id or not self.bot_token:

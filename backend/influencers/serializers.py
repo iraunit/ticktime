@@ -501,7 +501,8 @@ class InfluencerProfileUpdateSerializer(serializers.ModelSerializer):
         if bio is not None:
             instance.bio = bio
         if username is not None:
-            instance.username = username
+            instance.user.username = username
+            instance.user.save()
         if industry is not None:
             instance.industry = industry
         if minimum_collaboration_amount is not None:
@@ -529,11 +530,23 @@ class InfluencerProfileUpdateSerializer(serializers.ModelSerializer):
 
         # Update bank details (encrypt sensitive data)
         if bank_account_number is not None:
-            instance.bank_account_number = BankDetailsEncryption.encrypt_bank_data(bank_account_number)
+            # Ensure empty string instead of None to avoid NOT NULL constraint violation
+            if bank_account_number == '' or bank_account_number is None:
+                instance.bank_account_number = ''
+            else:
+                instance.bank_account_number = BankDetailsEncryption.encrypt_bank_data(bank_account_number)
         if bank_ifsc_code is not None:
-            instance.bank_ifsc_code = BankDetailsEncryption.encrypt_bank_data(bank_ifsc_code)
+            # Ensure empty string instead of None to avoid NOT NULL constraint violation
+            if bank_ifsc_code == '' or bank_ifsc_code is None:
+                instance.bank_ifsc_code = ''
+            else:
+                instance.bank_ifsc_code = BankDetailsEncryption.encrypt_bank_data(bank_ifsc_code)
         if bank_account_holder_name is not None:
-            instance.bank_account_holder_name = BankDetailsEncryption.encrypt_bank_data(bank_account_holder_name)
+            # Ensure empty string instead of None to avoid NOT NULL constraint violation
+            if bank_account_holder_name == '' or bank_account_holder_name is None:
+                instance.bank_account_holder_name = ''
+            else:
+                instance.bank_account_holder_name = BankDetailsEncryption.encrypt_bank_data(bank_account_holder_name)
 
         # Update collaboration_types before saving
         if collaboration_types is not None:
@@ -805,6 +818,34 @@ class BankDetailsSerializer(serializers.ModelSerializer):
                 )
         return value
 
+    def update(self, instance, validated_data):
+        """Update bank details with proper handling of empty values."""
+        bank_account_number = validated_data.get('bank_account_number')
+        bank_ifsc_code = validated_data.get('bank_ifsc_code')
+        bank_account_holder_name = validated_data.get('bank_account_holder_name')
+
+        # Ensure empty strings instead of None to avoid NOT NULL constraint violation
+        if bank_account_number is not None:
+            if bank_account_number == '' or bank_account_number is None:
+                instance.bank_account_number = ''
+            else:
+                instance.bank_account_number = BankDetailsEncryption.encrypt_bank_data(bank_account_number)
+
+        if bank_ifsc_code is not None:
+            if bank_ifsc_code == '' or bank_ifsc_code is None:
+                instance.bank_ifsc_code = ''
+            else:
+                instance.bank_ifsc_code = BankDetailsEncryption.encrypt_bank_data(bank_ifsc_code)
+
+        if bank_account_holder_name is not None:
+            if bank_account_holder_name == '' or bank_account_holder_name is None:
+                instance.bank_account_holder_name = ''
+            else:
+                instance.bank_account_holder_name = BankDetailsEncryption.encrypt_bank_data(bank_account_holder_name)
+
+        instance.save()
+        return instance
+
 
 class SocialMediaAccountDetailSerializer(serializers.ModelSerializer):
     """Serializer for social media accounts with platform-specific data"""
@@ -835,7 +876,7 @@ class InfluencerSearchSerializer(serializers.ModelSerializer):
     """
     id = serializers.IntegerField()
     name = serializers.SerializerMethodField()
-    handle = serializers.CharField(source='username')
+    handle = serializers.CharField(source='user.username')
     profile_image = serializers.SerializerMethodField()
     original_profile_image = serializers.SerializerMethodField()
     categories = CategoryScoreSerializer(source='category_scores', many=True, read_only=True)
@@ -843,6 +884,7 @@ class InfluencerSearchSerializer(serializers.ModelSerializer):
     score = serializers.SerializerMethodField()
     is_verified = serializers.BooleanField()
     available_platforms = serializers.SerializerMethodField()
+    platform_verified_platforms = serializers.SerializerMethodField()
 
     # Platform-specific data
     twitter_followers = serializers.SerializerMethodField()
@@ -876,7 +918,7 @@ class InfluencerSearchSerializer(serializers.ModelSerializer):
         model = InfluencerProfile
         fields = (
             'id', 'name', 'handle', 'profile_image', 'original_profile_image',
-            'categories', 'location', 'score', 'is_verified', 'available_platforms',
+            'categories', 'location', 'score', 'is_verified', 'available_platforms', 'platform_verified_platforms',
             'twitter_followers', 'twitter_handle', 'twitter_profile_link',
             'youtube_subscribers', 'youtube_handle', 'youtube_profile_link',
             'facebook_page_likes', 'facebook_handle', 'facebook_profile_link',
@@ -922,6 +964,17 @@ class InfluencerSearchSerializer(serializers.ModelSerializer):
             return obj.available_platforms
         # Fallback to checking social accounts
         return list(obj.social_accounts.filter(is_active=True).values_list('platform', flat=True))
+
+    def get_platform_verified_platforms(self, obj):
+        """
+        Return the list of platforms where this influencer is verified on the platform
+        (blue tick, etc.) based on SocialMediaAccount.platform_verified.
+        """
+        return list(
+            obj.social_accounts.filter(is_active=True, platform_verified=True)
+            .values_list('platform', flat=True)
+            .distinct()
+        )
 
     def get_twitter_followers(self, obj):
         """Get Twitter followers count"""
@@ -1170,7 +1223,6 @@ class SocialAccountPublicSerializer(serializers.ModelSerializer):
             'external_url',
             'is_private',
             'profile_image_url',
-            'profile_image_base64',
             'followers_count',
             'following_count',
             'posts_count',
@@ -1469,30 +1521,58 @@ class InfluencerPublicProfileSerializer(serializers.ModelSerializer):
 class InfluencerSearchSerializer(serializers.ModelSerializer):
     """
     Serializer for influencer search results with comprehensive data.
+
+    Supports platform-specific metrics when a platform filter is applied.
+    Pass 'platforms_filter' in context to get metrics specific to those platforms.
     """
     username = serializers.CharField(source='user.username', read_only=True)
     full_name = serializers.SerializerMethodField()
     industry = serializers.SerializerMethodField()
     location = serializers.SerializerMethodField()
     profile_image = serializers.SerializerMethodField()
+    social_accounts = serializers.SerializerMethodField()
     is_verified = serializers.BooleanField(read_only=True)
+    profile_verified = serializers.BooleanField(read_only=True)
     total_followers = serializers.SerializerMethodField()
     avg_engagement = serializers.SerializerMethodField()
     collaboration_count = serializers.IntegerField(read_only=True)
     avg_rating = serializers.SerializerMethodField()
     platforms = serializers.SerializerMethodField()
+    platform_verified_platforms = serializers.SerializerMethodField()
+    verified_platforms = serializers.SerializerMethodField()
     posts_count = serializers.SerializerMethodField()
     rate_per_post = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)
     is_bookmarked = serializers.SerializerMethodField()
 
+    # Platform-specific metrics (use annotated values when available)
+    avg_likes = serializers.SerializerMethodField()
+    avg_comments = serializers.SerializerMethodField()
+    avg_views = serializers.SerializerMethodField()
+
+    # Recommendation score (for debugging/transparency)
+    recommendation_score = serializers.SerializerMethodField()
+
     class Meta:
         model = InfluencerProfile
         fields = [
-            'id', 'username', 'full_name', 'industry', 'bio', 'profile_image',
-            'is_verified', 'total_followers', 'avg_engagement', 'collaboration_count',
-            'avg_rating', 'platforms', 'location', 'posts_count', 'rate_per_post',
-            'is_bookmarked'
+            'id', 'username', 'full_name', 'industry', 'bio', 'profile_image', 'social_accounts',
+            'is_verified', 'profile_verified', 'total_followers', 'avg_engagement',
+            'collaboration_count', 'avg_rating', 'platforms', 'location', 'posts_count',
+            'rate_per_post', 'is_bookmarked', 'platform_verified_platforms', 'verified_platforms',
+            'avg_likes', 'avg_comments', 'avg_views', 'recommendation_score'
         ]
+
+    def _get_platforms_filter(self):
+        """Get the platform filter from context."""
+        return self.context.get('platforms_filter', [])
+
+    def _get_filtered_accounts(self, obj):
+        """Get social accounts filtered by platform if filter is set."""
+        platforms = self._get_platforms_filter()
+        accounts = obj.social_accounts.filter(is_active=True)
+        if platforms:
+            accounts = accounts.filter(platform__in=platforms)
+        return accounts
 
     def get_full_name(self, obj):
         """Get influencer's full name"""
@@ -1509,7 +1589,6 @@ class InfluencerSearchSerializer(serializers.ModelSerializer):
 
     def get_location(self, obj):
         """Get formatted location"""
-        # Build location from individual fields
         parts = []
         if obj.city:
             parts.append(obj.city)
@@ -1529,25 +1608,106 @@ class InfluencerSearchSerializer(serializers.ModelSerializer):
             return obj.user_profile.profile_image.url
         return None
 
+    def get_social_accounts(self, obj):
+        """
+        Lightweight list of active social accounts so the frontend can open the
+        real Instagram/YouTube/etc profile URL (not derived from TickTime username).
+        """
+        return list(
+            obj.social_accounts.filter(is_active=True).values('platform', 'handle', 'profile_url')
+        )
+
     def get_total_followers(self, obj):
-        """Get total followers across all platforms"""
-        # Use annotated value if available
-        if hasattr(obj, 'total_followers_annotated') and obj.total_followers_annotated:
+        """
+        Get total followers.
+        Uses platform-specific annotated value when platform filter is applied.
+        """
+        # Use annotated value if available (platform-specific)
+        if hasattr(obj, 'total_followers_annotated') and obj.total_followers_annotated is not None:
             return obj.total_followers_annotated
-        # Fallback to property
-        return obj.total_followers or 0
+
+        # Fallback: calculate from filtered accounts
+        accounts = self._get_filtered_accounts(obj)
+        total = accounts.aggregate(total=models.Sum('followers_count'))['total']
+        return total or 0
 
     def get_avg_engagement(self, obj):
-        """Get average engagement rate"""
-        # Use annotated value if available
-        if hasattr(obj, 'average_engagement_rate_annotated') and obj.average_engagement_rate_annotated:
+        """
+        Get average engagement rate.
+        Uses platform-specific annotated value when platform filter is applied.
+        """
+        # Use annotated value if available (platform-specific)
+        if hasattr(obj, 'average_engagement_rate_annotated') and obj.average_engagement_rate_annotated is not None:
             return round(float(obj.average_engagement_rate_annotated), 2)
-        # Fallback to property
-        return round(float(obj.average_engagement_rate or 0), 2)
+
+        # Fallback: calculate from filtered accounts
+        accounts = self._get_filtered_accounts(obj)
+        avg = accounts.aggregate(avg=models.Avg('engagement_rate'))['avg']
+        return round(float(avg), 2) if avg else 0.0
+
+    def get_avg_likes(self, obj):
+        """
+        Get average likes.
+        Uses platform-specific annotated value when platform filter is applied.
+        """
+        # Use annotated value if available (platform-specific)
+        if hasattr(obj, 'average_likes_annotated') and obj.average_likes_annotated is not None:
+            return int(obj.average_likes_annotated)
+
+        # Fallback: calculate from filtered accounts
+        accounts = self._get_filtered_accounts(obj)
+        avg = accounts.aggregate(avg=models.Avg('average_likes'))['avg']
+        return int(avg) if avg else 0
+
+    def get_avg_comments(self, obj):
+        """
+        Get average comments.
+        Uses platform-specific annotated value when platform filter is applied.
+        """
+        # Use annotated value if available (platform-specific)
+        if hasattr(obj, 'average_comments_annotated') and obj.average_comments_annotated is not None:
+            return int(obj.average_comments_annotated)
+
+        # Fallback: calculate from filtered accounts
+        accounts = self._get_filtered_accounts(obj)
+        avg = accounts.aggregate(avg=models.Avg('average_comments'))['avg']
+        return int(avg) if avg else 0
+
+    def get_avg_views(self, obj):
+        """
+        Get average video views.
+        Uses platform-specific annotated value when platform filter is applied.
+        """
+        # Use annotated value if available (platform-specific)
+        if hasattr(obj, 'average_video_views_annotated') and obj.average_video_views_annotated is not None:
+            return int(obj.average_video_views_annotated)
+
+        # Fallback: calculate from filtered accounts
+        accounts = self._get_filtered_accounts(obj)
+        avg = accounts.aggregate(avg=models.Avg('average_video_views'))['avg']
+        return int(avg) if avg else 0
 
     def get_platforms(self, obj):
         """Get list of active platforms"""
         return list(obj.social_accounts.filter(is_active=True).values_list('platform', flat=True))
+
+    def get_platform_verified_platforms(self, obj):
+        """Get list of platforms where the influencer is verified on that platform (blue tick, etc.)."""
+        accounts = self._get_filtered_accounts(obj)
+        return list(
+            accounts.filter(platform_verified=True)
+            .values_list('platform', flat=True)
+            .distinct()
+        )
+
+    def get_verified_platforms(self, obj):
+        """Get list of platforms where the influencer is verified by TickTime (SocialMediaAccount.verified)."""
+        accounts = self._get_filtered_accounts(obj)
+        return list(
+            accounts.filter(verified=True)
+            .values_list('platform', flat=True)
+            .distinct()
+        )
 
     def get_avg_rating(self, obj):
         """Get average rating as a number"""
@@ -1556,11 +1716,18 @@ class InfluencerSearchSerializer(serializers.ModelSerializer):
         return 0.0
 
     def get_posts_count(self, obj):
-        """Get total posts count across all platforms"""
-        total_posts = obj.social_accounts.filter(is_active=True).aggregate(
-            total=models.Sum('posts_count')
-        )['total']
-        return total_posts or 0
+        """
+        Get total posts count.
+        Uses platform-specific annotated value when platform filter is applied.
+        """
+        # Use annotated value if available (platform-specific)
+        if hasattr(obj, 'posts_count_annotated') and obj.posts_count_annotated is not None:
+            return obj.posts_count_annotated
+
+        # Fallback: calculate from filtered accounts
+        accounts = self._get_filtered_accounts(obj)
+        total = accounts.aggregate(total=models.Sum('posts_count'))['total']
+        return total or 0
 
     def get_is_bookmarked(self, obj):
         """Check if influencer is bookmarked by the current brand"""
@@ -1572,3 +1739,9 @@ class InfluencerSearchSerializer(serializers.ModelSerializer):
                 influencer=obj
             ).exists()
         return False
+
+    def get_recommendation_score(self, obj):
+        """Get the recommendation score if available (for transparency/debugging)."""
+        if hasattr(obj, 'recommendation_score') and obj.recommendation_score is not None:
+            return float(obj.recommendation_score)
+        return None

@@ -1,24 +1,33 @@
-import type { NextConfig } from "next";
+import type {NextConfig} from "next";
 
 const nextConfig: NextConfig = {
-  images: {
-    domains: ['localhost', '127.0.0.1', 'api.ticktime.media', 'ticktime.media'],
-    unoptimized: process.env.NODE_ENV === 'development',
-  },
+    images: {
+        remotePatterns: [
+            {protocol: "http", hostname: "localhost", pathname: "/**"},
+            {protocol: "https", hostname: "localhost", pathname: "/**"},
+            {protocol: "http", hostname: "127.0.0.1", pathname: "/**"},
+            {protocol: "https", hostname: "127.0.0.1", pathname: "/**"},
+            {protocol: "https", hostname: "api.ticktime.media", pathname: "/**"},
+            {protocol: "https", hostname: "ticktime.media", pathname: "/**"},
+            {protocol: "https", hostname: "*.ticktime.media", pathname: "/**"},
+        ],
+        unoptimized: process.env.NODE_ENV === 'development',
+    },
 
-  // Enable standalone output for Docker optimization
-  output: 'standalone',
+    output: 'standalone',
 
-  webpack: (config, { dev, isServer }) => {
-    if (dev && !isServer) {
-      config.watchOptions = {
-        poll: 1000,
-        aggregateTimeout: 300,
-      };
-    }
+    webpack: (config, {dev, isServer}) => {
+        if (dev && !isServer) {
+            config.watchOptions = {
+                poll: 1000,
+                aggregateTimeout: 300,
+            };
+        }
 
-    return config;
-  },
+        return config;
+    },
+
+    turbopack: {},
 };
 
 export default nextConfig;

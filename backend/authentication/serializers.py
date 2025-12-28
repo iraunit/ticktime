@@ -44,7 +44,7 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         """Validate username is unique."""
         if User.objects.filter(username=value).exists():
             raise serializers.ValidationError("This username is already taken.")
-        if InfluencerProfile.objects.filter(username=value).exists():
+        if InfluencerProfile.objects.filter(user__username=value).exists():
             raise serializers.ValidationError("This username is already taken.")
         return value
 
@@ -67,7 +67,7 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         if username and User.objects.filter(username=username).exists():
             raise serializers.ValidationError({"username": "This username is already taken."})
 
-        if username and InfluencerProfile.objects.filter(username=username).exists():
+        if username and InfluencerProfile.objects.filter(user__username=username).exists():
             raise serializers.ValidationError({"username": "This username is already taken."})
 
         phone_number = attrs.get('phone_number')
@@ -111,9 +111,11 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
             influencer_profile = InfluencerProfile.objects.create(
                 user=user,
                 user_profile=user_profile,
-                username=username,
                 industry=industry,  # Store the Industry object directly
                 is_verified=True,
+                bank_account_number='',  # Explicitly set to empty string to avoid NOT NULL constraint violation
+                bank_ifsc_code='',
+                bank_account_holder_name='',
             )
 
             # Set empty categories (many-to-many field needs to be set after creation)

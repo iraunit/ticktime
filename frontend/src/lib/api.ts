@@ -97,8 +97,11 @@ api.interceptors.response.use(
             return Promise.reject({message: 'Network error. Please check your connection and try again.'});
         }
 
-        // Handle CSRF errors
-        const isCSRFError = error.response.status === 403 || isCsrfMissing(error.response?.data);
+        // Skip CSRF retry for auth endpoints - 403 here means not authenticated, not CSRF issue
+        const isAuthEndpoint = originalRequest?.url && originalRequest.url.startsWith('/auth/');
+        
+        // Handle CSRF errors (but not for auth endpoints where 403 means unauthenticated)
+        const isCSRFError = (error.response.status === 403 || isCsrfMissing(error.response?.data)) && !isAuthEndpoint;
         if (isCSRFError && originalRequest && !originalRequest._retry) {
             try {
                 await api.get('/auth/csrf/');
@@ -117,7 +120,6 @@ api.interceptors.response.use(
         // Skip toast for authentication-related errors (401/403) on auth endpoints
         // to avoid annoying logged-out users with error messages
         const isAuthError = error.response.status === 401 || error.response.status === 403;
-        const isAuthEndpoint = originalRequest?.url && originalRequest.url.startsWith('/auth/');
 
         if (isAuthError && isAuthEndpoint) {
             const responseData = error.response?.data;

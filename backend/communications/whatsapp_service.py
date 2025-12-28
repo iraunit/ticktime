@@ -52,7 +52,7 @@ class WhatsAppService:
     def __init__(self):
         self.rabbitmq = get_rabbitmq_service()
         self.whatsapp_queue = getattr(settings, 'RABBITMQ_WHATSAPP_QUEUE', 'whatsapp_notifications')
-        self.frontend_url = getattr(settings, 'FRONTEND_URL', 'http://localhost:3000')
+        self.frontend_url = settings.FRONTEND_URL
 
     def _get_template_config(self, whatsapp_type: str) -> Dict[str, Any]:
         """
@@ -529,6 +529,29 @@ class WhatsAppService:
                 priority=6,  # Medium-high priority for campaign notifications
                 requires_credits=True,
             )
+
+            # Automatically send SMS for invitation notifications
+            # This can be extended to other notification types in the future
+            if notification_type == "invitation" and message_id is not None:
+                try:
+                    from communications.sms_service import get_sms_service
+                    sms_service = get_sms_service()
+                    
+                    # Build deal URL for the SMS
+                    deal_url = f"{self.frontend_url}/influencer/deals/{deal.id}"
+                    
+                    # Send SMS invitation
+                    sms_service.send_campaign_invitation(
+                        phone_number=phone_number,
+                        country_code=country_code or '+91',
+                        influencer_name=user_name,
+                        brand_name=campaign.brand.name,
+                        campaign_title=campaign.title,
+                        deal_url=deal_url
+                    )
+                except Exception as e:
+                    # Log error but don't fail the WhatsApp sending
+                    logger.error(f"Failed to send SMS invitation for deal {deal.id}: {str(e)}")
 
             return message_id is not None
 

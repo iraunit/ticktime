@@ -37,6 +37,22 @@ export function getApiUrl(): string {
 }
 
 /**
+ * Normalize remote URLs coming from backend/scrapers.
+ * Example: "scraper-blob.ticktime.media/media/..." -> "https://scraper-blob.ticktime.media/media/..."
+ */
+export function normalizeRemoteUrl(url: string | null | undefined): string | undefined {
+    if (!url) return undefined;
+    const trimmed = url.trim();
+    if (!trimmed) return undefined;
+    if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) return trimmed;
+    if (trimmed.startsWith('//')) return `https:${trimmed}`;
+    if (trimmed.includes('.') && (trimmed.includes('/') || trimmed.length > 10)) {
+        return `https://${trimmed}`;
+    }
+    return trimmed;
+}
+
+/**
  * Utility function to get the full URL for media files
  * @param mediaUrl - The media URL from the backend (can be relative or absolute)
  * @returns The full URL for the media file

@@ -1,14 +1,17 @@
 import json
 import logging
+import os
 import uuid
 from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
 from typing import Any, Dict, List, Optional
+from urllib.parse import urlparse
 
 import requests
 from communications.rabbitmq_service import get_rabbitmq_service
 from django.conf import settings
+from django.core.files.base import ContentFile
 from django.db import transaction, models
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
@@ -284,11 +287,6 @@ class SocialScrapingService:
             if profile_image is not None:
                 account.profile_image_url = profile_image or ''
 
-            # Fetch profile_image_base64 from API response
-            profile_image_base64 = user_data.get('profile_image_base64')
-            if profile_image_base64 is not None:
-                account.profile_image_base64 = profile_image_base64 or ''
-
             if 'is_verified' in user_data:
                 account.platform_verified = bool(user_data.get('is_verified', False))
 
@@ -316,7 +314,6 @@ class SocialScrapingService:
             'external_url',
             'is_private',
             'profile_image_url',
-            'profile_image_base64',
             'platform_verified',
             'last_synced_at',
             'updated_at',
@@ -324,6 +321,18 @@ class SocialScrapingService:
         if profile_data.username:
             update_fields.insert(0, 'handle')
         account.save(update_fields=update_fields)
+
+        # If scraper provides a profile image and the user has no profile image yet,
+        # hydrate the user's profile image from the social platform (one-time, non-destructive).
+        try:
+            self._maybe_set_user_profile_image_from_social(account)
+        except Exception:
+            # Never fail the scrape sync because of profile image download/validation.
+            logger.exception(
+                "Failed to set user profile image from social for account %s/%s",
+                account.platform,
+                account.handle,
+            )
 
         latest_posted_at = self._save_posts(account, profile_data.posts)
         if latest_posted_at and (not account.last_posted_at or latest_posted_at > account.last_posted_at):
@@ -397,6 +406,80 @@ class SocialScrapingService:
 
         # Enforce a maximum number of posts per influencer profile to keep data manageable
         self._enforce_post_limit(account.influencer, max_posts=50)
+
+    def _maybe_set_user_profile_image_from_social(self, account: SocialMediaAccount) -> None:
+        """
+        If the account has a social profile image URL and the linked user_profile has no
+        profile image set, download+validate and store it as the user's profile image.
+
+        Important: This intentionally DOES NOT overwrite an existing profile image.
+        """
+        influencer = getattr(account, 'influencer', None)
+        user_profile = getattr(influencer, 'user_profile', None) if influencer else None
+        if not user_profile:
+            return
+
+        # ImageFieldFile is falsy when empty
+        if user_profile.profile_image:
+            return
+
+        image_url = (account.profile_image_url or '').strip()
+        if not image_url:
+            return
+
+        # Some scraper payloads provide URLs without a scheme (e.g. "scraper-blob.../x.jpg").
+        # Normalize them so requests can fetch them.
+        parsed = urlparse(image_url)
+        if not parsed.scheme:
+            if image_url.startswith('//'):
+                image_url = f"https:{image_url}"
+            else:
+                image_url = f"https://{image_url.lstrip('/')}"
+
+        # Download the social image (no file-size or dimension checks per requirement).
+        response = self.session.get(image_url, timeout=min(self.timeout, 10), stream=True)
+        response.raise_for_status()
+
+        content_type = (response.headers.get('Content-Type') or '').split(';')[0].strip().lower()
+        allowed_types = set(getattr(settings, 'ALLOWED_IMAGE_TYPES', []))
+        if content_type and content_type not in allowed_types:
+            logger.info(
+                "Skipping social profile image for %s/%s due to unsupported content-type: %s",
+                account.platform,
+                account.handle,
+                content_type,
+            )
+            return
+
+        chunks: List[bytes] = []
+        for chunk in response.iter_content(chunk_size=64 * 1024):
+            if not chunk:
+                continue
+            chunks.append(chunk)
+
+        if not chunks:
+            return
+
+        ext_map = {
+            'image/jpeg': '.jpg',
+            'image/png': '.png',
+            'image/gif': '.gif',
+            'image/webp': '.webp',
+        }
+        ext = ext_map.get(content_type, '.jpg')
+        filename = f"social_{account.platform}_{account.handle}_{uuid.uuid4().hex[:10]}{ext}"
+        filename = os.path.basename(filename)
+
+        content = ContentFile(b''.join(chunks), name=filename)
+
+        # Save file into storage and persist on the user profile
+        user_profile.profile_image.save(filename, content, save=True)
+        logger.info(
+            "Set user profile image from social for %s/%s (user_profile_id=%s)",
+            account.platform,
+            account.handle,
+            user_profile.id,
+        )
 
     def process_scrape_out_queue(self, limit: int = 10) -> int:
         """

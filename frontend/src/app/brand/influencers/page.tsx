@@ -1,6 +1,6 @@
 "use client";
 
-import {useCallback, useEffect, useMemo, useState} from "react";
+import {useCallback, useEffect, useMemo, useRef, useState} from "react";
 import {Card} from "@/components/ui/card";
 import {Button} from "@/components/ui/button";
 import {Badge} from "@/components/ui/badge";
@@ -46,7 +46,14 @@ interface Influencer {
     industry: string;           // industry name
     bio: string;
     profile_image?: string;
+    social_accounts?: Array<{
+        platform: string;
+        handle?: string;
+        profile_url?: string | null;
+    }>;
     is_verified: boolean;
+    platform_verified_platforms?: string[]; // e.g. ["instagram", "youtube"]
+    verified_platforms?: string[]; // e.g. ["instagram"] (TickTime-owned verification for that account)
     total_followers: number;
     avg_engagement: number;
     collaboration_count: number;
@@ -86,6 +93,7 @@ type IndustryOption = { key: string; name: string };
 export default function InfluencerSearchPage() {
     const [influencers, setInfluencers] = useState<Influencer[]>([]);
     const [isLoading, setIsLoading] = useState(false);
+    const [isLoadingMore, setIsLoadingMore] = useState(false);
     const [hasMore, setHasMore] = useState(true);
     const [page, setPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
@@ -149,6 +157,7 @@ export default function InfluencerSearchPage() {
     const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>([]);
     const [locationOptions, setLocationOptions] = useState<MultiSelectOption[]>([]);
     const [selectedLocations, setSelectedLocations] = useState<string[]>([]);
+    const initialLocationsRef = useRef<string[]>([]);
     const [genderFilters, setGenderFilters] = useState<string[]>([]);
     const [followerRange, setFollowerRange] = useState("All Followers");
     const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
@@ -156,12 +165,15 @@ export default function InfluencerSearchPage() {
     const [pendingCampaignLocations, setPendingCampaignLocations] = useState<string[]>([]);
     const [selectedIndustries, setSelectedIndustries] = useState<string[]>([]);
     const [industries, setIndustries] = useState<IndustryOption[]>([]);
-    const [sortBy, setSortBy] = useState("followers");
+    const [sortBy, setSortBy] = useState("recommendation");
     const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
-    const [sortCombined, setSortCombined] = useState<string>("followers_desc");
+    const [sortCombined, setSortCombined] = useState<string>("recommendation_desc");
     const [selectedCampaign, setSelectedCampaign] = useState<any | null>(null);
     const [campaignFilter, setCampaignFilter] = useState<string>("");
     const [isInitialised, setIsInitialised] = useState(false);
+
+    const loadMoreButtonRef = useRef<HTMLButtonElement | null>(null);
+    const autoLoadInFlightRef = useRef(false);
 
     // Save column visibility to localStorage
     useEffect(() => {
@@ -179,7 +191,31 @@ export default function InfluencerSearchPage() {
 
             const search = params.get('search') || '';
             const platforms = (params.get('platforms') || '').split(',').map(s => s.trim()).filter(Boolean);
-            const locations = (params.get('locations') || '').split(',').map(s => s.trim()).filter(Boolean);
+            // Parse locations from URL
+            // Locations in URL might be in format: "City,State" or "City, State" or already separated
+            // We'll store them as-is and let the normalization function handle the matching
+            const locationsParam = params.get('locations') || '';
+            const locations: string[] = [];
+            if (locationsParam) {
+                // Split by comma and try to reconstruct location pairs
+                // If locations were saved as "City, State" and joined with ',', 
+                // we get "City, State,City, State" which splits to ["City", " State", "City", " State"]
+                const parts = locationsParam.split(',').map(s => s.trim()).filter(Boolean);
+
+                // Try to pair consecutive parts as city-state pairs
+                // This handles cases where "City, State" was joined with commas
+                for (let i = 0; i < parts.length; i++) {
+                    if (i + 1 < parts.length) {
+                        // Check if this looks like a city-state pair
+                        // Pair them as "City, State" format
+                        locations.push(`${parts[i]}, ${parts[i + 1]}`);
+                        i++; // Skip the state part
+                    } else {
+                        // Single part - might be a complete location or just a city
+                        locations.push(parts[i]);
+                    }
+                }
+            }
             const genders = (params.get('genders') || '').split(',').map(s => s.trim()).filter(Boolean);
             const follower = params.get('follower_range') || '';
             const categories = (params.get('categories') || '').split(',').map(s => s.trim()).filter(Boolean);
@@ -193,13 +229,22 @@ export default function InfluencerSearchPage() {
 
             if (search) setSearchTerm(search);
             if (platforms.length > 0) setSelectedPlatforms(platforms);
-            if (locations.length > 0) setSelectedLocations(locations);
+            if (locations.length > 0) {
+                // Store in ref - will be normalized and applied once location options are loaded
+                initialLocationsRef.current = locations;
+            }
             if (genders.length > 0) setGenderFilters(genders);
             if (follower) setFollowerRange(follower);
             if (categories.length > 0) setSelectedCategories(categories);
             if (industriesCsv.length > 0) setSelectedIndustries(industriesCsv);
             if (sortByParam) setSortBy(sortByParam);
             if (sortOrderParam === 'asc' || sortOrderParam === 'desc') setSortOrder(sortOrderParam);
+            // Sync sortCombined with sortBy and sortOrder from URL
+            if (sortByParam || sortOrderParam) {
+                const by = sortByParam || 'recommendation';
+                const order = sortOrderParam || 'desc';
+                setSortCombined(`${by}_${order}`);
+            }
             if (ageRangeParam) setAgeRangesFilter([ageRangeParam]);
             if (collabPrefs.length > 0) setCollabPrefsFilter(collabPrefs);
             if (maxCollab) setMaxCollabAmountFilter(maxCollab);
@@ -213,7 +258,8 @@ export default function InfluencerSearchPage() {
 
     // Load influencers from API
     const fetchInfluencers = useCallback(async (pageNum = 1, append = false) => {
-        if (pageNum === 1) setIsLoading(true);
+        if (append) setIsLoadingMore(true);
+        else setIsLoading(true);
 
         try {
             const response = await api.get('/influencers/search/', {
@@ -257,7 +303,9 @@ export default function InfluencerSearchPage() {
                 'Failed to load influencers. Please try again.';
             toast.error(errorMessage);
         } finally {
-            setIsLoading(false);
+            if (append) setIsLoadingMore(false);
+            else setIsLoading(false);
+            autoLoadInFlightRef.current = false;
         }
     }, [searchTerm, selectedPlatforms, selectedLocations, genderFilters, followerRange, selectedCategories, selectedIndustries, sortBy, sortOrder, ageRangesFilter, collabPrefsFilter, maxCollabAmountFilter, campaignFilter]);
 
@@ -558,11 +606,15 @@ export default function InfluencerSearchPage() {
                 return {value: label, label};
             });
             setLocationOptions(opts);
-            // Apply pending campaign locations once options are available
-            if (pendingCampaignLocations.length > 0) {
-                const normalized = normalizeCampaignLocations(pendingCampaignLocations, opts);
+            // Apply pending campaign or initial URL locations once options are available
+            const pending = pendingCampaignLocations.length > 0
+                ? pendingCampaignLocations
+                : initialLocationsRef.current;
+            if (pending.length > 0) {
+                const normalized = normalizeCampaignLocations(pending, opts);
                 setSelectedLocations(normalized);
                 setPendingCampaignLocations([]);
+                initialLocationsRef.current = [];
             }
         }).catch(() => {
         });
@@ -570,17 +622,51 @@ export default function InfluencerSearchPage() {
 
     const normalizeCampaignLocations = (rawList: string[], opts: MultiSelectOption[]) => {
         const lowerToLabel = new Map<string, string>(opts.map(o => [o.label.toLowerCase(), o.label]));
+        const lowerToValue = new Map<string, string>(opts.map(o => [o.value.toLowerCase(), o.value]));
         const results: string[] = [];
         for (const raw of rawList) {
             let base = String(raw || '').trim();
+            if (!base) continue;
+
+            // First, check if it already matches an option exactly (case-insensitive)
+            const exactMatch = lowerToLabel.get(base.toLowerCase()) || lowerToValue.get(base.toLowerCase());
+            if (exactMatch) {
+                results.push(exactMatch);
+                continue;
+            }
+
             // Support delimiter variants like "City||State" or "City, State, India"
             base = base.replace(/\|\|/g, ', ');
             base = base.replace(/,?\s*india$/i, '');
             const parts = base.split(',').map(s => s.trim()).filter(Boolean);
+
+            // Try different formats
             let candidate = base;
-            if (parts.length >= 2) candidate = `${parts[0]}, ${parts[1]}`;
-            const match = lowerToLabel.get(candidate.toLowerCase());
-            results.push(match || candidate);
+            if (parts.length >= 2) {
+                // Format as "City, State" (with space)
+                candidate = `${parts[0]}, ${parts[1]}`;
+            } else if (parts.length === 1) {
+                // Single part - might be just city name
+                candidate = parts[0];
+            }
+
+            // Try to find match
+            const match = lowerToLabel.get(candidate.toLowerCase()) || lowerToValue.get(candidate.toLowerCase());
+            if (match) {
+                results.push(match);
+            } else {
+                // If no match found, try to find by city name only
+                const cityMatch = opts.find(o =>
+                    o.label.toLowerCase().startsWith(parts[0].toLowerCase() + ',') ||
+                    o.value.toLowerCase().startsWith(parts[0].toLowerCase() + ',')
+                );
+                if (cityMatch) {
+                    results.push(cityMatch.value);
+                } else {
+                    // Fallback: use the formatted candidate
+                    results.push(candidate);
+                }
+            }
         }
         return results;
     };
@@ -661,6 +747,31 @@ export default function InfluencerSearchPage() {
         fetchInfluencers(nextPage, true);
     };
 
+    // Auto-load next page when the Load More button becomes visible
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+        const btn = loadMoreButtonRef.current;
+        if (!btn) return;
+        if (!hasMore) return;
+
+        const observer = new IntersectionObserver(
+            (entries) => {
+                const entry = entries[0];
+                if (!entry?.isIntersecting) return;
+                if (isLoading || isLoadingMore) return;
+                if (autoLoadInFlightRef.current) return;
+                if (!hasMore) return;
+
+                autoLoadInFlightRef.current = true;
+                handleLoadMore();
+            },
+            {root: null, rootMargin: '200px', threshold: 0.1}
+        );
+
+        observer.observe(btn);
+        return () => observer.disconnect();
+    }, [hasMore, isLoading, isLoadingMore, page]);
+
     const toggleColumnVisibility = (columnKey: string) => {
         setVisibleColumns((prev: Record<string, boolean>) => ({
             ...prev,
@@ -668,15 +779,53 @@ export default function InfluencerSearchPage() {
         }));
     };
 
-    const PlatformIcon = ({platform}: { platform: string }) => {
+    const PlatformIcon = ({
+                              platform,
+                              isVerified,
+                              isPlatformVerified,
+                              url
+                          }: {
+        platform: string;
+        isVerified?: boolean;
+        isPlatformVerified?: boolean;
+        url?: string | null;
+    }) => {
         const config = platformConfig[platform as keyof typeof platformConfig];
         if (!config) return null;
 
         const IconComponent = config.icon;
-        return (
-            <div className={`w-6 h-6 ${config.bg} ${config.border} border rounded-md flex items-center justify-center`}>
+        const icon = (
+            <div
+                className={`relative w-6 h-6 ${config.bg} border rounded-md flex items-center justify-center ${
+                    isVerified ? 'border-2 border-green-500' : config.border
+                } ${url ? 'cursor-pointer hover:opacity-80 transition-opacity' : ''}`}
+                title={isVerified ? 'Verified' : undefined}
+                aria-label={isVerified ? 'Verified' : undefined}
+            >
                 <IconComponent className={`w-3 h-3 ${config.color}`}/>
+                {isPlatformVerified && (
+                    <div
+                        className="absolute -bottom-1 -right-1 w-3.5 h-3.5 bg-blue-500 border border-white rounded-full flex items-center justify-center pointer-events-none"
+                        title="Platform verified"
+                        aria-label="Platform verified"
+                    >
+                        <HiCheckBadge className="w-3 h-3 text-white"/>
+                    </div>
+                )}
             </div>
+        );
+
+        if (!url) return icon;
+
+        return (
+            <a
+                href={url}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => e.stopPropagation()}
+            >
+                {icon}
+            </a>
         );
     };
 
@@ -885,6 +1034,7 @@ export default function InfluencerSearchPage() {
                                         <SelectValue/>
                                     </SelectTrigger>
                                     <SelectContent>
+                                        <SelectItem value="recommendation_desc">⭐ Recommended</SelectItem>
                                         <SelectItem value="followers_desc">Followers (High to Low)</SelectItem>
                                         <SelectItem value="followers_asc">Followers (Low to High)</SelectItem>
                                         <SelectItem value="engagement_desc">Engagement (High to Low)</SelectItem>
@@ -1193,25 +1343,40 @@ export default function InfluencerSearchPage() {
                                         <td className="px-3 py-2">
                                             <div className="flex items-center gap-2">
                                                 <div className="relative">
-                                                    <div
-                                                        className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full overflow-hidden border border-white shadow-sm">
-                                                        {influencer.profile_image ? (
-                                                            <img
-                                                                src={influencer.profile_image}
-                                                                alt={influencer.full_name}
-                                                                className="w-full h-full object-cover"
-                                                            />
-                                                        ) : (
-                                                            <div
-                                                                className="w-full h-full flex items-center justify-center text-white font-bold text-sm">
-                                                                {influencer.full_name.charAt(0)}
-                                                            </div>
-                                                        )}
-                                                    </div>
+                                                    <a
+                                                        href={`/influencer/${influencer.id}`}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="block cursor-pointer hover:opacity-90 transition-opacity"
+                                                        onClick={(e) => e.stopPropagation()}
+                                                    >
+                                                        <div
+                                                            className={`w-12 h-12 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full overflow-hidden border-2 shadow-sm ${
+                                                                influencer.is_verified ? 'border-blue-500' : 'border-white'
+                                                            }`}
+                                                        >
+                                                            {influencer.profile_image ? (
+                                                                <img
+                                                                    src={influencer.profile_image}
+                                                                    alt={influencer.full_name}
+                                                                    className="w-full h-full object-cover"
+                                                                />
+                                                            ) : (
+                                                                <div
+                                                                    className="w-full h-full flex items-center justify-center text-white font-bold text-sm">
+                                                                    {influencer.full_name.charAt(0)}
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </a>
                                                     {influencer.is_verified && (
                                                         <div
-                                                            className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-blue-500 border border-white rounded-full flex items-center justify-center">
-                                                            <HiCheckBadge className="w-2 h-2 text-white"/>
+                                                            className="absolute -bottom-0.5 -right-0.5 w-4 h-4 bg-blue-500 border border-white rounded-full flex items-center justify-center pointer-events-none">
+                                                            <HiCheckBadge
+                                                                className="w-4 h-4 text-white"
+                                                                title="Verified by TickTime"
+                                                                aria-label="Verified by TickTime"
+                                                            />
                                                         </div>
                                                     )}
                                                 </div>
@@ -1221,9 +1386,20 @@ export default function InfluencerSearchPage() {
                                                     </div>
                                                     <p className="text-xs text-gray-500 mb-1">{getDisplayUsername(influencer) ? `@${getDisplayUsername(influencer)}` : ''}</p>
                                                     <div className="flex items-center gap-1">
-                                                        {influencer.platforms.slice(0, 2).map(platform => (
-                                                            <PlatformIcon key={platform} platform={platform}/>
-                                                        ))}
+                                                        {influencer.platforms.slice(0, 2).map((platform) => {
+                                                            const url = influencer.social_accounts?.find(
+                                                                (acc) => acc.platform === platform
+                                                            )?.profile_url;
+                                                            return (
+                                                                <PlatformIcon
+                                                                    key={platform}
+                                                                    platform={platform}
+                                                                    isVerified={influencer.verified_platforms?.includes(platform)}
+                                                                    isPlatformVerified={influencer.platform_verified_platforms?.includes(platform)}
+                                                                    url={url}
+                                                                />
+                                                            );
+                                                        })}
                                                         {influencer.platforms.length > 2 && (
                                                             <Badge variant="secondary" className="text-xs px-1 py-0">
                                                                 +{influencer.platforms.length - 2}
@@ -1239,7 +1415,7 @@ export default function InfluencerSearchPage() {
                                             <div className="flex items-center gap-1">
                                                 <HiStar className="w-3 h-3 text-yellow-500 fill-current"/>
                                                 <span className="font-medium text-gray-900 text-sm">
-                            {typeof influencer.avg_rating === 'number' && influencer.avg_rating > 0 ? influencer.avg_rating.toFixed(1) : "0.0"}
+                            {influencer.avg_rating > 0 ? influencer.avg_rating.toFixed(1) : "0.0"}
                           </span>
                                             </div>
                                         </td>
@@ -1254,7 +1430,7 @@ export default function InfluencerSearchPage() {
                                     {visibleColumns.engagement && (
                                         <td className="px-3 py-2">
                         <span className="font-medium text-gray-900 text-sm">
-                          {(typeof influencer.avg_engagement === 'number' ? influencer.avg_engagement.toFixed(1) : null) ||
+                          {(influencer.avg_engagement.toFixed(1)) ||
                               "N/A"}%
                         </span>
                                         </td>
@@ -1335,26 +1511,40 @@ export default function InfluencerSearchPage() {
                                                                 {/* Profile Header */}
                                                                 <div className="flex items-start gap-6">
                                                                     <div className="relative">
-                                                                        <div
-                                                                            className="w-24 h-24 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full overflow-hidden border-4 border-white shadow-xl">
-                                                                            {selectedInfluencer.profile_image ? (
-                                                                                <img
-                                                                                    src={selectedInfluencer.profile_image}
-                                                                                    alt={selectedInfluencer.full_name}
-                                                                                    className="w-full h-full object-cover"
-                                                                                />
-                                                                            ) : (
-                                                                                <div
-                                                                                    className="w-full h-full flex items-center justify-center text-white font-bold text-3xl">
-                                                                                    {selectedInfluencer.full_name.charAt(0)}
-                                                                                </div>
-                                                                            )}
-                                                                        </div>
+                                                                        <a
+                                                                            href={`/influencer/${selectedInfluencer.id}`}
+                                                                            target="_blank"
+                                                                            rel="noopener noreferrer"
+                                                                            className="block cursor-pointer hover:opacity-90 transition-opacity"
+                                                                            onClick={(e) => e.stopPropagation()}
+                                                                        >
+                                                                            <div
+                                                                                className={`w-24 h-24 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full overflow-hidden border-4 shadow-xl ${
+                                                                                    selectedInfluencer.is_verified ? 'border-blue-500' : 'border-white'
+                                                                                }`}
+                                                                            >
+                                                                                {selectedInfluencer.profile_image ? (
+                                                                                    <img
+                                                                                        src={selectedInfluencer.profile_image}
+                                                                                        alt={selectedInfluencer.full_name}
+                                                                                        className="w-full h-full object-cover"
+                                                                                    />
+                                                                                ) : (
+                                                                                    <div
+                                                                                        className="w-full h-full flex items-center justify-center text-white font-bold text-3xl">
+                                                                                        {selectedInfluencer.full_name.charAt(0)}
+                                                                                    </div>
+                                                                                )}
+                                                                            </div>
+                                                                        </a>
                                                                         {selectedInfluencer.is_verified && (
                                                                             <div
-                                                                                className="absolute -bottom-2 -right-2 w-8 h-8 bg-blue-500 border-4 border-white rounded-full flex items-center justify-center">
+                                                                                className="absolute -bottom-2 -right-2 w-9 h-9 bg-blue-500 border-4 border-white rounded-full flex items-center justify-center pointer-events-none"
+                                                                                title="Verified by TickTime"
+                                                                                aria-label="Verified by TickTime"
+                                                                            >
                                                                                 <HiCheckBadge
-                                                                                    className="w-4 h-4 text-white"/>
+                                                                                    className="w-5 h-5 text-white"/>
                                                                             </div>
                                                                         )}
                                                                     </div>
@@ -1365,10 +1555,20 @@ export default function InfluencerSearchPage() {
                                                                         <p className="text-gray-600 mb-3">{getDisplayUsername(selectedInfluencer) ? `@${getDisplayUsername(selectedInfluencer)}` : ''}</p>
                                                                         <p className="text-gray-700 mb-4">{selectedInfluencer.bio || "No bio available"}</p>
                                                                         <div className="flex items-center gap-3">
-                                                                            {selectedInfluencer.platforms.map(platform => (
-                                                                                <PlatformIcon key={platform}
-                                                                                              platform={platform}/>
-                                                                            ))}
+                                                                            {selectedInfluencer.platforms.map((platform) => {
+                                                                                const url = selectedInfluencer.social_accounts?.find(
+                                                                                    (acc) => acc.platform === platform
+                                                                                )?.profile_url;
+                                                                                return (
+                                                                                    <PlatformIcon
+                                                                                        key={platform}
+                                                                                        platform={platform}
+                                                                                        isVerified={selectedInfluencer.verified_platforms?.includes(platform)}
+                                                                                        isPlatformVerified={selectedInfluencer.platform_verified_platforms?.includes(platform)}
+                                                                                        url={url}
+                                                                                    />
+                                                                                );
+                                                                            })}
                                                                         </div>
                                                                     </div>
                                                                     <div className="flex gap-3">
@@ -1550,10 +1750,12 @@ export default function InfluencerSearchPage() {
                         <Button
                             onClick={handleLoadMore}
                             size="lg"
+                            ref={loadMoreButtonRef}
+                            disabled={isLoadingMore}
                             className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white shadow-lg hover:shadow-xl transition-all duration-200 px-8 py-3"
                         >
                             <HiArrowPath className="w-5 h-5 mr-2"/>
-                            Load More Creators
+                            {isLoadingMore ? 'Loading…' : 'Load More Creators'}
                         </Button>
                     </div>
                 )}
@@ -1690,21 +1892,32 @@ export default function InfluencerSearchPage() {
                         <div className="space-y-4">
                             {messageInfluencer && (
                                 <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-                                    <div
-                                        className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full overflow-hidden">
-                                        {messageInfluencer.profile_image ? (
-                                            <img
-                                                src={messageInfluencer.profile_image}
-                                                alt={messageInfluencer.full_name}
-                                                className="w-full h-full object-cover"
-                                            />
-                                        ) : (
-                                            <div
-                                                className="w-full h-full flex items-center justify-center text-white font-bold text-sm">
-                                                {messageInfluencer.full_name.charAt(0)}
-                                            </div>
-                                        )}
-                                    </div>
+                                    <a
+                                        href={`/influencer/${messageInfluencer.id}`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="block cursor-pointer hover:opacity-90 transition-opacity"
+                                        onClick={(e) => e.stopPropagation()}
+                                    >
+                                        <div
+                                            className={`w-11 h-11 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full overflow-hidden border-2 ${
+                                                messageInfluencer?.is_verified ? 'border-blue-500' : 'border-transparent'
+                                            }`}
+                                        >
+                                            {messageInfluencer.profile_image ? (
+                                                <img
+                                                    src={messageInfluencer.profile_image}
+                                                    alt={messageInfluencer.full_name}
+                                                    className="w-full h-full object-cover"
+                                                />
+                                            ) : (
+                                                <div
+                                                    className="w-full h-full flex items-center justify-center text-white font-bold text-sm">
+                                                    {messageInfluencer.full_name.charAt(0)}
+                                                </div>
+                                            )}
+                                        </div>
+                                    </a>
                                     <div>
                                         <p className="font-medium text-gray-900">{messageInfluencer.full_name}</p>
                                         <p className="text-sm text-gray-500">@{messageInfluencer.username}</p>

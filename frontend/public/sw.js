@@ -1,7 +1,7 @@
 // Service Worker for caching static assets and API responses
-const CACHE_NAME = 'ticktime-platform-v3';
-const STATIC_CACHE = 'static-v3';
-const API_CACHE = 'api-v3';
+const CACHE_NAME = 'ticktime-platform-v4';
+const STATIC_CACHE = 'static-v4';
+const API_CACHE = 'api-v4';
 
 // Assets to cache on install
 const STATIC_ASSETS = [
@@ -9,6 +9,15 @@ const STATIC_ASSETS = [
     '/manifest.json',
     '/favicon.ico',
     // Add other static assets as needed
+];
+
+// API endpoints that should NEVER be cached (auth-related)
+const NO_CACHE_API_PATHS = [
+    '/api/auth/profile',
+    '/api/auth/login',
+    '/api/auth/logout',
+    '/api/auth/refresh',
+    '/api/auth/token',
 ];
 
 // Install event - cache static assets
@@ -88,32 +97,57 @@ async function handleStaticAsset(request) {
     }
 }
 
+// Check if a URL path should not be cached
+function shouldNotCache(pathname) {
+    return NO_CACHE_API_PATHS.some(path => pathname.startsWith(path));
+}
+
 // Network-first strategy for API requests with cache fallback
 async function handleApiRequest(request) {
+    const url = new URL(request.url);
+    const skipCache = shouldNotCache(url.pathname);
+
     try {
         // Try network first
         const networkResponse = await fetch(request);
 
         if (networkResponse.ok) {
-            // Cache successful GET requests
-            if (request.method === 'GET') {
+            // Cache successful GET requests (but not auth-related endpoints)
+            if (request.method === 'GET' && !skipCache) {
                 const cache = await caches.open(API_CACHE);
                 cache.put(request, networkResponse.clone());
             }
             return networkResponse;
         }
 
-        // If network fails, try cache
-        const cachedResponse = await caches.match(request);
-        if (cachedResponse) {
-            return cachedResponse;
+        // If network fails and caching is allowed, try cache
+        if (!skipCache) {
+            const cachedResponse = await caches.match(request);
+            if (cachedResponse) {
+                return cachedResponse;
+            }
         }
 
         return networkResponse;
     } catch (error) {
         console.error('API request failed:', error);
 
-        // Try to return cached response
+        // For auth endpoints, don't serve from cache - return error immediately
+        if (skipCache) {
+            return new Response(
+                JSON.stringify({
+                    error: 'Network error',
+                    offline: true
+                }), {
+                    status: 503,
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                }
+            );
+        }
+
+        // Try to return cached response for non-auth endpoints
         const cachedResponse = await caches.match(request);
         if (cachedResponse) {
             return cachedResponse;

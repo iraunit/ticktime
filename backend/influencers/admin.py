@@ -1,5 +1,6 @@
 import csv
 
+from common.models import Industry
 from django.contrib import admin
 from django.contrib import messages
 from django.db.models import Q
@@ -17,19 +18,19 @@ from .models import (
     SocialMediaPost,
     InfluencerAudienceInsight,
     InfluencerCategoryScore,
-    CeleryTask,
 )
 
 
 @admin.register(InfluencerProfile)
 class InfluencerProfileAdmin(admin.ModelAdmin):
     list_display = [
-        'username', 'user_full_name', 'industry', 'categories_display', 'total_followers',
+        'username', 'user_full_name', 'user_email', 'industry', 'categories_display', 'total_followers',
         'email_verification_status', 'phone_verification_status', 'aadhar_verification_status',
         'profile_verification_status', 'is_verified', 'created_at'
     ]
     list_filter = ['industry', 'categories', 'is_verified', 'profile_verified', 'created_at']
     search_fields = ['user__username', 'user__first_name', 'user__last_name', 'user__email', 'aadhar_number']
+    ordering = ['-created_at']  # Default sorting by created_at descending
     readonly_fields = [
         'user', 'username', 'industry', 'bio', 'aadhar_number', 'aadhar_document_display',
         'country', 'state', 'city', 'pincode', 'address_line1', 'address_line2',
@@ -55,7 +56,7 @@ class InfluencerProfileAdmin(admin.ModelAdmin):
     ]
     filter_horizontal = ['categories']
     actions = ['verify_aadhar_documents', 'unverify_aadhar_documents', 'mark_as_verified', 'mark_as_unverified',
-               'download_selected_with_login_links']
+               'download_selected_with_login_links', 'classify_influencer_industry']
     change_list_template = 'admin/influencers/influencerprofile/change_list.html'
     change_form_template = 'admin/influencers/influencerprofile/change_form.html'
 
@@ -138,11 +139,19 @@ class InfluencerProfileAdmin(admin.ModelAdmin):
         return obj.user.username
 
     username.short_description = 'Username'
+    username.admin_order_field = 'user__username'
 
     def user_full_name(self, obj):
         return obj.user.get_full_name() or obj.user.username
 
     user_full_name.short_description = 'Full Name'
+    user_full_name.admin_order_field = 'user__first_name'
+
+    def user_email(self, obj):
+        return obj.user.email or 'N/A'
+
+    user_email.short_description = 'Email'
+    user_email.admin_order_field = 'user__email'
 
     def categories_display(self, obj):
         return ', '.join([cat.name for cat in obj.categories.all()[:3]])
@@ -188,6 +197,7 @@ class InfluencerProfileAdmin(admin.ModelAdmin):
             return '❌ Not Verified'
 
     email_verification_status.short_description = 'Email Status'
+    email_verification_status.admin_order_field = 'user_profile__email_verified'
 
     def phone_verification_status(self, obj):
         """Display phone verification status"""
@@ -197,6 +207,7 @@ class InfluencerProfileAdmin(admin.ModelAdmin):
             return '❌ Not Verified'
 
     phone_verification_status.short_description = 'Phone Status'
+    phone_verification_status.admin_order_field = 'user_profile__phone_verified'
 
     def aadhar_verification_status(self, obj):
         """Display Aadhar verification status with visual indicators"""
@@ -210,6 +221,7 @@ class InfluencerProfileAdmin(admin.ModelAdmin):
             return '❌ Not Provided'
 
     aadhar_verification_status.short_description = 'Aadhar Status'
+    aadhar_verification_status.admin_order_field = 'is_verified'
 
     def profile_verification_status(self, obj):
         """Display overall profile verification status"""
@@ -219,6 +231,7 @@ class InfluencerProfileAdmin(admin.ModelAdmin):
             return '❌ Not Fully Verified'
 
     profile_verification_status.short_description = 'Profile Status'
+    profile_verification_status.admin_order_field = 'profile_verified'
 
     def aadhar_document_display(self, obj):
         """Display Aadhar document with download link"""
@@ -265,7 +278,7 @@ class InfluencerProfileAdmin(admin.ModelAdmin):
     def download_selected_with_login_links(self, request, queryset):
         """Download selected influencer profiles as CSV with one-tap login links"""
         from django.conf import settings
-        frontend_url = getattr(settings, 'FRONTEND_URL', 'http://localhost:3000')
+        frontend_url = settings.FRONTEND_URL
 
         # Remove trailing slash if present
         frontend_url = frontend_url.rstrip('/')
@@ -280,6 +293,7 @@ class InfluencerProfileAdmin(admin.ModelAdmin):
             'Name',
             'Email',
             'Phone Number',
+            'Phone Number with Country Code',
             'Phone Verified',
             'Email Verified',
             'Aadhar Verified',
@@ -295,8 +309,15 @@ class InfluencerProfileAdmin(admin.ModelAdmin):
 
             # Get phone number
             phone = 'N/A'
+            phone_with_country_code = 'N/A'
             if profile.user_profile:
                 phone = profile.user_profile.phone_number or 'N/A'
+                if profile.user_profile.phone_number:
+                    country_code = profile.user_profile.country_code or '+91'
+                    country_code_clean = country_code.lstrip('+')
+                    phone_with_country_code = f"{country_code_clean}{profile.user_profile.phone_number}"
+                else:
+                    phone_with_country_code = 'N/A'
 
             # Get verification statuses
             phone_verified = 'Yes' if (profile.user_profile and profile.user_profile.phone_verified) else 'No'
@@ -314,6 +335,7 @@ class InfluencerProfileAdmin(admin.ModelAdmin):
                 name,
                 email,
                 phone,
+                phone_with_country_code,
                 phone_verified,
                 email_verified,
                 aadhar_verified,
@@ -589,6 +611,143 @@ class InfluencerProfileAdmin(admin.ModelAdmin):
                 # Update profile verification status
                 obj.update_profile_verification()
 
+    def classify_influencer_industry(self, request, queryset):
+        """
+        Classifies the influencer's industry and extracts email using Gemini.
+        Only processes influencers with industry set to None, null, or default (1).
+        """
+        import json
+        import os
+        import google.generativeai as genai
+        from django.conf import settings
+
+        # Get API Key
+        api_key = getattr(settings, "GEMINI_API_KEY", os.environ.get("GEMINI_API_KEY"))
+        if not api_key:
+            self.message_user(request, "Gemini API Key not found.", level=messages.ERROR)
+            return
+
+        # Configure Gemini
+        genai.configure(api_key=api_key)
+        model = genai.GenerativeModel('gemini-2.0-flash')
+
+        # Get all industries
+        industries = list(Industry.objects.filter(is_active=True).values("id", "name", "key"))
+        if not industries:
+            self.message_user(request, "No active industries found.", level=messages.ERROR)
+            return
+
+        industry_text = "\n".join([f"ID: {ind['id']}, Name: {ind['name']}" for ind in industries])
+
+        success_count = 0
+        skipped_count = 0
+        error_count = 0
+
+        for profile in queryset:
+            # Check if processing is needed (industry None, 1, or key 'none')
+            needs_classification = False
+            if not profile.industry:
+                needs_classification = True
+            elif profile.industry.id == 1:
+                needs_classification = True
+            elif hasattr(profile.industry, "key") and profile.industry.key == "none":
+                needs_classification = True
+
+            if not needs_classification:
+                skipped_count += 1
+                continue
+
+            # Check for social accounts
+            if not profile.social_accounts.exists():
+                skipped_count += 1
+                continue
+
+            # Gather data
+            bio = profile.bio or ""
+            if not bio or bio == "":
+                skipped_count += 1
+                continue
+            social_data = []
+            for account in profile.social_accounts.all():
+                acc_data = f"Platform: {account.platform}, Bio: {account.bio}, Verified: {account.verified}"
+                # Get last 5 post captions
+                posts = account.posts.all().order_by("-posted_at")[:5]
+                captions = [p.caption for p in posts if p.caption]
+                if captions:
+                    acc_data += f", Recent Post Captions: {' | '.join(captions)}"
+                social_data.append(acc_data)
+
+            data_context = f"Influencer Bio: {bio}\nSocial Media Data:\n" + "\n".join(social_data)
+
+            # Construct Prompt
+            prompt = f"""
+            You are an AI assistant. Analyze the following influencer data and determine the most relevant industry from the provided list. 
+            Also extract the influencer's email address if available in the text.
+
+            Industries:
+            {industry_text}
+
+            Influencer Data:
+            {data_context}
+
+            Return ONLY a JSON object with the following keys:
+            - "email": The extracted email address (or null if not found).
+            - "industry_id": The ID of the most relevant industry.
+
+            JSON Response:
+            """
+
+            try:
+                # Call Gemini API via SDK
+                response = model.generate_content(
+                    prompt,
+                    generation_config=genai.types.GenerationConfig(
+                        response_mime_type="application/json"
+                    )
+                )
+
+                if response.text:
+                    try:
+                        parsed = json.loads(response.text)
+
+                        # Update Industry
+                        ind_id = parsed.get("industry_id")
+                        if ind_id:
+                            # Verify existence
+                            if Industry.objects.filter(id=ind_id).exists():
+                                profile.industry_id = ind_id
+
+                        # Update Email
+                        email = parsed.get("email")
+                        if email and profile.user:
+                            current_email = profile.user.email
+                            # Update if current is empty or example.com
+                            if not current_email or "@example.com" in current_email:
+                                if email != current_email:
+                                    profile.user.email = email
+                                    profile.user.save()
+
+                        profile.save()
+                        success_count += 1
+                    except (KeyError, IndexError, json.JSONDecodeError) as e:
+                        error_count += 1
+                        print(f"Error parsing Gemini response for {profile}: {e}")
+                else:
+                    error_count += 1
+                    print(f"Empty Gemini response for {profile}")
+
+            except Exception as e:
+                error_count += 1
+                print(f"Request failed for {profile}: {e}")
+
+        self.message_user(
+            request,
+            f"Processed: {success_count} updated, {skipped_count} skipped, {error_count} errors.",
+            level=messages.INFO if error_count == 0 else messages.WARNING
+        )
+
+    classify_influencer_industry.short_description = "Classify Industry & Extract Email (Gemini)"
+
 
 # Remove UserProfileInline since UserProfile doesn't have ForeignKey to InfluencerProfile
 
@@ -658,12 +817,12 @@ class SocialMediaAccountAdmin(admin.ModelAdmin):
         'engagement_rate', 'verified', 'is_active', 'last_synced_display',
         'updated_at_display', 'sync_status_button'
     ]
-    list_filter = [SyncStatusFilter, 'platform', 'verified', 'is_active', 'created_at']
+    list_filter = [SyncStatusFilter, 'platform', 'verified', 'is_active', 'is_private', 'created_at']
     search_fields = ['influencer__user__username', 'handle', 'profile_url']
     actions = ['queue_sync_selected', 'recalculate_engagement_rate']
     readonly_fields = [
         'influencer', 'platform', 'handle', 'profile_url',
-        'display_name', 'bio', 'external_url', 'is_private', 'profile_image_url', 'profile_image_base64_display',
+        'display_name', 'bio', 'external_url', 'is_private', 'profile_image_url_display',
         'followers_count', 'following_count', 'posts_count', 'last_posted_at',
         'engagement_rate', 'average_likes', 'average_comments', 'average_shares',
         'average_video_views', 'average_video_likes', 'average_video_comments',
@@ -681,8 +840,7 @@ class SocialMediaAccountAdmin(admin.ModelAdmin):
             'fields': ('influencer', 'platform', 'handle', 'profile_url', 'verified', 'platform_verified', 'is_active')
         }),
         ('Profile Details', {
-            'fields': ('display_name', 'bio', 'external_url', 'is_private', 'profile_image_url',
-                       'profile_image_base64_display'),
+            'fields': ('display_name', 'bio', 'external_url', 'is_private', 'profile_image_url_display'),
             'description': 'Profile metadata from the social platform'
         }),
         ('Followers & Posts', {
@@ -716,29 +874,16 @@ class SocialMediaAccountAdmin(admin.ModelAdmin):
 
     influencer_username.short_description = 'Influencer'
 
-    def profile_image_base64_display(self, obj):
-        """Display profile image from base64 data"""
-        if obj.profile_image_base64:
-            # Show image preview if base64 data exists
-            image_data = obj.profile_image_base64
-            # Remove data URL prefix if present
-            if image_data.startswith('data:image'):
-                image_data = image_data.split(',')[1] if ',' in image_data else image_data
-            elif not image_data.startswith('/9j/') and len(image_data) > 100:
-                # Assume it's already base64 without prefix
-                pass
-            return format_html(
-                '<img src="data:image/jpeg;base64,{}" style="max-width: 200px; max-height: 200px; border-radius: 8px; border: 2px solid #ddd;" />',
-                image_data
-            )
-        elif obj.profile_image_url:
+    def profile_image_url_display(self, obj):
+        """Display profile image from URL"""
+        if obj.profile_image_url:
             return format_html(
                 '<img src="{}" style="max-width: 200px; max-height: 200px; border-radius: 8px; border: 2px solid #ddd;" onerror="this.style.display=\'none\'" />',
                 obj.profile_image_url
             )
         return 'No profile image available'
 
-    profile_image_base64_display.short_description = 'Profile Image (Base64)'
+    profile_image_url_display.short_description = 'Profile Image'
 
     def last_synced_display(self, obj):
         """Display last synced time with color coding"""
@@ -991,17 +1136,17 @@ class SocialMediaAccountAdmin(admin.ModelAdmin):
 
     def queue_sync_all_view(self, request):
         """Handle queue sync for all accounts that need it - runs in background"""
-        from influencers.tasks import sync_all_social_accounts
-        from influencers.models import CeleryTask
+        from common.tasks import queue_social_accounts_needing_sync
+        from common.models import CeleryTask
 
         # Trigger background task
-        task = sync_all_social_accounts.delay()
+        task = queue_social_accounts_needing_sync.delay()
 
         # Create a record in CeleryTask for tracking
         CeleryTask.objects.update_or_create(
             task_id=task.id,
             defaults={
-                'task_name': 'sync_all_social_accounts',
+                'task_name': 'queue_social_accounts_needing_sync',
                 'status': 'PENDING',
             }
         )
@@ -1011,7 +1156,7 @@ class SocialMediaAccountAdmin(admin.ModelAdmin):
             format_html(
                 'Background sync task has been queued (Task ID: {}). '
                 'The sync will run in the background and process all accounts that need updating. '
-                'You can monitor the progress in the <a href="/admin/influencers/celerytask/">Celery Tasks</a> section.',
+                'You can monitor the progress in the <a href="/admin/common/celerytask/">Celery Tasks</a> section.',
                 task.id
             )
         )
@@ -1235,54 +1380,3 @@ class SocialMediaPostAdmin(admin.ModelAdmin):
         return obj.account.influencer.user.username
 
     influencer_username.short_description = 'Influencer'
-
-
-@admin.register(CeleryTask)
-class CeleryTaskAdmin(admin.ModelAdmin):
-    list_display = [
-        'task_name', 'task_id_short', 'status', 'created_at', 'completed_at', 'duration_display'
-    ]
-    list_filter = ['status', 'task_name', 'created_at']
-    search_fields = ['task_id', 'task_name']
-    readonly_fields = [
-        'task_id', 'task_name', 'status', 'result', 'error', 'created_at', 'updated_at', 'completed_at'
-    ]
-    ordering = ['-created_at']
-
-    fieldsets = (
-        ('Task Information', {
-            'fields': ('task_id', 'task_name', 'status')
-        }),
-        ('Results', {
-            'fields': ('result', 'error'),
-            'classes': ('collapse',)
-        }),
-        ('Timestamps', {
-            'fields': ('created_at', 'updated_at', 'completed_at'),
-            'classes': ('collapse',)
-        }),
-    )
-
-    def task_id_short(self, obj):
-        return obj.task_id[:16] + '...' if len(obj.task_id) > 16 else obj.task_id
-
-    task_id_short.short_description = 'Task ID'
-
-    def duration_display(self, obj):
-        if obj.completed_at and obj.created_at:
-            delta = obj.completed_at - obj.created_at
-            total_seconds = int(delta.total_seconds())
-            hours, remainder = divmod(total_seconds, 3600)
-            minutes, seconds = divmod(remainder, 60)
-            if hours > 0:
-                return f"{hours}h {minutes}m {seconds}s"
-            elif minutes > 0:
-                return f"{minutes}m {seconds}s"
-            else:
-                return f"{seconds}s"
-        return '-'
-
-    duration_display.short_description = 'Duration'
-
-    def has_add_permission(self, request):
-        return False  # Tasks are created automatically, not manually

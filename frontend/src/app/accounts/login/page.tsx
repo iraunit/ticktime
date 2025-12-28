@@ -15,14 +15,19 @@ function LoginPageContent() {
     const {user, isLoading} = useUserContext();
     const router = useRouter();
     const token = searchParams.get('token');
+    const next = searchParams.get('next');
     const hasProcessedToken = useRef(false);
 
     // If already authenticated, redirect away from login
     useEffect(() => {
         if (!isLoading && user) {
-            router.replace(getDashboardRoute(user));
+            if (next && next.startsWith('/')) {
+                router.replace(next);
+            } else {
+                router.replace(getDashboardRoute(user));
+            }
         }
-    }, [isLoading, router, user]);
+    }, [isLoading, router, user, next]);
 
     useEffect(() => {
         // Only process token once, and only if we have a token and are not authenticated

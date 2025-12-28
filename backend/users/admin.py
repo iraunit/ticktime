@@ -13,6 +13,7 @@ from django.db import models, transaction
 from django.http import HttpResponse
 from django.shortcuts import render, redirect
 from django.urls import path
+from django.utils import timezone
 
 from .models import UserProfile, OneTapLoginToken
 
@@ -104,7 +105,10 @@ def create_or_update_influencer_profile(user, user_profile, industry_id, row_num
             influencer_profile = InfluencerProfile.objects.create(
                 user=user,
                 user_profile=user_profile,
-                industry=industry
+                industry=industry,
+                bank_account_number='',  # Explicitly set to empty string to avoid NOT NULL constraint violation
+                bank_ifsc_code='',
+                bank_account_holder_name='',
             )
 
         return influencer_profile
@@ -683,7 +687,11 @@ class UserAdmin(BaseUserAdmin):
                                                     influencer_profile = InfluencerProfile.objects.create(
                                                         user=user,
                                                         user_profile=profile,
-                                                        industry=default_industry
+                                                        industry=default_industry,
+                                                        bank_account_number='',
+                                                        # Explicitly set to empty string to avoid NOT NULL constraint violation
+                                                        bank_ifsc_code='',
+                                                        bank_account_holder_name='',
                                                     )
                                                 else:
                                                     warnings.append(
@@ -797,7 +805,11 @@ class UserAdmin(BaseUserAdmin):
                                                     influencer_profile = InfluencerProfile.objects.create(
                                                         user=user,
                                                         user_profile=user_profile_obj,
-                                                        industry=default_industry
+                                                        industry=default_industry,
+                                                        bank_account_number='',
+                                                        # Explicitly set to empty string to avoid NOT NULL constraint violation
+                                                        bank_ifsc_code='',
+                                                        bank_account_holder_name='',
                                                     )
                                                 else:
                                                     warnings.append(
@@ -933,6 +945,7 @@ class OneTapLoginTokenAdmin(admin.ModelAdmin):
     list_filter = ['created_at', 'expires_at']
     search_fields = ['user__username', 'user__email']
     readonly_fields = ['user', 'token_hash', 'created_at', 'expires_at', 'use_count', 'is_valid_display']
+    actions = ['clean_expired_tokens']
 
     fieldsets = (
         ('Token Information', {
@@ -954,6 +967,20 @@ class OneTapLoginTokenAdmin(admin.ModelAdmin):
 
     def has_add_permission(self, request):
         return False  # Tokens are created programmatically
+
+    def clean_expired_tokens(self, request, queryset):
+        """Action to delete expired tokens"""
+        # Filter to only expired tokens (regardless of selection)
+        expired_tokens = OneTapLoginToken.objects.filter(expires_at__lt=timezone.now())
+        count = expired_tokens.count()
+        expired_tokens.delete()
+        self.message_user(
+            request,
+            f'Successfully deleted {count} expired token(s).',
+            messages.SUCCESS
+        )
+
+    clean_expired_tokens.short_description = 'Clean expired tokens'
 
 
 # Unregister the default User admin and register our custom one
