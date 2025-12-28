@@ -111,7 +111,6 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
             influencer_profile = InfluencerProfile.objects.create(
                 user=user,
                 user_profile=user_profile,
-                username=username,
                 industry=industry,  # Store the Industry object directly
                 is_verified=True,
                 bank_account_number='',  # Explicitly set to empty string to avoid NOT NULL constraint violation
