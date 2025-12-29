@@ -1,10 +1,18 @@
-"use client";
-
+import type {Metadata} from "next";
 import {Card, CardContent, CardHeader, CardTitle} from "@/components/ui/card";
 import {MainLayout} from "@/components/layout/main-layout";
 import {Button} from "@/components/ui/button";
 import {HiArrowLeft, HiDocumentText, HiExclamationTriangle} from "react-icons/hi2";
 import Link from "next/link";
+
+export const metadata: Metadata = {
+    title: "Terms of Service - TickTime",
+    description: "Read the terms and conditions governing your use of TickTime platform.",
+    openGraph: {
+        title: "Terms of Service - TickTime",
+        description: "Read the terms and conditions governing your use of TickTime platform.",
+    },
+};
 
 export default function TermsOfServicePage() {
     return (

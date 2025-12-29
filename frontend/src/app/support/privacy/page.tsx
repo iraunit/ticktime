@@ -1,10 +1,18 @@
-"use client";
-
+import type {Metadata} from "next";
 import {Card, CardContent, CardHeader, CardTitle} from "@/components/ui/card";
 import {MainLayout} from "@/components/layout/main-layout";
 import {Button} from "@/components/ui/button";
 import {HiArrowLeft, HiCheckCircle, HiDocumentText} from "react-icons/hi2";
 import Link from "next/link";
+
+export const metadata: Metadata = {
+    title: "Privacy Policy - TickTime",
+    description: "Read our privacy policy to understand how TickTime collects, uses, and protects your personal information.",
+    openGraph: {
+        title: "Privacy Policy - TickTime",
+        description: "Read our privacy policy to understand how TickTime collects, uses, and protects your personal information.",
+    },
+};
 
 export default function PrivacyPolicyPage() {
     return (

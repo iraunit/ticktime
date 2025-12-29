@@ -1,11 +1,19 @@
-"use client";
-
+import type {Metadata} from "next";
 import Link from "next/link";
 import {Card, CardContent, CardHeader, CardTitle} from "@/components/ui/card";
 import {MainLayout} from "@/components/layout/main-layout";
 import {Button} from "@/components/ui/button";
 import {HiChatBubbleLeftRight, HiDocumentText, HiEnvelope, HiPhone, HiQuestionMarkCircle} from "react-icons/hi2";
 import {SUPPORT_CONTACT, SUPPORT_LINKS} from "@/constants/support";
+
+export const metadata: Metadata = {
+    title: "Support - TickTime",
+    description: "Get help and support for your TickTime journey. Find FAQs, documentation, and contact our support team.",
+    openGraph: {
+        title: "Support - TickTime",
+        description: "Get help and support for your TickTime journey.",
+    },
+};
 
 export default function SupportPage() {
     return (

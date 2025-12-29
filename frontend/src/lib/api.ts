@@ -244,9 +244,20 @@ export function getNetworkStatus() {
 
 export function logError(error: unknown, context?: string) {
     if (process.env.NODE_ENV === 'development') {
+        let errorMessage = 'Unknown error';
+        let errorStack: string | undefined;
+        
+        if (error instanceof Error) {
+            errorMessage = error.message;
+            errorStack = error.stack;
+        } else if (error && typeof error === 'object' && 'message' in error) {
+            // Handle ApiError objects
+            errorMessage = String((error as ApiError).message);
+        }
+        
         console.error('API Error:', {
-            message: error instanceof Error ? error.message : 'Unknown error',
-            stack: error instanceof Error ? error.stack : undefined,
+            message: errorMessage,
+            stack: errorStack,
             context,
             timestamp: new Date().toISOString(),
         });

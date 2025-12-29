@@ -4,6 +4,7 @@ Custom exception handler for Django REST Framework that sends Discord notificati
 import logging
 import traceback
 
+from django.conf import settings
 from rest_framework.response import Response
 from rest_framework.views import exception_handler
 
@@ -63,14 +64,19 @@ def custom_exception_handler(exc, context):
             # Never let notification errors break the error handling
             logger.error(f"Failed to send Discord notification for error: {e}")
 
-        # Return a generic 500 error response
-        return Response(
-            {
-                'status': 'error',
-                'message': 'An internal server error occurred. Please try again later.',
-            },
-            status=500
-        )
+        # Return error response with details in DEBUG mode
+        error_response = {
+            'status': 'error',
+            'message': 'An internal server error occurred. Please try again later.',
+        }
+        
+        # Include detailed error information in DEBUG mode
+        if settings.DEBUG:
+            error_response['error_type'] = error_type
+            error_response['error_message'] = error_message
+            error_response['traceback'] = traceback_str.split('\n')[:20]  # First 20 lines of traceback
+        
+        return Response(error_response, status=500)
 
     # For other exceptions (400, 401, 403, 404, etc.), check if it's a critical error
     # You can customize this to send notifications for specific error types

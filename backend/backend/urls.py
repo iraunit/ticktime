@@ -18,8 +18,10 @@ from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import path, include
+from core.views import api_root_view
 
 urlpatterns = [
+    path('', api_root_view, name='api-root'),
     path('admin/', admin.site.urls),
 
     # Authentication and user management
