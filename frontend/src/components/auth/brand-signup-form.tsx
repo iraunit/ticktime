@@ -102,7 +102,12 @@ export function BrandSignupForm() {
             });
         } catch (error: any) {
             // Error toast is already handled in the useAuth hook
-            // Since backend now sends simple string errors, we don't set field-specific errors
+            // Log error for debugging
+            if (process.env.NODE_ENV === 'development') {
+                console.error('Brand signup error:', error);
+            }
+            // Re-throw to prevent form from thinking it succeeded
+            throw error;
         }
     };
 

@@ -2,12 +2,11 @@ import type {Metadata} from "next";
 import {Inter} from "next/font/google";
 import "./globals.css";
 import {AppProviders} from "@/components/providers/app-providers";
-import {HydrationBoundary} from "@/components/providers/hydration-boundary";
-import {ClarityScript} from "@/components/analytics/clarity";
 
 const inter = Inter({
     subsets: ["latin"],
     variable: "--font-inter",
+    display: "swap",
 });
 
 export const metadata: Metadata = {
@@ -28,25 +27,17 @@ export const metadata: Metadata = {
 };
 
 export default function RootLayout({
-                                       children,
-                                   }: Readonly<{
+    children,
+}: Readonly<{
     children: React.ReactNode;
 }>) {
     return (
         <html lang="en" suppressHydrationWarning>
-        <head>
-            <link rel="icon" href="/favicon.ico" sizes="any"/>
-            <link rel="icon" href="/favicon.png" type="image/png"/>
-            <link rel="apple-touch-icon" href="/favicon.png"/>
-        </head>
-        <body className={`${inter.variable} font-sans antialiased`} suppressHydrationWarning>
-        <ClarityScript/>
-        <HydrationBoundary>
-            <AppProviders>
-                {children}
-            </AppProviders>
-        </HydrationBoundary>
-        </body>
+            <body className={`${inter.variable} font-sans antialiased`} suppressHydrationWarning>
+                <AppProviders>
+                    {children}
+                </AppProviders>
+            </body>
         </html>
     );
 }

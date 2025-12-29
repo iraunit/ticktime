@@ -1,6 +1,6 @@
 "use client";
 
-import {useEffect} from "react";
+import {useEffect, useMemo} from "react";
 import Link from "next/link";
 import {MainLayout} from "@/components/layout/main-layout";
 import {Card, CardContent} from "@/components/ui/card";
@@ -12,18 +12,24 @@ import {useUserContext} from "@/components/providers/app-providers";
 
 export default function SignupPage() {
     const {isAuthLoading, isAuthenticatedState} = useAuth();
-    const {user} = useUserContext();
+    const {user, isLoading: isUserLoading} = useUserContext();
     const {redirectToDashboard} = useAuthRedirect();
+    
+    // Check for session cookie synchronously during render (no useEffect delay)
+    const hasSessionCookie = useMemo(() => {
+        if (typeof window === 'undefined') return false;
+        return document.cookie.split(';').some(c => c.trim().startsWith('sessionid='));
+    }, []);
 
     // Redirect authenticated users to appropriate dashboard based on user type
     useEffect(() => {
-        if (!isAuthLoading && isAuthenticatedState && user) {
+        if (!isAuthLoading && !isUserLoading && isAuthenticatedState && user) {
             redirectToDashboard(user);
         }
-    }, [isAuthLoading, isAuthenticatedState, user, redirectToDashboard]);
+    }, [isAuthLoading, isUserLoading, isAuthenticatedState, user, redirectToDashboard]);
 
-    // Show loading while checking authentication
-    if (isAuthLoading) {
+    // If we have a session cookie and are still loading user data, show loader
+    if (hasSessionCookie && (isAuthLoading || isUserLoading)) {
         return (
             <MainLayout>
                 <div
@@ -34,9 +40,16 @@ export default function SignupPage() {
         );
     }
 
-    // Don't render the signup form if user is already authenticated
-    if (isAuthenticatedState) {
-        return null;
+    // Don't render the signup form if user is already authenticated (will redirect)
+    if (isAuthenticatedState && user && !isAuthLoading && !isUserLoading) {
+        return (
+            <MainLayout>
+                <div
+                    className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 flex items-center justify-center">
+                    <GlobalLoader/>
+                </div>
+            </MainLayout>
+        );
     }
 
     return (

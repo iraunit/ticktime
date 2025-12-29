@@ -329,10 +329,24 @@ if (typeof window !== 'undefined') {
     CacheManager.clearExpired();
   });
 
-  // Initialize service worker after hydration
+  // Initialize service worker after hydration (only in production)
+  // In development, unregister service workers to prevent chunk loading issues
   setTimeout(() => {
-    ServiceWorkerCache.init().catch(() => {
-      // Silently handle service worker initialization errors
-    });
+    if (process.env.NODE_ENV === 'production') {
+      ServiceWorkerCache.init().catch(() => {
+        // Silently handle service worker initialization errors
+      });
+    } else {
+      // Development: Unregister any existing service workers
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistrations().then((registrations) => {
+          registrations.forEach((registration) => {
+            registration.unregister().catch(() => {
+              // Silently handle unregistration errors
+            });
+          });
+        });
+      }
+    }
   }, 100);
 }

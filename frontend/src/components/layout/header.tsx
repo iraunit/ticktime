@@ -71,6 +71,8 @@ export function Header() {
                                 src="/ticktime-logo.png"
                                 alt="TickTime Logo"
                                 className="w-full h-full object-contain"
+                                loading="eager"
+                                fetchPriority="high"
                                 onError={(e) => {
                                     // Fallback to initials if image fails to load
                                     e.currentTarget.style.display = 'none';

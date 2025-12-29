@@ -27,7 +27,7 @@ export function useAuth() {
                     setIsAuthenticatedState(true);
                     setIsAuthLoading(false);
                 }
-            } catch (error: any) {
+            } catch {
                 if (!cancelled) {
                     // Always set to false on any error - if session is invalid, user needs to login
                     setIsAuthenticatedState(false);
@@ -73,21 +73,46 @@ export function useAuth() {
         mutationFn: ({identifier, password, remember_me}: { identifier: string; password: string; remember_me?: boolean }) =>
             authApi.login(identifier, password, remember_me),
         onSuccess: async (response) => {
-            toast.success('Welcome back!');
-            setIsAuthenticatedState(true);
-            queryClient.invalidateQueries({queryKey: ['user']});
-            await refreshUserContext();
+            try {
+                toast.success('Welcome back!');
+                setIsAuthenticatedState(true);
+                queryClient.invalidateQueries({queryKey: ['user']});
+                
+                // Wait for user context to refresh to get the latest user data
+                await refreshUserContext();
+                
+                // Small delay to ensure session cookie is set and user context is updated
+                await new Promise(resolve => setTimeout(resolve, 100));
 
-            const next = getNextPath();
-            if (next) {
-                router.push(next);
-                return;
+                // Get user from response first
+                // Response structure after interceptor: response.data = {user: {...}, message: '...'}
+                let user = response?.data?.user;
+                
+                // If user not in response, try to get from API
+                if (!user) {
+                    try {
+                        const authCheck = await authApi.checkAuth();
+                        user = authCheck.data?.user;
+                    } catch (error) {
+                        console.warn('Failed to fetch user after login:', error);
+                        // Will use default route below
+                    }
+                }
+
+                const next = getNextPath();
+                if (next) {
+                    router.replace(next);
+                    return;
+                }
+
+                // Redirect based on account type using utility function
+                const dashboardRoute = user ? getDashboardRoute(user) : '/influencer/dashboard';
+                router.replace(dashboardRoute);
+            } catch (error) {
+                console.error('Error during login success handler:', error);
+                // Fallback: redirect to default dashboard
+                router.replace('/influencer/dashboard');
             }
-
-            // Redirect based on account type using utility function
-            const user = response?.data?.user;
-            const dashboardRoute = getDashboardRoute(user);
-            router.push(dashboardRoute);
         },
         onError: (error: any) => {
             const errorMessage = formatErrorMessage(error);
@@ -109,22 +134,55 @@ export function useAuth() {
             industry: string;
         }) => authApi.signup(data),
         onSuccess: async (response) => {
-            // Show success message
-            toast.success('Account created successfully! Welcome to TickTime!');
+            try {
+                // Show success message
+                toast.success('Account created successfully! Welcome to TickTime!');
 
-            // Check if user was auto-logged in
-            if (response?.data?.auto_logged_in) {
                 setIsAuthenticatedState(true);
                 queryClient.invalidateQueries({queryKey: ['user']});
+                
+                // Small delay to ensure session cookie is set
+                await new Promise(resolve => setTimeout(resolve, 200));
+                
+                // Refresh user context to get the latest user data
                 await refreshUserContext();
+                
+                // Additional small delay to ensure user context is updated
+                await new Promise(resolve => setTimeout(resolve, 100));
 
-                // Redirect to appropriate dashboard since user is already logged in
-                const user = response?.data?.user;
-                const dashboardRoute = getDashboardRoute(user);
-                router.push(dashboardRoute);
-            } else {
-                // Fallback: redirect to login with success message
-                router.push('/login?message=Account created successfully! You can now log in.');
+                // Check if session cookie exists (user was logged in)
+                const hasSession = typeof window !== 'undefined' && 
+                    document.cookie.split(';').some(c => c.trim().startsWith('sessionid='));
+
+                // Get user from response first
+                // Response structure after interceptor: response.data = {user: {...}, auto_logged_in: true, ...}
+                let user = response?.data?.user;
+                const autoLoggedIn = response?.data?.auto_logged_in;
+
+                // If user not in response but we have a session, fetch from API
+                if (!user && hasSession) {
+                    try {
+                        const authCheck = await authApi.checkAuth();
+                        user = authCheck.data?.user;
+                    } catch (error) {
+                        console.warn('Failed to fetch user after signup:', error);
+                        // Will use default route below
+                    }
+                }
+
+                // If we have a session or user data, redirect to dashboard
+                if (hasSession || autoLoggedIn || user) {
+                    // Redirect to appropriate dashboard
+                    const dashboardRoute = user ? getDashboardRoute(user) : '/influencer/dashboard';
+                    router.replace(dashboardRoute);
+                } else {
+                    // Fallback: redirect to login with success message
+                    router.replace('/accounts/login?message=Account created successfully! You can now log in.');
+                }
+            } catch (error) {
+                console.error('Error during signup success handler:', error);
+                // Fallback: redirect to login page
+                router.replace('/accounts/login?message=Account created successfully! You can now log in.');
             }
         },
         onError: (error: any) => {
@@ -153,19 +211,46 @@ export function useAuth() {
             // Show success message
             toast.success('Brand account created successfully! Welcome to TickTime!');
 
-            // Check if user was auto-logged in
-            if (response?.data?.auto_logged_in) {
-                setIsAuthenticatedState(true);
-                queryClient.invalidateQueries({queryKey: ['user']});
-                await refreshUserContext();
+            // Always refresh user context after signup (session might be created)
+            queryClient.invalidateQueries({queryKey: ['user']});
+            await refreshUserContext();
 
-                // Redirect to appropriate dashboard since user is already logged in
-                const user = response?.data?.user;
-                const dashboardRoute = getDashboardRoute(user);
-                router.push(dashboardRoute);
+            // Check if user was auto-logged in or if we have user data
+            const user = response?.data?.user;
+            const autoLoggedIn = response?.data?.auto_logged_in;
+
+            // Small delay to ensure session cookie is set
+            await new Promise(resolve => setTimeout(resolve, 300));
+            
+            // Check if session cookie exists (user was logged in)
+            const hasSession = typeof window !== 'undefined' && 
+                document.cookie.split(';').some(c => c.trim().startsWith('sessionid='));
+
+            // Refresh user context one more time to get fresh data
+            await refreshUserContext();
+
+            // If we have a session or user data, redirect to dashboard
+            if (hasSession || autoLoggedIn || user) {
+                setIsAuthenticatedState(true);
+                
+                // Get user from context if not in response
+                let finalUser = user;
+                if (!finalUser && hasSession) {
+                    // Try to get user from context after refresh
+                    try {
+                        const authCheck = await authApi.checkAuth();
+                        finalUser = authCheck.data?.user;
+                    } catch {
+                        // If check fails, use user from response or default route
+                    }
+                }
+
+                // Redirect to appropriate dashboard
+                const dashboardRoute = finalUser ? getDashboardRoute(finalUser) : '/brand/dashboard';
+                router.replace(dashboardRoute);
             } else {
                 // Fallback: redirect to login with success message
-                router.push('/login?message=Brand account created. Please log in.');
+                router.replace('/accounts/login?message=Brand account created. Please log in.');
             }
         },
         onError: (error: any) => {

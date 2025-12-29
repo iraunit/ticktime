@@ -29,28 +29,44 @@ export function MainLayout({
         // Only run on client side
         if (typeof window === 'undefined') return;
 
-        // Prime CSRF cookie once so first unsafe request doesn't incur extra roundtrip
-        authApi.csrf().catch(() => {
-        });
+        // Defer all non-critical operations to not block initial render
+        // Use requestIdleCallback for better performance
+        const initNonCritical = () => {
+            // Prime CSRF cookie once so first unsafe request doesn't incur extra roundtrip
+            authApi.csrf().catch(() => {
+            });
 
-
-        // Initialize service worker for caching with delay to avoid hydration issues
-        setTimeout(() => {
-            ServiceWorkerCache.init().then(() => {
-                // Cache static assets after service worker is ready
-                ServiceWorkerCache.cacheAssets([
-                    '/',
-                    '/manifest.json',
-                    '/favicon.png',
-                    '/ticktime-logo.png'
-                ]);
-            }).catch(console.warn);
-        }, 100);
-
-        // Clean up on unmount
-        return () => {
-
+            // Only initialize service worker in production
+            // In development, unregister any existing service workers to prevent chunk loading issues
+            if (process.env.NODE_ENV === 'production') {
+                setTimeout(() => {
+                    ServiceWorkerCache.init().then(() => {
+                        // Cache static assets after service worker is ready
+                        ServiceWorkerCache.cacheAssets([
+                            '/',
+                            '/manifest.json',
+                            '/favicon.png',
+                            '/ticktime-logo.png'
+                        ]);
+                    }).catch(console.warn);
+                }, 500);
+            } else {
+                // Development: Unregister any existing service workers
+                if ('serviceWorker' in navigator) {
+                    navigator.serviceWorker.getRegistrations().then((registrations) => {
+                        registrations.forEach((registration) => {
+                            registration.unregister().catch(console.warn);
+                        });
+                    });
+                }
+            }
         };
+
+        if ('requestIdleCallback' in window) {
+            requestIdleCallback(initNonCritical, { timeout: 2000 });
+        } else {
+            setTimeout(initNonCritical, 200);
+        }
     }, []);
 
     return (

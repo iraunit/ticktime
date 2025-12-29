@@ -67,13 +67,21 @@ export function useUserContext(): UserContextValue {
 
 export function AppProviders({children}: { children: React.ReactNode }) {
     const [user, setUser] = useState<CurrentUser>(null);
-    const [loadingUser, setLoadingUser] = useState<boolean>(true);
+    // Start with false to allow immediate rendering - fetch in background
+    const [loadingUser, setLoadingUser] = useState<boolean>(false);
     const [hasFetched, setHasFetched] = useState<boolean>(false);
 
     const fetchUser = useCallback(async () => {
         if (hasFetched) return; // Prevent multiple calls
 
-        setLoadingUser(true);
+        // Only show loading if we have a session cookie (likely authenticated)
+        const hasSession = typeof document !== 'undefined' && 
+            document.cookie.split(';').some(c => c.trim().startsWith('sessionid='));
+        
+        if (hasSession) {
+            setLoadingUser(true);
+        }
+        
         try {
             const res = await authApi.checkAuth();
             setUser(res.data?.user ?? null);
@@ -105,12 +113,34 @@ export function AppProviders({children}: { children: React.ReactNode }) {
             // Prime CSRF cookie for session-authenticated requests (noop if already set)
             authApi.csrf().catch(() => {
             });
-            // Fetch current user once on app mount
-            fetchUser();
+            
+            // Check if user has session cookie first - if not, skip API call entirely
+            const hasSession = document.cookie.split(';').some(c => c.trim().startsWith('sessionid='));
+            
+            if (!hasSession) {
+                // No session cookie, user is definitely not authenticated
+                setUser(null);
+                setLoadingUser(false);
+                setHasFetched(true);
+                return;
+            }
+            
+            // Fetch current user in background without blocking render
+            // Use requestIdleCallback for better performance, fallback to setTimeout
+            if ('requestIdleCallback' in window) {
+                requestIdleCallback(() => {
+                    fetchUser();
+                }, { timeout: 1000 });
+            } else {
+                // Use setTimeout with small delay to not block initial render
+                setTimeout(() => {
+                    fetchUser();
+                }, 100);
+            }
         }
     }, [fetchUser, hasFetched]);
 
-    // In development, proactively unregister any existing service workers and clear caches
+    // In development, proactively unregister any existing service workers to prevent chunk loading issues
     useEffect(() => {
         if (process.env.NODE_ENV === "development" && typeof window !== "undefined") {
             // Only run on client side to prevent hydration mismatches

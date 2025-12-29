@@ -21,11 +21,21 @@ export function useContentCategories(): UseContentCategoriesResult {
     const {data, isLoading, error} = useQuery({
         queryKey: ['content-categories'],
         queryFn: async () => {
-            const response = await api.get('/common/content-categories/');
-            return response.data.categories as ContentCategory[];
+            try {
+                const response = await api.get('/common/content-categories/');
+                // After API interceptor, response.data is already the result object
+                // Backend returns: {success: true, result: {categories: [...]}}
+                // After interceptor: response.data = {categories: [...]}
+                const categories = response.data?.categories || response.data || [];
+                return categories as ContentCategory[];
+            } catch (err) {
+                console.error('Error fetching content categories:', err);
+                throw err;
+            }
         },
-        retry: 1,
+        retry: 2,
         staleTime: 5 * 60 * 1000, // 5 minutes
+        refetchOnWindowFocus: false,
     });
 
     return {

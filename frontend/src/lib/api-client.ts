@@ -17,6 +17,7 @@ export const authApi = {
         first_name: string;
         last_name: string;
         phone_number: string;
+        country_code: string;
         username: string;
         industry: string;
     }) => api.post('/auth/signup/', data),

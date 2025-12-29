@@ -61,7 +61,7 @@ export function SignupForm() {
     const [showPassword, setShowPassword] = useState(false);
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
     const {signup} = useAuth();
-    const {contentCategories, loading: contentCategoriesLoading} = useContentCategories();
+    const {contentCategories, loading: contentCategoriesLoading, error: contentCategoriesError} = useContentCategories();
 
     const form = useForm<SignupFormData>({
         resolver: zodResolver(signupSchema),
@@ -88,19 +88,34 @@ export function SignupForm() {
     };
 
     const nextStep = async () => {
-        const isValid = await validateCurrentStep();
-        if (isValid && currentStep < steps.length) {
-            // Clear any potential form contamination
-            const currentValues = form.getValues();
-            console.log('Current form values before step change:', currentValues);
-
-            setCurrentStep(currentStep + 1);
-
-            // Ensure form state is clean for next step
-            setTimeout(() => {
-                const newValues = form.getValues();
-                console.log('Form values after step change:', newValues);
-            }, 100);
+        try {
+            const isValid = await validateCurrentStep();
+            
+            if (process.env.NODE_ENV === 'development') {
+                console.log('Step validation result:', isValid);
+                console.log('Form errors:', form.formState.errors);
+            }
+            
+            if (isValid && currentStep < steps.length) {
+                setCurrentStep(currentStep + 1);
+            } else if (!isValid) {
+                // Show validation errors
+                const errors = form.formState.errors;
+                const errorFields = Object.keys(errors);
+                
+                if (errorFields.length > 0) {
+                    // Scroll to first error field
+                    const firstErrorField = errorFields[0];
+                    const errorElement = document.querySelector(`[name="${firstErrorField}"]`);
+                    if (errorElement) {
+                        errorElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        // Focus the field
+                        (errorElement as HTMLElement).focus();
+                    }
+                }
+            }
+        } catch (error) {
+            console.error('Error validating step:', error);
         }
     };
 
@@ -125,7 +140,12 @@ export function SignupForm() {
             await signup.mutateAsync(submitData);
         } catch (error: any) {
             // Error toast is already handled in the useAuth hook
-            // Since backend now sends simple string errors, we don't set field-specific errors
+            // Log error for debugging
+            if (process.env.NODE_ENV === 'development') {
+                console.error('Signup error:', error);
+            }
+            // Re-throw to prevent form from thinking it succeeded
+            throw error;
         }
     };
 
@@ -398,6 +418,10 @@ export function SignupForm() {
                                             {contentCategoriesLoading ? (
                                                 <SelectItem value="loading" disabled>Loading content
                                                     categories...</SelectItem>
+                                            ) : contentCategoriesError ? (
+                                                <SelectItem value="error" disabled>Failed to load categories. Please refresh the page.</SelectItem>
+                                            ) : contentCategories.length === 0 ? (
+                                                <SelectItem value="empty" disabled>No categories available</SelectItem>
                                             ) : (
                                                 contentCategories.map((category) => (
                                                     <SelectItem key={category.key} value={category.key}>
@@ -497,8 +521,15 @@ export function SignupForm() {
                                             {currentStep < steps.length ? (
                                                 <Button
                                                     type="button"
-                                                    onClick={nextStep}
-                                                    className="bg-gradient-to-r from-purple-500 to-pink-600 hover:from-purple-600 hover:to-pink-700 text-white shadow-lg hover:shadow-xl transition-all duration-200"
+                                                    onClick={(e) => {
+                                                        e.preventDefault();
+                                                        e.stopPropagation();
+                                                        nextStep().catch(err => {
+                                                            console.error('Error in nextStep:', err);
+                                                        });
+                                                    }}
+                                                    disabled={signup.isPending}
+                                                    className="bg-gradient-to-r from-purple-500 to-pink-600 hover:from-purple-600 hover:to-pink-700 text-white shadow-lg hover:shadow-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                                                 >
                                                     Next
                                                     <ArrowRight className="w-4 h-4 ml-2"/>

@@ -79,9 +79,20 @@ def login_view(request):
             # Use default project settings for expiry (rolling 15 days)
             request.session.set_expiry(settings.SESSION_COOKIE_AGE)
 
-        # Ensure UserProfile exists for the user
+        # Ensure UserProfile exists for the user (should always exist for valid users)
         from users.models import UserProfile
-        UserProfile.objects.get_or_create(user=user)
+        try:
+            user_profile = UserProfile.objects.get(user=user)
+        except UserProfile.DoesNotExist:
+            # Create user profile if it doesn't exist (shouldn't happen but handle gracefully)
+            logger.warning(f"UserProfile missing for user {user.id}, creating one")
+            user_profile = UserProfile.objects.create(
+                user=user,
+                phone_number='',
+                country_code='+91',
+                email_verified=False,
+                phone_verified=False
+            )
 
         profile_serializer = UserProfileSerializer(user, context={'request': request})
         return api_response(True, result={
@@ -89,7 +100,7 @@ def login_view(request):
             'user': profile_serializer.data,
         })
 
-    return api_response(False, error=format_serializer_errors(serializer.errors), status_code=400)
+    return api_response(False, error=format_serializer_errors(serializer.errors), status_code=status.HTTP_400_BAD_REQUEST)
 
 
 @api_view(['GET'])
@@ -204,7 +215,7 @@ def logout_view(request):
 
     except Exception as e:
         logger.error(f"Logout failed: {str(e)}")
-        return Response({'status': 'error', 'message': 'Logout failed'}, status=status.HTTP_400_BAD_REQUEST)
+        return api_response(False, error='Logout failed', status_code=status.HTTP_400_BAD_REQUEST)
 
 
 @api_view(['POST'])
@@ -220,12 +231,18 @@ def signup_view(request):
         try:
             user = serializer.save()
 
+            # UserProfile and InfluencerProfile should have been created by the serializer
+            # Just verify they exist (they should)
+            from users.models import UserProfile
+            try:
+                user_profile = UserProfile.objects.get(user=user)
+            except UserProfile.DoesNotExist:
+                # This should never happen, but handle it gracefully
+                logger.error(f"UserProfile missing after signup for user {user.id}, this indicates a serializer issue")
+                raise Exception("UserProfile was not created during signup")
+
             # Automatically log in the user
             login(request, user)
-
-            # Ensure UserProfile exists for the user
-            from users.models import UserProfile
-            UserProfile.objects.get_or_create(user=user)
 
             profile_serializer = UserProfileSerializer(user, context={'request': request})
 
@@ -235,28 +252,22 @@ def signup_view(request):
                 'user': profile_serializer.data,
                 'requires_email_verification': False,
                 'auto_logged_in': True,
-            }, status_code=201)
+            }, status_code=status.HTTP_201_CREATED)
 
         except Exception as e:
-            logger.error(f"User registration failed: {str(e)}")
+            logger.error(f"User registration failed: {str(e)}", exc_info=True)
             # Check if it's a database constraint error
-            if 'UNIQUE constraint failed' in str(e):
-                if 'email' in str(e).lower():
-                    return Response({
-                        'status': 'error',
-                        'message': 'A user with this email already exists.'
-                    }, status=status.HTTP_400_BAD_REQUEST)
-                elif 'username' in str(e).lower():
-                    return Response({
-                        'status': 'error',
-                        'message': 'This username is already taken.'
-                    }, status=status.HTTP_400_BAD_REQUEST)
-            return Response({
-                'status': 'error',
-                'message': 'Registration failed. Please try again.'
-            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            error_str = str(e).lower()
+            if 'unique constraint' in error_str or 'duplicate key' in error_str or 'already exists' in error_str:
+                if 'email' in error_str or 'user_profiles.email' in error_str:
+                    return api_response(False, error='A user with this email already exists.', status_code=status.HTTP_400_BAD_REQUEST)
+                elif 'username' in error_str or 'auth_user.username' in error_str:
+                    return api_response(False, error='This username is already taken.', status_code=status.HTTP_400_BAD_REQUEST)
+                elif 'phone_number' in error_str or 'user_profiles.phone_number' in error_str:
+                    return api_response(False, error='This phone number is already in use.', status_code=status.HTTP_400_BAD_REQUEST)
+            return api_response(False, error=f'Registration failed. Please try again.', status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-    return api_response(False, error=format_serializer_errors(serializer.errors), status_code=400)
+    return api_response(False, error=format_serializer_errors(serializer.errors), status_code=status.HTTP_400_BAD_REQUEST)
 
 
 @api_view(['POST'])
@@ -294,7 +305,7 @@ def brand_signup_view(request):
                 'user_id': user.id,
                 'user': profile_serializer.data,
                 'auto_logged_in': True,
-            }, status_code=201)
+            }, status_code=status.HTTP_201_CREATED)
         except Exception as e:
             logger.error(f"Brand registration failed: {str(e)}")
             # Check if it's a database constraint error
@@ -313,7 +324,7 @@ def brand_signup_view(request):
                 'status': 'error',
                 'message': 'Brand registration failed. Please try again.'
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-    return api_response(False, error=format_serializer_errors(serializer.errors), status_code=400)
+    return api_response(False, error=format_serializer_errors(serializer.errors), status_code=status.HTTP_400_BAD_REQUEST)
 
 
 @api_view(['GET'])
@@ -330,10 +341,7 @@ def verify_email_view(request, token):
 
         return api_response(True, result={'message': 'Email verified successfully. You can now login to your account.'})
 
-    return Response({
-        'status': 'error',
-        'message': 'Invalid or expired verification token.'
-    }, status=status.HTTP_400_BAD_REQUEST)
+    return api_response(False, error='Invalid or expired verification token.', status_code=status.HTTP_400_BAD_REQUEST)
 
 
 @api_view(['POST'])
@@ -451,12 +459,9 @@ def forgot_password_view(request):
         except Exception as e:
             logger.error(
                 f"Failed to send password reset OTP via {'email' if channel == 'email' else 'WhatsApp'} to {email or phone_number}: {str(e)}")
-            return Response({
-                'status': 'error',
-                'message': f'Failed to send password reset OTP via {channel}. Please try again.'
-            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return api_response(False, error=f'Failed to send password reset OTP via {channel}. Please try again.', status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-    return api_response(False, error=format_serializer_errors(serializer.errors), status_code=400)
+    return api_response(False, error=format_serializer_errors(serializer.errors), status_code=status.HTTP_400_BAD_REQUEST)
 
 
 @api_view(['POST'])
@@ -484,7 +489,7 @@ def verify_otp_view(request):
     serializer = VerifyOTPSerializer(data=request.data)
 
     if not serializer.is_valid():
-        return api_response(False, error=format_serializer_errors(serializer.errors), status_code=400)
+        return api_response(False, error=format_serializer_errors(serializer.errors), status_code=status.HTTP_400_BAD_REQUEST)
 
     email = (serializer.validated_data.get('email') or '').strip().lower()
     phone_number = (serializer.validated_data.get('phone_number') or '').strip()
@@ -548,17 +553,11 @@ def verify_otp_view(request):
             })
         else:
             # Invalid or expired OTP
-            return Response({
-                'status': 'error',
-                'message': 'Invalid OTP or expired. Please request a new one.'
-            }, status=status.HTTP_400_BAD_REQUEST)
+            return api_response(False, error='Invalid OTP or expired. Please request a new one.', status_code=status.HTTP_400_BAD_REQUEST)
 
     except Exception as e:
         logger.error(f"OTP verification failed: {str(e)}")
-        return Response({
-            'status': 'error',
-            'message': 'OTP verification failed. Please try again.'
-        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return api_response(False, error='OTP verification failed. Please try again.', status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 @api_view(['POST'])
@@ -571,7 +570,7 @@ def reset_password_view(request):
     serializer = ResetPasswordSerializer(data=request.data)
 
     if not serializer.is_valid():
-        return api_response(False, error=format_serializer_errors(serializer.errors), status_code=400)
+        return api_response(False, error=format_serializer_errors(serializer.errors), status_code=status.HTTP_400_BAD_REQUEST)
 
     email = (serializer.validated_data.get('email') or '').strip().lower()
     phone_number = (serializer.validated_data.get('phone_number') or '').strip()
@@ -598,10 +597,7 @@ def reset_password_view(request):
 
     if not user:
         # Don't reveal if user exists or not
-        return Response({
-            'status': 'error',
-            'message': 'Invalid OTP or expired.'
-        }, status=status.HTTP_400_BAD_REQUEST)
+        return api_response(False, error='Invalid OTP or expired.', status_code=status.HTTP_400_BAD_REQUEST)
 
     # Verify OTP before resetting password
     try:
@@ -609,10 +605,7 @@ def reset_password_view(request):
         otp_obj = PasswordResetOTP.verify_otp(user, otp)
 
         if not otp_obj:
-            return Response({
-                'status': 'error',
-                'message': 'Invalid OTP or expired. Please request a new one.'
-            }, status=status.HTTP_400_BAD_REQUEST)
+            return api_response(False, error='Invalid OTP or expired. Please request a new one.', status_code=status.HTTP_400_BAD_REQUEST)
 
         # OTP verified, reset password
         user.set_password(password)
@@ -635,10 +628,7 @@ def reset_password_view(request):
 
     except Exception as e:
         logger.error(f"Password reset failed: {str(e)}")
-        return Response({
-            'status': 'error',
-            'message': 'Password reset failed. Please try again.'
-        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return api_response(False, error='Password reset failed. Please try again.', status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 @api_view(['GET'])

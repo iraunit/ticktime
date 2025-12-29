@@ -1,7 +1,8 @@
 // Service Worker for caching static assets and API responses
-const CACHE_NAME = 'ticktime-platform-v4';
-const STATIC_CACHE = 'static-v4';
-const API_CACHE = 'api-v4';
+// Service Worker for caching static assets and API responses
+// NOTE: Next.js chunks (_next/static) are NOT cached to prevent ChunkLoadError
+const STATIC_CACHE = 'static-v5';
+const API_CACHE = 'api-v5';
 
 // Assets to cache on install
 const STATIC_ASSETS = [
@@ -57,13 +58,18 @@ self.addEventListener('fetch', (event) => {
         return; // allow the network to handle it normally
     }
 
+    // NEVER cache Next.js chunks - let Next.js handle them
+    // This prevents ChunkLoadError when new builds are deployed
+    if (url.pathname.startsWith('/_next/static/')) {
+        return; // Let the browser handle Next.js chunks normally
+    }
+
     // Handle API requests
     if (url.pathname.startsWith('/api/')) {
         event.respondWith(handleApiRequest(request));
     }
-    // Handle static assets
+    // Handle static assets (but not Next.js chunks)
     else if (request.destination === 'image' ||
-        request.destination === 'script' ||
         request.destination === 'style') {
         event.respondWith(handleStaticAsset(request));
     }

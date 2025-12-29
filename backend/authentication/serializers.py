@@ -83,45 +83,53 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         # Extract influencer-specific fields
         phone_number = validated_data.pop('phone_number')
-        country_code = validated_data.pop('country_code')
+        country_code = validated_data.pop('country_code', '+91')  # Default to +91 if not provided
         username = validated_data.pop('username')
         industry = validated_data.pop('industry')
         validated_data.pop('password_confirm', None)
 
         with transaction.atomic():
-            # Create user
-            user = User.objects.create_user(
-                username=username,
-                email=validated_data['email'],
-                first_name=validated_data['first_name'],
-                last_name=validated_data['last_name'],
-                password=validated_data['password'],
-                is_active=True
-            )
+            try:
+                # Create user
+                user = User.objects.create_user(
+                    username=username,
+                    email=validated_data['email'],
+                    first_name=validated_data['first_name'],
+                    last_name=validated_data['last_name'],
+                    password=validated_data['password'],
+                    is_active=True
+                )
 
-            # Create user profile with phone and country info
-            user_profile = UserProfile.objects.create(
-                user=user,
-                phone_number=phone_number,
-                country_code=country_code,
-                email_verified=True
-            )
+                # Create user profile with phone and country info
+                user_profile = UserProfile.objects.create(
+                    user=user,
+                    phone_number=phone_number,
+                    country_code=country_code,
+                    email_verified=True,
+                    phone_verified=False  # Phone verification will be done separately
+                )
 
-            # Create influencer profile
-            influencer_profile = InfluencerProfile.objects.create(
-                user=user,
-                user_profile=user_profile,
-                industry=industry,  # Store the Industry object directly
-                is_verified=True,
-                bank_account_number='',  # Explicitly set to empty string to avoid NOT NULL constraint violation
-                bank_ifsc_code='',
-                bank_account_holder_name='',
-            )
+                # Create influencer profile
+                influencer_profile = InfluencerProfile.objects.create(
+                    user=user,
+                    user_profile=user_profile,
+                    industry=industry,  # Store the Industry object directly
+                    is_verified=True,
+                    bank_account_number='',  # Explicitly set to empty string to avoid NOT NULL constraint violation
+                    bank_ifsc_code='',
+                    bank_account_holder_name='',
+                )
 
-            # Set empty categories (many-to-many field needs to be set after creation)
-            influencer_profile.categories.set([])
+                # Set empty categories (many-to-many field needs to be set after creation)
+                influencer_profile.categories.set([])
 
-            return user
+                return user
+            except Exception as e:
+                # Re-raise the exception to be handled by the view
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.error(f"Error creating user during signup: {str(e)}", exc_info=True)
+                raise
 
 
 class BrandRegistrationSerializer(serializers.Serializer):
