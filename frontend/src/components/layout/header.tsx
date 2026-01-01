@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import {Button} from "@/components/ui/button";
 import {Bell, ChevronDown, LogOut, Menu, Settings, X} from "@/lib/icons";
 import {useState} from "react";
@@ -27,6 +28,7 @@ const getProfileRoute = (user: any) => {
 export function Header() {
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+    const [logoError, setLogoError] = useState(false);
     const {logout} = useAuth();
     const {user, isLoading} = useUserContext();
     const pathname = usePathname();
@@ -66,25 +68,22 @@ export function Header() {
                 <div className="flex items-center justify-between h-12 sm:h-14">
                     {/* Logo */}
                     <Link href="/" className="flex items-center space-x-2 group">
-                        <div className="w-7 h-7 group-hover:scale-105 transition-all duration-200">
-                            <img
-                                src="/ticktime-logo.png"
-                                alt="TickTime Logo"
-                                className="w-full h-full object-contain"
-                                onError={(e) => {
-                                    // Fallback to initials if image fails to load
-                                    e.currentTarget.style.display = 'none';
-                                    const fallback = e.currentTarget.nextElementSibling as HTMLElement;
-                                    if (fallback) {
-                                        fallback.classList.remove('hidden');
-                                        fallback.classList.add('flex');
-                                    }
-                                }}
-                            />
-                            {/* Fallback logo */}
-                            <div className="hidden w-full h-full bg-gradient-to-br from-red-600 to-orange-500 items-center justify-center rounded-lg">
-                                <span className="text-white font-bold text-xs">TT</span>
-                            </div>
+                        <div className="w-7 h-7 group-hover:scale-105 transition-all duration-200 relative">
+                            {!logoError ? (
+                                <Image
+                                    src="/ticktime-logo.png"
+                                    alt="TickTime Logo"
+                                    width={28}
+                                    height={28}
+                                    className="object-contain"
+                                    priority
+                                    onError={() => setLogoError(true)}
+                                />
+                            ) : (
+                                <div className="w-full h-full bg-gradient-to-br from-red-600 to-orange-500 items-center justify-center rounded-lg flex">
+                                    <span className="text-white font-bold text-xs">TT</span>
+                                </div>
+                            )}
                         </div>
                         <span
                             className="text-lg font-semibold bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 bg-clip-text text-transparent group-hover:from-red-600 group-hover:via-orange-500 group-hover:to-red-600 transition-all duration-200">TickTime</span>

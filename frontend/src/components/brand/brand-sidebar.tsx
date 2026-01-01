@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import {usePathname} from "next/navigation";
 import {useSidebar} from "@/contexts/sidebar-context";
 import {useEffect, useState} from "react";
@@ -113,20 +114,24 @@ export function BrandSidebar() {
                                     }}
                                 />
                                 {/* Fallback logo */}
-                                <div className="hidden w-full h-full items-center justify-center">
-                                    <img
+                                <div className="hidden w-full h-full items-center justify-center absolute inset-0">
+                                    <Image
                                         src="/ticktime-logo.png"
                                         alt="TickTime Logo"
-                                        className="w-full h-full object-contain"
+                                        width={36}
+                                        height={36}
+                                        className="object-contain"
                                     />
                                 </div>
                             </div>
                         ) : (
-                            <div className="w-9 h-9 group-hover:scale-105 transition-all duration-300 transform">
-                                <img
+                            <div className="w-9 h-9 group-hover:scale-105 transition-all duration-300 transform relative">
+                                <Image
                                     src="/ticktime-logo.png"
                                     alt="TickTime Logo"
-                                    className="w-full h-full object-contain"
+                                    width={36}
+                                    height={36}
+                                    className="object-contain"
                                 />
                             </div>
                         )}
