@@ -190,6 +190,25 @@ class CSRFExemptMiddleware(MiddlewareMixin):
         # Exempt API endpoints from CSRF if they use JWT authentication
         if request.path.startswith('/api/') and request.META.get('HTTP_AUTHORIZATION'):
             setattr(request, '_dont_enforce_csrf_checks', True)
+        
+        # Exempt authentication endpoints that don't require authentication
+        # These endpoints use session authentication but need CSRF exemption for login/signup
+        if request.path.startswith('/api/auth/') and request.method == 'POST':
+            # Allow login, signup, brand-signup, and other auth endpoints without CSRF
+            auth_endpoints = [
+                '/api/auth/login',
+                '/api/auth/signup',
+                '/api/auth/brand-signup',
+                '/api/auth/forgot-password',
+                '/api/auth/verify-otp',
+                '/api/auth/reset-password',
+            ]
+            # Normalize path by removing trailing slash for comparison
+            normalized_path = request.path.rstrip('/')
+            # Check if path matches any auth endpoint
+            if normalized_path in auth_endpoints:
+                setattr(request, '_dont_enforce_csrf_checks', True)
+        
         return None
 
 

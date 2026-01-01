@@ -13,6 +13,7 @@ from django.conf import settings
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.models import User
 from django.middleware.csrf import get_token
+from django.views.decorators.csrf import csrf_exempt
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -60,6 +61,7 @@ def csrf_token_view(request):
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
+@csrf_exempt
 @auth_rate_limit(requests_per_minute=10)
 @log_performance(threshold=2.0)
 def login_view(request):
@@ -220,6 +222,7 @@ def logout_view(request):
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
+@csrf_exempt
 def signup_view(request):
     """
     User registration endpoint for influencers.
@@ -272,11 +275,63 @@ def signup_view(request):
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
+@csrf_exempt
 @auth_rate_limit(requests_per_minute=3)
 @log_performance(threshold=2.0)
 def brand_signup_view(request):
     """Brand registration endpoint which creates a brand user and automatically logs them in."""
+    # #region agent log
+    import json
+    import os
+    log_data = {
+        'location': 'authentication/views.py:281',
+        'message': 'Brand signup request received',
+        'data': {
+            'method': request.method,
+            'path': request.path,
+            'has_data': bool(request.data),
+            'data_keys': list(request.data.keys()) if hasattr(request.data, 'keys') else [],
+            'content_type': request.content_type,
+            'user_authenticated': request.user.is_authenticated,
+        },
+        'timestamp': time.time() * 1000,
+        'sessionId': 'debug-session',
+        'runId': 'run1',
+        'hypothesisId': 'A'
+    }
+    logger.info(f"[DEBUG] {json.dumps(log_data)}")
+    try:
+        log_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), '.cursor', 'debug.log')
+        with open(log_path, 'a', encoding='utf-8') as f:
+            f.write(json.dumps(log_data) + '\n')
+    except Exception:
+        pass
+    # #endregion
+    
     serializer = BrandRegistrationSerializer(data=request.data)
+    
+    # #region agent log
+    log_data2 = {
+        'location': 'authentication/views.py:306',
+        'message': 'Serializer created, checking validation',
+        'data': {
+            'has_request_data': bool(request.data),
+            'serializer_initial_data': dict(serializer.initial_data) if hasattr(serializer, 'initial_data') else {},
+        },
+        'timestamp': time.time() * 1000,
+        'sessionId': 'debug-session',
+        'runId': 'run1',
+        'hypothesisId': 'A'
+    }
+    logger.info(f"[DEBUG] {json.dumps(log_data2)}")
+    try:
+        log_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), '.cursor', 'debug.log')
+        with open(log_path, 'a', encoding='utf-8') as f:
+            f.write(json.dumps(log_data2) + '\n')
+    except Exception:
+        pass
+    # #endregion
+    
     if serializer.is_valid():
         try:
             user = serializer.save()
@@ -300,6 +355,28 @@ def brand_signup_view(request):
             UserProfile.objects.get_or_create(user=user)
 
             profile_serializer = UserProfileSerializer(user, context={'request': request})
+            
+            # #region agent log
+            log_data_success = {
+                'location': 'authentication/views.py:359',
+                'message': 'Returning success response',
+                'data': {
+                    'has_profile_data': bool(profile_serializer.data),
+                },
+                'timestamp': time.time() * 1000,
+                'sessionId': 'debug-session',
+                'runId': 'run1',
+                'hypothesisId': 'C'
+            }
+            logger.info(f"[DEBUG] {json.dumps(log_data_success)}")
+            try:
+                log_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), '.cursor', 'debug.log')
+                with open(log_path, 'a', encoding='utf-8') as f:
+                    f.write(json.dumps(log_data_success) + '\n')
+            except Exception:
+                pass
+            # #endregion
+            
             return api_response(True, result={
                 'message': 'Brand account created successfully! You are now logged in.',
                 'user_id': user.id,
@@ -307,23 +384,63 @@ def brand_signup_view(request):
                 'auto_logged_in': True,
             }, status_code=status.HTTP_201_CREATED)
         except Exception as e:
-            logger.error(f"Brand registration failed: {str(e)}")
+            logger.error(f"Brand registration failed: {str(e)}", exc_info=True)
+            # #region agent log
+            log_data3 = {
+                'location': 'authentication/views.py:367',
+                'message': 'Exception during brand signup',
+                'data': {
+                    'exception_type': type(e).__name__,
+                    'exception_message': str(e),
+                    'exception_args': str(e.args) if hasattr(e, 'args') else '',
+                },
+                'timestamp': time.time() * 1000,
+                'sessionId': 'debug-session',
+                'runId': 'run1',
+                'hypothesisId': 'B'
+            }
+            logger.info(f"[DEBUG] {json.dumps(log_data3)}")
+            try:
+                log_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), '.cursor', 'debug.log')
+                with open(log_path, 'a', encoding='utf-8') as f:
+                    f.write(json.dumps(log_data3) + '\n')
+            except Exception:
+                pass
+            # #endregion
             # Check if it's a database constraint error
-            if 'UNIQUE constraint failed' in str(e):
-                if 'email' in str(e).lower():
-                    return Response({
-                        'status': 'error',
-                        'message': 'A user with this email already exists.'
-                    }, status=status.HTTP_400_BAD_REQUEST)
-                elif 'domain' in str(e).lower():
-                    return Response({
-                        'status': 'error',
-                        'message': 'A brand with this domain already exists.'
-                    }, status=status.HTTP_400_BAD_REQUEST)
-            return Response({
-                'status': 'error',
-                'message': 'Brand registration failed. Please try again.'
-            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            error_str = str(e).lower()
+            if 'unique constraint' in error_str or 'duplicate key' in error_str or 'already exists' in error_str:
+                if 'email' in error_str or 'user_profiles.email' in error_str or 'auth_user.email' in error_str:
+                    return api_response(False, error='A user with this email already exists.', status_code=status.HTTP_400_BAD_REQUEST)
+                elif 'domain' in error_str or 'brands.domain' in error_str:
+                    return api_response(False, error='A brand with this domain already exists.', status_code=status.HTTP_400_BAD_REQUEST)
+                elif 'username' in error_str or 'auth_user.username' in error_str:
+                    return api_response(False, error='This username is already taken.', status_code=status.HTTP_400_BAD_REQUEST)
+                elif 'phone_number' in error_str or 'user_profiles.phone_number' in error_str:
+                    return api_response(False, error='This phone number is already in use.', status_code=status.HTTP_400_BAD_REQUEST)
+            return api_response(False, error='Brand registration failed. Please try again.', status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+    # #region agent log
+    log_data4 = {
+        'location': 'authentication/views.py:397',
+        'message': 'Serializer validation failed',
+        'data': {
+            'serializer_errors': dict(serializer.errors),
+            'error_count': len(serializer.errors),
+        },
+        'timestamp': time.time() * 1000,
+        'sessionId': 'debug-session',
+        'runId': 'run1',
+        'hypothesisId': 'A'
+    }
+    logger.info(f"[DEBUG] {json.dumps(log_data4)}")
+    try:
+        log_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), '.cursor', 'debug.log')
+        with open(log_path, 'a', encoding='utf-8') as f:
+            f.write(json.dumps(log_data4) + '\n')
+    except Exception:
+        pass
+    # #endregion
     return api_response(False, error=format_serializer_errors(serializer.errors), status_code=status.HTTP_400_BAD_REQUEST)
 
 
@@ -346,6 +463,7 @@ def verify_email_view(request, token):
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
+@csrf_exempt
 def forgot_password_view(request):
     """
     Password reset request endpoint.
@@ -466,6 +584,7 @@ def forgot_password_view(request):
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
+@csrf_exempt
 def verify_otp_view(request):
     """
     Verify OTP for password reset.
@@ -562,6 +681,7 @@ def verify_otp_view(request):
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
+@csrf_exempt
 def reset_password_view(request):
     """
     Password reset confirmation endpoint.

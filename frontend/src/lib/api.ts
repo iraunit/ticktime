@@ -39,8 +39,17 @@ api.interceptors.request.use(
     async (config: ExtendedAxiosRequestConfig) => {
         // Add CSRF token for unsafe methods
         const method = (config.method || 'get').toLowerCase();
+        const url = config.url || 'unknown';
+        
         if (['post', 'put', 'patch', 'delete'].includes(method)) {
             let token = getCookie('csrftoken');
+            
+            // #region agent log
+            if (url.includes('/auth/login') || url.includes('/auth/signup') || url.includes('/auth/brand-signup')) {
+                fetch('http://127.0.0.1:7242/ingest/f64fc835-e35e-44ca-9bca-21f639ad23d2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.ts:48',message:'Request interceptor',data:{url,method,hasCsrfToken:!!token},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+            }
+            // #endregion
+            
             if (!token) {
                 try {
                     await api.get('/auth/csrf/');
@@ -61,7 +70,21 @@ api.interceptors.request.use(
 
 api.interceptors.response.use(
     (response: AxiosResponse) => {
+        // #region agent log
+        if (response.config?.url?.includes('brand-signup')) {
+            fetch('http://127.0.0.1:7242/ingest/f64fc835-e35e-44ca-9bca-21f639ad23d2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.ts:72',message:'Response interceptor for brand-signup',data:{status:response.status,hasData:!!response.data,dataKeys:response.data?Object.keys(response.data):[],success:response.data?.success,hasResult:!!response.data?.result,hasError:!!response.data?.error,errorValue:response.data?.error},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'F'})}).catch(()=>{});
+        }
+        // #endregion
         const data = response.data;
+        const url = response.config?.url || 'unknown';
+
+        // #region agent log
+        if (url.includes('/auth/login') || url.includes('/auth/signup') || url.includes('/auth/brand-signup')) {
+            const logData = {location:'api.ts:82',message:'API response interceptor',data:{url,hasData:!!data,hasSuccess:data?.success,resultKeys:data?.result?Object.keys(data.result):[],status:response.status},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'};
+            console.log('[DEBUG API Response]', logData);
+            fetch('http://127.0.0.1:7242/ingest/f64fc835-e35e-44ca-9bca-21f639ad23d2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(logData)}).catch(()=>{});
+        }
+        // #endregion
 
         // Handle consistent API response format
         if (data && typeof data === 'object' && 'success' in data) {
@@ -81,12 +104,27 @@ api.interceptors.response.use(
 
             // Return only the result data for successful responses
             response.data = data.result || data;
+            
+            // #region agent log
+            if (url.includes('/auth/login') || url.includes('/auth/signup') || url.includes('/auth/brand-signup')) {
+                fetch('http://127.0.0.1:7242/ingest/f64fc835-e35e-44ca-9bca-21f639ad23d2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.ts:109',message:'After response transformation',data:{url,transformedKeys:response.data?Object.keys(response.data):[],hasUser:!!response.data?.user},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+            }
+            // #endregion
         }
 
         return response;
     },
     async (error: AxiosError | any) => {
         const originalRequest = error.config as ExtendedAxiosRequestConfig;
+        const url = originalRequest?.url || 'unknown';
+
+        // #region agent log
+        if (url.includes('/auth/login') || url.includes('/auth/signup') || url.includes('/auth/brand-signup')) {
+            const logData = {location:'api.ts:122',message:'API error interceptor',data:{url,hasResponse:!!error.response,status:error.response?.status,errorMessage:error.message,responseData:error.response?.data},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'};
+            console.error('[DEBUG API Error]', logData);
+            fetch('http://127.0.0.1:7242/ingest/f64fc835-e35e-44ca-9bca-21f639ad23d2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(logData)}).catch(()=>{});
+        }
+        // #endregion
 
         // Handle network errors with retry
         if (!error.response) {

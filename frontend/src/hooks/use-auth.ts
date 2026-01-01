@@ -70,51 +70,110 @@ export function useAuth() {
 
     // Login mutation (creates session)
     const loginMutation = useMutation({
-        mutationFn: ({identifier, password, remember_me}: { identifier: string; password: string; remember_me?: boolean }) =>
-            authApi.login(identifier, password, remember_me),
+        mutationFn: ({identifier, password, remember_me}: { identifier: string; password: string; remember_me?: boolean }) => {
+            // #region agent log
+            const logData = {location:'use-auth.ts:73',message:'Login mutation called',data:{identifier:identifier?.substring(0,5)+'***',hasPassword:!!password,remember_me},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'};
+            console.log('[DEBUG]', logData);
+            fetch('http://127.0.0.1:7242/ingest/f64fc835-e35e-44ca-9bca-21f639ad23d2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(logData)}).catch(()=>{});
+            // #endregion
+            return authApi.login(identifier, password, remember_me);
+        },
         onSuccess: async (response) => {
             try {
+                // #region agent log
+                const logData = {location:'use-auth.ts:76',message:'Login onSuccess called',data:{hasResponse:!!response,responseKeys:response?.data?Object.keys(response.data):[],hasUser:!!response?.data?.user,userAccountType:response?.data?.user?.account_type},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'};
+                console.log('[DEBUG]', logData);
+                fetch('http://127.0.0.1:7242/ingest/f64fc835-e35e-44ca-9bca-21f639ad23d2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(logData)}).catch(()=>{});
+                // #endregion
                 toast.success('Welcome back!');
                 setIsAuthenticatedState(true);
                 queryClient.invalidateQueries({queryKey: ['user']});
                 
-                // Wait for user context to refresh to get the latest user data
-                await refreshUserContext();
-                
-                // Small delay to ensure session cookie is set and user context is updated
-                await new Promise(resolve => setTimeout(resolve, 100));
-
-                // Get user from response first
+                // Get user from response FIRST - this is the source of truth
                 // Response structure after interceptor: response.data = {user: {...}, message: '...'}
                 let user = response?.data?.user;
                 
-                // If user not in response, try to get from API
+                // #region agent log
+                const logData2 = {location:'use-auth.ts:92',message:'User from response',data:{hasUser:!!user,userAccountType:user?.account_type},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'};
+                console.log('[DEBUG]', logData2);
+                fetch('http://127.0.0.1:7242/ingest/f64fc835-e35e-44ca-9bca-21f639ad23d2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(logData2)}).catch(()=>{});
+                // #endregion
+                
+                // Wait a bit for session cookie to be set by browser
+                await new Promise(resolve => setTimeout(resolve, 200));
+                
+                // #region agent log
+                const hasSessionAfter = typeof document !== 'undefined' && document.cookie.split(';').some(c => c.trim().startsWith('sessionid='));
+                const logData3 = {location:'use-auth.ts:100',message:'After cookie wait',data:{hasSessionCookie:hasSessionAfter},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'};
+                console.log('[DEBUG]', logData3);
+                fetch('http://127.0.0.1:7242/ingest/f64fc835-e35e-44ca-9bca-21f639ad23d2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(logData3)}).catch(()=>{});
+                // #endregion
+                
+                // Don't call refreshUserContext here - it may fail if session isn't ready yet
+                // Query invalidation above will trigger a natural refresh when components need it
+                // If user not in response, try to get from API as fallback
                 if (!user) {
                     try {
+                        // #region agent log
+                        const logData5 = {location:'use-auth.ts:115',message:'Fetching user from checkAuth (fallback)',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'};
+                        console.log('[DEBUG]', logData5);
+                        fetch('http://127.0.0.1:7242/ingest/f64fc835-e35e-44ca-9bca-21f639ad23d2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(logData5)}).catch(()=>{});
+                        // #endregion
                         const authCheck = await authApi.checkAuth();
                         user = authCheck.data?.user;
-                    } catch (error) {
+                        // #region agent log
+                        const logData6 = {location:'use-auth.ts:119',message:'User from checkAuth',data:{hasUser:!!user,userAccountType:user?.account_type},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'};
+                        console.log('[DEBUG]', logData6);
+                        fetch('http://127.0.0.1:7242/ingest/f64fc835-e35e-44ca-9bca-21f639ad23d2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(logData6)}).catch(()=>{});
+                        // #endregion
+                    } catch (error: any) {
+                        // #region agent log
+                        const logData7 = {location:'use-auth.ts:123',message:'checkAuth failed',data:{error:error?.message||String(error)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'};
+                        console.warn('[DEBUG]', logData7);
+                        fetch('http://127.0.0.1:7242/ingest/f64fc835-e35e-44ca-9bca-21f639ad23d2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(logData7)}).catch(()=>{});
+                        // #endregion
                         console.warn('Failed to fetch user after login:', error);
                         // Will use default route below
                     }
                 }
 
                 const next = getNextPath();
-                if (next) {
-                    router.replace(next);
-                    return;
-                }
-
-                // Redirect based on account type using utility function
                 const dashboardRoute = user ? getDashboardRoute(user) : '/influencer/dashboard';
-                router.replace(dashboardRoute);
-            } catch (error) {
+                
+                // #region agent log
+                const logData8 = {location:'use-auth.ts:132',message:'Navigation decision',data:{hasNext:!!next,nextPath:next,dashboardRoute,hasUser:!!user},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'};
+                console.log('[DEBUG]', logData8);
+                fetch('http://127.0.0.1:7242/ingest/f64fc835-e35e-44ca-9bca-21f639ad23d2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(logData8)}).catch(()=>{});
+                // #endregion
+                
+                // Wait a moment for session cookie to be fully established, then redirect
+                await new Promise(resolve => setTimeout(resolve, 100));
+                
+                // Redirect to appropriate dashboard
+                const redirectPath = next || dashboardRoute;
+                if (redirectPath && typeof redirectPath === 'string' && redirectPath.startsWith('/')) {
+                    router.replace(redirectPath);
+                } else {
+                    // Fallback to default dashboard if path is invalid
+                    router.replace('/influencer/dashboard');
+                }
+            } catch (error: any) {
+                // #region agent log
+                const logData9 = {location:'use-auth.ts:143',message:'Login success handler error',data:{error:error?.message||String(error)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'};
+                console.error('[DEBUG ERROR]', logData9);
+                fetch('http://127.0.0.1:7242/ingest/f64fc835-e35e-44ca-9bca-21f639ad23d2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(logData9)}).catch(()=>{});
+                // #endregion
                 console.error('Error during login success handler:', error);
                 // Fallback: redirect to default dashboard
                 router.replace('/influencer/dashboard');
             }
         },
         onError: (error: any) => {
+            // #region agent log
+            const logData = {location:'use-auth.ts:120',message:'Login mutation error',data:{error:error?.message||String(error),status:error?.response?.status,responseData:error?.response?.data},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'};
+            console.error('[DEBUG ERROR]', logData);
+            fetch('http://127.0.0.1:7242/ingest/f64fc835-e35e-44ca-9bca-21f639ad23d2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(logData)}).catch(()=>{});
+            // #endregion
             const errorMessage = formatErrorMessage(error);
             toast.error(errorMessage);
         },
@@ -132,60 +191,117 @@ export function useAuth() {
             country_code: string;
             username: string;
             industry: string;
-        }) => authApi.signup(data),
+        }) => {
+            // #region agent log
+            fetch('http://127.0.0.1:7242/ingest/f64fc835-e35e-44ca-9bca-21f639ad23d2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'use-auth.ts:163',message:'Signup mutation called',data:{email:data.email?.substring(0,5)+'***',hasPassword:!!data.password,username:data.username,industry:data.industry},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+            // #endregion
+            return authApi.signup(data);
+        },
         onSuccess: async (response) => {
             try {
+                // #region agent log
+                const logData = {location:'use-auth.ts:170',message:'Signup onSuccess called',data:{hasResponse:!!response,responseKeys:response?.data?Object.keys(response.data):[],hasUser:!!response?.data?.user,autoLoggedIn:response?.data?.auto_logged_in},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'};
+                console.log('[DEBUG]', logData);
+                fetch('http://127.0.0.1:7242/ingest/f64fc835-e35e-44ca-9bca-21f639ad23d2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(logData)}).catch(()=>{});
+                // #endregion
                 // Show success message
                 toast.success('Account created successfully! Welcome to TickTime!');
 
                 setIsAuthenticatedState(true);
                 queryClient.invalidateQueries({queryKey: ['user']});
                 
-                // Small delay to ensure session cookie is set
-                await new Promise(resolve => setTimeout(resolve, 200));
-                
-                // Refresh user context to get the latest user data
-                await refreshUserContext();
-                
-                // Additional small delay to ensure user context is updated
-                await new Promise(resolve => setTimeout(resolve, 100));
-
-                // Check if session cookie exists (user was logged in)
-                const hasSession = typeof window !== 'undefined' && 
-                    document.cookie.split(';').some(c => c.trim().startsWith('sessionid='));
-
-                // Get user from response first
+                // Get user from response FIRST - this is the source of truth
                 // Response structure after interceptor: response.data = {user: {...}, auto_logged_in: true, ...}
                 let user = response?.data?.user;
                 const autoLoggedIn = response?.data?.auto_logged_in;
-
-                // If user not in response but we have a session, fetch from API
-                if (!user && hasSession) {
-                    try {
-                        const authCheck = await authApi.checkAuth();
-                        user = authCheck.data?.user;
-                    } catch (error) {
-                        console.warn('Failed to fetch user after signup:', error);
-                        // Will use default route below
+                
+                // #region agent log
+                const logData2 = {location:'use-auth.ts:185',message:'User from response',data:{hasUser:!!user,autoLoggedIn,userAccountType:user?.account_type},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'};
+                console.log('[DEBUG]', logData2);
+                fetch('http://127.0.0.1:7242/ingest/f64fc835-e35e-44ca-9bca-21f639ad23d2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(logData2)}).catch(()=>{});
+                // #endregion
+                
+                // Wait a bit for session cookie to be set by browser
+                await new Promise(resolve => setTimeout(resolve, 200));
+                
+                // #region agent log
+                const hasSessionAfter = typeof window !== 'undefined' && document.cookie.split(';').some(c => c.trim().startsWith('sessionid='));
+                const logData3 = {location:'use-auth.ts:193',message:'After cookie wait',data:{hasSessionCookie:hasSessionAfter},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'};
+                console.log('[DEBUG]', logData3);
+                fetch('http://127.0.0.1:7242/ingest/f64fc835-e35e-44ca-9bca-21f639ad23d2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(logData3)}).catch(()=>{});
+                // #endregion
+                
+                // Don't call refreshUserContext here - it may fail if session isn't ready yet
+                // Query invalidation above will trigger a natural refresh when components need it
+                // If user not in response, try to get from API as fallback
+                if (!user) {
+                    const hasSession = typeof window !== 'undefined' && 
+                        document.cookie.split(';').some(c => c.trim().startsWith('sessionid='));
+                    
+                    if (hasSession) {
+                        try {
+                            // #region agent log
+                            const logData5 = {location:'use-auth.ts:212',message:'Fetching user from checkAuth (fallback)',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'};
+                            console.log('[DEBUG]', logData5);
+                            fetch('http://127.0.0.1:7242/ingest/f64fc835-e35e-44ca-9bca-21f639ad23d2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(logData5)}).catch(()=>{});
+                            // #endregion
+                            const authCheck = await authApi.checkAuth();
+                            user = authCheck.data?.user;
+                            // #region agent log
+                            const logData6 = {location:'use-auth.ts:217',message:'User from checkAuth',data:{hasUser:!!user,userAccountType:user?.account_type},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'};
+                            console.log('[DEBUG]', logData6);
+                            fetch('http://127.0.0.1:7242/ingest/f64fc835-e35e-44ca-9bca-21f639ad23d2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(logData6)}).catch(()=>{});
+                            // #endregion
+                        } catch (error: any) {
+                            // #region agent log
+                            const logData7 = {location:'use-auth.ts:221',message:'checkAuth failed',data:{error:error?.message||String(error)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'};
+                            console.warn('[DEBUG]', logData7);
+                            fetch('http://127.0.0.1:7242/ingest/f64fc835-e35e-44ca-9bca-21f639ad23d2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(logData7)}).catch(()=>{});
+                            // #endregion
+                            console.warn('Failed to fetch user after signup:', error);
+                            // Will use default route below
+                        }
                     }
                 }
 
                 // If we have a session or user data, redirect to dashboard
-                if (hasSession || autoLoggedIn || user) {
-                    // Redirect to appropriate dashboard
-                    const dashboardRoute = user ? getDashboardRoute(user) : '/influencer/dashboard';
-                    router.replace(dashboardRoute);
+                const dashboardRoute = user ? getDashboardRoute(user) : '/influencer/dashboard';
+                
+                // #region agent log
+                const logData8 = {location:'use-auth.ts:234',message:'Signup navigation decision',data:{hasSession:hasSessionAfter,autoLoggedIn,hasUser:!!user,dashboardRoute},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'};
+                console.log('[DEBUG]', logData8);
+                fetch('http://127.0.0.1:7242/ingest/f64fc835-e35e-44ca-9bca-21f639ad23d2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(logData8)}).catch(()=>{});
+                // #endregion
+                
+                if (hasSessionAfter || autoLoggedIn || user) {
+                    // Wait a moment for session cookie to be fully established, then redirect
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                    
+                    // Redirect to appropriate dashboard after signup
+                    if (dashboardRoute && typeof dashboardRoute === 'string' && dashboardRoute.startsWith('/')) {
+                        router.replace(dashboardRoute);
+                    } else {
+                        router.replace('/influencer/dashboard');
+                    }
                 } else {
                     // Fallback: redirect to login with success message
                     router.replace('/accounts/login?message=Account created successfully! You can now log in.');
                 }
-            } catch (error) {
+            } catch (error: any) {
+                // #region agent log
+                const logData9 = {location:'use-auth.ts:245',message:'Signup success handler error',data:{error:error?.message||String(error)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'};
+                console.error('[DEBUG ERROR]', logData9);
+                fetch('http://127.0.0.1:7242/ingest/f64fc835-e35e-44ca-9bca-21f639ad23d2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(logData9)}).catch(()=>{});
+                // #endregion
                 console.error('Error during signup success handler:', error);
                 // Fallback: redirect to login page
                 router.replace('/accounts/login?message=Account created successfully! You can now log in.');
             }
         },
         onError: (error: any) => {
+            // #region agent log
+            fetch('http://127.0.0.1:7242/ingest/f64fc835-e35e-44ca-9bca-21f639ad23d2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'use-auth.ts:238',message:'Signup mutation error',data:{error:error?.message||String(error),status:error?.response?.status,responseData:error?.response?.data},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+            // #endregion
             const errorMessage = formatErrorMessage(error);
             toast.error(errorMessage);
         },
@@ -206,7 +322,12 @@ export function useAuth() {
             contact_phone: string;
             description?: string;
             gstin?: string;
-        }) => authApi.brandSignup(data),
+        }) => {
+            // #region agent log
+            fetch('http://127.0.0.1:7242/ingest/f64fc835-e35e-44ca-9bca-21f639ad23d2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'use-auth.ts:314',message:'brandSignup API call',data:{hasEmail:!!data.email,hasIndustry:!!data.industry,industryValue:data.industry,hasCountryCode:!!data.country_code,countryCodeValue:data.country_code,dataKeys:Object.keys(data)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
+            // #endregion
+            return authApi.brandSignup(data);
+        },
         onSuccess: async (response) => {
             // Show success message
             toast.success('Brand account created successfully! Welcome to TickTime!');
@@ -245,9 +366,16 @@ export function useAuth() {
                     }
                 }
 
-                // Redirect to appropriate dashboard
+                // Wait a moment for session cookie to be fully established, then redirect
+                await new Promise(resolve => setTimeout(resolve, 100));
+                
+                // Redirect to appropriate dashboard after brand signup
                 const dashboardRoute = finalUser ? getDashboardRoute(finalUser) : '/brand/dashboard';
-                router.replace(dashboardRoute);
+                if (dashboardRoute && typeof dashboardRoute === 'string' && dashboardRoute.startsWith('/')) {
+                    router.replace(dashboardRoute);
+                } else {
+                    router.replace('/brand/dashboard');
+                }
             } else {
                 // Fallback: redirect to login with success message
                 router.replace('/accounts/login?message=Brand account created. Please log in.');
@@ -346,15 +474,19 @@ export function useAuth() {
                 await refreshUserContext();
 
                 const next = getNextPath();
-                if (next) {
-                    router.push(next);
+                if (next && typeof next === 'string' && next.startsWith('/')) {
+                    router.replace(next);
                     return;
                 }
 
                 // Redirect to appropriate dashboard based on user type
                 const user = loginResponse?.data?.user;
                 const dashboardRoute = getDashboardRoute(user);
-                router.push(dashboardRoute);
+                if (dashboardRoute && typeof dashboardRoute === 'string' && dashboardRoute.startsWith('/')) {
+                    router.replace(dashboardRoute);
+                } else {
+                    router.replace('/influencer/dashboard');
+                }
             } catch (error) {
                 console.error('Auto-login after password reset failed:', error);
                 // If auto-login fails, redirect to login page
@@ -380,15 +512,19 @@ export function useAuth() {
                 await refreshUserContext();
 
                 const next = getNextPath();
-                if (next) {
-                    router.push(next);
+                if (next && typeof next === 'string' && next.startsWith('/')) {
+                    router.replace(next);
                     return;
                 }
 
                 // Redirect based on account type using utility function
                 const user = response?.data?.user;
                 const dashboardRoute = getDashboardRoute(user);
-                router.push(dashboardRoute);
+                if (dashboardRoute && typeof dashboardRoute === 'string' && dashboardRoute.startsWith('/')) {
+                    router.replace(dashboardRoute);
+                } else {
+                    router.replace('/influencer/dashboard');
+                }
             }
         },
         onError: (error: any) => {

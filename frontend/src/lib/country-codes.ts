@@ -15,8 +15,8 @@ export interface CountryCode {
 export async function fetchCountryCodes(): Promise<CountryCode[]> {
     try {
         const response = await api.get('/common/country-codes/');
-        if (response.data) {
-            return response.data.country_codes;
+        if (response.data?.result?.country_codes) {
+            return response.data.result.country_codes;
         }
         return [];
     } catch (error) {

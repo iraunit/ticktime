@@ -93,14 +93,23 @@ export function BrandSignupForm() {
 
     const onSubmit = async (data: BrandSignupFormData) => {
         try {
-            const cleanedGstin = data.gstin
-                ? data.gstin.replace(/\s/g, '').toUpperCase()
-                : undefined;
-            await brandSignup.mutateAsync({
+            // #region agent log
+            const submitData = {
                 ...data,
-                gstin: cleanedGstin,
-            });
+                gstin: data.gstin ? data.gstin.replace(/\s/g, '').toUpperCase() : undefined,
+            };
+            fetch('http://127.0.0.1:7242/ingest/f64fc835-e35e-44ca-9bca-21f639ad23d2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'brand-signup-form.tsx:94',message:'Form submission started',data:{hasEmail:!!submitData.email,hasIndustry:!!submitData.industry,hasCountryCode:!!submitData.country_code,hasWebsite:!!submitData.website,industryValue:submitData.industry},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+            // #endregion
+            
+            await brandSignup.mutateAsync(submitData);
+            
+            // #region agent log
+            fetch('http://127.0.0.1:7242/ingest/f64fc835-e35e-44ca-9bca-21f639ad23d2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'brand-signup-form.tsx:104',message:'Form submission succeeded',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+            // #endregion
         } catch (error: any) {
+            // #region agent log
+            fetch('http://127.0.0.1:7242/ingest/f64fc835-e35e-44ca-9bca-21f639ad23d2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'brand-signup-form.tsx:108',message:'Form submission error caught',data:{errorType:error?.constructor?.name,errorMessage:error?.message,hasResponse:!!error?.response,responseStatus:error?.response?.status,responseData:error?.response?.data},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+            // #endregion
             // Error toast is already handled in the useAuth hook
             // Log error for debugging
             if (process.env.NODE_ENV === 'development') {

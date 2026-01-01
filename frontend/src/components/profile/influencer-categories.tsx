@@ -32,7 +32,7 @@ export function InfluencerCategories({selectedCategories = [], onChange, disable
         queryFn: async () => {
             try {
                 const response = await api.get('/common/content-categories/');
-                return response.data.categories as ContentCategory[];
+                return response.data?.result?.categories as ContentCategory[] || [];
             } catch (error) {
                 console.error('Error fetching content categories:', error);
                 throw error;

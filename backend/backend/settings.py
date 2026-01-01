@@ -73,6 +73,7 @@ MIDDLEWARE = [
     "django.contrib.sessions.middleware.SessionMiddleware",
     "common.middleware.DynamicCSRFDomainMiddleware",  # Add before CSRF middleware
     "django.middleware.common.CommonMiddleware",
+    "common.middleware.CSRFExemptMiddleware",  # Must be before CSRF middleware to set exemption flag
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
@@ -107,16 +108,35 @@ ASGI_APPLICATION = "backend.asgi.application"
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
 
 # Use PostgreSQL in production, SQLite for development
+DB_HOST = os.environ.get("DB_HOST", "localhost")
+# Check if using a cloud database service (Neon, AWS RDS, etc.) that requires SSL
+# These services typically have specific domain patterns
+CLOUD_DB_HOSTS = ["neon.tech", "aws.neon.tech", "rds.amazonaws.com", "azure.com", "gcp.sql"]
+IS_CLOUD_DB = any(cloud_host in DB_HOST for cloud_host in CLOUD_DB_HOSTS)
+# Allow explicit SSL mode override via environment variable
+SSL_MODE = os.environ.get("DB_SSLMODE")
+if SSL_MODE:
+    DB_SSLMODE = SSL_MODE
+elif IS_CLOUD_DB:
+    # Cloud databases (Neon, AWS RDS, etc.) always require SSL
+    DB_SSLMODE = "require"
+elif DEBUG:
+    # Local development can disable SSL
+    DB_SSLMODE = "disable"
+else:
+    # Production requires SSL
+    DB_SSLMODE = "require"
+
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
         "NAME": os.environ.get("DB_NAME", "influencer_platform"),
         "USER": os.environ.get("DB_USER", "postgres"),
         "PASSWORD": os.environ.get("DB_PASSWORD", "password"),
-        "HOST": os.environ.get("DB_HOST", "localhost"),
+        "HOST": DB_HOST,
         "PORT": os.environ.get("DB_PORT", "5432"),
         "OPTIONS": {
-            "sslmode": "require",
+            "sslmode": DB_SSLMODE,
         },
     }
 }

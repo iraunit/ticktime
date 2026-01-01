@@ -13,8 +13,8 @@ export interface IndustryCategory {
 export async function fetchIndustries(): Promise<IndustryCategory[]> {
     try {
         const response = await api.get('/common/industries/');
-        if (response.data.industries) {
-            return response.data.industries;
+        if (response.data?.result?.industries) {
+            return response.data.result.industries;
         }
         return [];
     } catch (error) {
@@ -29,9 +29,9 @@ export async function fetchIndustries(): Promise<IndustryCategory[]> {
  */
 export async function fetchCategories(): Promise<IndustryCategory[]> {
     try {
-        const response = await api.get('/common/categories/');
-        if (response.data) {
-            return response.data.categories;
+        const response = await api.get('/common/content-categories/');
+        if (response.data?.result?.categories) {
+            return response.data.result.categories;
         }
         return [];
     } catch (error) {

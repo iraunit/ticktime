@@ -1,7 +1,11 @@
 import re
+import time
+import logging
 from urllib.parse import urlparse
 
 from common.models import Industry
+
+logger = logging.getLogger(__name__)
 from django.contrib.auth import authenticate
 from django.contrib.auth.models import User
 from django.contrib.auth.password_validation import validate_password
@@ -147,6 +151,34 @@ class BrandRegistrationSerializer(serializers.Serializer):
         queryset=Industry.objects.filter(is_active=True),
         slug_field='key'
     )
+    
+    def validate_industry(self, value):
+        """Validate industry exists and is active."""
+        # #region agent log
+        import json
+        import os
+        log_data = {
+            'location': 'authentication/serializers.py:157',
+            'message': 'validate_industry called',
+            'data': {
+                'industry_value': str(value) if value else None,
+                'value_type': type(value).__name__ if value else None,
+            },
+            'timestamp': time.time() * 1000,
+            'sessionId': 'debug-session',
+            'runId': 'run1',
+            'hypothesisId': 'B'
+        }
+        logger.info(f"[DEBUG] {json.dumps(log_data)}")
+        try:
+            log_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), '.cursor', 'debug.log')
+            with open(log_path, 'a', encoding='utf-8') as f:
+                f.write(json.dumps(log_data) + '\n')
+        except Exception:
+            pass
+        # #endregion
+        return value
+    
     website = serializers.URLField()
     country_code = serializers.CharField(max_length=5)
     contact_phone = serializers.CharField(max_length=15)
@@ -191,6 +223,35 @@ class BrandRegistrationSerializer(serializers.Serializer):
 
     def validate(self, attrs):
         """Cross-field validation including domain checking."""
+        # #region agent log
+        import json
+        import logging
+        logger = logging.getLogger(__name__)
+        log_data = {
+            'location': 'authentication/serializers.py:192',
+            'message': 'BrandRegistrationSerializer.validate called',
+            'data': {
+                'attrs_keys': list(attrs.keys()),
+                'has_industry': 'industry' in attrs,
+                'industry_value': str(attrs.get('industry')) if 'industry' in attrs else None,
+                'has_email': 'email' in attrs,
+                'email_value': attrs.get('email', '')[:10] + '***' if 'email' in attrs else None,
+            },
+            'timestamp': time.time() * 1000,
+            'sessionId': 'debug-session',
+            'runId': 'run1',
+            'hypothesisId': 'A'
+        }
+        logger.info(f"[DEBUG] {json.dumps(log_data)}")
+        try:
+            import os
+            log_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), '.cursor', 'debug.log')
+            with open(log_path, 'a', encoding='utf-8') as f:
+                f.write(json.dumps(log_data) + '\n')
+        except Exception:
+            pass
+        # #endregion
+        
         if attrs['password'] != attrs['password_confirm']:
             raise serializers.ValidationError({"password_confirm": "Password confirmation doesn't match."})
 
@@ -231,6 +292,30 @@ class BrandRegistrationSerializer(serializers.Serializer):
 
         if contact_phone and UserProfile.objects.filter(phone_number=contact_phone).exists():
             raise serializers.ValidationError({"contact_phone": "This phone number is already in use."})
+        
+        # #region agent log
+        import os
+        log_data3 = {
+            'location': 'authentication/serializers.py:260',
+            'message': 'Validation passed, returning attrs',
+            'data': {
+                'has_domain': 'domain' in attrs,
+                'has_industry': 'industry' in attrs,
+                'industry_type': type(attrs.get('industry')).__name__ if 'industry' in attrs else None,
+            },
+            'timestamp': time.time() * 1000,
+            'sessionId': 'debug-session',
+            'runId': 'run1',
+            'hypothesisId': 'A'
+        }
+        logger.info(f"[DEBUG] {json.dumps(log_data3)}")
+        try:
+            log_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), '.cursor', 'debug.log')
+            with open(log_path, 'a', encoding='utf-8') as f:
+                f.write(json.dumps(log_data3) + '\n')
+        except Exception:
+            pass
+        # #endregion
 
         return attrs
 
@@ -248,6 +333,30 @@ class BrandRegistrationSerializer(serializers.Serializer):
     def create(self, validated_data):
         from brands.models import Brand, BrandUser
 
+        # #region agent log
+        import os
+        log_data = {
+            'location': 'authentication/serializers.py:291',
+            'message': 'create() method called',
+            'data': {
+                'validated_data_keys': list(validated_data.keys()),
+                'has_industry': 'industry' in validated_data,
+                'industry_type': type(validated_data.get('industry')).__name__ if 'industry' in validated_data else None,
+            },
+            'timestamp': time.time() * 1000,
+            'sessionId': 'debug-session',
+            'runId': 'run1',
+            'hypothesisId': 'B'
+        }
+        logger.info(f"[DEBUG] {json.dumps(log_data)}")
+        try:
+            log_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), '.cursor', 'debug.log')
+            with open(log_path, 'a', encoding='utf-8') as f:
+                f.write(json.dumps(log_data) + '\n')
+        except Exception:
+            pass
+        # #endregion
+
         # Extract domain
         domain = validated_data.pop('domain')
         validated_data.pop('password_confirm', None)
@@ -255,6 +364,31 @@ class BrandRegistrationSerializer(serializers.Serializer):
         # Extract brand fields
         name = validated_data.pop('name')
         industry = validated_data.pop('industry')
+        
+        # #region agent log
+        import os
+        log_data2 = {
+            'location': 'authentication/serializers.py:315',
+            'message': 'Extracted industry from validated_data',
+            'data': {
+                'industry_type': type(industry).__name__,
+                'industry_id': industry.id if hasattr(industry, 'id') else None,
+                'industry_key': industry.key if hasattr(industry, 'key') else None,
+            },
+            'timestamp': time.time() * 1000,
+            'sessionId': 'debug-session',
+            'runId': 'run1',
+            'hypothesisId': 'B'
+        }
+        logger.info(f"[DEBUG] {json.dumps(log_data2)}")
+        try:
+            log_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), '.cursor', 'debug.log')
+            with open(log_path, 'a', encoding='utf-8') as f:
+                f.write(json.dumps(log_data2) + '\n')
+        except Exception:
+            pass
+        # #endregion
+        
         website = validated_data.pop('website')
         country_code = validated_data.pop('country_code')
         contact_phone = validated_data.pop('contact_phone')

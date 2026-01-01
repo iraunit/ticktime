@@ -44,7 +44,7 @@ export function ProfileForm({profile}: ProfileFormProps) {
         queryFn: async () => {
             try {
                 const response = await api.get('/common/content-categories/');
-                return response.data.categories as Array<{ id: number; key: string; name: string }>;
+                return response.data?.result?.categories as Array<{ id: number; key: string; name: string }> || [];
             } catch (error) {
                 console.error('Error fetching content categories:', error);
                 return [];
