@@ -339,7 +339,7 @@ export const adminCommunicationApi = {
     me: async () => api.get('/admin/me/'),
 
     templates: {
-        list: async () => api.get('/admin/templates/'),
+        list: async (params?: any) => api.get('/admin/templates/', {params}),
         create: async (data: any) => api.post('/admin/templates/', data),
         update: async (id: number, data: any) => api.put(`/admin/templates/${id}/`, data),
         remove: async (id: number) => api.delete(`/admin/templates/${id}/`),
@@ -347,13 +347,15 @@ export const adminCommunicationApi = {
     },
 
     senderNumbers: {
-        list: async () => api.get('/admin/sender-numbers/'),
+        list: async (params?: any) => api.get('/admin/sender-numbers/', {params}),
         create: async (data: any) => api.post('/admin/sender-numbers/', data),
         update: async (id: number, data: any) => api.put(`/admin/sender-numbers/${id}/`, data),
         remove: async (id: number) => api.delete(`/admin/sender-numbers/${id}/`),
     },
 
     campaigns: {
+        list: async (params?: any) => api.get('/admin/campaigns/', {params}),
+        detail: async (campaignId: number) => api.get(`/admin/campaigns/${campaignId}/`),
         templatesGet: async (campaignId: number) => api.get(`/admin/campaigns/${campaignId}/templates/`),
         templatesSet: async (campaignId: number, data: any) => api.put(`/admin/campaigns/${campaignId}/templates/set/`, data),
         influencersList: async (campaignId: number, params?: any) => api.get(`/admin/campaigns/${campaignId}/influencers/`, {params}),

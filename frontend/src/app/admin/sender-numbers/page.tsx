@@ -35,8 +35,10 @@ export default function AdminSenderNumbersPage() {
         setLoading(true);
         try {
             await adminCommunicationApi.me();
-            const res = await adminCommunicationApi.senderNumbers.list();
-            setRows(res.data as any);
+            const res = await adminCommunicationApi.senderNumbers.list({page: 1, page_size: 50});
+            const data: any = res.data;
+            const items = Array.isArray(data) ? data : (data?.items || []);
+            setRows(items);
         } finally {
             setLoading(false);
         }

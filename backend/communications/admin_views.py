@@ -17,6 +17,7 @@ from communications.msg91_client import get_msg91_client
 from communications.whatsapp_service import get_whatsapp_service
 from deals.models import Deal
 from influencers.models import InfluencerProfile
+from django.db.models import Q
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
@@ -45,6 +46,76 @@ def admin_me(request):
     if denial:
         return api_response(False, error=denial["error"], status_code=denial["status_code"])
     return api_response(True, result={"ok": True}, status_code=status.HTTP_200_OK)
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def campaigns_list(request):
+    """
+    Admin-scoped campaigns listing (does NOT apply influencer-only restrictions).
+    """
+    denial = _require_comm_admin(request)
+    if denial:
+        return api_response(False, error=denial["error"], status_code=denial["status_code"])
+
+    q = (request.query_params.get("q") or "").strip()
+    page = int(request.query_params.get("page") or 1)
+    page_size = int(request.query_params.get("page_size") or 50)
+    if page < 1:
+        page = 1
+    if page_size < 1:
+        page_size = 50
+    if page_size > 200:
+        page_size = 200
+
+    qs = Campaign.objects.select_related("brand").all().order_by("-created_at")
+    if q:
+        qs = qs.filter(title__icontains=q) | qs.filter(brand__name__icontains=q)
+
+    total = qs.count()
+    offset = (page - 1) * page_size
+    rows = [
+        {
+            "id": c.id,
+            "title": c.title,
+            "brand_name": getattr(c.brand, "name", ""),
+            "is_active": c.is_active,
+            "created_at": c.created_at,
+        }
+        for c in qs[offset: offset + page_size]
+    ]
+    return api_response(
+        True,
+        result={"items": rows, "page": page, "page_size": page_size, "total": total},
+        status_code=status.HTTP_200_OK,
+    )
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def campaign_detail(request, campaign_id: int):
+    """
+    Admin-scoped campaign detail (for admin UI headers).
+    """
+    denial = _require_comm_admin(request)
+    if denial:
+        return api_response(False, error=denial["error"], status_code=denial["status_code"])
+
+    c = Campaign.objects.select_related("brand").filter(id=campaign_id).first()
+    if not c:
+        return api_response(False, error="Campaign not found", status_code=status.HTTP_404_NOT_FOUND)
+
+    return api_response(
+        True,
+        result={
+            "id": c.id,
+            "title": c.title,
+            "brand_name": getattr(c.brand, "name", ""),
+            "is_active": c.is_active,
+            "created_at": c.created_at,
+        },
+        status_code=status.HTTP_200_OK,
+    )
 
 
 # -------------------------
@@ -130,8 +201,36 @@ def templates_list_create(request):
 
     if request.method == "GET":
         qs = MessageTemplate.objects.all().order_by("-updated_at")
-        data = MessageTemplateSerializer(qs, many=True).data
-        return api_response(True, result=data, status_code=status.HTTP_200_OK)
+        q = (request.query_params.get("q") or "").strip()
+        channel = (request.query_params.get("channel") or "").strip()
+        provider = (request.query_params.get("provider") or "").strip()
+        integrated = (request.query_params.get("provider_integrated_number") or "").strip()
+        page = int(request.query_params.get("page") or 1)
+        page_size = int(request.query_params.get("page_size") or 50)
+        if page < 1:
+            page = 1
+        if page_size < 1:
+            page_size = 50
+        if page_size > 200:
+            page_size = 200
+
+        if q:
+            qs = qs.filter(provider_template_name__icontains=q) | qs.filter(template_key__icontains=q)
+        if channel:
+            qs = qs.filter(channel=channel)
+        if provider:
+            qs = qs.filter(provider=provider)
+        if integrated:
+            qs = qs.filter(provider_integrated_number=integrated)
+
+        total = qs.count()
+        offset = (page - 1) * page_size
+        data = MessageTemplateSerializer(qs[offset: offset + page_size], many=True).data
+        return api_response(
+            True,
+            result={"items": data, "page": page, "page_size": page_size, "total": total},
+            status_code=status.HTTP_200_OK,
+        )
 
     ser = MessageTemplateSerializer(data=request.data)
     if not ser.is_valid():
@@ -254,7 +353,30 @@ def sender_numbers_list_create(request):
 
     if request.method == "GET":
         qs = MSG91SenderNumber.objects.all().order_by("-updated_at")
-        return api_response(True, result=MSG91SenderNumberSerializer(qs, many=True).data, status_code=status.HTTP_200_OK)
+        q = (request.query_params.get("q") or "").strip()
+        channel = (request.query_params.get("channel") or "").strip()
+        page = int(request.query_params.get("page") or 1)
+        page_size = int(request.query_params.get("page_size") or 50)
+        if page < 1:
+            page = 1
+        if page_size < 1:
+            page_size = 50
+        if page_size > 200:
+            page_size = 200
+
+        if q:
+            qs = qs.filter(name__icontains=q) | qs.filter(whatsapp_number__icontains=q) | qs.filter(sms_sender_id__icontains=q)
+        if channel:
+            qs = qs.filter(channel=channel)
+
+        total = qs.count()
+        offset = (page - 1) * page_size
+        data = MSG91SenderNumberSerializer(qs[offset: offset + page_size], many=True).data
+        return api_response(
+            True,
+            result={"items": data, "page": page, "page_size": page_size, "total": total},
+            status_code=status.HTTP_200_OK,
+        )
 
     ser = MSG91SenderNumberSerializer(data=request.data)
     if not ser.is_valid():
@@ -382,12 +504,33 @@ def campaign_influencers_list(request, campaign_id: int):
 
     # Basic filters (optional)
     status_filter = request.query_params.get("deal_status")
+    q = (request.query_params.get("q") or "").strip()
+    page = int(request.query_params.get("page") or 1)
+    page_size = int(request.query_params.get("page_size") or 50)
+    if page < 1:
+        page = 1
+    if page_size < 1:
+        page_size = 50
+    if page_size > 200:
+        page_size = 200
+
     qs = Deal.objects.filter(campaign=campaign).select_related("influencer__user", "influencer__user_profile")
     if status_filter:
         qs = qs.filter(status=status_filter)
+    if q:
+        qs = qs.filter(
+            Q(influencer__user__username__icontains=q)
+            | Q(influencer__user__first_name__icontains=q)
+            | Q(influencer__user__last_name__icontains=q)
+            | Q(influencer__user__email__icontains=q)
+            | Q(influencer__user_profile__phone_number__icontains=q)
+        )
+
+    total = qs.count()
+    offset = (page - 1) * page_size
 
     results = []
-    for d in qs[:2000]:  # guardrail
+    for d in qs[offset: offset + page_size]:
         up = getattr(d.influencer, "user_profile", None)
         results.append(
             {
@@ -402,7 +545,11 @@ def campaign_influencers_list(request, campaign_id: int):
             }
         )
 
-    return api_response(True, result=results, status_code=status.HTTP_200_OK)
+    return api_response(
+        True,
+        result={"items": results, "page": page, "page_size": page_size, "total": total},
+        status_code=status.HTTP_200_OK,
+    )
 
 
 @api_view(["POST"])
@@ -483,6 +630,8 @@ def analytics_messages(request):
     qs = CommunicationLog.objects.all().order_by("-created_at")
 
     qser = CommunicationLogQuerySerializer(data=request.query_params)
+    page = 1
+    page_size = 50
     if qser.is_valid():
         q = qser.validated_data
         if q.get("campaign_id"):
@@ -491,12 +640,20 @@ def analytics_messages(request):
             qs = qs.filter(message_type=q["message_type"])
         if q.get("status"):
             qs = qs.filter(status=q["status"])
+        if q.get("recipient"):
+            qs = qs.filter(recipient__icontains=q["recipient"])
+        if q.get("provider"):
+            qs = qs.filter(provider__icontains=q["provider"])
         if q.get("from_date"):
             qs = qs.filter(created_at__gte=q["from_date"])
         if q.get("to_date"):
             qs = qs.filter(created_at__lte=q["to_date"])
+        page = q.get("page") or 1
+        page_size = q.get("page_size") or 50
 
-    # Keep response light (UI can paginate later)
+    total = qs.count()
+    offset = (page - 1) * page_size
+
     rows = list(
         qs.values(
             "id",
@@ -510,9 +667,60 @@ def analytics_messages(request):
             "read_at",
             "created_at",
             "metadata",
-        )[:500]
+        )[offset: offset + page_size]
     )
-    return api_response(True, result=rows, status_code=status.HTTP_200_OK)
+
+    # Enrich with user + influencer public profile link where possible
+    user_ids = []
+    for r in rows:
+        md = r.get("metadata") or {}
+        if isinstance(md, dict) and md.get("user_id"):
+            try:
+                user_ids.append(int(md.get("user_id")))
+            except Exception:
+                pass
+    user_ids = list(set(user_ids))
+
+    user_map = {}
+    influencer_map = {}
+    if user_ids:
+        from django.contrib.auth.models import User
+        from influencers.models import InfluencerProfile
+
+        for u in User.objects.filter(id__in=user_ids).only("id", "username", "first_name", "last_name", "email"):
+            user_map[u.id] = {
+                "id": u.id,
+                "username": u.username,
+                "full_name": (u.get_full_name() or u.username or "").strip(),
+                "email": u.email,
+            }
+
+        for p in InfluencerProfile.objects.filter(user_id__in=user_ids).only("id", "user_id"):
+            influencer_map[p.user_id] = p.id
+
+    for r in rows:
+        md = r.get("metadata") or {}
+        uid = md.get("user_id") if isinstance(md, dict) else None
+        try:
+            uid_int = int(uid) if uid is not None else None
+        except Exception:
+            uid_int = None
+
+        r["user"] = user_map.get(uid_int) if uid_int else None
+        influencer_id = influencer_map.get(uid_int) if uid_int else None
+        r["influencer_profile_id"] = influencer_id
+        r["public_profile_path"] = f"/influencer/{influencer_id}" if influencer_id else None
+
+    return api_response(
+        True,
+        result={
+            "items": rows,
+            "page": page,
+            "page_size": page_size,
+            "total": total,
+        },
+        status_code=status.HTTP_200_OK,
+    )
 
 
 @api_view(["GET"])

@@ -107,8 +107,12 @@ class CommunicationLogQuerySerializer(serializers.Serializer):
     campaign_id = serializers.IntegerField(required=False)
     message_type = serializers.ChoiceField(choices=["email", "sms", "whatsapp", "push"], required=False)
     status = serializers.CharField(required=False)
+    recipient = serializers.CharField(required=False, allow_blank=True)
+    provider = serializers.CharField(required=False, allow_blank=True)
     from_date = serializers.DateTimeField(required=False)
     to_date = serializers.DateTimeField(required=False)
+    page = serializers.IntegerField(required=False, min_value=1, default=1)
+    page_size = serializers.IntegerField(required=False, min_value=1, max_value=200, default=50)
 
 
 class AccessGrantSerializer(serializers.Serializer):

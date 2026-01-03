@@ -16,6 +16,10 @@ urlpatterns = [
     path("templates/<int:template_id>/", admin_views.templates_detail, name="templates_detail"),
     path("templates/sync/", admin_views.templates_sync_msg91, name="templates_sync"),
 
+    # Campaign listing (admin scope)
+    path("campaigns/", admin_views.campaigns_list, name="campaigns_list"),
+    path("campaigns/<int:campaign_id>/", admin_views.campaign_detail, name="campaign_detail"),
+
     # Sender numbers
     path("sender-numbers/", admin_views.sender_numbers_list_create, name="sender_numbers_list_create"),
     path("sender-numbers/<int:sender_id>/", admin_views.sender_numbers_detail, name="sender_numbers_detail"),

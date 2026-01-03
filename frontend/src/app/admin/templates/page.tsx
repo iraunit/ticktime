@@ -41,8 +41,10 @@ export default function AdminTemplatesPage() {
         setLoading(true);
         try {
             await adminCommunicationApi.me();
-            const res = await adminCommunicationApi.templates.list();
-            setRows(res.data as any);
+            const res = await adminCommunicationApi.templates.list({page: 1, page_size: 50, q: q || undefined});
+            const data: any = res.data;
+            const items = Array.isArray(data) ? data : (data?.items || []);
+            setRows(items);
         } finally {
             setLoading(false);
         }

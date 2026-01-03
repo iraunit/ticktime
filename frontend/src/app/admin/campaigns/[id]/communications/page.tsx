@@ -38,10 +38,12 @@ export default function CampaignCommunicationsConfigPage() {
         try {
             await adminCommunicationApi.me();
             const [tplRes, mapRes] = await Promise.all([
-                adminCommunicationApi.templates.list(),
+                adminCommunicationApi.templates.list({page: 1, page_size: 200}),
                 adminCommunicationApi.campaigns.templatesGet(campaignId),
             ]);
-            setTemplates(tplRes.data as any);
+            const tplData: any = tplRes.data;
+            const tplItems = Array.isArray(tplData) ? tplData : (tplData?.items || []);
+            setTemplates(tplItems as any);
             setMappings(mapRes.data as any);
         } finally {
             setLoading(false);

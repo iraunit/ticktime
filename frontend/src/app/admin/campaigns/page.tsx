@@ -2,7 +2,7 @@
 
 import {useEffect, useState} from "react";
 import Link from "next/link";
-import {adminCommunicationApi, api} from "@/lib/api";
+import {adminCommunicationApi} from "@/lib/api";
 import {Card, CardContent, CardHeader, CardTitle} from "@/components/ui/card";
 import {Input} from "@/components/ui/input";
 import {Button} from "@/components/ui/button";
@@ -23,16 +23,14 @@ export default function AdminCampaignsPage() {
         setLoading(true);
         try {
             await adminCommunicationApi.me();
-            // Use existing public campaigns list API for now.
-            const res = await api.get("/campaigns/");
-            const data = (res.data as any) || [];
-            setRows(
-                (Array.isArray(data) ? data : data?.campaigns || []).map((c: any) => ({
-                    id: c.id,
-                    title: c.title,
-                    brand_name: c.brand_name || c.brand?.name,
-                }))
-            );
+            const res = await adminCommunicationApi.campaigns.list({q: q || undefined, page: 1, page_size: 50});
+            const data: any = res.data;
+            const items = Array.isArray(data) ? data : (data?.items || []);
+            setRows((items as any[]).map((c: any) => ({
+                id: c.id,
+                title: c.title,
+                brand_name: c.brand_name,
+            })));
         } finally {
             setLoading(false);
         }
@@ -43,7 +41,7 @@ export default function AdminCampaignsPage() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-    const filtered = rows.filter(r => (q ? r.title.toLowerCase().includes(q.toLowerCase()) : true));
+    const filtered = rows; // server filters by q
 
     return (
         <Card>
@@ -52,7 +50,10 @@ export default function AdminCampaignsPage() {
                     <CardTitle>Campaigns</CardTitle>
                     <Button variant="outline" onClick={load}>Refresh</Button>
                 </div>
-                <Input placeholder="Search campaigns…" value={q} onChange={(e) => setQ(e.target.value)}/>
+                <div className="flex gap-2">
+                    <Input placeholder="Search campaigns…" value={q} onChange={(e) => setQ(e.target.value)}/>
+                    <Button onClick={load}>Search</Button>
+                </div>
             </CardHeader>
             <CardContent>
                 {loading ? (
