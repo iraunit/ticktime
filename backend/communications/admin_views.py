@@ -273,27 +273,63 @@ def _resolve_value(source_key: str, *, campaign: Campaign, deal: Deal, custom_me
     src = (source_key or "").strip()
     if src.startswith("static:"):
         return src[7:]
+    
+    # Influencer fields
     if src in ("influencer_name", "name"):
         return user.get_full_name() or user.username or "User"
-    if src in ("brand_name",):
-        return getattr(campaign.brand, "name", "") or ""
-    if src in ("campaign_title", "campaign_name"):
-        return getattr(campaign, "title", "") or ""
     if src in ("email",):
         return getattr(user, "email", "") or ""
     if src in ("phone", "phone_number"):
         return getattr(up, "phone_number", "") or ""
-    if src in ("custom_message", "message"):
-        return custom_message or ""
+    
+    # Brand fields
+    if src in ("brand_name",):
+        return getattr(campaign.brand, "name", "") or ""
+    
+    # Campaign fields
+    if src in ("campaign_title", "campaign_name"):
+        return getattr(campaign, "title", "") or ""
+    if src in ("campaign_description",):
+        return getattr(campaign, "description", "") or ""
+    if src in ("campaign_requirements",):
+        return getattr(campaign, "requirements", "") or getattr(campaign, "content_requirements", "") or ""
+    if src in ("campaign_deliverables",):
+        return getattr(campaign, "deliverables", "") or getattr(campaign, "expected_deliverables", "") or ""
+    if src in ("campaign_timeline",):
+        # Try to build timeline from campaign dates
+        start = getattr(campaign, "start_date", None)
+        end = getattr(campaign, "end_date", None)
+        if start and end:
+            return f"{start.strftime('%B %d')} - {end.strftime('%B %d, %Y')}"
+        elif end:
+            return f"Due by {end.strftime('%B %d, %Y')}"
+        return getattr(campaign, "timeline", "") or ""
+    if src in ("campaign_budget",):
+        budget = getattr(deal, "agreed_amount", None) or getattr(deal, "budget", None) or getattr(campaign, "budget_per_influencer", None)
+        if budget:
+            return f"₹{budget:,.0f}" if isinstance(budget, (int, float)) else str(budget)
+        return ""
+    
+    # Deal fields
     if src in ("tracking_number",):
         return getattr(deal, "tracking_number", "") or getattr(deal, "tracking_url", "") or ""
     if src in ("delivery_date",):
+        delivery = getattr(deal, "delivery_date", None) or getattr(deal, "expected_delivery_date", None)
+        if delivery:
+            return delivery.strftime("%B %d, %Y")
         from django.utils import timezone
         from datetime import timedelta
         return (timezone.now() + timedelta(days=7)).strftime("%B %d, %Y")
+    if src in ("deal_status",):
+        return getattr(deal, "status", "") or ""
     if src in ("deal_url", "link"):
         # For preview we avoid generating one-tap tokens repeatedly; show a deterministic placeholder link.
         return f"{getattr(settings, 'FRONTEND_URL', '').rstrip('/')}/influencer/deals/{deal.id}"
+    
+    # Custom message
+    if src in ("custom_message", "message"):
+        return custom_message or ""
+    
     return ""
 
 

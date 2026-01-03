@@ -234,17 +234,28 @@ export default function CampaignBulkSendPage() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [campaignId, notificationType, selectedDealIds.join(","), customMessage, mappingHash]);
 
-    const SOURCE_OPTIONS: Array<{value: string; label: string}> = [
-        {value: "influencer_name", label: "Influencer name"},
-        {value: "email", label: "Influencer email"},
-        {value: "phone_number", label: "Influencer phone"},
-        {value: "brand_name", label: "Brand name"},
-        {value: "campaign_title", label: "Campaign title"},
-        {value: "custom_message", label: "Custom message (input below)"},
-        {value: "deal_url", label: "Deal link (one-tap signed)"},
-        {value: "tracking_number", label: "Tracking number"},
-        {value: "delivery_date", label: "Delivery date (auto)"},
-        {value: "static:", label: "Static text (hardcoded)"},
+    const SOURCE_OPTIONS: Array<{value: string; label: string; group?: string}> = [
+        // Influencer fields
+        {value: "influencer_name", label: "Influencer name", group: "Influencer"},
+        {value: "email", label: "Influencer email", group: "Influencer"},
+        {value: "phone_number", label: "Influencer phone", group: "Influencer"},
+        // Brand fields
+        {value: "brand_name", label: "Brand name", group: "Brand"},
+        // Campaign fields
+        {value: "campaign_title", label: "Campaign title", group: "Campaign"},
+        {value: "campaign_description", label: "Campaign description", group: "Campaign"},
+        {value: "campaign_requirements", label: "Campaign requirements", group: "Campaign"},
+        {value: "campaign_deliverables", label: "Campaign deliverables", group: "Campaign"},
+        {value: "campaign_timeline", label: "Campaign timeline", group: "Campaign"},
+        {value: "campaign_budget", label: "Campaign budget/compensation", group: "Campaign"},
+        // Deal fields
+        {value: "deal_url", label: "Deal link (one-tap signed)", group: "Deal"},
+        {value: "tracking_number", label: "Tracking number", group: "Deal"},
+        {value: "delivery_date", label: "Delivery date", group: "Deal"},
+        {value: "deal_status", label: "Deal status", group: "Deal"},
+        // Custom
+        {value: "custom_message", label: "Custom message (input below)", group: "Custom"},
+        {value: "static:", label: "Static text (hardcoded)", group: "Custom"},
     ];
 
     const isStatic = (v: string) => (v || "").startsWith("static:");
@@ -587,16 +598,16 @@ export default function CampaignBulkSendPage() {
                                     ⚠️ No variables found. Sync templates from MSG91 first.
                                 </div>
                             ) : (
-                                <div className="space-y-2 max-h-[200px] overflow-y-auto">
+                                <div className="space-y-2">
                                     {mappingSchema.map((p: any, idx: number) => {
                                         const varName = String(p?.name || `var_${idx}`);
                                         const current = editingParamMapping[varName] || "";
                                         const isStaticMode = isStatic(current);
                                         const baseSelectValue = isStaticMode ? "static:" : current;
                                         return (
-                                            <div key={varName} className="flex items-center gap-2 text-xs">
-                                                <div className="w-20 font-mono font-semibold text-gray-700 truncate" title={varName}>{varName}</div>
-                                                <span className="text-gray-400">→</span>
+                                            <div key={varName} className={`text-xs ${isStaticMode ? 'p-2 bg-gray-50 rounded-md border' : 'flex items-center gap-2'}`}>
+                                                <div className={`font-mono font-semibold text-gray-700 ${isStaticMode ? 'mb-1' : 'w-20 truncate'}`} title={varName}>{varName}</div>
+                                                {!isStaticMode && <span className="text-gray-400">→</span>}
                                                 <select
                                                     className="flex-1 h-8 rounded border border-gray-300 bg-white px-2 text-xs"
                                                     value={baseSelectValue}
@@ -606,14 +617,36 @@ export default function CampaignBulkSendPage() {
                                                     }}
                                                 >
                                                     <option value="">(auto)</option>
-                                                    {SOURCE_OPTIONS.map(o => (
-                                                        <option key={o.value} value={o.value}>{o.label}</option>
-                                                    ))}
+                                                    <optgroup label="👤 Influencer">
+                                                        {SOURCE_OPTIONS.filter(o => o.group === "Influencer").map(o => (
+                                                            <option key={o.value} value={o.value}>{o.label}</option>
+                                                        ))}
+                                                    </optgroup>
+                                                    <optgroup label="🏢 Brand">
+                                                        {SOURCE_OPTIONS.filter(o => o.group === "Brand").map(o => (
+                                                            <option key={o.value} value={o.value}>{o.label}</option>
+                                                        ))}
+                                                    </optgroup>
+                                                    <optgroup label="📢 Campaign">
+                                                        {SOURCE_OPTIONS.filter(o => o.group === "Campaign").map(o => (
+                                                            <option key={o.value} value={o.value}>{o.label}</option>
+                                                        ))}
+                                                    </optgroup>
+                                                    <optgroup label="🤝 Deal">
+                                                        {SOURCE_OPTIONS.filter(o => o.group === "Deal").map(o => (
+                                                            <option key={o.value} value={o.value}>{o.label}</option>
+                                                        ))}
+                                                    </optgroup>
+                                                    <optgroup label="✏️ Custom">
+                                                        {SOURCE_OPTIONS.filter(o => o.group === "Custom").map(o => (
+                                                            <option key={o.value} value={o.value}>{o.label}</option>
+                                                        ))}
+                                                    </optgroup>
                                                 </select>
                                                 {baseSelectValue === "static:" && (
-                                                    <Input
-                                                        className="w-24 h-8 text-xs"
-                                                        placeholder="Text..."
+                                                    <Textarea
+                                                        className="w-full min-h-[60px] text-xs mt-1"
+                                                        placeholder="Enter text (supports emojis 🎉)..."
                                                         value={staticText(current)}
                                                         onChange={(e) => setEditingParamMapping(prev => ({...prev, [varName]: `static:${e.target.value}`}))}
                                                     />
@@ -651,7 +684,7 @@ export default function CampaignBulkSendPage() {
                                 👈 Select a recipient from the list to see the preview
                             </div>
                         ) : previewData?.preview?.rendered ? (
-                            <div className="bg-white rounded-lg border border-green-200 p-3 space-y-2 text-xs max-h-[250px] overflow-y-auto">
+                            <div className="bg-white rounded-lg border border-green-200 p-3 space-y-2 text-xs">
                                 {previewData.preview.rendered.header_text && (
                                     <div className="font-bold text-sm text-gray-900 border-b pb-2">
                                         {previewData.preview.rendered.header_text}
