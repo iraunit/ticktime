@@ -473,3 +473,15 @@ PASSWORD_RESET_TOKEN_EXPIRY_HOURS = int(os.environ.get("PASSWORD_RESET_TOKEN_EXP
 MSG91_AUTHKEY = os.environ.get("MSG91_AUTHKEY", "")
 MSG91_TEMPLATE_ID = os.environ.get("MSG91_TEMPLATE_ID", "69484ce85647c078cb4035f6")
 MSG91_API_BASE_URL = os.environ.get("MSG91_API_BASE_URL", "https://control.msg91.com/api/v5")
+
+# MSG91 WhatsApp configuration (paths are configurable because MSG91 products differ by account)
+MSG91_TIMEOUT_SECONDS = int(os.environ.get("MSG91_TIMEOUT_SECONDS", "20"))
+MSG91_WHATSAPP_INTEGRATED_NUMBER = os.environ.get("MSG91_WHATSAPP_INTEGRATED_NUMBER", "")
+# For template listing, MSG91 uses: /whatsapp/get-template-client/:number
+# We store the base path here and append /<number> in the client.
+MSG91_WHATSAPP_TEMPLATES_PATH = os.environ.get("MSG91_WHATSAPP_TEMPLATES_PATH", "/whatsapp/get-template-client")
+MSG91_WHATSAPP_SEND_TEMPLATE_PATH = os.environ.get("MSG91_WHATSAPP_SEND_TEMPLATE_PATH", "/whatsapp/whatsapp-outbound-message")
+MSG91_SMS_FLOW_PATH = os.environ.get("MSG91_SMS_FLOW_PATH", "/flow")
+
+# MSG91 webhook security (recommended in production)
+MSG91_WEBHOOK_SECRET = os.environ.get("MSG91_WEBHOOK_SECRET", "")

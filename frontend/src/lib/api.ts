@@ -327,4 +327,48 @@ export const communicationApi = {
     },
 };
 
+// Auth API methods
+export const authApi = {
+    oneTapLogin: async (token: string) => {
+        return api.get(`/auth/one-tap-login/${token}/`);
+    },
+};
+
+// Admin communications API (for /admin panel)
+export const adminCommunicationApi = {
+    me: async () => api.get('/admin/me/'),
+
+    templates: {
+        list: async () => api.get('/admin/templates/'),
+        create: async (data: any) => api.post('/admin/templates/', data),
+        update: async (id: number, data: any) => api.put(`/admin/templates/${id}/`, data),
+        remove: async (id: number) => api.delete(`/admin/templates/${id}/`),
+        sync: async () => api.post('/admin/templates/sync/', {}),
+    },
+
+    senderNumbers: {
+        list: async () => api.get('/admin/sender-numbers/'),
+        create: async (data: any) => api.post('/admin/sender-numbers/', data),
+        update: async (id: number, data: any) => api.put(`/admin/sender-numbers/${id}/`, data),
+        remove: async (id: number) => api.delete(`/admin/sender-numbers/${id}/`),
+    },
+
+    campaigns: {
+        templatesGet: async (campaignId: number) => api.get(`/admin/campaigns/${campaignId}/templates/`),
+        templatesSet: async (campaignId: number, data: any) => api.put(`/admin/campaigns/${campaignId}/templates/set/`, data),
+        influencersList: async (campaignId: number, params?: any) => api.get(`/admin/campaigns/${campaignId}/influencers/`, {params}),
+        sendMessages: async (campaignId: number, data: any) => api.post(`/admin/campaigns/${campaignId}/send-messages/`, data),
+        analytics: async (campaignId: number) => api.get(`/admin/campaigns/${campaignId}/analytics/`),
+    },
+
+    analytics: {
+        messages: async (params?: any) => api.get('/admin/analytics/messages/', {params}),
+    },
+
+    access: {
+        users: async (q?: string) => api.get('/admin/access/users/', {params: {q}}),
+        grant: async (user_id: number, grant: boolean) => api.post('/admin/access/grant/', {user_id, grant}),
+    },
+};
+
 export default api;

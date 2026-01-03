@@ -1,6 +1,7 @@
 from django.urls import path
 
 from . import views
+from . import webhook_urls
 
 app_name = 'communications'
 
@@ -15,3 +16,6 @@ urlpatterns = [
     path('account-status/', views.check_account_status, name='account_status'),
     path('support-query/', views.submit_support_query, name='support_query'),
 ]
+
+# Webhooks (MSG91 callbacks)
+urlpatterns += webhook_urls.urlpatterns

@@ -1,8 +1,9 @@
 import logging
 from typing import Optional, Dict, Any, List
-from urllib.parse import urlparse
+from urllib.parse import urlparse, quote
 
 from django.conf import settings
+from users.models import OneTapLoginToken
 
 from .rabbitmq_service import get_rabbitmq_service
 
@@ -63,6 +64,14 @@ class WhatsAppService:
         template_name = base.get("template_name", whatsapp_type)
         language_code = base.get("language_code", "en")
         return {"template_name": template_name, "language_code": language_code}
+
+    def _build_one_tap_url(self, *, user, next_path: str) -> str:
+        """
+        Build a signed frontend URL that logs the user in automatically and then redirects.
+        """
+        token, _ = OneTapLoginToken.create_token(user)
+        next_path = next_path if next_path.startswith("/") else f"/{next_path}"
+        return f"{self.frontend_url.rstrip('/')}/accounts/one-tap-login/{token}?next={quote(next_path)}"
 
     def _generate_update_message(self, deal, campaign, notification_type: str) -> str:
         """
@@ -371,7 +380,7 @@ class WhatsAppService:
             # For invitation: {{1}}=user_name, {{2}}=campaign_title, {{3}}=brand_name, {{4}}=deal_url
             if notification_type == "invitation":
                 # Build deal URL for the button
-                deal_url = f"{self.frontend_url}/influencer/deals/{deal.id}"
+                deal_url = self._build_one_tap_url(user=user, next_path=f"/influencer/deals/{deal.id}")
                 parsed_url = urlparse(deal_url.strip())
                 url_suffix = parsed_url.path
                 if parsed_url.query:
@@ -415,7 +424,7 @@ class WhatsAppService:
                 ]
 
                 # Add button with deal URL
-                deal_url = f"{self.frontend_url}/influencer/deals/{deal.id}"
+                deal_url = self._build_one_tap_url(user=user, next_path=f"/influencer/deals/{deal.id}")
                 parsed_url = urlparse(deal_url.strip())
                 url_suffix = parsed_url.path
                 if parsed_url.query:
@@ -457,7 +466,7 @@ class WhatsAppService:
                 ]
 
                 # Add button with deal URL
-                deal_url = f"{self.frontend_url}/influencer/deals/{deal.id}"
+                deal_url = self._build_one_tap_url(user=user, next_path=f"/influencer/deals/{deal.id}")
                 parsed_url = urlparse(deal_url.strip())
                 url_suffix = parsed_url.path
                 if parsed_url.query:
@@ -491,7 +500,7 @@ class WhatsAppService:
                 ]
 
                 # Add button with deal URL so they can view/act
-                deal_url = f"{self.frontend_url}/influencer/deals/{deal.id}"
+                deal_url = self._build_one_tap_url(user=user, next_path=f"/influencer/deals/{deal.id}")
                 parsed_url = urlparse(deal_url.strip())
                 url_suffix = parsed_url.path
                 if parsed_url.query:
@@ -523,6 +532,8 @@ class WhatsAppService:
                     "campaign_id": campaign.id,
                     "deal_id": deal.id,
                     "trigger_event": f"campaign_{notification_type}",
+                    "notification_type": notification_type,
+                    "deal_url": deal_url,
                     "sender_type": sender_type,
                     "sender_id": sender_id,
                 },
@@ -538,7 +549,7 @@ class WhatsAppService:
                     sms_service = get_sms_service()
                     
                     # Build deal URL for the SMS
-                    deal_url = f"{self.frontend_url}/influencer/deals/{deal.id}"
+                    deal_url = self._build_one_tap_url(user=user, next_path=f"/influencer/deals/{deal.id}")
                     
                     # Send SMS invitation
                     sms_service.send_campaign_invitation(

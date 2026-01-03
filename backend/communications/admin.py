@@ -4,7 +4,11 @@ from .models import (
     EmailVerificationToken,
     PhoneVerificationToken,
     WhatsAppRateLimit,
-    CommunicationLog
+    CommunicationLog,
+    MSG91SenderNumber,
+    MessageTemplate,
+    CampaignTemplateMapping,
+    InfluencerMessageOverride,
 )
 
 
@@ -140,3 +144,63 @@ class CommunicationLogAdmin(admin.ModelAdmin):
     )
     date_hierarchy = 'created_at'
     ordering = ('-created_at',)
+
+
+@admin.register(MSG91SenderNumber)
+class MSG91SenderNumberAdmin(admin.ModelAdmin):
+    list_display = ['name', 'channel', 'whatsapp_number', 'sms_sender_id', 'is_active', 'is_default', 'updated_at']
+    list_filter = ['channel', 'is_active', 'is_default', 'created_at']
+    search_fields = ['name', 'whatsapp_number', 'sms_sender_id']
+    readonly_fields = ['created_at', 'updated_at']
+
+
+@admin.register(MessageTemplate)
+class MessageTemplateAdmin(admin.ModelAdmin):
+    list_display = [
+        'template_key',
+        'channel',
+        'provider',
+        'provider_template_name',
+        'provider_template_id',
+        'language_code',
+        'is_active',
+        'is_default',
+        'updated_at',
+    ]
+    list_filter = ['channel', 'provider', 'is_active', 'is_default', 'created_at']
+    search_fields = ['template_key', 'provider_template_name', 'provider_template_id']
+    readonly_fields = ['created_at', 'updated_at']
+
+
+@admin.register(CampaignTemplateMapping)
+class CampaignTemplateMappingAdmin(admin.ModelAdmin):
+    list_display = [
+        'campaign',
+        'notification_type',
+        'whatsapp_template',
+        'sms_template',
+        'sms_enabled',
+        'sms_fallback_enabled',
+        'sms_fallback_timeout_seconds',
+        'is_active',
+        'updated_at',
+    ]
+    list_filter = ['notification_type', 'sms_enabled', 'sms_fallback_enabled', 'is_active', 'created_at']
+    search_fields = ['campaign__title', 'campaign__brand__name']
+    readonly_fields = ['created_at', 'updated_at']
+
+
+@admin.register(InfluencerMessageOverride)
+class InfluencerMessageOverrideAdmin(admin.ModelAdmin):
+    list_display = [
+        'campaign',
+        'influencer',
+        'notification_type',
+        'whatsapp_template',
+        'sms_template',
+        'is_active',
+        'updated_at',
+    ]
+    list_filter = ['notification_type', 'is_active', 'created_at']
+    search_fields = ['campaign__title', 'influencer__user__username', 'influencer__user__email']
+    readonly_fields = ['created_at', 'updated_at']

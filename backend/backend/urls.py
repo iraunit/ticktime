@@ -39,6 +39,9 @@ urlpatterns = [
     path('api/dashboard/', include('dashboard.urls', namespace='dashboard')),
     path('api/communications/', include('communications.urls', namespace='communications')),
 
+    # Admin tooling APIs (non-technical ops UI)
+    path('api/admin/', include('communications.admin_urls', namespace='communications_admin')),
+
     # Core app removed - functionality distributed to other apps
 ]
 

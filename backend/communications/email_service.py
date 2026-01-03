@@ -2,6 +2,8 @@ import logging
 from typing import Optional, Dict, Any
 
 from django.conf import settings
+from urllib.parse import quote
+from users.models import OneTapLoginToken
 from django.core.mail import EmailMultiAlternatives
 from django.template.loader import render_to_string
 from django.utils import timezone
@@ -257,8 +259,8 @@ class EmailService:
                 'brand': campaign.brand,
                 'custom_message': custom_message,
                 'notification_type': notification_type,
-                'campaign_url': f"{self.frontend_url}/influencer/campaigns/{campaign.id}",
-                'deal_url': f"{self.frontend_url}/influencer/deals/{deal.id}",
+                'campaign_url': self._build_one_tap_url(user=user, next_path=f"/influencer/campaigns/{campaign.id}"),
+                'deal_url': self._build_one_tap_url(user=user, next_path=f"/influencer/deals/{deal.id}"),
             }
             html_body = self.render_email_template(config['template'], context)
 
@@ -285,6 +287,11 @@ class EmailService:
         except Exception as e:
             logger.error(f"Failed to send campaign notification: {str(e)}")
             return False
+
+    def _build_one_tap_url(self, *, user, next_path: str) -> str:
+        token, _ = OneTapLoginToken.create_token(user)
+        next_path = next_path if next_path.startswith("/") else f"/{next_path}"
+        return f"{self.frontend_url.rstrip('/')}/accounts/one-tap-login/{token}?next={quote(next_path)}"
 
 
 # Singleton instance for reuse

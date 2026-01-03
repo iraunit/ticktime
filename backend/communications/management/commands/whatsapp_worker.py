@@ -7,9 +7,11 @@ import time
 
 import pika
 from brands.models import Brand
-from communications.models import CommunicationLog
+from campaigns.models import Campaign
+from communications.models import CampaignTemplateMapping, CommunicationLog
+from communications.msg91_client import get_msg91_client
 from communications.utils import check_whatsapp_rate_limit, check_brand_credits, deduct_brand_credits
-from communications.whatsapp_cloud_client import get_whatsapp_cloud_client
+from communications.sms_service import get_sms_service
 from django.contrib.auth.models import User
 from django.core.management.base import BaseCommand
 from django.utils import timezone
@@ -32,9 +34,89 @@ class WhatsAppWorker:
         self.vhost = os.environ.get('RABBITMQ_VHOST', '/')
         self.queue_name = os.environ.get('RABBITMQ_WHATSAPP_QUEUE', 'whatsapp_notifications')
 
-        self.whatsapp_client = get_whatsapp_cloud_client()
+        self.msg91_client = get_msg91_client()
+        self.sms_service = get_sms_service()
 
-        logger.info("WhatsApp Cloud API client initialized")
+        logger.info("MSG91 client initialized for WhatsApp worker")
+
+    def _is_valid_phone(self, phone_number: str, country_code: str) -> bool:
+        try:
+            if not phone_number or not phone_number.isdigit():
+                return False
+            if not country_code:
+                return False
+            # E.164 max length is 15 digits (excluding '+') - we store without '+'
+            if len(phone_number) < 7 or len(phone_number) > 15:
+                return False
+            return True
+        except Exception:
+            return False
+
+    def _maybe_send_sms_fallback(self, *, comm_log: CommunicationLog, metadata: dict, phone_number: str, country_code: str) -> None:
+        """
+        If campaign has SMS fallback enabled, send SMS after WhatsApp failure.
+        Current implementation supports invitation fallback out of the box using existing MSG91 Flow template.
+        """
+        try:
+            campaign_id = metadata.get("campaign_id")
+            deal_id = metadata.get("deal_id")
+            whatsapp_type = metadata.get("whatsapp_type") or metadata.get("trigger_event") or ""
+
+            if not campaign_id or not deal_id:
+                return
+
+            # Normalize to notification_type keys used in mappings
+            notification_type = metadata.get("notification_type") or metadata.get("whatsapp_type") or ""
+            if not notification_type and isinstance(whatsapp_type, str) and whatsapp_type.startswith("campaign_"):
+                notification_type = whatsapp_type.replace("campaign_", "")
+
+            mapping = CampaignTemplateMapping.objects.filter(campaign_id=campaign_id, notification_type=notification_type).first()
+            if not mapping or not mapping.sms_fallback_enabled or not mapping.sms_enabled:
+                return
+
+            # For now, fallback for invitation uses existing SMS flow template vars (name, brand, campaign, url)
+            if notification_type != "invitation":
+                return
+
+            from deals.models import Deal
+
+            deal = Deal.objects.select_related("campaign__brand", "influencer__user", "influencer__user_profile").filter(id=deal_id).first()
+            if not deal:
+                return
+
+            influencer_name = deal.influencer.user.get_full_name() or deal.influencer.user.username
+            brand_name = deal.campaign.brand.name
+            campaign_title = deal.campaign.title
+            deal_url = metadata.get("deal_url") or ""
+
+            ok = self.sms_service.send_campaign_invitation(
+                phone_number=phone_number,
+                country_code=country_code or "+91",
+                influencer_name=influencer_name,
+                brand_name=brand_name,
+                campaign_title=campaign_title,
+                deal_url=deal_url,
+            )
+
+            # Log SMS attempt (best effort)
+            CommunicationLog.objects.create(
+                message_type="sms",
+                recipient=f"{country_code}{phone_number}",
+                status="sent" if ok else "failed",
+                message_id=f"{comm_log.message_id}-sms",
+                provider="msg91",
+                metadata={
+                    **(metadata or {}),
+                    "fallback_from_message_id": comm_log.message_id,
+                    "fallback_reason": "whatsapp_failed",
+                },
+                phone_number=phone_number,
+                country_code=country_code,
+                sent_at=timezone.now() if ok else None,
+                error_log="" if ok else "SMS fallback failed",
+            )
+        except Exception as e:
+            logger.error(f"SMS fallback failed unexpectedly for {comm_log.message_id}: {str(e)}")
 
     def connect_rabbitmq(self):
         """Establish connection to RabbitMQ"""
@@ -81,12 +163,16 @@ class WhatsAppWorker:
             metadata = message_data.get('metadata', {})
             whatsapp_type = message_data.get('whatsapp_type', '')
             requires_credits = message_data.get('requires_credits', False)
+            # Keep whatsapp_type also in metadata for downstream fallback
+            if isinstance(metadata, dict):
+                metadata.setdefault("whatsapp_type", whatsapp_type)
 
             phone_number = channel_data.get('phone_number')
             country_code = channel_data.get('country_code')
             template_name = channel_data.get('template_name')
             language_code = channel_data.get('template_language_code', 'en')
             template_components = channel_data.get('template_components', [])
+            integrated_number = channel_data.get('integrated_number') or os.environ.get("MSG91_WHATSAPP_INTEGRATED_NUMBER", "")
 
             # Validate required fields
             if not all([phone_number, country_code, template_name]):
@@ -95,7 +181,7 @@ class WhatsAppWorker:
                 return
 
             # Validate phone number
-            if not self.whatsapp_client.validate_phone_number(phone_number, country_code):
+            if not self._is_valid_phone(phone_number, country_code):
                 logger.error(f"Message {message_id} has invalid phone number: {country_code}{phone_number}")
                 ch.basic_ack(delivery_tag=method.delivery_tag)
                 return
@@ -179,6 +265,7 @@ class WhatsAppWorker:
                 message_id=message_id,
                 phone_number=phone_number,
                 country_code=country_code,
+                provider="msg91",
                 sender_type=metadata.get('sender_type'),
                 sender_id=metadata.get('sender_id'),
                 metadata=metadata,
@@ -187,15 +274,31 @@ class WhatsAppWorker:
             # Attempt to send WhatsApp message with retries
             max_retries = 3
             for attempt in range(max_retries):
-                full_phone = f"{country_code}{phone_number}"
-                success, error = self.whatsapp_client.send_template_message(
-                    full_phone=full_phone,
+                success, resp = self.msg91_client.send_whatsapp_template(
+                    to_phone_number=phone_number,
+                    country_code=country_code,
+                    integrated_number=integrated_number,
                     template_name=template_name,
                     language_code=language_code,
                     components=template_components,
                 )
 
                 if success:
+                    # Best-effort: store provider message id if present
+                    provider_message_id = ""
+                    if isinstance(resp, dict):
+                        provider_message_id = str(resp.get("message_id") or resp.get("request_id") or resp.get("id") or "").strip()
+                        # Some responses nest ids
+                        if not provider_message_id:
+                            for k in ["data", "payload", "response"]:
+                                nested = resp.get(k)
+                                if isinstance(nested, dict):
+                                    provider_message_id = str(nested.get("message_id") or nested.get("request_id") or nested.get("id") or "").strip()
+                                    if provider_message_id:
+                                        break
+                    if provider_message_id:
+                        comm_log.provider_message_id = provider_message_id
+
                     # Deduct credits if required
                     if requires_credits:
                         sender_type = metadata.get('sender_type')
@@ -218,7 +321,7 @@ class WhatsAppWorker:
                     return
                 else:
                     comm_log.retry_count = attempt + 1
-                    comm_log.error_log = error
+                    comm_log.error_log = str(resp)
 
                     if attempt < max_retries - 1:
                         comm_log.status = 'retrying'
@@ -229,6 +332,8 @@ class WhatsAppWorker:
                         comm_log.status = 'failed'
                         comm_log.save()
                         logger.error(f"Message {message_id} failed after {max_retries} attempts")
+                        # After final failure, attempt SMS fallback (campaign-wise)
+                        self._maybe_send_sms_fallback(comm_log=comm_log, metadata=metadata or {}, phone_number=phone_number, country_code=country_code)
 
             # Acknowledge even if failed (to avoid infinite retries)
             ch.basic_ack(delivery_tag=method.delivery_tag)
