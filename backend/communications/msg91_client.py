@@ -32,11 +32,12 @@ class MSG91Client:
         self.whatsapp_send_template_path: str = getattr(
             settings,
             "MSG91_WHATSAPP_SEND_TEMPLATE_PATH",
-            "/whatsapp/whatsapp-outbound-message",
+            "https://api.msg91.com/api/v5/whatsapp/whatsapp-outbound-message/bulk/",
         )
 
         # SMS endpoints
         self.sms_flow_path: str = getattr(settings, "MSG91_SMS_FLOW_PATH", "/flow")
+        self.sms_template_versions_path: str = getattr(settings, "MSG91_SMS_TEMPLATE_VERSIONS_PATH", "/sms/getTemplateVersions")
 
     def _headers(self) -> Dict[str, str]:
         return {
@@ -126,18 +127,18 @@ class MSG91Client:
         integrated_number: str,
         template_name: str,
         language_code: str = "en",
-        params: Optional[Dict[str, Any]] = None,
-        components: Optional[List[Dict[str, Any]]] = None,
+        namespace: str = "",
+        named_components: Optional[Dict[str, Dict[str, Any]]] = None,
     ) -> Tuple[bool, Dict[str, Any]]:
         """
-        Send WhatsApp template via MSG91.
-
-        Because MSG91 payload schema can vary slightly between accounts/products,
-        we send a conservative payload that supports:
-        - integrated_number (sender identity)
-        - content_type=template
-        - template name/language
-        - params (key/value) OR components (Meta-like) if your MSG91 account supports it
+        Send WhatsApp template via MSG91 using the bulk API format.
+        
+        MSG91 expects named components like:
+        {
+          "header_1": {"type": "text", "value": "xyz"},
+          "body_1": {"type": "text", "value": "abc"},
+          "button_1": {"type": "text", "subtype": "url", "value": "https://..."},
+        }
         """
         if not self._require_auth():
             return False, {"error": "MSG91_AUTHKEY is missing"}
@@ -146,28 +147,35 @@ class MSG91Client:
             return False, {"error": "integrated_number is required for MSG91 WhatsApp"}
 
         formatted_to = self.format_e164(to_phone_number, country_code)
-        url = self._url(self.whatsapp_send_template_path)
+        
+        # Use full URL directly if whatsapp_send_template_path is a full URL, else build it
+        if self.whatsapp_send_template_path.startswith("http://") or self.whatsapp_send_template_path.startswith("https://"):
+            url = self.whatsapp_send_template_path
+        else:
+            url = self._url(self.whatsapp_send_template_path)
 
         payload: Dict[str, Any] = {
             "integrated_number": integrated_number,
             "content_type": "template",
             "payload": {
-                "to": formatted_to,
+                "messaging_product": "whatsapp",
                 "type": "template",
                 "template": {
                     "name": template_name,
-                    "language": {"code": language_code or "en"},
+                    "language": {
+                        "code": language_code or "en",
+                        "policy": "deterministic",
+                    },
+                    "namespace": namespace or "",
+                    "to_and_components": [
+                        {
+                            "to": [formatted_to],
+                            "components": named_components or {},
+                        }
+                    ],
                 },
             },
         }
-
-        # Prefer explicit param dict (stable for admin mappings)
-        if params:
-            payload["payload"]["template"]["params"] = params
-
-        # Allow passing components (useful if MSG91 mirrors Meta schema)
-        if components:
-            payload["payload"]["template"]["components"] = components
 
         try:
             resp = requests.post(url, json=payload, headers=self._headers(), timeout=self.timeout_seconds)
@@ -183,6 +191,36 @@ class MSG91Client:
     # -------------------------
     # SMS
     # -------------------------
+    def get_sms_template_versions(self, *, template_id: str) -> Tuple[bool, Any]:
+        """
+        Fetch SMS template versions from MSG91.
+
+        Docs: https://docs.msg91.com/sms/get-template-versions
+        POST /sms/getTemplateVersions
+        Body: { "template_id": "<MSG91 SMS Template ID>" }
+        """
+        if not self._require_auth():
+            return False, "MSG91_AUTHKEY is missing"
+        if not template_id:
+            return False, "template_id is required"
+
+        url = self._url(self.sms_template_versions_path)
+        try:
+            resp = requests.post(
+                url,
+                json={"template_id": template_id},
+                headers=self._headers(),
+                timeout=self.timeout_seconds,
+            )
+            if 200 <= resp.status_code < 300:
+                try:
+                    return True, resp.json()
+                except Exception:
+                    return True, {"raw": resp.text}
+            return False, {"status": resp.status_code, "body": resp.text}
+        except requests.RequestException as e:
+            return False, str(e)
+
     def send_sms_flow(
         self,
         *,

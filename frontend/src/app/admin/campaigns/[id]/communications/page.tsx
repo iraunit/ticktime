@@ -23,6 +23,8 @@ type TemplateRow = {
     id: number;
     template_key: string;
     channel: "whatsapp" | "sms";
+    provider_template_name?: string;
+    provider_integrated_number?: string;
 };
 
 export default function CampaignCommunicationsConfigPage() {
@@ -32,19 +34,30 @@ export default function CampaignCommunicationsConfigPage() {
     const [loading, setLoading] = useState(true);
     const [templates, setTemplates] = useState<TemplateRow[]>([]);
     const [mappings, setMappings] = useState<MappingRow[]>([]);
+    const [waSenderNameByNumber, setWaSenderNameByNumber] = useState<Record<string, string>>({});
 
     const load = async () => {
         setLoading(true);
         try {
             await adminCommunicationApi.me();
-            const [tplRes, mapRes] = await Promise.all([
+            const [tplRes, mapRes, senderRes] = await Promise.all([
                 adminCommunicationApi.templates.list({page: 1, page_size: 200}),
                 adminCommunicationApi.campaigns.templatesGet(campaignId),
+                adminCommunicationApi.senderNumbers.list({page: 1, page_size: 200, channel: "whatsapp"}),
             ]);
             const tplData: any = tplRes.data;
             const tplItems = Array.isArray(tplData) ? tplData : (tplData?.items || []);
             setTemplates(tplItems as any);
             setMappings(mapRes.data as any);
+
+            const senderData: any = senderRes.data;
+            const senderItems = Array.isArray(senderData) ? senderData : (senderData?.items || []);
+            const map: Record<string, string> = {};
+            (senderItems || []).forEach((s: any) => {
+                const num = String(s?.whatsapp_number || "").trim();
+                if (num) map[num] = String(s?.name || num);
+            });
+            setWaSenderNameByNumber(map);
         } finally {
             setLoading(false);
         }
@@ -124,7 +137,12 @@ export default function CampaignCommunicationsConfigPage() {
                                             >
                                                 <option value="">(default)</option>
                                                 {whatsappTemplates.map(t => (
-                                                    <option key={t.id} value={t.id}>{t.template_key}</option>
+                                                    <option key={t.id} value={t.id}>
+                                                        {t.provider_template_name || t.template_key}
+                                                        {t.provider_integrated_number
+                                                            ? ` • ${waSenderNameByNumber[t.provider_integrated_number] || t.provider_integrated_number}`
+                                                            : ""}
+                                                    </option>
                                                 ))}
                                             </select>
                                         </div>

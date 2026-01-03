@@ -35,6 +35,7 @@ class MessageTemplateSerializer(serializers.ModelSerializer):
             "channel",
             "provider",
             "provider_integrated_number",
+            "provider_namespace",
             "provider_template_name",
             "provider_template_id",
             "language_code",
@@ -48,7 +49,33 @@ class MessageTemplateSerializer(serializers.ModelSerializer):
         read_only_fields = ["id", "created_at", "updated_at"]
 
 
+class MessageTemplateMiniSerializer(serializers.ModelSerializer):
+    """
+    Lightweight template serializer for embedding inside other responses.
+    (Avoids sending raw_provider_payload which can be very large.)
+    """
+
+    class Meta:
+        model = MessageTemplate
+        fields = [
+            "id",
+            "template_key",
+            "channel",
+            "provider",
+            "provider_integrated_number",
+            "provider_template_name",
+            "provider_template_id",
+            "language_code",
+            "params_schema",
+            "is_active",
+            "is_default",
+        ]
+
+
 class CampaignTemplateMappingSerializer(serializers.ModelSerializer):
+    whatsapp_template_detail = MessageTemplateMiniSerializer(source="whatsapp_template", read_only=True)
+    sms_template_detail = MessageTemplateMiniSerializer(source="sms_template", read_only=True)
+
     class Meta:
         model = CampaignTemplateMapping
         fields = [
@@ -56,7 +83,9 @@ class CampaignTemplateMappingSerializer(serializers.ModelSerializer):
             "campaign",
             "notification_type",
             "whatsapp_template",
+            "whatsapp_template_detail",
             "sms_template",
+            "sms_template_detail",
             "param_mapping",
             "sms_enabled",
             "sms_fallback_enabled",

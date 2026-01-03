@@ -15,6 +15,8 @@ urlpatterns = [
     path("templates/", admin_views.templates_list_create, name="templates_list_create"),
     path("templates/<int:template_id>/", admin_views.templates_detail, name="templates_detail"),
     path("templates/sync/", admin_views.templates_sync_msg91, name="templates_sync"),
+    path("templates/<int:template_id>/preview/", admin_views.template_preview, name="template_preview"),
+    path("templates/<int:template_id>/sms/sync-versions/", admin_views.template_sms_sync_versions, name="template_sms_sync_versions"),
 
     # Campaign listing (admin scope)
     path("campaigns/", admin_views.campaigns_list, name="campaigns_list"),
@@ -36,6 +38,8 @@ urlpatterns = [
     # Bulk messaging + selection
     path("campaigns/<int:campaign_id>/influencers/", admin_views.campaign_influencers_list, name="campaign_influencers_list"),
     path("campaigns/<int:campaign_id>/send-messages/", admin_views.campaign_send_messages, name="campaign_send_messages"),
+    path("campaigns/<int:campaign_id>/preview-message/", admin_views.campaign_preview_message, name="campaign_preview_message"),
+    path("campaigns/<int:campaign_id>/test-send/", admin_views.campaign_test_send, name="campaign_test_send"),
 
     # Analytics
     path("analytics/messages/", admin_views.analytics_messages, name="analytics_messages"),

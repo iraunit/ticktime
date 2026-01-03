@@ -1,4 +1,5 @@
 import logging
+import re
 from typing import Any, Dict, List, Optional
 
 from common.api_response import api_response, format_serializer_errors
@@ -17,12 +18,348 @@ from communications.msg91_client import get_msg91_client
 from communications.whatsapp_service import get_whatsapp_service
 from deals.models import Deal
 from influencers.models import InfluencerProfile
+from django.conf import settings
 from django.db.models import Q
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 
 logger = logging.getLogger(__name__)
+
+
+def _infer_default_param_mapping(notification_type: str, *, template: MessageTemplate) -> Dict[str, str]:
+    """
+    Best-effort mapping from template variables (MSG91 POSITIONAL variables like body_1, button_1)
+    to our known sources (influencer_name, brand_name, campaign_title, custom_message, deal_url, etc).
+    """
+    schema = template.params_schema or []
+    var_names: List[str] = []
+    for p in schema:
+        if isinstance(p, dict) and p.get("name"):
+            var_names.append(str(p.get("name")))
+
+    header_vars = [v for v in var_names if v.startswith("header_")]
+    body_vars = [v for v in var_names if v.startswith("body_")]
+    button_vars = [v for v in var_names if v.startswith("button_")]
+
+    mapping: Dict[str, str] = {}
+
+    def map_body(seq: List[str], srcs: List[str]):
+        for i, v in enumerate(seq):
+            if i < len(srcs):
+                mapping[v] = srcs[i]
+
+    # Generic: buttons usually want signed deal URL suffix
+    for v in button_vars:
+        mapping[v] = "deal_url"
+
+    # Notification-specific heuristics
+    nt = (notification_type or "").strip()
+    if header_vars:
+        # Most of our headers are brand/campaign; default to brand_name
+        mapping[header_vars[0]] = "brand_name"
+
+    if nt == "invitation":
+        # Common marketing invite: body_1=name, body_2=brand, body_3=custom_message
+        map_body(body_vars, ["influencer_name", "brand_name", "custom_message"])
+    elif nt == "status_update":
+        # body_1=name, body_2=campaign, body_3=brand, body_4=custom_message
+        map_body(body_vars, ["influencer_name", "campaign_title", "brand_name", "custom_message"])
+    elif nt in ("accepted", "completed"):
+        # body_1=name, body_2=campaign
+        map_body(body_vars, ["influencer_name", "campaign_title"])
+    elif nt == "shipped":
+        # body_1=name, body_2=tracking_number, body_3=delivery_date
+        map_body(body_vars, ["influencer_name", "tracking_number", "delivery_date"])
+    else:
+        # Fallback: first body is name; any extra bodies become custom_message
+        if body_vars:
+            mapping[body_vars[0]] = "influencer_name"
+            for v in body_vars[1:]:
+                mapping[v] = "custom_message"
+
+    return mapping
+
+
+def _extract_msg91_params_schema(raw: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """
+    Parse MSG91 get-template payload into a params_schema list.
+    We focus on POSITIONAL variables like header_1, body_1, button_1.
+    """
+    if not isinstance(raw, dict):
+        return []
+    languages = raw.get("languages")
+    if not isinstance(languages, list) or not languages:
+        return []
+
+    chosen = None
+    for lang in languages:
+        if isinstance(lang, dict) and (lang.get("status") in ("APPROVED", "approved", None)):
+            chosen = lang
+            # Prefer explicit APPROVED
+            if lang.get("status") in ("APPROVED", "approved"):
+                break
+    if not isinstance(chosen, dict):
+        return []
+
+    variables = chosen.get("variables")
+    variable_type = chosen.get("variable_type") or {}
+    if not isinstance(variables, list) or not variables:
+        return []
+
+    schema: List[Dict[str, Any]] = []
+    for v in variables:
+        if not v:
+            continue
+        vname = str(v)
+        vt = variable_type.get(vname) if isinstance(variable_type, dict) else None
+        vtd = vt if isinstance(vt, dict) else {}
+        entry: Dict[str, Any] = {
+            "name": vname,
+            "type": vtd.get("type") or "text",
+        }
+        if vtd.get("subtype"):
+            entry["subtype"] = vtd.get("subtype")
+        # component hint from var prefix
+        if vname.startswith("header_"):
+            entry["component"] = "header"
+        elif vname.startswith("body_"):
+            entry["component"] = "body"
+        elif vname.startswith("button_"):
+            entry["component"] = "button"
+        schema.append(entry)
+
+    return schema
+
+
+def _normalize_msg91_whatsapp_preview(raw: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Normalize MSG91 WhatsApp template payload into a preview structure.
+    """
+    out: Dict[str, Any] = {
+        "header": None,
+        "body": None,
+        "footer": None,
+        "buttons": [],
+        "variables": [],
+        "parameter_format": None,
+        "language": None,
+        "status": None,
+    }
+    if not isinstance(raw, dict):
+        return out
+    languages = raw.get("languages")
+    if not isinstance(languages, list) or not languages:
+        return out
+    lang = languages[0] if isinstance(languages[0], dict) else None
+    if not isinstance(lang, dict):
+        return out
+
+    out["language"] = lang.get("language")
+    out["status"] = lang.get("status")
+    out["parameter_format"] = lang.get("parameter_format")
+    out["variables"] = lang.get("variables") or []
+
+    code_blocks = lang.get("code") or []
+    if not isinstance(code_blocks, list):
+        return out
+    for block in code_blocks:
+        if not isinstance(block, dict):
+            continue
+        btype = (block.get("type") or "").upper()
+        if btype == "HEADER":
+            out["header"] = {
+                "text": block.get("text") or "",
+                "format": block.get("format") or "",
+                "example": (block.get("example") or {}).get("header_text"),
+            }
+        elif btype == "BODY":
+            out["body"] = {
+                "text": block.get("text") or "",
+                "example": ((block.get("example") or {}).get("body_text") or []),
+            }
+        elif btype == "FOOTER":
+            out["footer"] = {
+                "text": block.get("text") or "",
+            }
+        elif btype == "BUTTONS":
+            buttons = block.get("buttons") or []
+            if isinstance(buttons, list):
+                out["buttons"] = buttons
+    return out
+
+
+def _replace_positional(text: str, values: List[str]) -> str:
+    def repl(m):
+        idx = int(m.group(1)) - 1
+        return values[idx] if 0 <= idx < len(values) else m.group(0)
+    return re.sub(r"\{\{(\d+)\}\}", repl, text or "")
+
+
+def _render_preview_from_msg91_whatsapp(raw: Dict[str, Any], resolved: Dict[str, str]) -> Dict[str, Any]:
+    """
+    Render a WhatsApp preview by substituting POSITIONAL placeholders.
+    Assumes header uses header_*, body uses body_*, button URLs use button_*.
+    """
+    norm = _normalize_msg91_whatsapp_preview(raw)
+    header_vals = []
+    body_vals = []
+    # For header/body, POSITIONAL placeholders map to header_1/body_1...
+    for i in range(1, 50):
+        k = f"header_{i}"
+        if k in resolved:
+            header_vals.append(resolved.get(k, ""))
+    for i in range(1, 200):
+        k = f"body_{i}"
+        if k in resolved:
+            body_vals.append(resolved.get(k, ""))
+
+    rendered: Dict[str, Any] = {
+        "header_text": None,
+        "body_text": None,
+        "footer_text": None,
+        "buttons": [],
+    }
+    if norm.get("header"):
+        rendered["header_text"] = _replace_positional(norm["header"].get("text") or "", header_vals)
+    if norm.get("body"):
+        rendered["body_text"] = _replace_positional(norm["body"].get("text") or "", body_vals)
+    if norm.get("footer"):
+        rendered["footer_text"] = (norm["footer"].get("text") or "")
+
+    # Buttons: each button usually has {{1}} which maps to that button's own variable
+    btns = norm.get("buttons") or []
+    for idx, b in enumerate(btns):
+        if not isinstance(b, dict):
+            continue
+        url = b.get("url") or ""
+        # use button_{idx+1} as the value for {{1}}
+        val = resolved.get(f"button_{idx+1}", "")
+        url_rendered = _replace_positional(url, [val])
+        rendered["buttons"].append(
+            {
+                "text": b.get("text") or "",
+                "type": b.get("type") or "",
+                "url": url_rendered,
+            }
+        )
+    return {"normalized": norm, "rendered": rendered}
+
+
+def _extract_sms_vars_from_template_data(template_data: str) -> List[str]:
+    """
+    Extract SMS vars like ##var1##, ##var2## -> ["var1","var2",...]
+    """
+    if not template_data:
+        return []
+    found = set()
+    for m in re.finditer(r"##var(\d+)##", template_data):
+        found.add(int(m.group(1)))
+    return [f"var{i}" for i in sorted(found)]
+
+
+def _render_preview_from_sms(template_data: str, resolved: Dict[str, str]) -> str:
+    out = template_data or ""
+    for k, v in resolved.items():
+        out = out.replace(f"##{k}##", v or "")
+    return out
+
+
+def _resolve_value(source_key: str, *, campaign: Campaign, deal: Deal, custom_message: str = "") -> str:
+    influencer = deal.influencer
+    user = influencer.user
+    up = getattr(influencer, "user_profile", None)
+
+    src = (source_key or "").strip()
+    if src.startswith("static:"):
+        return src[7:]
+    if src in ("influencer_name", "name"):
+        return user.get_full_name() or user.username or "User"
+    if src in ("brand_name",):
+        return getattr(campaign.brand, "name", "") or ""
+    if src in ("campaign_title", "campaign_name"):
+        return getattr(campaign, "title", "") or ""
+    if src in ("email",):
+        return getattr(user, "email", "") or ""
+    if src in ("phone", "phone_number"):
+        return getattr(up, "phone_number", "") or ""
+    if src in ("custom_message", "message"):
+        return custom_message or ""
+    if src in ("tracking_number",):
+        return getattr(deal, "tracking_number", "") or getattr(deal, "tracking_url", "") or ""
+    if src in ("delivery_date",):
+        from django.utils import timezone
+        from datetime import timedelta
+        return (timezone.now() + timedelta(days=7)).strftime("%B %d, %Y")
+    if src in ("deal_url", "link"):
+        # For preview we avoid generating one-tap tokens repeatedly; show a deterministic placeholder link.
+        return f"{getattr(settings, 'FRONTEND_URL', '').rstrip('/')}/influencer/deals/{deal.id}"
+    return ""
+
+
+def _build_components_from_mapping(*, template: MessageTemplate, mapping: Dict[str, str], campaign: Campaign, deal: Deal, custom_message: str) -> Dict[str, Any]:
+    schema = template.params_schema or []
+    
+    # If schema is empty, auto-infer variables from raw_provider_payload
+    if not schema and template.raw_provider_payload:
+        norm = _normalize_msg91_whatsapp_preview(template.raw_provider_payload)
+        variables = norm.get("variables") or []
+        schema = [{"name": v, "component": _infer_component_from_var(v)} for v in variables]
+    
+    resolved: Dict[str, str] = {}
+    for p in schema:
+        if not isinstance(p, dict):
+            continue
+        name = str(p.get("name") or "")
+        if not name:
+            continue
+        src = mapping.get(name) if isinstance(mapping, dict) else None
+        # Auto-infer default source if not explicitly mapped
+        if not src:
+            src = _infer_default_source(name)
+        resolved[name] = _resolve_value(src or "", campaign=campaign, deal=deal, custom_message=custom_message)
+
+    # Build MSG91-style named components (for MSG91 bulk API)
+    named_components: Dict[str, Dict[str, Any]] = {}
+    for name, val in resolved.items():
+        entry: Dict[str, Any] = {"type": "text", "value": val}
+        if name.startswith("button_"):
+            entry["subtype"] = "url"
+        named_components[name] = entry
+
+    return {"resolved": resolved, "named_components": named_components}
+
+
+def _infer_component_from_var(var_name: str) -> str:
+    """Infer component type from variable name."""
+    if var_name.startswith("header_"):
+        return "header"
+    elif var_name.startswith("body_"):
+        return "body"
+    elif var_name.startswith("button_"):
+        return "button"
+    return "body"
+
+
+def _infer_default_source(var_name: str) -> str:
+    """Infer a sensible default mapping for a variable based on its name."""
+    name_lower = var_name.lower()
+    # Buttons typically need deal URLs
+    if "button" in name_lower:
+        return "deal_url"
+    # header_1 is often brand name
+    if var_name == "header_1":
+        return "brand_name"
+    # body_1 is often influencer name
+    if var_name == "body_1":
+        return "influencer_name"
+    # body_2 is often brand name
+    if var_name == "body_2":
+        return "brand_name"
+    # body_3 is often custom message
+    if var_name == "body_3":
+        return "custom_message"
+    return ""
 
 
 def _require_comm_admin(request) -> Optional[Dict[str, Any]]:
@@ -321,6 +658,8 @@ def templates_sync_msg91(request):
             continue
         provider_id = str(t.get("template_id") or t.get("id") or "").strip()
         language_code = str(t.get("language_code") or t.get("language") or "en").strip()
+        namespace = str(t.get("namespace") or "").strip()
+        params_schema = _extract_msg91_params_schema(t)
 
         # Default template_key to provider name; admin can later categorize (invitation, etc.)
         MessageTemplate.objects.update_or_create(
@@ -331,7 +670,9 @@ def templates_sync_msg91(request):
             provider_template_name=provider_name,
             defaults={
                 "provider_template_id": provider_id,
+                "provider_namespace": namespace,
                 "language_code": language_code or "en",
+                "params_schema": params_schema,
                 "raw_provider_payload": t,
                 "is_active": True,
             },
@@ -339,6 +680,260 @@ def templates_sync_msg91(request):
         synced += 1
 
     return api_response(True, result={"synced": synced}, status_code=status.HTTP_200_OK)
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def template_preview(request, template_id: int):
+    """
+    Return a human-friendly preview payload for a template (WhatsApp/SMS).
+    Used by admin UI to show sample text + variables.
+    """
+    denial = _require_comm_admin(request)
+    if denial:
+        return api_response(False, error=denial["error"], status_code=denial["status_code"])
+
+    tpl = MessageTemplate.objects.filter(id=template_id).first()
+    if not tpl:
+        return api_response(False, error="Template not found", status_code=status.HTTP_404_NOT_FOUND)
+
+    raw = tpl.raw_provider_payload or {}
+    result: Dict[str, Any] = {
+        "id": tpl.id,
+        "template_key": tpl.template_key,
+        "channel": tpl.channel,
+        "provider": tpl.provider,
+        "provider_integrated_number": tpl.provider_integrated_number,
+        "provider_template_name": tpl.provider_template_name,
+        "provider_template_id": tpl.provider_template_id,
+        "language_code": tpl.language_code,
+        "params_schema": tpl.params_schema or [],
+    }
+
+    if tpl.channel == "whatsapp" and tpl.provider == "msg91":
+        preview = _normalize_msg91_whatsapp_preview(raw)
+        result["whatsapp_preview"] = preview
+    elif tpl.channel == "sms":
+        # If we have SMS versions saved, expose the active version's text where possible
+        sms_text = ""
+        # Raw payload may be either a single version dict or a full response with "data"
+        if isinstance(raw, dict) and isinstance(raw.get("data"), list) and raw.get("data"):
+            active = None
+            for v in raw.get("data") or []:
+                if isinstance(v, dict) and str(v.get("active_status")) == "1":
+                    active = v
+                    break
+            if not active and isinstance(raw.get("data")[0], dict):
+                active = raw.get("data")[0]
+            if active:
+                sms_text = str(active.get("template_data") or "")
+                result["sms_active_version"] = active
+        elif isinstance(raw, dict) and raw.get("template_data"):
+            sms_text = str(raw.get("template_data") or "")
+        result["sms_template_data"] = sms_text
+        result["sms_vars"] = _extract_sms_vars_from_template_data(sms_text)
+
+    return api_response(True, result=result, status_code=status.HTTP_200_OK)
+
+
+@api_view(["GET", "POST"])
+@permission_classes([IsAuthenticated])
+def campaign_preview_message(request, campaign_id: int):
+    """
+    Build a rendered preview for the message that would be sent for a campaign + notification_type + deal.
+    GET query params: notification_type, deal_id, custom_message (optional)
+    POST body: { notification_type, deal_id, custom_message?, param_mapping? }
+    If param_mapping is provided (dict), preview is generated using that mapping (useful for live UI edits).
+    """
+    denial = _require_comm_admin(request)
+    if denial:
+        return api_response(False, error=denial["error"], status_code=denial["status_code"])
+
+    campaign = Campaign.objects.filter(id=campaign_id).first()
+    if not campaign:
+        return api_response(False, error="Campaign not found", status_code=status.HTTP_404_NOT_FOUND)
+
+    override_param_mapping = None
+    if request.method == "POST":
+        body = request.data or {}
+        notification_type = (body.get("notification_type") or "").strip()
+        deal_id = int(body.get("deal_id") or 0)
+        custom_message = (body.get("custom_message") or "").strip()
+        override_param_mapping = body.get("param_mapping")
+    else:
+        notification_type = (request.query_params.get("notification_type") or "").strip()
+        deal_id = int(request.query_params.get("deal_id") or 0)
+        custom_message = (request.query_params.get("custom_message") or "").strip()
+    if not notification_type:
+        return api_response(False, error="notification_type is required", status_code=status.HTTP_400_BAD_REQUEST)
+    if not deal_id:
+        return api_response(False, error="deal_id is required", status_code=status.HTTP_400_BAD_REQUEST)
+
+    deal = Deal.objects.filter(id=deal_id, campaign=campaign).select_related("influencer__user", "influencer__user_profile").first()
+    if not deal:
+        return api_response(False, error="Deal not found for this campaign", status_code=status.HTTP_404_NOT_FOUND)
+
+    mapping = (
+        CampaignTemplateMapping.objects.filter(campaign=campaign, notification_type=notification_type, is_active=True)
+        .select_related("whatsapp_template", "sms_template")
+        .first()
+    )
+    if not mapping or not mapping.whatsapp_template:
+        return api_response(False, error="No WhatsApp template configured for this notification_type", status_code=status.HTTP_400_BAD_REQUEST)
+
+    tpl = mapping.whatsapp_template
+    pm = mapping.param_mapping or {}
+    if isinstance(override_param_mapping, dict):
+        pm = override_param_mapping
+    built = _build_components_from_mapping(template=tpl, mapping=pm, campaign=campaign, deal=deal, custom_message=custom_message)
+    resolved = built["resolved"]
+    rendered = {}
+    if tpl.channel == "whatsapp" and tpl.provider == "msg91":
+        rendered = _render_preview_from_msg91_whatsapp(tpl.raw_provider_payload or {}, resolved)
+    elif tpl.channel == "sms":
+        sms_text = ""
+        raw = tpl.raw_provider_payload or {}
+        if isinstance(raw, dict) and isinstance(raw.get("data"), list) and raw.get("data"):
+            active = None
+            for v in raw.get("data") or []:
+                if isinstance(v, dict) and str(v.get("active_status")) == "1":
+                    active = v
+                    break
+            if not active and isinstance(raw.get("data")[0], dict):
+                active = raw.get("data")[0]
+            if active:
+                sms_text = str(active.get("template_data") or "")
+        rendered = {"sms_text": _render_preview_from_sms(sms_text, resolved)}
+
+    return api_response(
+        True,
+        result={
+            "campaign_id": campaign_id,
+            "deal_id": deal_id,
+            "notification_type": notification_type,
+            "template": {
+                "id": tpl.id,
+                "provider_template_name": tpl.provider_template_name,
+                "provider_integrated_number": tpl.provider_integrated_number,
+                "provider_namespace": tpl.provider_namespace,
+                "language_code": tpl.language_code,
+                "params_schema": tpl.params_schema or [],
+            },
+            "param_mapping": pm,
+            "resolved_vars": resolved,
+            "named_components": built["named_components"],
+            "preview": rendered,
+        },
+        status_code=status.HTTP_200_OK,
+    )
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def campaign_test_send(request, campaign_id: int):
+    """
+    Send a single test WhatsApp message using the campaign mapping.
+    Body: { notification_type, deal_id, to_phone_number, country_code, custom_message? }
+    """
+    denial = _require_comm_admin(request)
+    if denial:
+        return api_response(False, error=denial["error"], status_code=denial["status_code"])
+
+    campaign = Campaign.objects.filter(id=campaign_id).first()
+    if not campaign:
+        return api_response(False, error="Campaign not found", status_code=status.HTTP_404_NOT_FOUND)
+
+    body = request.data or {}
+    notification_type = (body.get("notification_type") or "").strip()
+    deal_id = int(body.get("deal_id") or 0)
+    to_phone_number = (body.get("to_phone_number") or "").strip()
+    country_code = (body.get("country_code") or "+91").strip()
+    custom_message = (body.get("custom_message") or "").strip()
+    if not notification_type or not deal_id or not to_phone_number:
+        return api_response(False, error="notification_type, deal_id, to_phone_number are required", status_code=status.HTTP_400_BAD_REQUEST)
+
+    deal = Deal.objects.filter(id=deal_id, campaign=campaign).select_related("influencer__user", "influencer__user_profile").first()
+    if not deal:
+        return api_response(False, error="Deal not found for this campaign", status_code=status.HTTP_404_NOT_FOUND)
+
+    mapping = (
+        CampaignTemplateMapping.objects.filter(campaign=campaign, notification_type=notification_type, is_active=True)
+        .select_related("whatsapp_template")
+        .first()
+    )
+    if not mapping or not mapping.whatsapp_template:
+        return api_response(False, error="No WhatsApp template configured for this notification_type", status_code=status.HTTP_400_BAD_REQUEST)
+
+    tpl = mapping.whatsapp_template
+    if tpl.provider != "msg91":
+        return api_response(False, error="Only MSG91 WhatsApp test send supported", status_code=status.HTTP_400_BAD_REQUEST)
+    integrated = (tpl.provider_integrated_number or "").strip()
+    if not integrated:
+        return api_response(False, error="Template missing MSG91 integrated number", status_code=status.HTTP_400_BAD_REQUEST)
+
+    built = _build_components_from_mapping(template=tpl, mapping=(mapping.param_mapping or {}), campaign=campaign, deal=deal, custom_message=custom_message)
+    client = get_msg91_client()
+    ok, resp = client.send_whatsapp_template(
+        to_phone_number=to_phone_number,
+        country_code=country_code,
+        integrated_number=integrated,
+        template_name=tpl.provider_template_name,
+        language_code=tpl.language_code or "en",
+        components=built["components"],
+    )
+    if not ok:
+        return api_response(False, error=str(resp), status_code=status.HTTP_502_BAD_GATEWAY)
+    return api_response(True, result={"sent": True, "provider_response": resp}, status_code=status.HTTP_200_OK)
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def template_sms_sync_versions(request, template_id: int):
+    """
+    For SMS templates: fetch template versions from MSG91 and store the active version in raw_provider_payload.
+    Also derives params_schema from ##varN## placeholders.
+    """
+    denial = _require_comm_admin(request)
+    if denial:
+        return api_response(False, error=denial["error"], status_code=denial["status_code"])
+
+    tpl = MessageTemplate.objects.filter(id=template_id).first()
+    if not tpl:
+        return api_response(False, error="Template not found", status_code=status.HTTP_404_NOT_FOUND)
+    if tpl.channel != "sms":
+        return api_response(False, error="Not an SMS template", status_code=status.HTTP_400_BAD_REQUEST)
+    if tpl.provider != "msg91":
+        return api_response(False, error="Only MSG91 SMS templates supported here", status_code=status.HTTP_400_BAD_REQUEST)
+    if not (tpl.provider_template_id or "").strip():
+        return api_response(False, error="provider_template_id (MSG91 template_id) is required", status_code=status.HTTP_400_BAD_REQUEST)
+
+    client = get_msg91_client()
+    ok, data = client.get_sms_template_versions(template_id=tpl.provider_template_id.strip())
+    if not ok:
+        return api_response(False, error=str(data), status_code=status.HTTP_502_BAD_GATEWAY)
+
+    # Choose active version if present
+    active = None
+    if isinstance(data, dict) and isinstance(data.get("data"), list):
+        for v in data.get("data") or []:
+            if isinstance(v, dict) and str(v.get("active_status")) == "1":
+                active = v
+                break
+        if not active and data.get("data"):
+            first = data.get("data")[0]
+            active = first if isinstance(first, dict) else None
+
+    sms_text = str((active or {}).get("template_data") or "")
+    vars_ = _extract_sms_vars_from_template_data(sms_text)
+    tpl.params_schema = [{"name": v, "type": "text", "component": "body"} for v in vars_]
+    tpl.raw_provider_payload = data if isinstance(data, dict) else {"raw": data}
+    # Best-effort name update
+    if active and active.get("template_name"):
+        tpl.provider_template_name = str(active.get("template_name"))
+        tpl.template_key = tpl.template_key or tpl.provider_template_name
+    tpl.save()
+
+    return api_response(True, result={"synced": True, "vars": vars_}, status_code=status.HTTP_200_OK)
 
 
 # -------------------------
@@ -428,7 +1023,11 @@ def campaign_templates_get(request, campaign_id: int):
     if not campaign:
         return api_response(False, error="Campaign not found", status_code=status.HTTP_404_NOT_FOUND)
 
-    mappings = CampaignTemplateMapping.objects.filter(campaign=campaign).order_by("notification_type")
+    mappings = (
+        CampaignTemplateMapping.objects.filter(campaign=campaign)
+        .select_related("whatsapp_template", "sms_template")
+        .order_by("notification_type")
+    )
     return api_response(True, result=CampaignTemplateMappingSerializer(mappings, many=True).data, status_code=status.HTTP_200_OK)
 
 
@@ -455,6 +1054,14 @@ def campaign_templates_put(request, campaign_id: int):
     if not ser.is_valid():
         return api_response(False, error=format_serializer_errors(ser.errors), status_code=status.HTTP_400_BAD_REQUEST)
     obj = ser.save()
+    # Auto-fill param mapping if not provided and template has variables
+    try:
+        req_pm = (request.data or {}).get("param_mapping")
+        if (not req_pm) and obj.whatsapp_template and not (obj.param_mapping or {}) and (obj.whatsapp_template.params_schema or []):
+            obj.param_mapping = _infer_default_param_mapping(notification_type, template=obj.whatsapp_template)
+            obj.save(update_fields=["param_mapping", "updated_at"])
+    except Exception:
+        logger.exception("Failed to auto-fill param_mapping for campaign template mapping")
     return api_response(True, result=CampaignTemplateMappingSerializer(obj).data, status_code=status.HTTP_200_OK)
 
 
@@ -570,6 +1177,41 @@ def campaign_send_messages(request, campaign_id: int):
     data = ser.validated_data
     notification_type = data["notification_type"]
     custom_message = data.get("custom_message", "")
+
+    # Hard validation: admin bulk send must use a configured campaign WhatsApp template.
+    mapping = (
+        CampaignTemplateMapping.objects.filter(campaign=campaign, notification_type=notification_type, is_active=True)
+        .select_related("whatsapp_template")
+        .first()
+    )
+    if not mapping or not mapping.whatsapp_template:
+        return api_response(
+            False,
+            error=(
+                f"No WhatsApp template is configured for '{notification_type}'. "
+                f"Go to Admin → Campaigns → {campaign_id} → Communications config and set a WhatsApp template first."
+            ),
+            status_code=status.HTTP_400_BAD_REQUEST,
+        )
+    if mapping.whatsapp_template.channel != "whatsapp" or not mapping.whatsapp_template.is_active:
+        return api_response(
+            False,
+            error="Configured WhatsApp template is inactive or not a WhatsApp template. Please fix it in Communications config.",
+            status_code=status.HTTP_400_BAD_REQUEST,
+        )
+    if mapping.whatsapp_template.provider == "msg91" and not (mapping.whatsapp_template.provider_integrated_number or "").strip():
+        return api_response(
+            False,
+            error=(
+                "Configured WhatsApp template is missing MSG91 integrated number. "
+                "Sync templates for your MSG91 number and re-select the template."
+            ),
+            status_code=status.HTTP_400_BAD_REQUEST,
+        )
+    # If param mapping is missing but template has variables, auto-fill it
+    if (not (mapping.param_mapping or {})) and (mapping.whatsapp_template.params_schema or []):
+        mapping.param_mapping = _infer_default_param_mapping(notification_type, template=mapping.whatsapp_template)
+        mapping.save(update_fields=["param_mapping", "updated_at"])
 
     deal_ids = data.get("deal_ids") or []
     influencer_ids = data.get("influencer_ids") or []

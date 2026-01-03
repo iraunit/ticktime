@@ -171,8 +171,9 @@ class WhatsAppWorker:
             country_code = channel_data.get('country_code')
             template_name = channel_data.get('template_name')
             language_code = channel_data.get('template_language_code', 'en')
-            template_components = channel_data.get('template_components', [])
+            namespace = channel_data.get('namespace', '')
             integrated_number = channel_data.get('integrated_number') or os.environ.get("MSG91_WHATSAPP_INTEGRATED_NUMBER", "")
+            named_components = channel_data.get('named_components', {})
 
             # Validate required fields
             if not all([phone_number, country_code, template_name]):
@@ -280,7 +281,8 @@ class WhatsAppWorker:
                     integrated_number=integrated_number,
                     template_name=template_name,
                     language_code=language_code,
-                    components=template_components,
+                    namespace=namespace,
+                    named_components=named_components,
                 )
 
                 if success:

@@ -463,6 +463,8 @@ class MessageTemplate(models.Model):
     # For WhatsApp templates, templates are scoped by integrated_number (the /:number in MSG91 endpoints).
     # We persist it so we can show which number a template belongs to and avoid collisions across numbers.
     provider_integrated_number = models.CharField(max_length=32, blank=True, default='', db_index=True)
+    provider_namespace = models.CharField(max_length=255, blank=True, default='',
+                                          help_text="MSG91 WhatsApp namespace (required for bulk API)")
     provider_template_name = models.CharField(max_length=200, help_text='Template name on provider')
     provider_template_id = models.CharField(max_length=200, blank=True, default='', help_text='Template id on provider')
     language_code = models.CharField(max_length=20, blank=True, default='en')
@@ -570,7 +572,8 @@ class InfluencerMessageOverride(models.Model):
     Per-influencer override for a campaign notification template.
     """
     campaign = models.ForeignKey('campaigns.Campaign', on_delete=models.CASCADE, related_name='influencer_overrides')
-    influencer = models.ForeignKey('influencers.InfluencerProfile', on_delete=models.CASCADE, related_name='message_overrides')
+    influencer = models.ForeignKey('influencers.InfluencerProfile', on_delete=models.CASCADE,
+                                   related_name='message_overrides')
     notification_type = models.CharField(max_length=40, choices=CampaignTemplateMapping.NOTIFICATION_TYPE_CHOICES)
     whatsapp_template = models.ForeignKey(
         MessageTemplate,

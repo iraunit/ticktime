@@ -480,8 +480,9 @@ MSG91_WHATSAPP_INTEGRATED_NUMBER = os.environ.get("MSG91_WHATSAPP_INTEGRATED_NUM
 # For template listing, MSG91 uses: /whatsapp/get-template-client/:number
 # We store the base path here and append /<number> in the client.
 MSG91_WHATSAPP_TEMPLATES_PATH = os.environ.get("MSG91_WHATSAPP_TEMPLATES_PATH", "/whatsapp/get-template-client")
-MSG91_WHATSAPP_SEND_TEMPLATE_PATH = os.environ.get("MSG91_WHATSAPP_SEND_TEMPLATE_PATH", "/whatsapp/whatsapp-outbound-message")
+MSG91_WHATSAPP_SEND_TEMPLATE_PATH = os.environ.get("MSG91_WHATSAPP_SEND_TEMPLATE_PATH", "https://api.msg91.com/api/v5/whatsapp/whatsapp-outbound-message/bulk/")
 MSG91_SMS_FLOW_PATH = os.environ.get("MSG91_SMS_FLOW_PATH", "/flow")
+MSG91_SMS_TEMPLATE_VERSIONS_PATH = os.environ.get("MSG91_SMS_TEMPLATE_VERSIONS_PATH", "/sms/getTemplateVersions")
 
 # MSG91 webhook security (recommended in production)
 MSG91_WEBHOOK_SECRET = os.environ.get("MSG91_WEBHOOK_SECRET", "")

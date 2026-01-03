@@ -344,6 +344,8 @@ export const adminCommunicationApi = {
         update: async (id: number, data: any) => api.put(`/admin/templates/${id}/`, data),
         remove: async (id: number) => api.delete(`/admin/templates/${id}/`),
         sync: async () => api.post('/admin/templates/sync/', {}),
+        preview: async (id: number) => api.get(`/admin/templates/${id}/preview/`),
+        smsSyncVersions: async (id: number) => api.post(`/admin/templates/${id}/sms/sync-versions/`, {}),
     },
 
     senderNumbers: {
@@ -361,6 +363,9 @@ export const adminCommunicationApi = {
         influencersList: async (campaignId: number, params?: any) => api.get(`/admin/campaigns/${campaignId}/influencers/`, {params}),
         sendMessages: async (campaignId: number, data: any) => api.post(`/admin/campaigns/${campaignId}/send-messages/`, data),
         analytics: async (campaignId: number) => api.get(`/admin/campaigns/${campaignId}/analytics/`),
+        previewMessage: async (campaignId: number, params?: any) => api.get(`/admin/campaigns/${campaignId}/preview-message/`, {params}),
+        previewMessageLive: async (campaignId: number, data: any) => api.post(`/admin/campaigns/${campaignId}/preview-message/`, data),
+        testSend: async (campaignId: number, data: any) => api.post(`/admin/campaigns/${campaignId}/test-send/`, data),
     },
 
     analytics: {
