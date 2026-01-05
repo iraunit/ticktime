@@ -3,7 +3,8 @@ import csv
 from common.models import Industry
 from django.contrib import admin
 from django.contrib import messages
-from django.db.models import Q
+from django.db.models import Q, Sum, IntegerField, Value
+from django.db.models.functions import Coalesce
 from django.http import HttpResponse
 from django.shortcuts import redirect
 from django.urls import path
@@ -24,7 +25,7 @@ from .models import (
 @admin.register(InfluencerProfile)
 class InfluencerProfileAdmin(admin.ModelAdmin):
     list_display = [
-        'username', 'user_full_name', 'user_email', 'industry', 'categories_display', 'total_followers',
+        'username', 'user_full_name', 'user_email', 'industry', 'categories_display', 'followers_display',
         'email_verification_status', 'phone_verification_status', 'aadhar_verification_status',
         'profile_verification_status', 'is_verified', 'created_at'
     ]
@@ -157,6 +158,30 @@ class InfluencerProfileAdmin(admin.ModelAdmin):
         return ', '.join([cat.name for cat in obj.categories.all()[:3]])
 
     categories_display.short_description = 'Categories'
+
+    def get_queryset(self, request):
+        """Annotate queryset with total followers for efficient sorting and filtering"""
+        qs = super().get_queryset(request)
+        qs = qs.annotate(
+            followers_total=Coalesce(
+                Sum(
+                    'social_accounts__followers_count',
+                    filter=Q(social_accounts__is_active=True)
+                ),
+                Value(0),
+                output_field=IntegerField()
+            )
+        )
+        return qs
+
+    def followers_display(self, obj):
+        """Display total followers with sorting support"""
+        if hasattr(obj, 'followers_total') and obj.followers_total:
+            return obj.followers_total
+        return obj.total_followers
+
+    followers_display.short_description = 'Followers'
+    followers_display.admin_order_field = 'followers_total'
 
     def phone_number_display(self, obj):
         """Display phone number from user profile"""
@@ -297,11 +322,13 @@ class InfluencerProfileAdmin(admin.ModelAdmin):
             'Phone Verified',
             'Email Verified',
             'Aadhar Verified',
+            'Instagram Profile Link',
+            'Instagram Followers',
             'One-Tap Login Link'
         ])
 
         # Write data rows
-        for profile in queryset.select_related('user', 'user_profile'):
+        for profile in queryset.select_related('user', 'user_profile').prefetch_related('social_accounts'):
             # Get user information
             user = profile.user
             name = user.get_full_name() or user.username
@@ -331,6 +358,21 @@ class InfluencerProfileAdmin(admin.ModelAdmin):
             except Exception as e:
                 login_link = f"Error generating link: {str(e)}"
 
+            # Get Instagram account info
+            instagram_link = 'N/A'
+            instagram_followers = 'N/A'
+            instagram_account = profile.social_accounts.filter(platform='instagram', is_active=True).first()
+            if not instagram_account:
+                instagram_account = profile.social_accounts.filter(platform='instagram').first()
+
+            if instagram_account:
+                instagram_followers = instagram_account.followers_count or 0
+                if instagram_account.profile_url:
+                    instagram_link = instagram_account.profile_url
+                elif instagram_account.handle:
+                    handle = instagram_account.handle.lstrip('@')
+                    instagram_link = f"https://www.instagram.com/{handle}/"
+
             writer.writerow([
                 name,
                 email,
@@ -339,6 +381,8 @@ class InfluencerProfileAdmin(admin.ModelAdmin):
                 phone_verified,
                 email_verified,
                 aadhar_verified,
+                instagram_link,
+                instagram_followers,
                 login_link
             ])
 
@@ -1294,9 +1338,62 @@ class PhoneVerificationFilter(admin.SimpleListFilter):
             return queryset.filter(Q(user_profile__phone_verified=False) | Q(user_profile__isnull=True))
 
 
+class FollowersRangeFilter(admin.SimpleListFilter):
+    title = 'Followers Range'
+    parameter_name = 'followers_range'
+
+    def lookups(self, request, model_admin):
+        return (
+            ('0-1000', '0 - 1K'),
+            ('1000-3000', '1K - 3K'),
+            ('3000-5000', '3K - 5K'),
+            ('5000-10000', '5K - 10K'),
+            ('10000-25000', '10K - 25K'),
+            ('25000-50000', '25K - 50K'),
+            ('50000-100000', '50K - 100K'),
+            ('100000-250000', '100K - 250K'),
+            ('250000-500000', '250K - 500K'),
+            ('500000-1000000', '500K - 1M'),
+            ('1000000-5000000', '1M - 5M'),
+            ('5000000+', '5M+'),
+        )
+
+    def queryset(self, request, queryset):
+        value = self.value()
+        if not value:
+            return queryset
+
+        if value == '0-1000':
+            return queryset.filter(followers_total__gte=0, followers_total__lt=1000)
+        elif value == '1000-3000':
+            return queryset.filter(followers_total__gte=1000, followers_total__lt=3000)
+        elif value == '3000-5000':
+            return queryset.filter(followers_total__gte=3000, followers_total__lt=5000)
+        elif value == '5000-10000':
+            return queryset.filter(followers_total__gte=5000, followers_total__lt=10000)
+        elif value == '10000-25000':
+            return queryset.filter(followers_total__gte=10000, followers_total__lt=25000)
+        elif value == '25000-50000':
+            return queryset.filter(followers_total__gte=25000, followers_total__lt=50000)
+        elif value == '50000-100000':
+            return queryset.filter(followers_total__gte=50000, followers_total__lt=100000)
+        elif value == '100000-250000':
+            return queryset.filter(followers_total__gte=100000, followers_total__lt=250000)
+        elif value == '250000-500000':
+            return queryset.filter(followers_total__gte=250000, followers_total__lt=500000)
+        elif value == '500000-1000000':
+            return queryset.filter(followers_total__gte=500000, followers_total__lt=1000000)
+        elif value == '1000000-5000000':
+            return queryset.filter(followers_total__gte=1000000, followers_total__lt=5000000)
+        elif value == '5000000+':
+            return queryset.filter(followers_total__gte=5000000)
+        return queryset
+
+
 # Add the custom filters to the admin class
 InfluencerProfileAdmin.list_filter = [
     'industry', 'categories', 'is_verified', 'created_at',
+    FollowersRangeFilter,
     AadharVerificationFilter, EmailVerificationFilter, PhoneVerificationFilter
 ]
 
