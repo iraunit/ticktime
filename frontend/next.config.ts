@@ -25,9 +25,6 @@ const nextConfig: NextConfig = {
     // Enable compression for production builds
     compress: true,
     
-    // Use SWC minification for faster builds and smaller bundles
-    swcMinify: true,
-    
     // Experimental features for better performance
     experimental: {
         optimizeCss: true, // CSS optimization and minification
