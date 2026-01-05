@@ -455,23 +455,8 @@ PERFORMANCE_MONITORING = {
 # Site URL for absolute URL generation
 SITE_URL = os.environ.get("SITE_URL", "http://localhost:8000")
 
-# WhatsApp Cloud API (Meta / Facebook) configuration
-WHATSAPP_CLOUD_API_PHONE_NUMBER_ID = os.environ.get("WHATSAPP_CLOUD_API_PHONE_NUMBER_ID", "")
-WHATSAPP_CLOUD_API_ACCESS_TOKEN = os.environ.get("WHATSAPP_CLOUD_API_ACCESS_TOKEN", "")
-WHATSAPP_CLOUD_API_VERSION = os.environ.get("WHATSAPP_CLOUD_API_VERSION", "v22.0")
-WHATSAPP_CLOUD_API_BASE_URL = os.environ.get("WHATSAPP_CLOUD_API_BASE_URL", "https://graph.facebook.com")
-
-# WhatsApp rate limiting
-WHATSAPP_RATE_LIMIT_VERIFICATION_PER_MIN = int(os.environ.get("WHATSAPP_RATE_LIMIT_VERIFICATION_PER_MIN", "1"))
-WHATSAPP_RATE_LIMIT_VERIFICATION_PER_HOUR = int(os.environ.get("WHATSAPP_RATE_LIMIT_VERIFICATION_PER_HOUR", "5"))
-
-# WhatsApp credits
-WHATSAPP_DEFAULT_BRAND_CREDITS = int(os.environ.get("WHATSAPP_DEFAULT_BRAND_CREDITS", "100"))
-PASSWORD_RESET_TOKEN_EXPIRY_HOURS = int(os.environ.get("PASSWORD_RESET_TOKEN_EXPIRY_HOURS", "24"))
-
 # MSG91 SMS API configuration
 MSG91_AUTHKEY = os.environ.get("MSG91_AUTHKEY", "")
-MSG91_TEMPLATE_ID = os.environ.get("MSG91_TEMPLATE_ID", "69484ce85647c078cb4035f6")
 MSG91_API_BASE_URL = os.environ.get("MSG91_API_BASE_URL", "https://control.msg91.com/api/v5")
 
 # MSG91 WhatsApp configuration (paths are configurable because MSG91 products differ by account)

@@ -11,7 +11,6 @@ from campaigns.models import Campaign
 from communications.models import CampaignTemplateMapping, CommunicationLog
 from communications.msg91_client import get_msg91_client
 from communications.utils import check_whatsapp_rate_limit, check_brand_credits, deduct_brand_credits
-from communications.sms_service import get_sms_service
 from django.contrib.auth.models import User
 from django.core.management.base import BaseCommand
 from django.utils import timezone
@@ -35,7 +34,6 @@ class WhatsAppWorker:
         self.queue_name = os.environ.get('RABBITMQ_WHATSAPP_QUEUE', 'whatsapp_notifications')
 
         self.msg91_client = get_msg91_client()
-        self.sms_service = get_sms_service()
 
         logger.info("MSG91 client initialized for WhatsApp worker")
 
@@ -55,7 +53,7 @@ class WhatsAppWorker:
     def _maybe_send_sms_fallback(self, *, comm_log: CommunicationLog, metadata: dict, phone_number: str, country_code: str) -> None:
         """
         If campaign has SMS fallback enabled, send SMS after WhatsApp failure.
-        Current implementation supports invitation fallback out of the box using existing MSG91 Flow template.
+        Uses the campaign's configured SMS template (DB-driven) and MSG91 Flow API.
         """
         try:
             campaign_id = metadata.get("campaign_id")
@@ -73,9 +71,14 @@ class WhatsAppWorker:
             mapping = CampaignTemplateMapping.objects.filter(campaign_id=campaign_id, notification_type=notification_type).first()
             if not mapping or not mapping.sms_fallback_enabled or not mapping.sms_enabled:
                 return
+            if not mapping.sms_template:
+                return
 
-            # For now, fallback for invitation uses existing SMS flow template vars (name, brand, campaign, url)
-            if notification_type != "invitation":
+            sms_tpl = mapping.sms_template
+            if sms_tpl.provider != "msg91" or sms_tpl.channel != "sms":
+                return
+            template_id = (sms_tpl.provider_template_id or "").strip()
+            if not template_id:
                 return
 
             from deals.models import Deal
@@ -84,36 +87,80 @@ class WhatsAppWorker:
             if not deal:
                 return
 
-            influencer_name = deal.influencer.user.get_full_name() or deal.influencer.user.username
-            brand_name = deal.campaign.brand.name
-            campaign_title = deal.campaign.title
-            deal_url = metadata.get("deal_url") or ""
+            # Build vars for MSG91 Flow template: var1, var2, ...
+            # SMS templates store vars like ["var1","var2"] in params_schema.
+            def _infer_default_sms_source(var_name: str) -> str:
+                # Common convention for SMS Flow templates
+                if var_name == "var1":
+                    return "influencer_name"
+                if var_name == "var2":
+                    return "brand_name"
+                if var_name == "var3":
+                    return "campaign_title"
+                if var_name == "var4":
+                    return "deal_url"
+                if var_name == "var5":
+                    return "custom_message"
+                return ""
 
-            ok = self.sms_service.send_campaign_invitation(
-                phone_number=phone_number,
-                country_code=country_code or "+91",
-                influencer_name=influencer_name,
-                brand_name=brand_name,
-                campaign_title=campaign_title,
-                deal_url=deal_url,
-            )
+            def _resolve_value(src: str) -> str:
+                src = (src or "").strip()
+                if src.startswith("static:"):
+                    return src[7:]
+                if src in ("influencer_name", "name"):
+                    u = deal.influencer.user
+                    return u.get_full_name() or u.username or "User"
+                if src == "brand_name":
+                    return getattr(deal.campaign.brand, "name", "") or ""
+                if src in ("campaign_title", "campaign_name"):
+                    return getattr(deal.campaign, "title", "") or ""
+                if src == "deal_url":
+                    # Prefer one-tap signed URL already computed for WhatsApp, else deterministic placeholder
+                    return (metadata.get("deal_url") or "").strip() or f"{getattr(settings, 'FRONTEND_URL', '').rstrip('/')}/influencer/deals/{deal.id}"
+                if src == "custom_message":
+                    return (metadata.get("custom_message") or "").strip()
+                # Campaign extended fields (best-effort)
+                if src == "campaign_description":
+                    return getattr(deal.campaign, "description", "") or ""
+                if src == "campaign_requirements":
+                    return getattr(deal.campaign, "requirements", "") or getattr(deal.campaign, "content_requirements", "") or ""
+                return ""
+
+            pm = mapping.param_mapping or {}
+            recipient: dict = {
+                "mobiles": self.msg91_client.format_e164(phone_number, country_code or "+91"),
+            }
+            for p in (sms_tpl.params_schema or []):
+                if not isinstance(p, dict):
+                    continue
+                name = str(p.get("name") or "").strip()
+                if not name:
+                    continue
+                src = pm.get(name) or _infer_default_sms_source(name)
+                recipient[name] = _resolve_value(src)
+
+            ok, resp = self.msg91_client.send_sms_flow(template_id=template_id, recipients=[recipient])
+            ok_bool = bool(ok)
 
             # Log SMS attempt (best effort)
             CommunicationLog.objects.create(
                 message_type="sms",
                 recipient=f"{country_code}{phone_number}",
-                status="sent" if ok else "failed",
+                status="sent" if ok_bool else "failed",
                 message_id=f"{comm_log.message_id}-sms",
                 provider="msg91",
                 metadata={
                     **(metadata or {}),
                     "fallback_from_message_id": comm_log.message_id,
                     "fallback_reason": "whatsapp_failed",
+                    "sms_template_id": sms_tpl.id,
+                    "sms_provider_template_id": template_id,
+                    "sms_provider_response": resp,
                 },
                 phone_number=phone_number,
                 country_code=country_code,
-                sent_at=timezone.now() if ok else None,
-                error_log="" if ok else "SMS fallback failed",
+                sent_at=timezone.now() if ok_bool else None,
+                error_log="" if ok_bool else "SMS fallback failed",
             )
         except Exception as e:
             logger.error(f"SMS fallback failed unexpectedly for {comm_log.message_id}: {str(e)}")

@@ -915,7 +915,8 @@ def campaign_test_send(request, campaign_id: int):
         integrated_number=integrated,
         template_name=tpl.provider_template_name,
         language_code=tpl.language_code or "en",
-        components=built["components"],
+        namespace=(tpl.provider_namespace or "").strip(),
+        named_components=built.get("named_components") or {},
     )
     if not ok:
         return api_response(False, error=str(resp), status_code=status.HTTP_502_BAD_GATEWAY)
