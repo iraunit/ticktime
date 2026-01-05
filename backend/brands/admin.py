@@ -1,4 +1,7 @@
 from django.contrib import admin
+from django.utils.html import format_html
+from django.conf import settings
+from users.models import OneTapLoginToken
 
 from .models import Brand, BrandUser, BrandAuditLog, BookmarkedInfluencer
 
@@ -76,10 +79,10 @@ class BrandAdmin(admin.ModelAdmin):
 
 @admin.register(BrandUser)
 class BrandUserAdmin(admin.ModelAdmin):
-    list_display = ('user', 'brand', 'role', 'is_active', 'joined_at', 'last_activity')
+    list_display = ('user', 'brand', 'role', 'is_active', 'login_link_display', 'joined_at', 'last_activity')
     list_filter = ('role', 'is_active', 'joined_at')
     search_fields = ('user__first_name', 'user__last_name', 'user__email', 'brand__name')
-    readonly_fields = ('user', 'brand', 'invited_by', 'invited_at', 'joined_at', 'last_activity')
+    readonly_fields = ('user', 'brand', 'invited_by', 'invited_at', 'joined_at', 'last_activity', 'login_link_field')
     fieldsets = (
         ('User & Brand', {
             'fields': ('user', 'brand')
@@ -90,6 +93,10 @@ class BrandUserAdmin(admin.ModelAdmin):
         ('Invitation Details', {
             'fields': ('invited_by', 'invited_at', 'joined_at')
         }),
+        ('One-Tap Login', {
+            'fields': ('login_link_field',),
+            'description': 'Generate a one-tap login link for this brand user'
+        }),
         ('Activity', {
             'fields': ('last_activity',),
             'classes': ('collapse',)
@@ -99,6 +106,73 @@ class BrandUserAdmin(admin.ModelAdmin):
 
     def get_queryset(self, request):
         return super().get_queryset(request).select_related('user', 'brand', 'invited_by')
+
+    def login_link_display(self, obj):
+        """Display copy-to-clipboard login link button in list view"""
+        if not obj.user:
+            return '-'
+        
+        try:
+            frontend_url = settings.FRONTEND_URL.rstrip('/')
+            token, token_obj = OneTapLoginToken.create_token(obj.user)
+            login_link = f"{frontend_url}/accounts/login?token={token}"
+            
+            return format_html(
+                '<button type="button" onclick="navigator.clipboard.writeText(\'{}\').then(() => {{ '
+                'this.textContent = \'✓ Copied!\'; '
+                'setTimeout(() => {{ this.textContent = \'Copy Login Link\'; }}, 2000); '
+                '}});" style="padding: 3px 8px; cursor: pointer; background: #417690; color: white; '
+                'border: none; border-radius: 3px; font-size: 11px;">Copy Login Link</button>',
+                login_link
+            )
+        except Exception as e:
+            return format_html('<span style="color: red;">Error: {}</span>', str(e))
+
+    login_link_display.short_description = 'Login Link'
+
+    def login_link_field(self, obj):
+        """Display login link with copy button in detail view"""
+        if not obj.user:
+            return 'No user associated'
+        
+        try:
+            frontend_url = settings.FRONTEND_URL.rstrip('/')
+            token, token_obj = OneTapLoginToken.create_token(obj.user)
+            login_link = f"{frontend_url}/accounts/login?token={token}"
+            
+            return format_html(
+                '<div style="padding: 15px; background: #f8f8f8; border-radius: 4px; border: 1px solid #ddd;">'
+                '<p style="margin: 0 0 10px 0;"><strong>One-Tap Login Link:</strong></p>'
+                '<input type="text" value="{}" readonly '
+                'style="width: 100%; padding: 8px; margin-bottom: 10px; font-family: monospace; font-size: 12px;" '
+                'id="login_link_input_{}">'
+                '<button type="button" onclick="'
+                'var input = document.getElementById(\'login_link_input_{}\'); '
+                'input.select(); '
+                'navigator.clipboard.writeText(input.value).then(() => {{ '
+                'this.textContent = \'✓ Copied to Clipboard!\'; '
+                'this.style.background = \'#28a745\'; '
+                'setTimeout(() => {{ '
+                'this.textContent = \'Copy to Clipboard\'; '
+                'this.style.background = \'#417690\'; '
+                '}}, 2000); '
+                '}});" '
+                'style="padding: 8px 16px; cursor: pointer; background: #417690; color: white; '
+                'border: none; border-radius: 3px; font-size: 13px;">Copy to Clipboard</button>'
+                '<p style="margin: 10px 0 0 0; font-size: 11px; color: #666;">'
+                '⚠️ This link is valid for 7 days and can only be used once.</p>'
+                '</div>',
+                login_link, obj.id, obj.id
+            )
+        except Exception as e:
+            return format_html(
+                '<div style="padding: 10px; background: #fff3cd; border: 1px solid #ffc107; border-radius: 4px;">'
+                '<strong style="color: red;">Error generating login link:</strong><br>{}'
+                '</div>',
+                str(e)
+            )
+
+    login_link_field.short_description = 'One-Tap Login Link'
 
 
 @admin.register(BrandAuditLog)
