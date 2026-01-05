@@ -686,40 +686,53 @@ class InfluencerProfileAdmin(admin.ModelAdmin):
         success_count = 0
         skipped_count = 0
         error_count = 0
+        skip_reasons = {
+            'already_classified': 0,
+            'no_social_accounts': 0,
+            'no_bio': 0,
+            'no_data': 0
+        }
 
         for profile in queryset:
-            # Check if processing is needed (industry None, 1, or key 'none')
-            needs_classification = False
-            if not profile.industry:
-                needs_classification = True
-            elif profile.industry.id == 1:
-                needs_classification = True
-            elif hasattr(profile.industry, "key") and profile.industry.key == "none":
-                needs_classification = True
-
-            if not needs_classification:
-                skipped_count += 1
-                continue
+            # Skip if already has a valid industry (not None, not 1, and not 'none' key)
+            if profile.industry:
+                # Skip if industry is valid (not the default/none industry)
+                if profile.industry.id != 1:
+                    # Double check it's not a 'none' industry
+                    if not (hasattr(profile.industry, "key") and profile.industry.key == "none"):
+                        skip_reasons['already_classified'] += 1
+                        skipped_count += 1
+                        continue
 
             # Check for social accounts
             if not profile.social_accounts.exists():
+                skip_reasons['no_social_accounts'] += 1
                 skipped_count += 1
                 continue
 
-            # Gather data
+            # Gather data - prioritize Instagram
             bio = profile.bio or ""
-            if not bio or bio == "":
-                skipped_count += 1
-                continue
             social_data = []
+            has_instagram_data = False
+
             for account in profile.social_accounts.all():
-                acc_data = f"Platform: {account.platform}, Bio: {account.bio}, Verified: {account.verified}"
+                # Check if this is Instagram and has data
+                if account.platform == 'instagram' and (account.bio or account.posts.exists()):
+                    has_instagram_data = True
+
+                acc_data = f"Platform: {account.platform}, Bio: {account.bio or 'N/A'}, Verified: {account.verified}"
                 # Get last 5 post captions
                 posts = account.posts.all().order_by("-posted_at")[:5]
                 captions = [p.caption for p in posts if p.caption]
                 if captions:
-                    acc_data += f", Recent Post Captions: {' | '.join(captions)}"
+                    acc_data += f", Recent Post Captions: {' | '.join(captions[:3])}"  # Limit to 3 captions
                 social_data.append(acc_data)
+
+            # Skip if no meaningful data (no bio AND no Instagram data)
+            if not bio.strip() and not has_instagram_data:
+                skip_reasons['no_data'] += 1
+                skipped_count += 1
+                continue
 
             data_context = f"Influencer Bio: {bio}\nSocial Media Data:\n" + "\n".join(social_data)
 
@@ -754,12 +767,15 @@ class InfluencerProfileAdmin(admin.ModelAdmin):
                     try:
                         parsed = json.loads(response.text)
 
-                        # Update Industry
+                        # Update Industry - only if valid and different from default
                         ind_id = parsed.get("industry_id")
+                        updated = False
                         if ind_id:
-                            # Verify existence
-                            if Industry.objects.filter(id=ind_id).exists():
+                            # Verify existence and that it's not the default (1)
+                            if ind_id != 1 and Industry.objects.filter(id=ind_id, is_active=True).exists():
+                                old_industry_id = profile.industry_id if profile.industry else None
                                 profile.industry_id = ind_id
+                                updated = True
 
                         # Update Email
                         email = parsed.get("email")
@@ -770,9 +786,14 @@ class InfluencerProfileAdmin(admin.ModelAdmin):
                                 if email != current_email:
                                     profile.user.email = email
                                     profile.user.save()
+                                    updated = True
 
-                        profile.save()
-                        success_count += 1
+                        if updated:
+                            profile.save()
+                            success_count += 1
+                        else:
+                            skipped_count += 1
+                            skip_reasons['no_data'] += 1
                     except (KeyError, IndexError, json.JSONDecodeError) as e:
                         error_count += 1
                         print(f"Error parsing Gemini response for {profile}: {e}")
@@ -784,9 +805,20 @@ class InfluencerProfileAdmin(admin.ModelAdmin):
                 error_count += 1
                 print(f"Request failed for {profile}: {e}")
 
+        # Build detailed message
+        skip_details = []
+        if skip_reasons['already_classified'] > 0:
+            skip_details.append(f"{skip_reasons['already_classified']} already classified")
+        if skip_reasons['no_social_accounts'] > 0:
+            skip_details.append(f"{skip_reasons['no_social_accounts']} no social accounts")
+        if skip_reasons['no_data'] > 0:
+            skip_details.append(f"{skip_reasons['no_data']} no bio/data")
+
+        skip_msg = f" ({', '.join(skip_details)})" if skip_details else ""
+
         self.message_user(
             request,
-            f"Processed: {success_count} updated, {skipped_count} skipped, {error_count} errors.",
+            f"Processed: {success_count} updated, {skipped_count} skipped{skip_msg}, {error_count} errors.",
             level=messages.INFO if error_count == 0 else messages.WARNING
         )
 
