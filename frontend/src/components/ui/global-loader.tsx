@@ -1,5 +1,7 @@
 "use client";
 
+import Image from "next/image";
+
 interface GlobalLoaderProps {
     isVisible?: boolean;
     className?: string;
@@ -13,10 +15,14 @@ export function GlobalLoader({isVisible = true, className = ""}: GlobalLoaderPro
             <div className="text-center">
                 <div className="mb-6">
                     <div className="w-16 h-16 mx-auto mb-4">
-                        <img
+                        <Image
                             src="/ticktime-logo.png"
                             alt="TickTime Logo"
+                            width={64}
+                            height={64}
                             className="w-full h-full object-contain"
+                            priority
+                            unoptimized
                         />
                     </div>
                     <div className="flex space-x-3 mb-4">

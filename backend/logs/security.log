@@ -97,3 +97,4 @@ Traceback (most recent call last):
   File "D:\Projects\influ\.venv\Lib\site-packages\django\http\request.py", line 150, in get_host
     raise DisallowedHost(msg)
 django.core.exceptions.DisallowedHost: Invalid HTTP_HOST header: 'testserver'. You may need to add 'testserver' to ALLOWED_HOSTS.
+WARNING 2026-01-01 23:07:25,852 log 13352 4536 Forbidden (CSRF token from POST incorrect.): /admin/login/

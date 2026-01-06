@@ -1,7 +1,7 @@
-@import url('https://cdn.lineicons.com/4.0/lineicons.css');
+/* Use local imports only to prevent blocking render - external CDN imports block initial render */
+/* Removed external CDN imports for lineicons and boxicons - using local packages instead */
 @import 'lineicons/dist/lineicons.css';
 @import 'remixicon/fonts/remixicon.css';
-@import url('https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css');
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
