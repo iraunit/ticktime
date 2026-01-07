@@ -82,17 +82,23 @@ export function VerificationWarningDialog({
                 <div className="space-y-4 py-4">
                     {/* Email Verification Status */}
                     <div className="flex items-center justify-between p-3 border rounded-lg">
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-3 flex-1 min-w-0">
                             {emailVerified ? (
-                                <CheckCircle className="h-5 w-5 text-green-600"/>
+                                <CheckCircle className="h-5 w-5 text-green-600 flex-shrink-0"/>
                             ) : (
-                                <XCircle className="h-5 w-5 text-red-500"/>
+                                <XCircle className="h-5 w-5 text-red-500 flex-shrink-0"/>
                             )}
-                            <div>
+                            <div className="flex-1 min-w-0">
                                 <p className="text-sm font-medium">Email Verification</p>
-                                <p className="text-xs text-gray-500">
-                                    {email || (emailVerified ? 'Verified' : 'Not verified')}
-                                </p>
+                                {email ? (
+                                    <p className="text-xs text-gray-600 truncate" title={email}>
+                                        {email}
+                                    </p>
+                                ) : (
+                                    <p className="text-xs text-gray-500">
+                                        {emailVerified ? 'Verified' : 'Not verified'}
+                                    </p>
+                                )}
                             </div>
                         </div>
                         {!emailVerified && (
@@ -101,7 +107,7 @@ export function VerificationWarningDialog({
                                 variant="outline"
                                 onClick={sendVerificationEmail}
                                 disabled={!canResendEmail || sendingEmail}
-                                className="gap-2"
+                                className="gap-2 ml-2 flex-shrink-0"
                             >
                                 <Mail className="h-4 w-4"/>
                                 {sendingEmail ? 'Sending...' : canResendEmail ? 'Verify' : formatTimeRemaining(secondsUntilResendEmail)}
@@ -111,17 +117,23 @@ export function VerificationWarningDialog({
 
                     {/* Phone Verification Status */}
                     <div className="flex items-center justify-between p-3 border rounded-lg">
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-3 flex-1 min-w-0">
                             {phoneVerified ? (
-                                <CheckCircle className="h-5 w-5 text-green-600"/>
+                                <CheckCircle className="h-5 w-5 text-green-600 flex-shrink-0"/>
                             ) : (
-                                <XCircle className="h-5 w-5 text-red-500"/>
+                                <XCircle className="h-5 w-5 text-red-500 flex-shrink-0"/>
                             )}
-                            <div>
+                            <div className="flex-1 min-w-0">
                                 <p className="text-sm font-medium">Phone Verification</p>
-                                <p className="text-xs text-gray-500">
-                                    {phoneNumber ? `${countryCode} ${phoneNumber}` : (phoneVerified ? 'Verified' : 'Not verified')}
-                                </p>
+                                {phoneNumber ? (
+                                    <p className="text-xs text-gray-600 truncate" title={`${countryCode} ${phoneNumber}`}>
+                                        {countryCode} {phoneNumber}
+                                    </p>
+                                ) : (
+                                    <p className="text-xs text-gray-500">
+                                        {phoneVerified ? 'Verified' : 'Not verified'}
+                                    </p>
+                                )}
                             </div>
                         </div>
                         {!phoneVerified && (
@@ -130,7 +142,7 @@ export function VerificationWarningDialog({
                                 variant="outline"
                                 onClick={sendVerificationPhone}
                                 disabled={!canResendPhone || sendingPhone}
-                                className="gap-2"
+                                className="gap-2 ml-2 flex-shrink-0"
                             >
                                 <Phone className="h-4 w-4"/>
                                 {sendingPhone ? 'Sending...' : canResendPhone ? 'Verify' : formatTimeRemaining(secondsUntilResendPhone)}

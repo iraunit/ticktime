@@ -113,6 +113,9 @@ export default function BrandLayout({
                         onOpenChange={setShowVerificationWarning}
                         emailVerified={user.email_verified || false}
                         phoneVerified={user.phone_verified || false}
+                        email={user.email}
+                        phoneNumber={user.phone_number}
+                        countryCode={user.country_code}
                         userType="brand"
                     />
                 )}
