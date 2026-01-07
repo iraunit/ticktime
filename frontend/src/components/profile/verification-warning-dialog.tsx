@@ -14,6 +14,9 @@ interface VerificationWarningDialogProps {
     emailVerified: boolean;
     phoneVerified: boolean;
     userType?: 'brand' | 'influencer';
+    email?: string;
+    phoneNumber?: string;
+    countryCode?: string;
 }
 
 export function VerificationWarningDialog({
@@ -21,7 +24,10 @@ export function VerificationWarningDialog({
                                               onOpenChange,
                                               emailVerified,
                                               phoneVerified,
-                                              userType = 'influencer'
+                                              userType = 'influencer',
+                                              email,
+                                              phoneNumber,
+                                              countryCode = '+91'
                                           }: VerificationWarningDialogProps) {
     const [dismissed, setDismissed] = useState(false);
 
@@ -85,7 +91,7 @@ export function VerificationWarningDialog({
                             <div>
                                 <p className="text-sm font-medium">Email Verification</p>
                                 <p className="text-xs text-gray-500">
-                                    {emailVerified ? 'Verified' : 'Not verified'}
+                                    {email || (emailVerified ? 'Verified' : 'Not verified')}
                                 </p>
                             </div>
                         </div>
@@ -114,7 +120,7 @@ export function VerificationWarningDialog({
                             <div>
                                 <p className="text-sm font-medium">Phone Verification</p>
                                 <p className="text-xs text-gray-500">
-                                    {phoneVerified ? 'Verified' : 'Not verified'}
+                                    {phoneNumber ? `${countryCode} ${phoneNumber}` : (phoneVerified ? 'Verified' : 'Not verified')}
                                 </p>
                             </div>
                         </div>

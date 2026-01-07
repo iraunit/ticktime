@@ -58,6 +58,9 @@ export default function InfluencerLayout({
                         onOpenChange={setShowVerificationWarning}
                         emailVerified={user.email_verified || false}
                         phoneVerified={user.phone_verified || false}
+                        email={user.email}
+                        phoneNumber={user.phone_number}
+                        countryCode={user.country_code}
                         userType="influencer"
                     />
                 )}
@@ -75,6 +78,9 @@ export default function InfluencerLayout({
                         onOpenChange={setShowVerificationWarning}
                         emailVerified={user.email_verified || false}
                         phoneVerified={user.phone_verified || false}
+                        email={user.email}
+                        phoneNumber={user.phone_number}
+                        countryCode={user.country_code}
                         userType="influencer"
                     />
                 )}
