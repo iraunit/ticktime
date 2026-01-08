@@ -474,6 +474,7 @@ MSG91_AUTHKEY = os.environ.get("MSG91_AUTHKEY", "")
 MSG91_TEMPLATE_ID = os.environ.get("MSG91_TEMPLATE_ID", "69484ce85647c078cb4035f6")
 MSG91_API_BASE_URL = os.environ.get("MSG91_API_BASE_URL", "https://control.msg91.com/api/v5")
 
+<<<<<<< HEAD
 # Rate limiting configuration
 RATE_LIMIT_SETTINGS = {
     'AUTH': {
@@ -489,3 +490,9 @@ RATE_LIMIT_SETTINGS = {
         'window': 60,    # per 60 seconds (1 request per second average)
     },
 }
+=======
+# MSG91 WhatsApp API configuration
+MSG91_INTEGRATED_NUMBER = os.environ.get("MSG91_INTEGRATED_NUMBER", "917435982282")
+MSG91_WHATSAPP_NAMESPACE = os.environ.get("MSG91_WHATSAPP_NAMESPACE", "30587835_f04e_48e8_81ee_f650f388a236")
+
+>>>>>>> 187def32fd5b61b3e7dd9e865d34d0a84e016a91

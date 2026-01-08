@@ -216,7 +216,7 @@ class WhatsAppService:
                     "parameters": [
                         {
                             "type": "text",
-                            "text": url_suffix,
+                            "text": verification_url.strip(),
                         },
                     ],
                 },
@@ -397,7 +397,7 @@ class WhatsAppService:
                         "parameters": [
                             {
                                 "type": "text",
-                                "text": url_suffix,
+                                "text": deal_url,
                             },
                         ],
                     })
