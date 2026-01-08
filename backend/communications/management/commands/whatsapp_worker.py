@@ -10,6 +10,7 @@ from brands.models import Brand
 from communications.models import CommunicationLog
 from communications.utils import check_whatsapp_rate_limit, check_brand_credits, deduct_brand_credits
 from communications.whatsapp_cloud_client import get_whatsapp_cloud_client
+from communications.msg91_whatsapp_client import get_msg91_whatsapp_client, MSG91_TEMPLATES
 from django.contrib.auth.models import User
 from django.core.management.base import BaseCommand
 from django.utils import timezone
@@ -33,8 +34,9 @@ class WhatsAppWorker:
         self.queue_name = os.environ.get('RABBITMQ_WHATSAPP_QUEUE', 'whatsapp_notifications')
 
         self.whatsapp_client = get_whatsapp_cloud_client()
+        self.msg91_client = get_msg91_whatsapp_client()
 
-        logger.info("WhatsApp Cloud API client initialized")
+        logger.info("WhatsApp Cloud API and MSG91 clients initialized")
 
     def connect_rabbitmq(self):
         """Establish connection to RabbitMQ"""
@@ -67,6 +69,82 @@ class WhatsAppWorker:
         except Exception as e:
             logger.error(f"Failed to connect to RabbitMQ: {str(e)}")
             return False
+
+    def _send_via_msg91(
+            self,
+            template_name: str,
+            full_phone: str,
+            template_components: list,
+            metadata: dict,
+    ):
+        """
+        Route message to MSG91 WhatsApp API for specific templates.
+        
+        Extracts parameters from Meta Cloud API component format and calls
+        the appropriate MSG91 template function.
+        """
+        try:
+            # Extract parameters from Meta Cloud API component format
+            body_params = []
+            button_params = []
+            
+            for component in template_components:
+                component_type = component.get('type', '')
+                params = component.get('parameters', [])
+                
+                if component_type == 'body':
+                    for param in params:
+                        text = param.get('text', '')
+                        body_params.append(text)
+                elif component_type == 'button':
+                    for param in params:
+                        text = param.get('text', '')
+                        button_params.append(text)
+            
+            if template_name == 'password_recovery':
+                # Password recovery only needs OTP in body_1 and button_1
+                otp = body_params[0] if body_params else ''
+                return self.msg91_client.send_password_recovery(
+                    phone_number=full_phone,
+                    otp=otp,
+                )
+                
+            elif template_name == 'phone_verification':
+                # Phone verification needs name in body_1 and URL suffix in button_1
+                name = body_params[0] if body_params else 'User'
+                url_suffix = button_params[0] if button_params else ''
+                return self.msg91_client.send_phone_verification(
+                    phone_number=full_phone,
+                    name=name,
+                    verification_url_suffix=url_suffix,
+                )
+                
+            elif template_name == 'campaign_invitation_marketing':
+                # Campaign invitation needs multiple params
+                user_name = body_params[0] if len(body_params) > 0 else 'User'
+                brand_name = body_params[1] if len(body_params) > 1 else ''
+                # body_3 originally was campaign title, now using as description
+                description = body_params[2] if len(body_params) > 2 else ''
+                view_url_suffix = button_params[0] if len(button_params) > 0 else ''
+                about_url_suffix = button_params[1] if len(button_params) > 1 else '/about'
+                
+                return self.msg91_client.send_campaign_invitation(
+                    phone_number=full_phone,
+                    user_name=user_name,
+                    brand_name=brand_name,
+                    description=description,
+                    view_details_url_suffix=view_url_suffix,
+                    about_url_suffix=about_url_suffix,
+                )
+            else:
+                error_msg = f"Unknown MSG91 template: {template_name}"
+                logger.error(error_msg)
+                return False, error_msg
+                
+        except Exception as e:
+            error_msg = f"Error sending via MSG91: {str(e)}"
+            logger.error(error_msg)
+            return False, error_msg
 
     def process_message(self, ch, method, properties, body):
         """Process a single message from the queue"""
@@ -186,14 +264,28 @@ class WhatsAppWorker:
 
             # Attempt to send WhatsApp message with retries
             max_retries = 3
+            full_phone = f"{country_code}{phone_number}"
+            
+            # Determine if this template should be sent via MSG91
+            use_msg91 = template_name in MSG91_TEMPLATES
+            
             for attempt in range(max_retries):
-                full_phone = f"{country_code}{phone_number}"
-                success, error = self.whatsapp_client.send_template_message(
-                    full_phone=full_phone,
-                    template_name=template_name,
-                    language_code=language_code,
-                    components=template_components,
-                )
+                if use_msg91:
+                    # Route to MSG91 for specific templates
+                    success, error = self._send_via_msg91(
+                        template_name=template_name,
+                        full_phone=full_phone,
+                        template_components=template_components,
+                        metadata=metadata,
+                    )
+                else:
+                    # Use Meta Cloud API for all other templates
+                    success, error = self.whatsapp_client.send_template_message(
+                        full_phone=full_phone,
+                        template_name=template_name,
+                        language_code=language_code,
+                        components=template_components,
+                    )
 
                 if success:
                     # Deduct credits if required
