@@ -83,6 +83,8 @@ class WhatsAppWorker:
         Extracts parameters from Meta Cloud API component format and calls
         the appropriate MSG91 template function.
         """
+        from urllib.parse import urlparse
+        
         try:
             # Extract parameters from Meta Cloud API component format
             body_params = []
@@ -101,6 +103,24 @@ class WhatsAppWorker:
                         text = param.get('text', '')
                         button_params.append(text)
             
+            # Helper function to extract only the path portion from a URL
+            # MSG91 button URLs expect only the dynamic suffix, not the full URL
+            def extract_url_suffix(url_or_suffix: str) -> str:
+                if not url_or_suffix:
+                    return ''
+                url_or_suffix = url_or_suffix.strip()
+                # If it looks like a full URL, parse it and extract path + query
+                if url_or_suffix.startswith('http://') or url_or_suffix.startswith('https://'):
+                    parsed = urlparse(url_or_suffix)
+                    suffix = parsed.path
+                    if parsed.query:
+                        suffix = f"{suffix}?{parsed.query}"
+                    return suffix
+                # If it starts with /, it's already a path suffix
+                return url_or_suffix
+            
+            logger.info(f"MSG91 routing: template={template_name}, body_params={body_params}, button_params={button_params}")
+            
             if template_name == 'password_recovery':
                 # Password recovery only needs OTP in body_1 and button_1
                 otp = body_params[0] if body_params else ''
@@ -112,7 +132,9 @@ class WhatsAppWorker:
             elif template_name == 'phone_verification':
                 # Phone verification needs name in body_1 and URL suffix in button_1
                 name = body_params[0] if body_params else 'User'
-                url_suffix = button_params[0] if button_params else ''
+                raw_url = button_params[0] if button_params else ''
+                url_suffix = extract_url_suffix(raw_url)
+                logger.info(f"Phone verification: raw_url={raw_url}, extracted_suffix={url_suffix}")
                 return self.msg91_client.send_phone_verification(
                     phone_number=full_phone,
                     name=name,
@@ -125,8 +147,10 @@ class WhatsAppWorker:
                 brand_name = body_params[1] if len(body_params) > 1 else ''
                 # body_3 originally was campaign title, now using as description
                 description = body_params[2] if len(body_params) > 2 else ''
-                view_url_suffix = button_params[0] if len(button_params) > 0 else ''
-                about_url_suffix = button_params[1] if len(button_params) > 1 else '/about'
+                raw_view_url = button_params[0] if len(button_params) > 0 else ''
+                raw_about_url = button_params[1] if len(button_params) > 1 else '/about'
+                view_url_suffix = extract_url_suffix(raw_view_url)
+                about_url_suffix = extract_url_suffix(raw_about_url)
                 
                 return self.msg91_client.send_campaign_invitation(
                     phone_number=full_phone,
