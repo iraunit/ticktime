@@ -103,21 +103,9 @@ class WhatsAppWorker:
                         text = param.get('text', '')
                         button_params.append(text)
             
-            # Helper function to extract only the path portion from a URL
-            # MSG91 button URLs expect only the dynamic suffix, not the full URL
-            def extract_url_suffix(url_or_suffix: str) -> str:
-                if not url_or_suffix:
-                    return ''
-                url_or_suffix = url_or_suffix.strip()
-                # If it looks like a full URL, parse it and extract path + query
-                if url_or_suffix.startswith('http://') or url_or_suffix.startswith('https://'):
-                    parsed = urlparse(url_or_suffix)
-                    suffix = parsed.path
-                    if parsed.query:
-                        suffix = f"{suffix}?{parsed.query}"
-                    return suffix.lstrip('/')
-                # If it starts with /, it's already a path suffix
-                return url_or_suffix.lstrip('/')
+            # MSG91 expects the value provided in the component parameter
+            # We assume the service constructs the correct value (full URL or suffix)
+            # based on what the template requires.
             
             logger.info(f"MSG91 routing: template={template_name}, body_params={body_params}, button_params={button_params}")
             
@@ -130,15 +118,15 @@ class WhatsAppWorker:
                 )
                 
             elif template_name == 'phone_verification':
-                # Phone verification needs name in body_1 and URL suffix in button_1
+                # Phone verification needs name in body_1 and URL
                 name = body_params[0] if body_params else 'User'
-                raw_url = button_params[0] if button_params else ''
-                url_suffix = extract_url_suffix(raw_url)
-                logger.info(f"Phone verification: raw_url={raw_url}, extracted_suffix={url_suffix}")
+                url_val = button_params[0] if button_params else ''
+                
+                logger.info(f"Phone verification: url={url_val}")
                 return self.msg91_client.send_phone_verification(
                     phone_number=full_phone,
                     name=name,
-                    verification_url_suffix=url_suffix,
+                    verification_url_suffix=url_val,
                 )
                 
             elif template_name == 'campaign_invitation_marketing':
@@ -147,18 +135,16 @@ class WhatsAppWorker:
                 brand_name = body_params[1] if len(body_params) > 1 else ''
                 # body_3 originally was campaign title, now using as description
                 description = body_params[2] if len(body_params) > 2 else ''
-                raw_view_url = button_params[0] if len(button_params) > 0 else ''
-                raw_about_url = button_params[1] if len(button_params) > 1 else '/about'
-                view_url_suffix = extract_url_suffix(raw_view_url)
-                about_url_suffix = extract_url_suffix(raw_about_url)
+                view_url = button_params[0] if len(button_params) > 0 else ''
+                about_url = button_params[1] if len(button_params) > 1 else '/about'
                 
                 return self.msg91_client.send_campaign_invitation(
                     phone_number=full_phone,
                     user_name=user_name,
                     brand_name=brand_name,
                     description=description,
-                    view_details_url_suffix=view_url_suffix,
-                    about_url_suffix=about_url_suffix,
+                    view_details_url_suffix=view_url,
+                    about_url_suffix=about_url,
                 )
             else:
                 error_msg = f"Unknown MSG91 template: {template_name}"
