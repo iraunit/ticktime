@@ -13,6 +13,9 @@ export function useDashboard() {
         queryFn: () => dashboardApi.getStats(),
         select: (response) => response.data.stats,
         enabled: !isAuthLoading && isAuthenticatedState,
+        refetchOnMount: false,
+        refetchOnWindowFocus: false,
+        refetchOnReconnect: false,
     });
 
     // Get recent deals
@@ -21,6 +24,9 @@ export function useDashboard() {
         queryFn: () => dashboardApi.getRecentDeals(),
         select: (response) => response.data.recent_deals as any[] || [],
         enabled: !isAuthLoading && isAuthenticatedState,
+        refetchOnMount: false,
+        refetchOnWindowFocus: false,
+        refetchOnReconnect: false,
     });
 
     return {
@@ -38,6 +44,9 @@ export function useNotifications() {
         queryFn: () => dashboardApi.getNotifications(),
         select: (response) => response.data.notifications as any[],
         enabled: !isAuthLoading && isAuthenticatedState,
+        refetchOnMount: false,
+        refetchOnWindowFocus: false,
+        refetchOnReconnect: false,
     });
 
     return {

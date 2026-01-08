@@ -31,7 +31,7 @@ export default function InfluencerDashboardPage() {
         }, 60000); // 1 minute instead of 30 seconds
 
         return () => clearInterval(interval);
-    }, [stats, recentDeals, notifications, user]);
+    }, [user]); // Only depend on user - refetch functions are stable from React Query
 
     const handleRefresh = () => {
         // Clear all dashboard-related queries

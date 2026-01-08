@@ -11,6 +11,9 @@ export function QueryProvider({ children }: { children: React.ReactNode }) {
           queries: {
             staleTime: 60 * 1000, // 1 minute
             retry: 1,
+            refetchOnMount: false, // Prevent refetch on component mount
+            refetchOnWindowFocus: false, // Prevent refetch on window focus
+            refetchOnReconnect: false, // Prevent refetch on reconnect
           },
         },
       })
