@@ -115,9 +115,9 @@ class WhatsAppWorker:
                     suffix = parsed.path
                     if parsed.query:
                         suffix = f"{suffix}?{parsed.query}"
-                    return suffix
+                    return suffix.lstrip('/')
                 # If it starts with /, it's already a path suffix
-                return url_or_suffix
+                return url_or_suffix.lstrip('/')
             
             logger.info(f"MSG91 routing: template={template_name}, body_params={body_params}, button_params={button_params}")
             
