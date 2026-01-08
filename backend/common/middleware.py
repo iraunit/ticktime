@@ -93,7 +93,7 @@ class RateLimitMiddleware:
         rate_limit_key = self.get_rate_limit_key(request.path)
         rate_limit = self.rate_limits.get(rate_limit_key, self.rate_limits.get('DEFAULT'))
 
-        if rate_limit and not self.is_rate_limited(client_ip, rate_limit_key, rate_limit):
+        if rate_limit and self.is_rate_limited(client_ip, rate_limit_key, rate_limit):
             return JsonResponse({
                 'error': 'Rate limit exceeded',
                 'message': f'Too many requests. Limit: {rate_limit["requests"]} per {rate_limit["window"]} seconds'
@@ -130,11 +130,11 @@ class RateLimitMiddleware:
                 f"Rate limit exceeded for IP {client_ip} on {rate_limit_key} endpoint. "
                 f"Requests: {current_requests}/{rate_limit['requests']}"
             )
-            return False
+            return True  # Limit IS exceeded
 
         # Increment the counter
         cache.set(cache_key, current_requests + 1, rate_limit['window'])
-        return True
+        return False  # Limit NOT exceeded
 
 
 class PerformanceMonitoringMiddleware:

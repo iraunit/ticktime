@@ -28,7 +28,7 @@ export default function InfluencerDashboardPage() {
             stats.refetch();
             recentDeals.refetch();
             notifications.refetch();
-        }, 30000);
+        }, 60000); // 1 minute instead of 30 seconds
 
         return () => clearInterval(interval);
     }, [stats, recentDeals, notifications, user]);
