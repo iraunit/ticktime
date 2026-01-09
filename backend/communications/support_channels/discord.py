@@ -429,3 +429,93 @@ def _get_admin_url(user_type: str, user_id: int, request=None) -> Optional[str]:
     except Exception as e:
         logger.warning(f"Failed to generate admin URL: {e}")
         return None
+
+
+def send_csv_download_notification(
+        csv_type: str,
+        filename: str,
+        record_count: int,
+        user: Optional[Any] = None,
+        request=None,
+        additional_info: Optional[Dict[str, Any]] = None,
+) -> bool:
+    """
+    Send a Discord notification when someone downloads a CSV file from admin.
+    
+    Args:
+        csv_type: Type of CSV (e.g., "Users", "Influencers", "Deals", "Unverified Influencers")
+        filename: Name of the CSV file being downloaded
+        record_count: Number of records in the CSV
+        user: Optional Django User object who downloaded the CSV
+        request: Optional request object to get user info
+        additional_info: Optional dictionary of additional fields to include
+    
+    Returns:
+        True if notification was sent successfully, False otherwise
+    """
+    # Get user information
+    user_name = "Unknown"
+    user_email = "Unknown"
+    user_id = None
+    user_is_staff = False
+
+    if user:
+        user_name = user.get_full_name() or user.username or user.email or "Unknown"
+        user_email = user.email or "Unknown"
+        user_id = user.id
+        user_is_staff = user.is_staff
+    elif request and hasattr(request, 'user') and request.user.is_authenticated:
+        user = request.user
+        user_name = user.get_full_name() or user.username or user.email or "Unknown"
+        user_email = user.email or "Unknown"
+        user_id = user.id
+        user_is_staff = user.is_staff
+
+    # Build fields
+    fields = {
+        "CSV Type": csv_type,
+        "Filename": filename,
+        "Record Count": str(record_count),
+        "Downloaded By": user_name,
+        "User Email": user_email,
+        "Is Staff": "Yes" if user_is_staff else "No",
+    }
+
+    if user_id:
+        fields["User ID"] = str(user_id)
+        # Add admin link to user
+        user_admin_url = _get_user_admin_url(user_id, request)
+        if user_admin_url:
+            fields["User Admin Link"] = f"[View User in Admin]({user_admin_url})"
+
+    # Add any additional info
+    if additional_info:
+        for key, value in additional_info.items():
+            if value is not None and value != "":
+                fields[key] = str(value)
+
+    # Add timestamp
+    from django.utils import timezone
+    fields["Downloaded At"] = timezone.now().strftime("%Y-%m-%d %H:%M:%S UTC")
+
+    # Check if Discord is configured before attempting to send
+    bot_token = getattr(settings, "DISCORD_SUPPORT_BOT_TOKEN", "")
+    server_updates_channel_id = getattr(settings, "SERVER_UPDATES_CHANNEL_ID", "")
+    
+    if not bot_token:
+        logger.warning("Discord bot token not configured; skipping CSV download notification.")
+        return False
+    
+    if not server_updates_channel_id:
+        logger.warning("SERVER_UPDATES_CHANNEL_ID not configured; skipping CSV download notification.")
+        return False
+    
+    # Log the notification attempt (user_name is already defined above)
+    logger.info(f"Sending CSV download notification to Discord: {csv_type} ({record_count} records) by {user_name}")
+    
+    return send_server_update(
+        title="📥 CSV File Downloaded",
+        message=f"An admin user has downloaded a {csv_type} CSV file from the admin panel.",
+        update_type="info",
+        fields=fields,
+    )

@@ -238,6 +238,21 @@ def queue_phone_verification_reminders(
             if not phone_number or not country_code:
                 skipped_invalid += 1
                 continue
+            
+            # Normalize country_code: ensure it starts with '+'
+            # This prevents issues where country_code might be stored as "1" instead of "+1"
+            if country_code and not country_code.startswith('+'):
+                country_code = f'+{country_code}'
+            
+            # Validate country_code exists in CountryCode table
+            from common.models import CountryCode
+            if not CountryCode.objects.filter(code=country_code, is_active=True).exists():
+                logger.warning(
+                    f"UserProfile {profile.id} has invalid country_code '{country_code}'. "
+                    f"Skipping phone verification reminder."
+                )
+                skipped_invalid += 1
+                continue
 
             recently_sent = PhoneVerificationToken.objects.filter(user=user, created_at__gte=cutoff_time).exists()
             if recently_sent:

@@ -216,47 +216,35 @@ class InfluencerProfileAdmin(admin.ModelAdmin):
 
     def email_verification_status(self, obj):
         """Display email verification status"""
-        if obj.user_profile and obj.user_profile.email_verified:
-            return '✅ Verified'
-        else:
-            return '❌ Not Verified'
+        return bool(obj.user_profile and obj.user_profile.email_verified)
 
     email_verification_status.short_description = 'Email Status'
     email_verification_status.admin_order_field = 'user_profile__email_verified'
+    email_verification_status.boolean = True
 
     def phone_verification_status(self, obj):
         """Display phone verification status"""
-        if obj.user_profile and obj.user_profile.phone_verified:
-            return '✅ Verified'
-        else:
-            return '❌ Not Verified'
+        return bool(obj.user_profile and obj.user_profile.phone_verified)
 
     phone_verification_status.short_description = 'Phone Status'
     phone_verification_status.admin_order_field = 'user_profile__phone_verified'
+    phone_verification_status.boolean = True
 
     def aadhar_verification_status(self, obj):
-        """Display Aadhar verification status with visual indicators"""
-        if obj.is_verified:
-            return '✅ Verified'
-        elif obj.aadhar_document:
-            return '📄 Document Uploaded (Pending Verification)'
-        elif obj.aadhar_number:
-            return '📝 Number Only (No Document)'
-        else:
-            return '❌ Not Provided'
+        """Display Aadhar verification status"""
+        return bool(obj.is_verified)
 
     aadhar_verification_status.short_description = 'Aadhar Status'
     aadhar_verification_status.admin_order_field = 'is_verified'
+    aadhar_verification_status.boolean = True
 
     def profile_verification_status(self, obj):
         """Display overall profile verification status"""
-        if obj.profile_verified:
-            return '✅ Fully Verified'
-        else:
-            return '❌ Not Fully Verified'
+        return bool(obj.profile_verified)
 
     profile_verification_status.short_description = 'Profile Status'
     profile_verification_status.admin_order_field = 'profile_verified'
+    profile_verification_status.boolean = True
 
     def aadhar_document_display(self, obj):
         """Display Aadhar document with download link"""
@@ -386,7 +374,32 @@ class InfluencerProfileAdmin(admin.ModelAdmin):
                 login_link
             ])
 
-        self.message_user(request, f'Downloaded {queryset.count()} influencer profile(s) with login links.')
+        record_count = queryset.count()
+        self.message_user(request, f'Downloaded {record_count} influencer profile(s) with login links.')
+
+        try:
+            from communications.support_channels.discord import send_csv_download_notification
+            success = send_csv_download_notification(
+                csv_type="Influencers with Login Links",
+                filename="influencers_with_login_links.csv",
+                record_count=record_count,
+                user=request.user,
+                request=request,
+                additional_info={
+                    "Selection": "Selected influencers from admin",
+                    "Includes Login Links": "Yes",
+                }
+            )
+            if not success:
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.warning("CSV download notification to Discord returned False (may not be configured)")
+        except Exception as e:
+            import logging
+            import traceback
+            logger = logging.getLogger(__name__)
+            logger.error(f"Failed to send CSV download notification to Discord: {e}\n{traceback.format_exc()}")
+
         return response
 
     download_selected_with_login_links.short_description = 'Download selected with login links (CSV)'
@@ -460,6 +473,30 @@ class InfluencerProfileAdmin(admin.ModelAdmin):
                 phone_verified,
                 aadhar_verified
             ])
+
+        record_count = unverified_profiles.count()
+
+        try:
+            from communications.support_channels.discord import send_csv_download_notification
+            success = send_csv_download_notification(
+                csv_type="Unverified Influencers",
+                filename="unverified_influencers.csv",
+                record_count=record_count,
+                user=request.user,
+                request=request,
+                additional_info={
+                    "Filter": "Unverified influencers (email, phone, or aadhar not verified)",
+                }
+            )
+            if not success:
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.warning("CSV download notification to Discord returned False (may not be configured)")
+        except Exception as e:
+            import logging
+            import traceback
+            logger = logging.getLogger(__name__)
+            logger.error(f"Failed to send CSV download notification to Discord: {e}\n{traceback.format_exc()}")
 
         return response
 
@@ -1329,9 +1366,14 @@ class AadharVerificationFilter(admin.SimpleListFilter):
         if self.value() == 'verified':
             return queryset.filter(is_verified=True)
         elif self.value() == 'document_uploaded':
-            return queryset.filter(aadhar_document__isnull=False, is_verified=False)
+            return queryset.filter(aadhar_document__isnull=False).exclude(aadhar_document='').filter(is_verified=False)
         elif self.value() == 'number_only':
-            return queryset.filter(aadhar_number__isnull=False, aadhar_number__gt='', aadhar_document__isnull=True)
+            return queryset.filter(
+                aadhar_number__isnull=False,
+                aadhar_number__gt=''
+            ).filter(
+                Q(aadhar_document__isnull=True) | Q(aadhar_document='')
+            )
         elif self.value() == 'not_provided':
             return queryset.filter(Q(aadhar_number__isnull=True) | Q(aadhar_number=''))
 
