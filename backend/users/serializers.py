@@ -34,6 +34,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
     zipcode = serializers.SerializerMethodField()
     address_line1 = serializers.SerializerMethodField()
     address_line2 = serializers.SerializerMethodField()
+    has_password = serializers.SerializerMethodField()
 
     class Meta:
         model = User
@@ -43,7 +44,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
             'has_brand_profile', 'account_type', 'brand_profile', 'influencer_profile',
             'profile_image', 'phone_number', 'country_code', 'phone_verified',
             'email_verified', 'gender', 'country', 'state', 'city', 'zipcode',
-            'address_line1', 'address_line2'
+            'address_line1', 'address_line2', 'has_password'
         )
         read_only_fields = (
             'id', 'username', 'email', 'date_joined', 'last_login', 'is_active',
@@ -169,6 +170,10 @@ class UserProfileSerializer(serializers.ModelSerializer):
         if hasattr(obj, 'influencer_profile'):
             return getattr(obj.influencer_profile, 'address_line2', '') or ''
         return ''
+
+    def get_has_password(self, obj):
+        """Check if user has a usable password set."""
+        return obj.has_usable_password()
 
 
 class UserUpdateSerializer(serializers.ModelSerializer):

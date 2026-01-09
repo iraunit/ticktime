@@ -3,14 +3,9 @@
 import {useEffect, useState} from 'react';
 import {Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle,} from '@/components/ui/dialog';
 import {Button} from '@/components/ui/button';
-import {Input} from '@/components/ui/input';
-import {AlertTriangle, CheckCircle, Eye, EyeOff, Lock, Mail, Phone, XCircle} from '@/lib/icons';
-import {HiPencilSquare} from 'react-icons/hi2';
+import {AlertTriangle, CheckCircle, Mail, Phone, XCircle} from '@/lib/icons';
 import {formatTimeRemaining, useEmailVerification} from '@/hooks/use-email-verification';
 import {usePhoneVerification} from '@/hooks/use-phone-verification';
-import {useUserContext} from '@/components/providers/app-providers';
-import {userApi} from '@/lib/api-client';
-import {toast} from '@/lib/toast';
 import Link from 'next/link';
 
 interface VerificationWarningDialogProps {
@@ -19,8 +14,8 @@ interface VerificationWarningDialogProps {
     emailVerified: boolean;
     phoneVerified: boolean;
     userType?: 'brand' | 'influencer';
-    email?: string;
-    phoneNumber?: string;
+    userEmail?: string;
+    userPhone?: string;
     countryCode?: string;
 }
 
@@ -30,21 +25,12 @@ export function VerificationWarningDialog({
                                               emailVerified,
                                               phoneVerified,
                                               userType = 'influencer',
-                                              email,
-                                              phoneNumber,
+                                              userEmail,
+                                              userPhone,
                                               countryCode
                                           }: VerificationWarningDialogProps) {
     const [dismissed, setDismissed] = useState(false);
-    const [isEditingPassword, setIsEditingPassword] = useState(false);
-    const [newPassword, setNewPassword] = useState('');
-    const [showPassword, setShowPassword] = useState(false);
-    const [isSavingPassword, setIsSavingPassword] = useState(false);
-    const {user} = useUserContext();
 
-    // Get email and phone from user context, with fallback to props for backward compatibility
-    const userEmail = user?.email || email;
-    const userPhoneNumber = user?.phone_number || phoneNumber;
-    const userCountryCode = user?.country_code || countryCode;
     const {
         sending: sendingEmail,
         canResend: canResendEmail,
@@ -79,29 +65,6 @@ export function VerificationWarningDialog({
         localStorage.setItem(dismissalKey, Date.now().toString());
     };
 
-    const handleSavePassword = async () => {
-        if (!newPassword.trim()) {
-            toast.error('Please enter a new password');
-            return;
-        }
-
-        setIsSavingPassword(true);
-        try {
-            const response = await userApi.updatePassword({new_password: newPassword});
-            if (response.data?.status === 'success' || response.data) {
-                toast.success(response.data?.message || 'Password updated successfully');
-                setNewPassword('');
-                setIsEditingPassword(false);
-                setShowPassword(false);
-            }
-        } catch (error: any) {
-            const errorMessage = error.response?.data?.message || error.message || 'Failed to update password. Please try again.';
-            toast.error(errorMessage);
-        } finally {
-            setIsSavingPassword(false);
-        }
-    };
-
     return (
         <Dialog open={open && !dismissed} onOpenChange={onOpenChange}>
             <DialogContent className="sm:max-w-[500px]">
@@ -118,147 +81,87 @@ export function VerificationWarningDialog({
 
                 <div className="space-y-4 py-4">
                     {/* Email Verification Status */}
-                    <div className="flex items-center justify-between p-3 border rounded-lg">
-                        <div className="flex items-center gap-3">
-                            {emailVerified ? (
-                                <CheckCircle className="h-5 w-5 text-green-600"/>
-                            ) : (
-                                <XCircle className="h-5 w-5 text-red-500"/>
-                            )}
-                            <div>
-                                <p className="text-sm font-medium">Email Verification</p>  
-                                {userEmail && (                           
-                                    <p className="text-xs text-gray-600 mt-0.5">
-                                        {userEmail}
+                    <div className="p-3 border rounded-lg space-y-2">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                                {emailVerified ? (
+                                    <CheckCircle className="h-5 w-5 text-green-600"/>
+                                ) : (
+                                    <XCircle className="h-5 w-5 text-red-500"/>
+                                )}
+                                <div>
+                                    <p className="text-sm font-medium">Email Verification</p>
+                                    <p className="text-xs text-gray-500">
+                                        {emailVerified ? 'Verified' : 'Not verified'}
                                     </p>
-                                )} 
-                                
+                                </div>
+                            </div>
+                            {!emailVerified && (
+                                <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={sendVerificationEmail}
+                                    disabled={!canResendEmail || sendingEmail}
+                                    className="gap-2"
+                                >
+                                    <Mail className="h-4 w-4"/>
+                                    {sendingEmail ? 'Sending...' : canResendEmail ? 'Verify' : formatTimeRemaining(secondsUntilResendEmail)}
+                                </Button>
+                            )}
+                        </div>
+                        {userEmail && (
+                            <div className="pl-8 pt-2 space-y-2">
+                                <div className="bg-blue-50 border border-blue-200 rounded-md p-2.5">
+                                    <p className="text-xs font-medium text-blue-900 mb-1">Current email:</p>
+                                    <p className="text-sm font-semibold text-blue-700">{userEmail}</p>
+                                </div>
                                 <p className="text-xs text-gray-500">
-                                    {emailVerified ? 'Verified' : 'Not verified'}
+                                    To edit your email, visit the Profile section
                                 </p>
                             </div>
-                        </div>
-                        {!emailVerified && (
-                            <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={sendVerificationEmail}
-                                disabled={!canResendEmail || sendingEmail}
-                                className="gap-2"
-                            >
-                                <Mail className="h-4 w-4"/>
-                                {sendingEmail ? 'Sending...' : canResendEmail ? 'Verify' : formatTimeRemaining(secondsUntilResendEmail)}
-                            </Button>
                         )}
                     </div>
 
                     {/* Phone Verification Status */}
-                    <div className="flex items-center justify-between p-3 border rounded-lg">
-                        <div className="flex items-center gap-3">
-                            {phoneVerified ? (
-                                <CheckCircle className="h-5 w-5 text-green-600"/>
-                            ) : (
-                                <XCircle className="h-5 w-5 text-red-500"/>
-                            )}
-                            <div>
-                                <p className="text-sm font-medium">Phone Verification</p>
-                                {userPhoneNumber && (
-                                    <p className="text-xs text-gray-600 mt-0.5">
-                                        {userCountryCode ? `${userCountryCode} ${userPhoneNumber}` : userPhoneNumber}
-                                    </p>
-                                )}
-                                <p className="text-xs text-gray-500">
-                                    {phoneVerified ? 'Verified' : 'Not verified'}
-                                </p>
-                            </div>
-                        </div>
-                        {!phoneVerified && (
-                            <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={sendVerificationPhone}
-                                disabled={!canResendPhone || sendingPhone}
-                                className="gap-2"
-                            >
-                                <Phone className="h-4 w-4"/>
-                                {sendingPhone ? 'Sending...' : canResendPhone ? 'Verify' : formatTimeRemaining(secondsUntilResendPhone)}
-                            </Button>
-                        )}
-                    </div>
-
-                    {/* Password Reset Section */}
-                    <div className="p-3 border rounded-lg">
-                        <div className="flex items-center justify-between mb-2">
+                    <div className="p-3 border rounded-lg space-y-2">
+                        <div className="flex items-center justify-between">
                             <div className="flex items-center gap-3">
-                                <Lock className="h-5 w-5 text-gray-600"/>
+                                {phoneVerified ? (
+                                    <CheckCircle className="h-5 w-5 text-green-600"/>
+                                ) : (
+                                    <XCircle className="h-5 w-5 text-red-500"/>
+                                )}
                                 <div>
-                                    <p className="text-sm font-medium">Reset Password</p>
+                                    <p className="text-sm font-medium">Phone Verification</p>
                                     <p className="text-xs text-gray-500">
-                                        Update your account password
+                                        {phoneVerified ? 'Verified' : 'Not verified'}
                                     </p>
                                 </div>
                             </div>
-                            {!isEditingPassword && (
+                            {!phoneVerified && (
                                 <Button
                                     size="sm"
                                     variant="outline"
-                                    onClick={() => setIsEditingPassword(true)}
+                                    onClick={sendVerificationPhone}
+                                    disabled={!canResendPhone || sendingPhone}
                                     className="gap-2"
                                 >
-                                    <HiPencilSquare className="h-4 w-4"/>
-                                    Edit
+                                    <Phone className="h-4 w-4"/>
+                                    {sendingPhone ? 'Sending...' : canResendPhone ? 'Verify' : formatTimeRemaining(secondsUntilResendPhone)}
                                 </Button>
                             )}
                         </div>
-                        {isEditingPassword && (
-                            <div className="mt-3 space-y-3">
-                                <div className="relative">
-                                    <Lock className="absolute left-3 top-3 h-4 w-4 text-gray-400"/>
-                                    <Input
-                                        type={showPassword ? "text" : "password"}
-                                        placeholder="Enter new password"
-                                        value={newPassword}
-                                        onChange={(e) => setNewPassword(e.target.value)}
-                                        className="pl-10 pr-10 h-11 border-gray-200 focus:border-blue-500 focus:ring-blue-500/20"
-                                        disabled={isSavingPassword}
-                                    />
-                                    <Button
-                                        type="button"
-                                        variant="ghost"
-                                        size="sm"
-                                        className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                                        onClick={() => setShowPassword(!showPassword)}
-                                        disabled={isSavingPassword}
-                                    >
-                                        {showPassword ? (
-                                            <EyeOff className="h-4 w-4 text-gray-400"/>
-                                        ) : (
-                                            <Eye className="h-4 w-4 text-gray-400"/>
-                                        )}
-                                    </Button>
+                        {userPhone && (
+                            <div className="pl-8 pt-2 space-y-2">
+                                <div className="bg-blue-50 border border-blue-200 rounded-md p-2.5">
+                                    <p className="text-xs font-medium text-blue-900 mb-1">Current phone:</p>
+                                    <p className="text-sm font-semibold text-blue-700">
+                                        {countryCode ? `${countryCode} ` : ''}{userPhone}
+                                    </p>
                                 </div>
-                                <div className="flex gap-2">
-                                    <Button
-                                        size="sm"
-                                        onClick={handleSavePassword}
-                                        disabled={isSavingPassword || !newPassword.trim()}
-                                        className="flex-1"
-                                    >
-                                        {isSavingPassword ? 'Saving...' : 'Save'}
-                                    </Button>
-                                    <Button
-                                        size="sm"
-                                        variant="outline"
-                                        onClick={() => {
-                                            setIsEditingPassword(false);
-                                            setNewPassword('');
-                                            setShowPassword(false);
-                                        }}
-                                        disabled={isSavingPassword}
-                                    >
-                                        Cancel
-                                    </Button>
-                                </div>
+                                <p className="text-xs text-gray-500">
+                                    To edit your phone number, visit the Profile section
+                                </p>
                             </div>
                         )}
                     </div>
@@ -289,3 +192,4 @@ export function VerificationWarningDialog({
         </Dialog>
     );
 }
+

@@ -47,6 +47,7 @@ export type CurrentUser = {
     zipcode: string;
     address_line1: string;
     address_line2: string;
+    has_password?: boolean;
 } | null;
 
 interface UserContextValue {

@@ -104,6 +104,10 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
                 user=user,
                 phone_number=phone_number,
                 country_code=country_code,
+<<<<<<< HEAD
+=======
+                email_verified=False  # Email must be verified via email verification flow
+>>>>>>> af1d8adb8fa728649272176830a754c234ed2c84
             )
 
             # Create influencer profile
@@ -111,6 +115,10 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
                 user=user,
                 user_profile=user_profile,
                 industry=industry,  # Store the Industry object directly
+<<<<<<< HEAD
+=======
+                is_verified=False,  # Aadhar must be verified manually by admin
+>>>>>>> af1d8adb8fa728649272176830a754c234ed2c84
                 bank_account_number='',  # Explicitly set to empty string to avoid NOT NULL constraint violation
                 bank_ifsc_code='',
                 bank_account_holder_name='',

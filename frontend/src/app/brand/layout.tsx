@@ -117,6 +117,9 @@ export default function BrandLayout({
                         phoneNumber={user.phone_number}
                         countryCode={user.country_code}
                         userType="brand"
+                        userEmail={user.email}
+                        userPhone={user.phone_number}
+                        countryCode={user.country_code}
                     />
                 )}
                 {children}

@@ -62,6 +62,9 @@ export default function InfluencerLayout({
                         phoneNumber={user.phone_number}
                         countryCode={user.country_code}
                         userType="influencer"
+                        userEmail={user.email}
+                        userPhone={user.phone_number}
+                        countryCode={user.country_code}
                     />
                 )}
                 {children}
@@ -82,6 +85,9 @@ export default function InfluencerLayout({
                         phoneNumber={user.phone_number}
                         countryCode={user.country_code}
                         userType="influencer"
+                        userEmail={user.email}
+                        userPhone={user.phone_number}
+                        countryCode={user.country_code}
                     />
                 )}
                 {children}
