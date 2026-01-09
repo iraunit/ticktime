@@ -104,7 +104,6 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
                 user=user,
                 phone_number=phone_number,
                 country_code=country_code,
-                email_verified=True
             )
 
             # Create influencer profile
@@ -112,7 +111,6 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
                 user=user,
                 user_profile=user_profile,
                 industry=industry,  # Store the Industry object directly
-                is_verified=True,
                 bank_account_number='',  # Explicitly set to empty string to avoid NOT NULL constraint violation
                 bank_ifsc_code='',
                 bank_account_holder_name='',
@@ -269,7 +267,6 @@ class BrandRegistrationSerializer(serializers.Serializer):
                 user=user,
                 phone_number=contact_phone,
                 country_code=country_code,
-                email_verified=True
             )
 
             # Create brand

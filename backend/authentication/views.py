@@ -212,7 +212,8 @@ def logout_view(request):
 def signup_view(request):
     """
     User registration endpoint for influencers.
-    Creates verified and active accounts and automatically logs them in.
+    Creates active accounts (but unverified) and automatically logs them in.
+    Verification fields (email_verified, phone_verified, is_verified) are set to False by default.
     """
     serializer = UserRegistrationSerializer(data=request.data)
 
