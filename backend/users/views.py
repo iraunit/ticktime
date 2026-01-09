@@ -159,52 +159,71 @@ def location_data_view(request):
 @user_rate_limit(requests_per_minute=5)
 def change_password_view(request):
     """
-    Change user password.
+    Change user password with proper validation and error handling.
     """
-    user = request.user
+    try:
+        user = request.user
 
-    current_password = request.data.get('current_password')
-    new_password = request.data.get('new_password')
-    confirm_password = request.data.get('confirm_password')
+        current_password = request.data.get('current_password')
+        new_password = request.data.get('new_password')
+        confirm_password = request.data.get('confirm_password')
 
-    # Validate required fields
-    if not all([current_password, new_password, confirm_password]):
+        # Validate required fields
+        if not all([current_password, new_password, confirm_password]):
+            return Response({
+                'status': 'error',
+                'message': 'All password fields are required.'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        # Check current password
+        if not user.check_password(current_password):
+            return Response({
+                'status': 'error',
+                'message': 'Current password is incorrect.'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        # Check password confirmation
+        if new_password != confirm_password:
+            return Response({
+                'status': 'error',
+                'message': 'New passwords do not match.'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        # Validate password strength using Django's validators
+        # This will catch all validation errors from AUTH_PASSWORD_VALIDATORS
+        from django.contrib.auth.password_validation import validate_password
+        from django.core.exceptions import ValidationError
+        
+        try:
+            validate_password(new_password, user)
+        except ValidationError as e:
+            # Return the first validation error message
+            # Django validators return a list of error messages
+            error_message = '; '.join(e.messages) if e.messages else 'Password does not meet requirements.'
+            return Response({
+                'status': 'error',
+                'message': error_message
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        # Set new password (this should not raise ValidationError since we validated above)
+        user.set_password(new_password)
+        user.save()
+
+        logger.info(f"Password changed for user {user.username}")
+
+        return Response({
+            'status': 'success',
+            'message': 'Password changed successfully.'
+        }, status=status.HTTP_200_OK)
+    
+    except Exception as e:
+        # Catch any unexpected errors (database errors, etc.)
+        username = getattr(request.user, 'username', 'unknown') if hasattr(request, 'user') else 'unknown'
+        logger.error(f"Password change failed for user {username}: {str(e)}", exc_info=True)
         return Response({
             'status': 'error',
-            'message': 'All password fields are required.'
-        }, status=status.HTTP_400_BAD_REQUEST)
-
-    # Check current password
-    if not user.check_password(current_password):
-        return Response({
-            'status': 'error',
-            'message': 'Current password is incorrect.'
-        }, status=status.HTTP_400_BAD_REQUEST)
-
-    # Check password confirmation
-    if new_password != confirm_password:
-        return Response({
-            'status': 'error',
-            'message': 'New passwords do not match.'
-        }, status=status.HTTP_400_BAD_REQUEST)
-
-    # Validate password strength (basic validation)
-    if len(new_password) < 8:
-        return Response({
-            'status': 'error',
-            'message': 'Password must be at least 8 characters long.'
-        }, status=status.HTTP_400_BAD_REQUEST)
-
-    # Set new password
-    user.set_password(new_password)
-    user.save()
-
-    logger.info(f"Password changed for user {user.username}")
-
-    return Response({
-        'status': 'success',
-        'message': 'Password changed successfully.'
-    }, status=status.HTTP_200_OK)
+            'message': 'Failed to change password. Please try again.'
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 @api_view(['DELETE'])
