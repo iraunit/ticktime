@@ -2,6 +2,7 @@
 
 import {UnifiedSidebar} from "./unified-sidebar";
 import {SidebarProvider, useSidebar} from "@/contexts/sidebar-context";
+import {WhatsAppChannelCTA} from "./whatsapp-channel-cta";
 
 interface DashboardLayoutContentProps {
     children: React.ReactNode;
@@ -19,17 +20,19 @@ function DashboardLayoutContent({children, userType}: DashboardLayoutContentProp
             <div className="flex min-h-screen">
                 <UnifiedSidebar userType={userType}/>
 
-                                 {/* Main Content */}
-                 <div className={`flex-1 transition-all duration-300 ease-in-out ${
-                     isExpanded ? 'lg:ml-64' : 'lg:ml-16'
-                 } ml-0 w-full min-w-0`}>
-                     <main className="p-4 sm:p-6 animate-in fade-in-0 duration-300 w-full max-w-full overflow-x-hidden pt-16 lg:pt-4">
-                         <div className="w-full max-w-full">
-                             {children}
-                         </div>
-                     </main>
-                 </div>
+                {/* Main Content */}
+                <div className={`flex-1 transition-all duration-300 ease-in-out ${
+                    isExpanded ? 'lg:ml-64' : 'lg:ml-16'
+                } ml-0 w-full min-w-0`}>
+                    <main
+                        className="p-4 sm:p-6 animate-in fade-in-0 duration-300 w-full max-w-full overflow-x-hidden pt-16 lg:pt-4">
+                        <div className="w-full max-w-full">
+                            {children}
+                        </div>
+                    </main>
+                </div>
             </div>
+            <WhatsAppChannelCTA/>
         </div>
     );
 }

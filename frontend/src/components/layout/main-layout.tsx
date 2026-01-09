@@ -13,6 +13,7 @@ import {GlobalErrorHandler} from '@/components/error-handling/global-error-handl
 import {ServiceWorkerCache} from '@/lib/cache-manager';
 import {ClientOnly} from '@/components/providers/client-only';
 import {authApi} from '@/lib/api-client';
+import {WhatsAppChannelCTA} from './whatsapp-channel-cta';
 
 interface MainLayoutProps {
     children: React.ReactNode;
@@ -68,6 +69,7 @@ export function MainLayout({
                             {children}
                         </main>
                         {showFooter && <Footer/>}
+                        <WhatsAppChannelCTA/>
                     </div>
                 </ErrorBoundary>
             </LoadingProvider>
