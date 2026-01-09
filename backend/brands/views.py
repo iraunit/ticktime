@@ -909,6 +909,23 @@ def download_csv_template_view(request):
         ['influencer_username', 'product_shipped', 'TRK123456789', 'https://tracking.example.com/TRK123456789'])
     writer.writerow(['another_username', 'shortlisted', '', ''])
 
+    try:
+        from communications.support_channels.discord import send_csv_download_notification
+        send_csv_download_notification(
+            csv_type="Deal Bulk Update Template",
+            filename="bulk_update_template.csv",
+            record_count=0,
+            user=request.user,
+            request=request,
+            additional_info={
+                "Purpose": "Bulk update deals via CSV",
+            }
+        )
+    except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.warning(f"Failed to send CSV download notification to Discord: {e}")
+
     return response
 
 
@@ -2067,13 +2084,27 @@ def add_influencers_to_campaign_view(request, campaign_id):
                 if influencer.user_profile and influencer.user_profile.phone_number:
                     from communications.whatsapp_service import get_whatsapp_service
                     whatsapp_service = get_whatsapp_service()
+                    country_code = (influencer.user_profile.country_code or '+91').strip()
+                    if country_code and not country_code.startswith('+'):
+                        country_code = f'+{country_code}'
+
+                    from common.models import CountryCode
+                    import logging
+                    logger = logging.getLogger(__name__)
+                    if not CountryCode.objects.filter(code=country_code, is_active=True).exists():
+                        logger.warning(
+                            f"Influencer {influencer.user.username} has invalid country_code '{country_code}'. "
+                            f"Using default '+91' instead."
+                        )
+                        country_code = '+91'
+
                     whatsapp_service.send_campaign_notification(
                         influencer=influencer,
                         campaign=campaign,
                         deal=deal,
                         notification_type='invitation',
                         phone_number=influencer.user_profile.phone_number,
-                        country_code=influencer.user_profile.country_code or '+91'
+                        country_code=country_code
                     )
             except Exception as e:
                 import logging

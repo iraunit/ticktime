@@ -15,6 +15,7 @@ from django.shortcuts import render, redirect
 from django.urls import path
 from django.utils import timezone
 
+from common.models import CountryCode
 from .models import UserProfile, OneTapLoginToken
 
 
@@ -349,6 +350,20 @@ class UserAdmin(BaseUserAdmin):
         """Generate and download CSV template with column names and compulsory indicators"""
         response = HttpResponse(content_type='text/csv; charset=utf-8')
         response['Content-Disposition'] = 'attachment; filename="user_import_template.csv"'
+        
+        try:
+            from communications.support_channels.discord import send_csv_download_notification
+            send_csv_download_notification(
+                csv_type="User Import Template",
+                filename="user_import_template.csv",
+                record_count=0,
+                user=request.user,
+                request=request,
+            )
+        except Exception as e:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.warning(f"Failed to send CSV download notification to Discord: {e}")
 
         writer = csv.writer(response)
 
@@ -869,6 +884,25 @@ class UserAdmin(BaseUserAdmin):
 
                     error_csv_response = HttpResponse(error_csv.getvalue(), content_type='text/csv; charset=utf-8')
                     error_csv_response['Content-Disposition'] = 'attachment; filename="user_import_errors.csv"'
+                    
+                    try:
+                        from communications.support_channels.discord import send_csv_download_notification
+                        send_csv_download_notification(
+                            csv_type="User Import Errors",
+                            filename="user_import_errors.csv",
+                            record_count=len(error_rows),
+                            user=request.user,
+                            request=request,
+                            additional_info={
+                                "Total Errors": len(errors),
+                                "Total Created": created_count,
+                                "Total Updated": updated_count,
+                            }
+                        )
+                    except Exception as e:
+                        import logging
+                        logger = logging.getLogger(__name__)
+                        logger.warning(f"Failed to send CSV download notification to Discord: {e}")
 
                 # Show results
                 if created_count > 0:
@@ -900,15 +934,16 @@ class UserAdmin(BaseUserAdmin):
 @admin.register(UserProfile)
 class UserProfileAdmin(admin.ModelAdmin):
     list_display = [
-        'user_username', 'user_email', 'phone_number', 'email_verified', 'phone_verified',
+        'user_username', 'user_email', 'phone_number', 'country_code_display', 'email_verified', 'phone_verified',
         'created_at'
     ]
-    list_filter = ['email_verified', 'phone_verified', 'created_at']
-    search_fields = ['user__username', 'user__email', 'user__first_name', 'user__last_name', 'phone_number']
+    list_filter = ['email_verified', 'phone_verified', 'country_code', 'created_at']
+    search_fields = ['user__username', 'user__email', 'user__first_name', 'user__last_name', 'phone_number', 'country_code']
     readonly_fields = [
         'user',
         'phone_number',
         'country_code',
+        'country_code_validation',
         'gender',
         'profile_image',
         'created_at',
@@ -917,7 +952,7 @@ class UserProfileAdmin(admin.ModelAdmin):
 
     fieldsets = (
         ('User Information', {
-            'fields': ('user', 'phone_number', 'email_verified', 'phone_verified')
+            'fields': ('user', 'phone_number', 'country_code', 'country_code_validation', 'email_verified', 'phone_verified')
         }),
         ('Profile', {
             'fields': ('gender', 'profile_image')
@@ -937,6 +972,28 @@ class UserProfileAdmin(admin.ModelAdmin):
         return obj.user.email
 
     user_email.short_description = 'Email'
+
+    def country_code_display(self, obj):
+        """Display country code"""
+        return obj.country_code or 'N/A'
+
+    country_code_display.short_description = 'Country Code'
+
+    def country_code_validation(self, obj):
+        """Show if country code exists in CountryCode table"""
+        if not obj.country_code:
+            return "No country code set"
+        
+        try:
+            country_code_obj = CountryCode.objects.get(code=obj.country_code)
+            if country_code_obj.is_active:
+                return f"✓ Valid: {country_code_obj.country} ({country_code_obj.shorthand})"
+            else:
+                return f"⚠ Exists but inactive: {country_code_obj.country} ({country_code_obj.shorthand})"
+        except CountryCode.DoesNotExist:
+            return f"⚠ Warning: '{obj.country_code}' does not exist in CountryCode table"
+    
+    country_code_validation.short_description = 'Country Code Validation'
 
 
 @admin.register(OneTapLoginToken)

@@ -166,7 +166,8 @@ class DealAdmin(admin.ModelAdmin):
             if deal.influencer and deal.influencer.user_profile:
                 phone_number = deal.influencer.user_profile.phone_number or ''
                 country_code = deal.influencer.user_profile.country_code or ''
-            elif deal.influencer and deal.influencer.user and hasattr(deal.influencer.user, 'user_profile') and deal.influencer.user.user_profile:
+            elif deal.influencer and deal.influencer.user and hasattr(deal.influencer.user,
+                                                                      'user_profile') and deal.influencer.user.user_profile:
                 phone_number = deal.influencer.user.user_profile.phone_number or ''
                 country_code = deal.influencer.user.user_profile.country_code or ''
 
@@ -183,7 +184,27 @@ class DealAdmin(admin.ModelAdmin):
                 deal.completed_at.strftime('%Y-%m-%d %H:%M:%S') if deal.completed_at else '',
             ])
 
-        self.message_user(request, f'Exported {queryset.count()} deal(s) to CSV.')
+        record_count = queryset.count()
+        self.message_user(request, f'Exported {record_count} deal(s) to CSV.')
+
+        try:
+            from communications.support_channels.discord import send_csv_download_notification
+            send_csv_download_notification(
+                csv_type="Deals",
+                filename="deals_export.csv",
+                record_count=record_count,
+                user=request.user,
+                request=request,
+                additional_info={
+                    "Selection": "Selected deals from admin",
+                    "Includes Influencer Contact Info": "Yes",
+                }
+            )
+        except Exception as e:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.warning(f"Failed to send CSV download notification to Discord: {e}")
+
         return response
 
     download_selected_deals_csv.short_description = 'Download selected deals as CSV (with influencer email & phone)'

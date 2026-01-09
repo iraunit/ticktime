@@ -128,6 +128,17 @@ class WhatsAppService:
         marketing templates.
         """
         try:
+            country_code = (country_code or "").strip()
+            if country_code and not country_code.startswith('+'):
+                country_code = f'+{country_code}'
+
+            from common.models import CountryCode
+            if country_code and not CountryCode.objects.filter(code=country_code, is_active=True).exists():
+                logger.error(
+                    f"Invalid country_code '{country_code}' for phone_number '{phone_number}'. "
+                    f"Country code does not exist in CountryCode table. Skipping message."
+                )
+                return None
             message_data = {
                 "message_type": "whatsapp",
                 "whatsapp_type": whatsapp_type,
@@ -536,10 +547,10 @@ class WhatsAppService:
                 try:
                     from communications.sms_service import get_sms_service
                     sms_service = get_sms_service()
-                    
+
                     # Build deal URL for the SMS
                     deal_url = f"{self.frontend_url}/influencer/deals/{deal.id}"
-                    
+
                     # Send SMS invitation
                     sms_service.send_campaign_invitation(
                         phone_number=phone_number,

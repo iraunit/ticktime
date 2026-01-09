@@ -34,6 +34,7 @@ export function VerificationStatus({profile}: VerificationStatusProps) {
             label: 'Email Verification',
             verified: profile.email_verified,
             description: 'Email address has been verified',
+            rejectionReason: undefined,
             action: !profile.email_verified ? {
                 label: sendingEmail ? 'Sending...' : canResendEmail ? 'Send Verification Email' : `Resend in ${formatTimeRemaining(secondsUntilResendEmail)}`,
                 onClick: sendVerificationEmail,
@@ -46,6 +47,7 @@ export function VerificationStatus({profile}: VerificationStatusProps) {
             label: 'Phone Verification',
             verified: profile.phone_verified,
             description: 'Phone number has been verified',
+            rejectionReason: undefined,
             action: !profile.phone_verified ? {
                 label: sendingPhone ? 'Sending...' : canResendPhone ? 'Send Verification WhatsApp' : `Resend in ${formatTimeRemaining(secondsUntilResendPhone)}`,
                 onClick: sendVerificationPhone,
@@ -56,14 +58,18 @@ export function VerificationStatus({profile}: VerificationStatusProps) {
         {
             id: 'aadhar',
             label: 'Aadhar Verification',
-            verified: !!(profile.aadhar_number && profile.aadhar_document),
-            description: 'Aadhar document has been uploaded and verified'
+            verified: !!(profile.aadhar_number && profile.aadhar_document && profile.is_verified),
+            description: profile.verification_rejection_reason 
+                ? 'Aadhar verification was rejected'
+                : 'Aadhar document has been uploaded and verified',
+            rejectionReason: profile.verification_rejection_reason
         },
         {
             id: 'profile',
             label: 'Profile Verification',
             verified: profile.profile_verified,
-            description: 'Complete profile verification (requires email, phone, and aadhar verification)'
+            description: 'Complete profile verification (requires email, phone, and aadhar verification)',
+            rejectionReason: undefined
         }
     ];
 
@@ -93,19 +99,24 @@ export function VerificationStatus({profile}: VerificationStatusProps) {
             <div className="grid gap-4">
                 {verificationItems.map((item) => (
                     <Card key={item.id} className={`border-l-4 ${
-                        item.verified ? 'border-l-green-500' : 'border-l-gray-300'
+                        item.verified ? 'border-l-green-500' : item.rejectionReason ? 'border-l-red-500' : 'border-l-gray-300'
                     }`}>
                         <CardContent className="pt-6">
                             <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-3">
                                     {getStatusIcon(item.verified)}
-                                    <div>
+                                    <div className="flex-1">
                                         <h3 className="text-sm font-medium text-gray-900">
                                             {item.label}
                                         </h3>
-                                        <p className="text-xs text-gray-500 mt-1">
+                                        <p className={`text-xs mt-1 ${item.rejectionReason ? 'text-red-600' : 'text-gray-500'}`}>
                                             {item.description}
                                         </p>
+                                        {item.rejectionReason && (
+                                            <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded text-xs text-red-700">
+                                                <strong>Rejection Reason:</strong> {item.rejectionReason}
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-3">

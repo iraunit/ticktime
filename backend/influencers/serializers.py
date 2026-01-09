@@ -45,7 +45,7 @@ class InfluencerProfileSerializer(serializers.ModelSerializer):
             'id', 'user_first_name', 'user_last_name', 'user_email',
             'phone_number', 'username', 'industry', 'categories', 'bio', 'profile_image',
             'address', 'country', 'country_code', 'gender', 'aadhar_number', 'aadhar_document', 'is_verified',
-            'bank_account_number', 'bank_ifsc_code', 'bank_account_holder_name',
+            'verification_rejection_reason', 'bank_account_number', 'bank_ifsc_code', 'bank_account_holder_name',
             'total_followers', 'average_engagement_rate', 'social_accounts_count',
             'collaboration_types', 'minimum_collaboration_amount',
             'email_verified', 'phone_verified', 'profile_verified',
