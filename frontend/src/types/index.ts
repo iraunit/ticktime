@@ -38,6 +38,7 @@ export interface InfluencerProfile {
     aadhar_number?: string;
     aadhar_document?: string;
     is_verified: boolean;
+    verification_rejection_reason?: string;
     collaboration_types?: ('cash' | 'barter' | 'hybrid')[];
     minimum_collaboration_amount?: number;
     email_verified?: boolean;

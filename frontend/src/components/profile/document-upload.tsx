@@ -254,6 +254,21 @@ export function DocumentUpload({profile}: DocumentUploadProps) {
                         </p>
                     </div>
 
+                    {/* Rejection Reason Display */}
+                    {profile?.verification_rejection_reason && (
+                        <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
+                            <div className="flex items-start gap-2">
+                                <span className="text-red-600 text-xl">⚠️</span>
+                                <div className="flex-1">
+                                    <h4 className="font-medium text-red-800 mb-1">Verification Rejected</h4>
+                                    <p className="text-sm text-red-700 whitespace-pre-wrap">
+                                        {profile.verification_rejection_reason}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
                     {/* Current Document Status */}
                     {profile?.aadhar_document && (
                         <div className="p-4 bg-gray-50 rounded-lg">

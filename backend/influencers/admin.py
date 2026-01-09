@@ -87,8 +87,8 @@ class InfluencerProfileAdmin(admin.ModelAdmin):
             'description': 'Edit email and phone verification status directly'
         }),
         ('Aadhar Verification', {
-            'fields': ('aadhar_number', 'aadhar_document_display', 'is_verified'),
-            'description': 'Verify the Aadhar document and mark the influencer as verified'
+            'fields': ('aadhar_number', 'aadhar_document_display', 'is_verified', 'verification_rejection_reason'),
+            'description': 'Verify the Aadhar document and mark the influencer as verified. Note: If admin wants to send a message to user, they can write it in the "Verification rejection reason" field below and it will be visible in the profile verification system as rejected reason.'
         }),
         ('Influencer Metrics', {
             'fields': ('influence_score', 'platform_score', 'avg_rating', 'collaboration_count', 'total_earnings'),

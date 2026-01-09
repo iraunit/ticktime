@@ -36,6 +36,11 @@ class InfluencerProfile(models.Model):
         storage=private_media_storage,
     )
     is_verified = models.BooleanField(default=False)
+    verification_rejection_reason = models.TextField(
+        blank=True,
+        default='',
+        help_text='Reason for rejection (visible to user in profile verification system)'
+    )
     profile_verified = models.BooleanField(default=False,
                                            help_text='Profile is verified when aadhar, email, and phone are all verified')
 
