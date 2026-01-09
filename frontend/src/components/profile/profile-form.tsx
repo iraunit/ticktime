@@ -17,7 +17,8 @@ import {useQuery} from '@tanstack/react-query';
 import {api} from '@/lib/api';
 import {InfluencerProfile} from '@/types';
 import {getMediaUrl} from '@/lib/utils';
-import {AlertCircle, Briefcase, Camera, MapPin, Phone, Save, Settings, User} from '@/lib/icons';
+import {AlertCircle, Briefcase, Camera, Eye, EyeOff, Lock, MapPin, Phone, Save, Settings, User} from '@/lib/icons';
+import {userApi} from '@/lib/api-client';
 import {HiInformationCircle} from "react-icons/hi2";
 import {InfluencerCategories} from '@/components/profile/influencer-categories';
 import {UnifiedCountrySelect} from '@/components/ui/unified-country-select';
@@ -32,6 +33,15 @@ export function ProfileForm({profile}: ProfileFormProps) {
     const [isEditing, setIsEditing] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [profileImage, setProfileImage] = useState<File | null>(null);
+    
+    // Password change state
+    const [currentPassword, setCurrentPassword] = useState('');
+    const [newPassword, setNewPassword] = useState('');
+    const [confirmPassword, setConfirmPassword] = useState('');
+    const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+    const [showNewPassword, setShowNewPassword] = useState(false);
+    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+    const [isChangingPassword, setIsChangingPassword] = useState(false);
 
     // Hooks
     const {profile: profileQuery, updateProfile, uploadProfileImage} = useProfile();
@@ -109,6 +119,10 @@ export function ProfileForm({profile}: ProfileFormProps) {
         if (isEditing) {
             form.reset();
             setProfileImage(null);
+            // Clear password fields when canceling edit
+            setCurrentPassword('');
+            setNewPassword('');
+            setConfirmPassword('');
         }
         setIsEditing(!isEditing);
     }, [isEditing, form]);
@@ -137,6 +151,55 @@ export function ProfileForm({profile}: ProfileFormProps) {
             toast.error(error?.response?.data?.message || 'Failed to upload image');
         }
     }, [profileImage, uploadProfileImage, profileQuery]);
+
+    const handlePasswordChange = useCallback(async () => {
+        // Validate all fields are provided
+        if (!currentPassword || !newPassword || !confirmPassword) {
+            toast.error('All password fields are required.');
+            return;
+        }
+
+        // Validate new password requirements
+        if (newPassword.length < 8) {
+            toast.error('New password must be at least 8 characters long.');
+            return;
+        }
+
+        if (!/[A-Za-z]/.test(newPassword)) {
+            toast.error('New password must contain at least one letter.');
+            return;
+        }
+
+        if (!/\d/.test(newPassword)) {
+            toast.error('New password must contain at least one number.');
+            return;
+        }
+
+        // Validate passwords match
+        if (newPassword !== confirmPassword) {
+            toast.error('New passwords do not match.');
+            return;
+        }
+
+        setIsChangingPassword(true);
+        try {
+            await userApi.changePassword({
+                current_password: currentPassword,
+                new_password: newPassword,
+                confirm_password: confirmPassword,
+            });
+            toast.success('Password changed successfully!');
+            // Clear password fields on success
+            setCurrentPassword('');
+            setNewPassword('');
+            setConfirmPassword('');
+        } catch (error: any) {
+            const errorMessage = error?.response?.data?.message || 'Failed to change password. Please try again.';
+            toast.error(errorMessage);
+        } finally {
+            setIsChangingPassword(false);
+        }
+    }, [currentPassword, newPassword, confirmPassword]);
 
     const handleSubmit = useCallback(async (data: InfluencerProfile) => {
         setIsSubmitting(true);
@@ -496,6 +559,133 @@ export function ProfileForm({profile}: ProfileFormProps) {
                                     </FormItem>
                                 )}
                             />
+
+                            {/* Password Change Section - Only visible when editing */}
+                            {isEditing && (
+                                <div className="pt-6 mt-6 border-t border-gray-200">
+                                    <div className="flex items-center gap-2 mb-4">
+                                        <Lock className="h-5 w-5 text-gray-600"/>
+                                        <h3 className="text-base font-semibold text-gray-900">Change Password</h3>
+                                    </div>
+                                    <div className="space-y-4">
+                                        {/* Current Password */}
+                                        <div className="space-y-2">
+                                            <label className="text-sm font-medium text-gray-700">
+                                                Current Password
+                                            </label>
+                                            <div className="relative">
+                                                <Input
+                                                    type={showCurrentPassword ? "text" : "password"}
+                                                    value={currentPassword}
+                                                    onChange={(e) => setCurrentPassword(e.target.value)}
+                                                    placeholder="Enter your current password"
+                                                    className="pr-10"
+                                                />
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                                                >
+                                                    {showCurrentPassword ? (
+                                                        <EyeOff className="h-4 w-4"/>
+                                                    ) : (
+                                                        <Eye className="h-4 w-4"/>
+                                                    )}
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        {/* New Password */}
+                                        <div className="space-y-2">
+                                            <label className="text-sm font-medium text-gray-700">
+                                                New Password
+                                            </label>
+                                            <div className="relative">
+                                                <Input
+                                                    type={showNewPassword ? "text" : "password"}
+                                                    value={newPassword}
+                                                    onChange={(e) => setNewPassword(e.target.value)}
+                                                    placeholder="Enter your new password"
+                                                    className="pr-10"
+                                                />
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setShowNewPassword(!showNewPassword)}
+                                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                                                >
+                                                    {showNewPassword ? (
+                                                        <EyeOff className="h-4 w-4"/>
+                                                    ) : (
+                                                        <Eye className="h-4 w-4"/>
+                                                    )}
+                                                </button>
+                                            </div>
+                                            <p className="text-xs text-gray-500">
+                                                Must be at least 8 characters with at least one letter and one number
+                                            </p>
+                                        </div>
+
+                                        {/* Confirm New Password */}
+                                        <div className="space-y-2">
+                                            <label className="text-sm font-medium text-gray-700">
+                                                Confirm New Password
+                                            </label>
+                                            <div className="relative">
+                                                <Input
+                                                    type={showConfirmPassword ? "text" : "password"}
+                                                    value={confirmPassword}
+                                                    onChange={(e) => setConfirmPassword(e.target.value)}
+                                                    placeholder="Confirm your new password"
+                                                    className="pr-10"
+                                                />
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                                                >
+                                                    {showConfirmPassword ? (
+                                                        <EyeOff className="h-4 w-4"/>
+                                                    ) : (
+                                                        <Eye className="h-4 w-4"/>
+                                                    )}
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        {/* Change Password Button */}
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            onClick={handlePasswordChange}
+                                            disabled={isChangingPassword || !currentPassword || !newPassword || !confirmPassword}
+                                            className="w-full sm:w-auto"
+                                        >
+                                            {isChangingPassword ? (
+                                                <>
+                                                    <div className="flex space-x-1 mr-2">
+                                                        {[0, 1, 2].map((i) => (
+                                                            <div
+                                                                key={i}
+                                                                className="w-1.5 h-1.5 rounded-full bg-gray-500 animate-pulse"
+                                                                style={{
+                                                                    animationDelay: `${i * 0.2}s`,
+                                                                    animationDuration: '1.4s'
+                                                                }}
+                                                            />
+                                                        ))}
+                                                    </div>
+                                                    Changing Password...
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <Lock className="w-4 h-4 mr-2"/>
+                                                    Change Password
+                                                </>
+                                            )}
+                                        </Button>
+                                    </div>
+                                </div>
+                            )}
                         </CardContent>
                     </Card>
 

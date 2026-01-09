@@ -9,7 +9,11 @@ import {CampaignReadinessForm} from '@/components/profile/campaign-readiness-for
 import {BankDetailsForm} from '@/components/profile/bank-details-form';
 import {VerificationStatus} from '@/components/profile/verification-status';
 import {EmailVerificationBanner} from '@/components/profile/email-verification-banner';
+<<<<<<< HEAD
+import {PhoneVerificationBanner} from '@/components/profile/phone-verification-banner';
+=======
 import {PasswordChangeForm} from '@/components/profile/password-change-form';
+>>>>>>> af1d8adb8fa728649272176830a754c234ed2c84
 import {useProfile, useSocialAccounts} from '@/hooks/use-profile';
 import {RequireAuth} from '@/components/auth/require-auth';
 import {useUserContext} from '@/components/providers/app-providers';
@@ -269,9 +273,14 @@ export default function ProfilePage() {
                         </div>
                     </div>
 
-                    {/* Email Verification Banner */}
+                    {/* Email Verification Banner - Only shows if email is NOT verified */}
                     <EmailVerificationBanner
                         emailVerified={(profile.data as any)?.email_verified || false}
+                    />
+
+                    {/* Phone Verification Banner - Only shows if phone is NOT verified */}
+                    <PhoneVerificationBanner
+                        phoneVerified={(profile.data as any)?.phone_verified || false}
                     />
 
                     <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 sm:gap-4">

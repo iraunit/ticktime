@@ -39,16 +39,16 @@ class TestAuthViews:
 
         # Check profile was created
         assert hasattr(user, 'influencer_profile')
+        assert user.username == 'johndoe'
+        assert user.influencer_profile.industry.key == 'tech_gaming'
+        
+        # Verification fields should be False by default for new signups
+        assert not user.influencer_profile.is_verified  # Should NOT be verified by default
+        assert not user.user_profile.email_verified  # Should NOT be email verified by default
+        assert not user.user_profile.phone_verified  # Should NOT be phone verified by default
 
-    assert user.username == 'johndoe'
-    assert user.influencer_profile.industry == 'tech_gaming'
-    assert user.influencer_profile.country_code == '+1'
-    assert user.influencer_profile.is_verified  # Should be verified by default
-    assert user.influencer_profile.email_verified  # Should be email verified by default
-    assert user.influencer_profile.phone_number_verified  # Should be phone verified by default
-
-    # No verification email should be sent since account is active by default
-    assert len(mail.outbox) == 0
+        # No verification email should be sent since account is active by default
+        assert len(mail.outbox) == 0
 
 
 def test_signup_password_mismatch(self, api_client):

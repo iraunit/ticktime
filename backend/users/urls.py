@@ -14,5 +14,6 @@ urlpatterns = [
 
     # Account management
     path('change-password/', views.change_password_view, name='change_password'),
+    path('update-password/', views.update_password_view, name='update_password'),
     path('deactivate/', views.deactivate_account_view, name='deactivate_account'),
 ]

@@ -136,12 +136,25 @@ export const profileApi = {
         api.delete(`/influencers/profile/social-accounts/${id}/`),
 };
 
+<<<<<<< HEAD
+// User API functions
+export const userApi = {
+    changePassword: (data: {
+        current_password: string;
+        new_password: string;
+        confirm_password: string;
+    }) => api.post('/users/change-password/', data),
+    updatePassword: (data: {
+        new_password: string;
+    }) => api.post('/users/update-password/', data),
+=======
 export const userApi = {
     changePassword: (data: {
         current_password?: string;
         new_password: string;
         confirm_password: string;
     }) => api.post('/users/change-password/', data),
+>>>>>>> af1d8adb8fa728649272176830a754c234ed2c84
 };
 
 // Deals API functions
