@@ -136,6 +136,14 @@ export const profileApi = {
         api.delete(`/influencers/profile/social-accounts/${id}/`),
 };
 
+export const userApi = {
+    changePassword: (data: {
+        current_password?: string;
+        new_password: string;
+        confirm_password: string;
+    }) => api.post('/users/change-password/', data),
+};
+
 // Deals API functions
 const appendCommonContentFields = (formData: FormData, data: {
     platform: string;

@@ -9,14 +9,17 @@ import {CampaignReadinessForm} from '@/components/profile/campaign-readiness-for
 import {BankDetailsForm} from '@/components/profile/bank-details-form';
 import {VerificationStatus} from '@/components/profile/verification-status';
 import {EmailVerificationBanner} from '@/components/profile/email-verification-banner';
+import {PasswordChangeForm} from '@/components/profile/password-change-form';
 import {useProfile, useSocialAccounts} from '@/hooks/use-profile';
 import {RequireAuth} from '@/components/auth/require-auth';
+import {useUserContext} from '@/components/providers/app-providers';
 import {Badge} from '@/components/ui/badge';
 import {
     HiChartBar,
     HiCheckCircle,
     HiCog,
     HiCreditCard,
+    HiLockClosed,
     HiShare,
     HiShieldCheck,
     HiUser,
@@ -36,6 +39,7 @@ export default function ProfilePage() {
     const [activeSection, setActiveSection] = useState<string>('personal');
     const {profile} = useProfile();
     const {socialAccounts} = useSocialAccounts();
+    const {user} = useUserContext();
 
     const accountsList = useMemo(() => {
         return Array.isArray(socialAccounts.data as any)
@@ -126,6 +130,14 @@ export default function ProfilePage() {
                 actionText: 'View',
                 icon: HiShieldCheck,
                 color: 'green'
+            },
+            {
+                id: 'password',
+                label: 'Password',
+                completed: user?.has_password === true, // Show as completed only if password is set
+                actionText: user?.has_password === true ? 'Change' : 'Set',
+                icon: HiLockClosed,
+                color: 'gray'
             }
         ];
     }, [profile.data, accountsList]);
@@ -173,6 +185,8 @@ export default function ProfilePage() {
                 return <DocumentUpload profile={profile.data || undefined}/>;
             case 'verification':
                 return <VerificationStatus profile={profile.data || undefined}/>;
+            case 'password':
+                return <PasswordChangeForm/>;
             default:
                 return null;
         }

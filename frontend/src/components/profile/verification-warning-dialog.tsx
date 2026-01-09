@@ -14,6 +14,9 @@ interface VerificationWarningDialogProps {
     emailVerified: boolean;
     phoneVerified: boolean;
     userType?: 'brand' | 'influencer';
+    userEmail?: string;
+    userPhone?: string;
+    countryCode?: string;
 }
 
 export function VerificationWarningDialog({
@@ -21,7 +24,10 @@ export function VerificationWarningDialog({
                                               onOpenChange,
                                               emailVerified,
                                               phoneVerified,
-                                              userType = 'influencer'
+                                              userType = 'influencer',
+                                              userEmail,
+                                              userPhone,
+                                              countryCode
                                           }: VerificationWarningDialogProps) {
     const [dismissed, setDismissed] = useState(false);
 
@@ -75,60 +81,88 @@ export function VerificationWarningDialog({
 
                 <div className="space-y-4 py-4">
                     {/* Email Verification Status */}
-                    <div className="flex items-center justify-between p-3 border rounded-lg">
-                        <div className="flex items-center gap-3">
-                            {emailVerified ? (
-                                <CheckCircle className="h-5 w-5 text-green-600"/>
-                            ) : (
-                                <XCircle className="h-5 w-5 text-red-500"/>
+                    <div className="p-3 border rounded-lg space-y-2">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                                {emailVerified ? (
+                                    <CheckCircle className="h-5 w-5 text-green-600"/>
+                                ) : (
+                                    <XCircle className="h-5 w-5 text-red-500"/>
+                                )}
+                                <div>
+                                    <p className="text-sm font-medium">Email Verification</p>
+                                    <p className="text-xs text-gray-500">
+                                        {emailVerified ? 'Verified' : 'Not verified'}
+                                    </p>
+                                </div>
+                            </div>
+                            {!emailVerified && (
+                                <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={sendVerificationEmail}
+                                    disabled={!canResendEmail || sendingEmail}
+                                    className="gap-2"
+                                >
+                                    <Mail className="h-4 w-4"/>
+                                    {sendingEmail ? 'Sending...' : canResendEmail ? 'Verify' : formatTimeRemaining(secondsUntilResendEmail)}
+                                </Button>
                             )}
-                            <div>
-                                <p className="text-sm font-medium">Email Verification</p>
+                        </div>
+                        {userEmail && (
+                            <div className="pl-8 pt-2 space-y-2">
+                                <div className="bg-blue-50 border border-blue-200 rounded-md p-2.5">
+                                    <p className="text-xs font-medium text-blue-900 mb-1">Current email:</p>
+                                    <p className="text-sm font-semibold text-blue-700">{userEmail}</p>
+                                </div>
                                 <p className="text-xs text-gray-500">
-                                    {emailVerified ? 'Verified' : 'Not verified'}
+                                    To edit your email, visit the Profile section
                                 </p>
                             </div>
-                        </div>
-                        {!emailVerified && (
-                            <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={sendVerificationEmail}
-                                disabled={!canResendEmail || sendingEmail}
-                                className="gap-2"
-                            >
-                                <Mail className="h-4 w-4"/>
-                                {sendingEmail ? 'Sending...' : canResendEmail ? 'Verify' : formatTimeRemaining(secondsUntilResendEmail)}
-                            </Button>
                         )}
                     </div>
 
                     {/* Phone Verification Status */}
-                    <div className="flex items-center justify-between p-3 border rounded-lg">
-                        <div className="flex items-center gap-3">
-                            {phoneVerified ? (
-                                <CheckCircle className="h-5 w-5 text-green-600"/>
-                            ) : (
-                                <XCircle className="h-5 w-5 text-red-500"/>
+                    <div className="p-3 border rounded-lg space-y-2">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                                {phoneVerified ? (
+                                    <CheckCircle className="h-5 w-5 text-green-600"/>
+                                ) : (
+                                    <XCircle className="h-5 w-5 text-red-500"/>
+                                )}
+                                <div>
+                                    <p className="text-sm font-medium">Phone Verification</p>
+                                    <p className="text-xs text-gray-500">
+                                        {phoneVerified ? 'Verified' : 'Not verified'}
+                                    </p>
+                                </div>
+                            </div>
+                            {!phoneVerified && (
+                                <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={sendVerificationPhone}
+                                    disabled={!canResendPhone || sendingPhone}
+                                    className="gap-2"
+                                >
+                                    <Phone className="h-4 w-4"/>
+                                    {sendingPhone ? 'Sending...' : canResendPhone ? 'Verify' : formatTimeRemaining(secondsUntilResendPhone)}
+                                </Button>
                             )}
-                            <div>
-                                <p className="text-sm font-medium">Phone Verification</p>
+                        </div>
+                        {userPhone && (
+                            <div className="pl-8 pt-2 space-y-2">
+                                <div className="bg-blue-50 border border-blue-200 rounded-md p-2.5">
+                                    <p className="text-xs font-medium text-blue-900 mb-1">Current phone:</p>
+                                    <p className="text-sm font-semibold text-blue-700">
+                                        {countryCode ? `${countryCode} ` : ''}{userPhone}
+                                    </p>
+                                </div>
                                 <p className="text-xs text-gray-500">
-                                    {phoneVerified ? 'Verified' : 'Not verified'}
+                                    To edit your phone number, visit the Profile section
                                 </p>
                             </div>
-                        </div>
-                        {!phoneVerified && (
-                            <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={sendVerificationPhone}
-                                disabled={!canResendPhone || sendingPhone}
-                                className="gap-2"
-                            >
-                                <Phone className="h-4 w-4"/>
-                                {sendingPhone ? 'Sending...' : canResendPhone ? 'Verify' : formatTimeRemaining(secondsUntilResendPhone)}
-                            </Button>
                         )}
                     </div>
 

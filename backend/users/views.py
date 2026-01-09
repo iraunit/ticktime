@@ -91,6 +91,7 @@ def user_info_view(request):
         'is_active': user.is_active,
         'has_influencer_profile': has_influencer_profile,
         'has_brand_profile': has_brand_profile,
+        'has_password': user.has_usable_password(),
     }
 
     return Response({
@@ -160,6 +161,7 @@ def location_data_view(request):
 def change_password_view(request):
     """
     Change user password.
+    If user doesn't have a password set (e.g., OAuth signup), current password is not required.
     """
     user = request.user
 
@@ -167,19 +169,31 @@ def change_password_view(request):
     new_password = request.data.get('new_password')
     confirm_password = request.data.get('confirm_password')
 
-    # Validate required fields
-    if not all([current_password, new_password, confirm_password]):
-        return Response({
-            'status': 'error',
-            'message': 'All password fields are required.'
-        }, status=status.HTTP_400_BAD_REQUEST)
+    # Check if user has a password set
+    has_password = user.has_usable_password()
 
-    # Check current password
-    if not user.check_password(current_password):
-        return Response({
-            'status': 'error',
-            'message': 'Current password is incorrect.'
-        }, status=status.HTTP_400_BAD_REQUEST)
+    # Validate required fields
+    if has_password:
+        # If user has a password, current password is required
+        if not all([current_password, new_password, confirm_password]):
+            return Response({
+                'status': 'error',
+                'message': 'All password fields are required.'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        # Check current password
+        if not user.check_password(current_password):
+            return Response({
+                'status': 'error',
+                'message': 'Current password is incorrect.'
+            }, status=status.HTTP_400_BAD_REQUEST)
+    else:
+        # If user doesn't have a password, only new password fields are required
+        if not all([new_password, confirm_password]):
+            return Response({
+                'status': 'error',
+                'message': 'New password and confirmation are required.'
+            }, status=status.HTTP_400_BAD_REQUEST)
 
     # Check password confirmation
     if new_password != confirm_password:
@@ -199,11 +213,11 @@ def change_password_view(request):
     user.set_password(new_password)
     user.save()
 
-    logger.info(f"Password changed for user {user.username}")
+    logger.info(f"Password {'changed' if has_password else 'set'} for user {user.username}")
 
     return Response({
         'status': 'success',
-        'message': 'Password changed successfully.'
+        'message': 'Password changed successfully.' if has_password else 'Password set successfully.'
     }, status=status.HTTP_200_OK)
 
 

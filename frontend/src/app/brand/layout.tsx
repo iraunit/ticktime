@@ -114,6 +114,9 @@ export default function BrandLayout({
                         emailVerified={user.email_verified || false}
                         phoneVerified={user.phone_verified || false}
                         userType="brand"
+                        userEmail={user.email}
+                        userPhone={user.phone_number}
+                        countryCode={user.country_code}
                     />
                 )}
                 {children}

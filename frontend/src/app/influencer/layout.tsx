@@ -59,6 +59,9 @@ export default function InfluencerLayout({
                         emailVerified={user.email_verified || false}
                         phoneVerified={user.phone_verified || false}
                         userType="influencer"
+                        userEmail={user.email}
+                        userPhone={user.phone_number}
+                        countryCode={user.country_code}
                     />
                 )}
                 {children}
@@ -76,6 +79,9 @@ export default function InfluencerLayout({
                         emailVerified={user.email_verified || false}
                         phoneVerified={user.phone_verified || false}
                         userType="influencer"
+                        userEmail={user.email}
+                        userPhone={user.phone_number}
+                        countryCode={user.country_code}
                     />
                 )}
                 {children}
