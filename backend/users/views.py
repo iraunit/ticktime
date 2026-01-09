@@ -226,6 +226,62 @@ def change_password_view(request):
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+@user_rate_limit(requests_per_minute=5)
+def update_password_view(request):
+    """
+    Update user password without requiring current password.
+    Used for password reset from verification dialog.
+    """
+    try:
+        user = request.user
+
+        new_password = request.data.get('new_password')
+
+        # Validate required field
+        if not new_password:
+            return Response({
+                'status': 'error',
+                'message': 'New password is required.'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        # Validate password strength using Django's validators
+        from django.contrib.auth.password_validation import validate_password
+        from django.core.exceptions import ValidationError
+        
+        try:
+            validate_password(new_password, user)
+        except ValidationError as e:
+            # Return the first validation error message
+            # Django validators return a list of error messages
+            error_message = '; '.join(e.messages) if e.messages else 'Password does not meet requirements.'
+            return Response({
+                'status': 'error',
+                'message': error_message
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        # Set new password (this should not raise ValidationError since we validated above)
+        user.set_password(new_password)
+        user.save()
+
+        logger.info(f"Password updated for user {user.username}")
+
+        return Response({
+            'status': 'success',
+            'message': 'Password updated successfully.'
+        }, status=status.HTTP_200_OK)
+    
+    except Exception as e:
+        # Catch any unexpected errors (database errors, etc.)
+        username = getattr(request.user, 'username', 'unknown') if hasattr(request, 'user') else 'unknown'
+        logger.error(f"Password update failed for user {username}: {str(e)}", exc_info=True)
+        return Response({
+            'status': 'error',
+            'message': 'Failed to update password. Please try again.'
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
 @api_view(['DELETE'])
 @permission_classes([IsAuthenticated])
 @user_rate_limit(requests_per_minute=2)

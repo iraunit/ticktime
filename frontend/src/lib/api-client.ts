@@ -143,6 +143,9 @@ export const userApi = {
         new_password: string;
         confirm_password: string;
     }) => api.post('/users/change-password/', data),
+    updatePassword: (data: {
+        new_password: string;
+    }) => api.post('/users/update-password/', data),
 };
 
 // Deals API functions

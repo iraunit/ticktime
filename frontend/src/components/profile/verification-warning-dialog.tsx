@@ -3,10 +3,14 @@
 import {useEffect, useState} from 'react';
 import {Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle,} from '@/components/ui/dialog';
 import {Button} from '@/components/ui/button';
-import {AlertTriangle, CheckCircle, Mail, Phone, XCircle} from '@/lib/icons';
+import {Input} from '@/components/ui/input';
+import {AlertTriangle, CheckCircle, Eye, EyeOff, Lock, Mail, Phone, XCircle} from '@/lib/icons';
+import {HiPencilSquare} from 'react-icons/hi2';
 import {formatTimeRemaining, useEmailVerification} from '@/hooks/use-email-verification';
 import {usePhoneVerification} from '@/hooks/use-phone-verification';
 import {useUserContext} from '@/components/providers/app-providers';
+import {userApi} from '@/lib/api-client';
+import {toast} from '@/lib/toast';
 import Link from 'next/link';
 
 interface VerificationWarningDialogProps {
@@ -31,6 +35,10 @@ export function VerificationWarningDialog({
                                               countryCode
                                           }: VerificationWarningDialogProps) {
     const [dismissed, setDismissed] = useState(false);
+    const [isEditingPassword, setIsEditingPassword] = useState(false);
+    const [newPassword, setNewPassword] = useState('');
+    const [showPassword, setShowPassword] = useState(false);
+    const [isSavingPassword, setIsSavingPassword] = useState(false);
     const {user} = useUserContext();
 
     // Get email and phone from user context, with fallback to props for backward compatibility
@@ -69,6 +77,29 @@ export function VerificationWarningDialog({
         // Store dismissal in localStorage (expires after 24 hours)
         const dismissalKey = `verification_warning_dismissed_${userType}`;
         localStorage.setItem(dismissalKey, Date.now().toString());
+    };
+
+    const handleSavePassword = async () => {
+        if (!newPassword.trim()) {
+            toast.error('Please enter a new password');
+            return;
+        }
+
+        setIsSavingPassword(true);
+        try {
+            const response = await userApi.updatePassword({new_password: newPassword});
+            if (response.data?.status === 'success' || response.data) {
+                toast.success(response.data?.message || 'Password updated successfully');
+                setNewPassword('');
+                setIsEditingPassword(false);
+                setShowPassword(false);
+            }
+        } catch (error: any) {
+            const errorMessage = error.response?.data?.message || error.message || 'Failed to update password. Please try again.';
+            toast.error(errorMessage);
+        } finally {
+            setIsSavingPassword(false);
+        }
     };
 
     return (
@@ -152,6 +183,83 @@ export function VerificationWarningDialog({
                                 <Phone className="h-4 w-4"/>
                                 {sendingPhone ? 'Sending...' : canResendPhone ? 'Verify' : formatTimeRemaining(secondsUntilResendPhone)}
                             </Button>
+                        )}
+                    </div>
+
+                    {/* Password Reset Section */}
+                    <div className="p-3 border rounded-lg">
+                        <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center gap-3">
+                                <Lock className="h-5 w-5 text-gray-600"/>
+                                <div>
+                                    <p className="text-sm font-medium">Reset Password</p>
+                                    <p className="text-xs text-gray-500">
+                                        Update your account password
+                                    </p>
+                                </div>
+                            </div>
+                            {!isEditingPassword && (
+                                <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => setIsEditingPassword(true)}
+                                    className="gap-2"
+                                >
+                                    <HiPencilSquare className="h-4 w-4"/>
+                                    Edit
+                                </Button>
+                            )}
+                        </div>
+                        {isEditingPassword && (
+                            <div className="mt-3 space-y-3">
+                                <div className="relative">
+                                    <Lock className="absolute left-3 top-3 h-4 w-4 text-gray-400"/>
+                                    <Input
+                                        type={showPassword ? "text" : "password"}
+                                        placeholder="Enter new password"
+                                        value={newPassword}
+                                        onChange={(e) => setNewPassword(e.target.value)}
+                                        className="pl-10 pr-10 h-11 border-gray-200 focus:border-blue-500 focus:ring-blue-500/20"
+                                        disabled={isSavingPassword}
+                                    />
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="sm"
+                                        className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                                        onClick={() => setShowPassword(!showPassword)}
+                                        disabled={isSavingPassword}
+                                    >
+                                        {showPassword ? (
+                                            <EyeOff className="h-4 w-4 text-gray-400"/>
+                                        ) : (
+                                            <Eye className="h-4 w-4 text-gray-400"/>
+                                        )}
+                                    </Button>
+                                </div>
+                                <div className="flex gap-2">
+                                    <Button
+                                        size="sm"
+                                        onClick={handleSavePassword}
+                                        disabled={isSavingPassword || !newPassword.trim()}
+                                        className="flex-1"
+                                    >
+                                        {isSavingPassword ? 'Saving...' : 'Save'}
+                                    </Button>
+                                    <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() => {
+                                            setIsEditingPassword(false);
+                                            setNewPassword('');
+                                            setShowPassword(false);
+                                        }}
+                                        disabled={isSavingPassword}
+                                    >
+                                        Cancel
+                                    </Button>
+                                </div>
+                            </div>
                         )}
                     </div>
 
