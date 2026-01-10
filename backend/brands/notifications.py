@@ -12,7 +12,7 @@ def _format_phone_number(user_profile) -> str:
     if not user_profile:
         return "N/A"
 
-    country_code = (getattr(user_profile, "country_code", "") or "").strip()
+    country_code = (getattr(user_profile, "country_code", "") or "+91").strip()
     phone = (getattr(user_profile, "phone_number", "") or "").strip()
 
     if country_code and phone:

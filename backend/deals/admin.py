@@ -160,16 +160,16 @@ class DealAdmin(admin.ModelAdmin):
         # Write deal data
         for deal in queryset.select_related('campaign', 'influencer__user', 'influencer__user_profile'):
             phone_number = ''
-            country_code = ''
+            country_code = '+91'
 
             # Get phone number from user_profile (matching serializer pattern)
             if deal.influencer and deal.influencer.user_profile:
                 phone_number = deal.influencer.user_profile.phone_number or ''
-                country_code = deal.influencer.user_profile.country_code or ''
+                country_code = deal.influencer.user_profile.country_code or '+91'
             elif deal.influencer and deal.influencer.user and hasattr(deal.influencer.user,
                                                                       'user_profile') and deal.influencer.user.user_profile:
                 phone_number = deal.influencer.user.user_profile.phone_number or ''
-                country_code = deal.influencer.user.user_profile.country_code or ''
+                country_code = deal.influencer.user.user_profile.country_code or '+91'
 
             writer.writerow([
                 deal.campaign.title if deal.campaign else '',

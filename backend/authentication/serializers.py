@@ -332,7 +332,7 @@ class UserLoginSerializer(serializers.Serializer):
         # Build candidate phone formats to maximize matching flexibility
         candidates = [phone.strip(), normalized_digits]
 
-        cc = (country_code or '').strip()
+        cc = (country_code or '+91').strip()
         if cc:
             if not cc.startswith('+'):
                 cc = f'+{cc}'

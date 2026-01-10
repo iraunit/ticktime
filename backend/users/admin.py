@@ -304,13 +304,13 @@ class UserAdmin(BaseUserAdmin):
         # Write user data
         for user in queryset:
             phone_number = ''
-            country_code = ''
+            country_code = '+91'
             phone_verified = False
             email_verified = False
 
             if hasattr(user, 'user_profile'):
                 phone_number = user.user_profile.phone_number or ''
-                country_code = user.user_profile.country_code or ''
+                country_code = user.user_profile.country_code or '+91'
                 phone_verified = user.user_profile.phone_verified
                 email_verified = user.user_profile.email_verified
 
