@@ -9,11 +9,10 @@ import {CampaignReadinessForm} from '@/components/profile/campaign-readiness-for
 import {BankDetailsForm} from '@/components/profile/bank-details-form';
 import {VerificationStatus} from '@/components/profile/verification-status';
 import {EmailVerificationBanner} from '@/components/profile/email-verification-banner';
-<<<<<<< HEAD
+
 import {PhoneVerificationBanner} from '@/components/profile/phone-verification-banner';
-=======
+
 import {PasswordChangeForm} from '@/components/profile/password-change-form';
->>>>>>> af1d8adb8fa728649272176830a754c234ed2c84
 import {useProfile, useSocialAccounts} from '@/hooks/use-profile';
 import {RequireAuth} from '@/components/auth/require-auth';
 import {useUserContext} from '@/components/providers/app-providers';

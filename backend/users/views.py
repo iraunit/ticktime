@@ -160,12 +160,12 @@ def location_data_view(request):
 @user_rate_limit(requests_per_minute=5)
 def change_password_view(request):
     """
-<<<<<<< HEAD
+
     Change user password with proper validation and error handling.
-=======
+
     Change user password.
     If user doesn't have a password set (e.g., OAuth signup), current password is not required.
->>>>>>> af1d8adb8fa728649272176830a754c234ed2c84
+
     """
     try:
         user = request.user
@@ -174,7 +174,7 @@ def change_password_view(request):
         new_password = request.data.get('new_password')
         confirm_password = request.data.get('confirm_password')
 
-<<<<<<< HEAD
+
         # Validate required fields
         if not all([current_password, new_password, confirm_password]):
             return Response({
@@ -287,7 +287,7 @@ def update_password_view(request):
             'status': 'error',
             'message': 'Failed to update password. Please try again.'
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-=======
+
     # Check if user has a password set
     has_password = user.has_usable_password()
 
@@ -338,7 +338,7 @@ def update_password_view(request):
         'status': 'success',
         'message': 'Password changed successfully.' if has_password else 'Password set successfully.'
     }, status=status.HTTP_200_OK)
->>>>>>> af1d8adb8fa728649272176830a754c234ed2c84
+
 
 
 @api_view(['DELETE'])

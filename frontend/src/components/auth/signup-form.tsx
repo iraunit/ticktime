@@ -5,6 +5,7 @@ import {useForm} from "react-hook-form";
 import {zodResolver} from "@hookform/resolvers/zod";
 import * as z from "zod";
 import Link from "next/link";
+import {GoogleLogin} from "@react-oauth/google";
 import {ArrowLeft, ArrowRight, Camera, CheckCircle, Eye, EyeOff, Lock, Mail, Phone, User} from "@/lib/icons";
 import {Button} from "@/components/ui/button";
 import {Input} from "@/components/ui/input";
@@ -14,6 +15,7 @@ import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from "@/c
 import {useAuth} from "@/hooks/use-auth";
 import {useContentCategories} from "@/hooks/use-content-categories";
 import {UnifiedCountryCodeSelect} from "@/components/ui/unified-country-code-select";
+import {toast} from "@/lib/toast";
 
 const signupSchema = z.object({
     email: z.string().email("Please enter a valid email address"),
@@ -60,8 +62,30 @@ export function SignupForm() {
     const [currentStep, setCurrentStep] = useState(1);
     const [showPassword, setShowPassword] = useState(false);
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-    const {signup} = useAuth();
+    const {signup, googleAuth} = useAuth();
     const {contentCategories, loading: contentCategoriesLoading} = useContentCategories();
+    const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+
+    const handleGoogleSuccess = async (credentialResponse: any) => {
+        if (!credentialResponse.credential) {
+            toast.error('Google sign-up failed. Please try again.');
+            return;
+        }
+
+        setIsGoogleLoading(true);
+        try {
+            await googleAuth.mutateAsync(credentialResponse.credential);
+        } catch (error) {
+            // Error is handled by the mutation
+        } finally {
+            setIsGoogleLoading(false);
+        }
+    };
+
+    const handleGoogleError = () => {
+        toast.error('Google sign-up was cancelled or failed. Please try again.');
+        setIsGoogleLoading(false);
+    };
 
     const form = useForm<SignupFormData>({
         resolver: zodResolver(signupSchema),
@@ -138,6 +162,28 @@ export function SignupForm() {
                             <div className="w-2 h-2 bg-gradient-to-r from-purple-500 to-pink-600 rounded-full"></div>
                             <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">Account
                                 Security</h3>
+                        </div>
+
+                        <div className="flex justify-center mb-4">
+                            <GoogleLogin
+                                onSuccess={handleGoogleSuccess}
+                                onError={handleGoogleError}
+                                useOneTap={false}
+                                shape="rectangular"
+                                theme="outline"
+                                size="large"
+                                text="signup_with"
+                                disabled={isGoogleLoading || signup.isPending}
+                            />
+                        </div>
+
+                        <div className="relative">
+                            <div className="absolute inset-0 flex items-center">
+                                <div className="w-full border-t border-gray-200"></div>
+                            </div>
+                            <div className="relative flex justify-center text-sm">
+                                <span className="px-2 bg-white text-gray-500">Or continue with email</span>
+                            </div>
                         </div>
 
                         <FormField

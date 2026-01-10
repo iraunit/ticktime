@@ -8,6 +8,7 @@ urlpatterns = [
     path('signup/', views.signup_view, name='signup'),
     path('brand-signup/', views.brand_signup_view, name='brand_signup'),
     path('logout/', views.logout_view, name='logout'),
+    path('google/', views.google_auth_view, name='google_auth'),
     path('forgot-password/', views.forgot_password_view, name='forgot_password'),
     path('verify-otp/', views.verify_otp_view, name='verify_otp'),
     path('reset-password/', views.reset_password_view, name='reset_password'),

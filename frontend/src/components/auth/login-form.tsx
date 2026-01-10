@@ -2,6 +2,7 @@
 
 import {useState} from "react";
 import Link from "next/link";
+import {GoogleLogin} from "@react-oauth/google";
 import {AlertCircle, Eye, EyeOff, HiHandRaised, Lock, Mail} from "@/lib/icons";
 import {InlineLoader} from "@/components/ui/global-loader";
 import {Button} from "@/components/ui/button";
@@ -14,6 +15,7 @@ import {useAuth} from "@/hooks/use-auth";
 import {useFormValidation} from "@/hooks/use-form-validation";
 import {useApiErrorHandler} from "@/contexts/error-context";
 import {useLoadingState} from "@/contexts/loading-context";
+import {toast} from "@/lib/toast";
 import * as z from "zod";
 
 const loginSchema = z.object({
@@ -26,9 +28,34 @@ type LoginFormData = z.infer<typeof loginSchema>;
 
 export function LoginForm() {
     const [showPassword, setShowPassword] = useState(false);
-    const {login} = useAuth();
+    const {login, googleAuth} = useAuth();
     const {handleError} = useApiErrorHandler();
     const {isLoading, startLoading, stopLoading} = useLoadingState('login');
+    const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+
+    const handleGoogleSuccess = async (credentialResponse: any) => {
+        if (!credentialResponse.credential) {
+            toast.error('Google sign-in failed. Please try again.');
+            return;
+        }
+
+        setIsGoogleLoading(true);
+        startLoading('Signing in with Google...');
+        try {
+            await googleAuth.mutateAsync(credentialResponse.credential);
+        } catch (error) {
+            handleError(error, 'google-auth');
+        } finally {
+            setIsGoogleLoading(false);
+            stopLoading();
+        }
+    };
+
+    const handleGoogleError = () => {
+        toast.error('Google sign-in was cancelled or failed. Please try again.');
+        setIsGoogleLoading(false);
+        stopLoading();
+    };
 
     const {
         form,
@@ -227,7 +254,7 @@ export function LoginForm() {
                                         <Button
                                             type="submit"
                                             className="w-full h-12 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-medium shadow-lg hover:shadow-xl transition-all duration-200"
-                                            disabled={isSubmitting || isLoading}
+                                            disabled={isSubmitting || isLoading || isGoogleLoading}
                                         >
                                             {isSubmitting || isLoading ? (
                                                 <>
@@ -241,6 +268,28 @@ export function LoginForm() {
                                                 </>
                                             )}
                                         </Button>
+
+                                        <div className="relative">
+                                            <div className="absolute inset-0 flex items-center">
+                                                <div className="w-full border-t border-gray-200"></div>
+                                            </div>
+                                            <div className="relative flex justify-center text-sm">
+                                                <span className="px-2 bg-white text-gray-500">Or continue with</span>
+                                            </div>
+                                        </div>
+
+                                        <div className="flex justify-center">
+                                            <GoogleLogin
+                                                onSuccess={handleGoogleSuccess}
+                                                onError={handleGoogleError}
+                                                useOneTap={false}
+                                                shape="rectangular"
+                                                theme="outline"
+                                                size="large"
+                                                text="signin_with"
+                                                disabled={isSubmitting || isLoading || isGoogleLoading}
+                                            />
+                                        </div>
 
                                         <div className="text-center text-sm text-gray-600">
                                             Don't have an account?{" "}

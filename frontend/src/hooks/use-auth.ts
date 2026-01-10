@@ -312,6 +312,32 @@ export function useAuth() {
         },
     });
 
+    // Google OAuth mutation
+    const googleAuthMutation = useMutation({
+        mutationFn: (token: string) => authApi.googleAuth(token),
+        onSuccess: async (response) => {
+            toast.success('Welcome! Signed in with Google successfully.');
+            setIsAuthenticatedState(true);
+            queryClient.invalidateQueries({queryKey: ['user']});
+            await refreshUserContext();
+
+            const next = getNextPath();
+            if (next) {
+                router.push(next);
+                return;
+            }
+
+            // Redirect based on account type using utility function
+            const user = response?.data?.user;
+            const dashboardRoute = getDashboardRoute(user);
+            router.push(dashboardRoute);
+        },
+        onError: (error: any) => {
+            const errorMessage = formatErrorMessage(error);
+            toast.error(errorMessage);
+        },
+    });
+
     return {
         isAuthenticated,
         isAuthLoading,
@@ -324,5 +350,6 @@ export function useAuth() {
         verifyOTP: verifyOTPMutation,
         resetPassword: resetPasswordMutation,
         oneTapLogin: oneTapLoginMutation,
+        googleAuth: googleAuthMutation,
     };
 }

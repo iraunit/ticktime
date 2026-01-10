@@ -12,7 +12,11 @@ from communications.email_service import get_email_service
 from django.conf import settings
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.models import User
+from django.db import transaction
 from django.middleware.csrf import get_token
+import os
+from google.auth.transport import requests
+from google.oauth2 import id_token
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -640,6 +644,171 @@ def reset_password_view(request):
             'status': 'error',
             'message': 'Password reset failed. Please try again.'
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+@auth_rate_limit(requests_per_minute=10)
+@log_performance(threshold=2.0)
+def google_auth_view(request):
+    """
+    Google OAuth authentication endpoint.
+    Verifies Google ID token and either logs in existing user or creates new user account.
+    """
+    token = request.data.get('token')
+    
+    if not token:
+        return api_response(
+            False,
+            error='Google token is required.',
+            status_code=status.HTTP_400_BAD_REQUEST
+        )
+
+    try:
+        # Verify the Google ID token
+        GOOGLE_CLIENT_ID = os.environ.get('GOOGLE_OAUTH2_CLIENT_ID', '1085037911154-m9tbff18qjfd419d9mb86adcudscn10p.apps.googleusercontent.com')
+        
+        idinfo = id_token.verify_oauth2_token(
+            token,
+            requests.Request(),
+            GOOGLE_CLIENT_ID
+        )
+
+        # Extract user information from the token
+        email = idinfo.get('email')
+        first_name = idinfo.get('given_name', '')
+        last_name = idinfo.get('family_name', '')
+        picture = idinfo.get('picture', '')
+        email_verified = idinfo.get('email_verified', False)
+
+        if not email:
+            return api_response(
+                False,
+                error='Email not provided by Google account.',
+                status_code=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Check if user already exists
+        user = User.objects.filter(email__iexact=email).first()
+
+        if user:
+            # Existing user - log them in
+            if not user.is_active:
+                return api_response(
+                    False,
+                    error='Account is inactive. Please contact support.',
+                    status_code=status.HTTP_403_FORBIDDEN
+                )
+
+            login(request, user)
+            request.session.set_expiry(settings.SESSION_COOKIE_AGE)
+
+            # Ensure UserProfile exists
+            from users.models import UserProfile
+            user_profile, _ = UserProfile.objects.get_or_create(user=user)
+            
+            # Update email verification status if Google verified it
+            if email_verified and not user_profile.email_verified:
+                user_profile.email_verified = True
+                user_profile.save()
+
+            profile_serializer = UserProfileSerializer(user, context={'request': request})
+            return api_response(True, result={
+                'message': 'Login successful',
+                'user': profile_serializer.data,
+            })
+
+        else:
+            # New user - create account
+            with transaction.atomic():
+                # Generate a unique username from email
+                base_username = email.split('@')[0].lower()
+                username = base_username
+                counter = 1
+                while User.objects.filter(username=username).exists():
+                    username = f"{base_username}{counter}"
+                    counter += 1
+
+                # Create user with unusable password (OAuth users don't have passwords)
+                user = User.objects.create_user(
+                    username=username,
+                    email=email.lower(),
+                    first_name=first_name,
+                    last_name=last_name,
+                    is_active=True
+                )
+                user.set_unusable_password()
+                user.save()
+
+                # Create UserProfile
+                from users.models import UserProfile
+                # Generate a unique placeholder phone number for OAuth users
+                # Format: oauth_<user_id> (user.id is unique, so this will be unique)
+                placeholder_phone = f"oauth_{user.id}"
+                
+                user_profile = UserProfile.objects.create(
+                    user=user,
+                    email_verified=email_verified,  # Google email is verified
+                    phone_number=placeholder_phone,  # Placeholder, user can update later
+                    country_code='+1',  # Default
+                )
+
+                # Create InfluencerProfile with default industry
+                from influencers.models import InfluencerProfile
+                from common.models import Industry
+                
+                # Get default industry (ID 1 or first active industry)
+                default_industry = Industry.objects.filter(is_active=True).first()
+                if not default_industry:
+                    default_industry = Industry.objects.first()
+                if not default_industry:
+                    # Fallback: create a default industry if none exists
+                    default_industry = Industry.objects.create(
+                        name='Other',
+                        key='other',
+                        is_active=True
+                    )
+
+                influencer_profile = InfluencerProfile.objects.create(
+                    user=user,
+                    user_profile=user_profile,
+                    industry=default_industry,
+                    is_verified=False,  # Still needs Aadhar verification
+                    bank_account_number='',
+                    bank_ifsc_code='',
+                    bank_account_holder_name='',
+                )
+
+                # Set empty categories
+                influencer_profile.categories.set([])
+
+                # Log in the new user
+                login(request, user)
+                request.session.set_expiry(settings.SESSION_COOKIE_AGE)
+
+                profile_serializer = UserProfileSerializer(user, context={'request': request})
+                return api_response(True, result={
+                    'message': 'Account created successfully! You are now logged in.',
+                    'user_id': user.id,
+                    'user': profile_serializer.data,
+                    'auto_logged_in': True,
+                }, status_code=201)
+
+    except ValueError as e:
+        # Invalid token
+        logger.error(f"Google OAuth token verification failed: {str(e)}")
+        return api_response(
+            False,
+            error='Invalid Google token. Please try again.',
+            status_code=status.HTTP_400_BAD_REQUEST
+        )
+    except Exception as e:
+        logger.error(f"Google OAuth authentication failed: {str(e)}")
+        return api_response(
+            False,
+            error='Authentication failed. Please try again.',
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
 
 
 @api_view(['GET'])
