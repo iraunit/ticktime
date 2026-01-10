@@ -3,9 +3,14 @@
 import {useEffect, useState} from 'react';
 import {Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle,} from '@/components/ui/dialog';
 import {Button} from '@/components/ui/button';
-import {AlertTriangle, CheckCircle, Mail, Phone, XCircle} from '@/lib/icons';
+import {Input} from '@/components/ui/input';
+import {AlertTriangle, CheckCircle, Mail, Phone, XCircle, Pencil} from '@/lib/icons';
 import {formatTimeRemaining, useEmailVerification} from '@/hooks/use-email-verification';
 import {usePhoneVerification} from '@/hooks/use-phone-verification';
+import {UnifiedCountryCodeSelect} from '@/components/ui/unified-country-code-select';
+import {profileApi} from '@/lib/api-client';
+import {useUserContext} from '@/components/providers/app-providers';
+import {toast} from '@/lib/toast';
 import Link from 'next/link';
 
 interface VerificationWarningDialogProps {
@@ -30,6 +35,12 @@ export function VerificationWarningDialog({
                                               countryCode
                                           }: VerificationWarningDialogProps) {
     const [dismissed, setDismissed] = useState(false);
+    const [isEditingPhone, setIsEditingPhone] = useState(false);
+    const [phoneNumber, setPhoneNumber] = useState(userPhone || '');
+    const [phoneCountryCode, setPhoneCountryCode] = useState(countryCode || '+1');
+    const [isSavingPhone, setIsSavingPhone] = useState(false);
+    const [phoneError, setPhoneError] = useState<string | null>(null);
+    const {refresh: refreshUserContext} = useUserContext();
 
     const {
         sending: sendingEmail,
@@ -45,12 +56,21 @@ export function VerificationWarningDialog({
         sendVerificationPhone,
     } = usePhoneVerification();
 
-    // Reset dismissed state when dialog opens
+    // OAuth user detection helper
+    const isOAuthUser = (phone: string | undefined): boolean => {
+        return phone?.startsWith('oauth_') ?? false;
+    };
+
+    // Reset dismissed state and edit state when dialog opens
     useEffect(() => {
         if (open) {
             setDismissed(false);
+            setIsEditingPhone(false);
+            setPhoneNumber(userPhone || '');
+            setPhoneCountryCode(countryCode || '+1');
+            setPhoneError(null);
         }
-    }, [open]);
+    }, [open, userPhone, countryCode]);
 
     // Don't show if both are verified
     if (emailVerified && phoneVerified) {
@@ -63,6 +83,63 @@ export function VerificationWarningDialog({
         // Store dismissal in localStorage (expires after 24 hours)
         const dismissalKey = `verification_warning_dismissed_${userType}`;
         localStorage.setItem(dismissalKey, Date.now().toString());
+    };
+
+    const validatePhoneNumber = (phone: string): boolean => {
+        // Remove all non-digit characters
+        const digitsOnly = phone.replace(/\D/g, '');
+        // Check if it's 7-15 digits
+        return digitsOnly.length >= 7 && digitsOnly.length <= 15;
+    };
+
+    const handleSavePhone = async () => {
+        setPhoneError(null);
+
+        // Validate phone number
+        if (!phoneNumber.trim()) {
+            setPhoneError('Phone number is required');
+            return;
+        }
+
+        if (!validatePhoneNumber(phoneNumber)) {
+            setPhoneError('Phone number must be 7-15 digits');
+            return;
+        }
+
+        if (!phoneCountryCode) {
+            setPhoneError('Country code is required');
+            return;
+        }
+
+        setIsSavingPhone(true);
+        try {
+            // Clean phone number (digits only)
+            const cleanedPhone = phoneNumber.replace(/\D/g, '');
+
+            await profileApi.updateProfile({
+                phone_number: cleanedPhone,
+                country_code: phoneCountryCode,
+            });
+
+            // Refresh user context to get updated phone number
+            await refreshUserContext();
+
+            toast.success('Phone number updated successfully');
+            setIsEditingPhone(false);
+        } catch (error: any) {
+            const errorMessage = error?.response?.data?.message || error?.message || 'Failed to update phone number';
+            setPhoneError(errorMessage);
+            toast.error(errorMessage);
+        } finally {
+            setIsSavingPhone(false);
+        }
+    };
+
+    const handleCancelEdit = () => {
+        setIsEditingPhone(false);
+        setPhoneNumber(userPhone || '');
+        setPhoneCountryCode(countryCode || '+1');
+        setPhoneError(null);
     };
 
     return (
@@ -153,15 +230,101 @@ export function VerificationWarningDialog({
                         </div>
                         {userPhone && (
                             <div className="pl-8 pt-2 space-y-2">
-                                <div className="bg-blue-50 border border-blue-200 rounded-md p-2.5">
-                                    <p className="text-xs font-medium text-blue-900 mb-1">Current phone:</p>
-                                    <p className="text-sm font-semibold text-blue-700">
-                                        {countryCode ? `${countryCode} ` : ''}{userPhone}
+                                {isEditingPhone && isOAuthUser(userPhone) && !phoneVerified ? (
+                                    // Edit form for OAuth users
+                                    <div className="space-y-3">
+                                        <div className="bg-blue-50 border border-blue-200 rounded-md p-3 space-y-3">
+                                            <p className="text-xs font-medium text-blue-900 mb-2">Set your phone number:</p>
+                                            <div className="space-y-2">
+                                                <div className="flex gap-2">
+                                                    <div className="w-32">
+                                                        <label className="text-xs font-medium text-gray-700 mb-1 block">
+                                                            Country Code
+                                                        </label>
+                                                        <UnifiedCountryCodeSelect
+                                                            value={phoneCountryCode}
+                                                            onValueChange={setPhoneCountryCode}
+                                                            placeholder="+1"
+                                                            showSearch={true}
+                                                            showFlags={true}
+                                                            className="h-9"
+                                                        />
+                                                    </div>
+                                                    <div className="flex-1">
+                                                        <label className="text-xs font-medium text-gray-700 mb-1 block">
+                                                            Phone Number
+                                                        </label>
+                                                        <Input
+                                                            type="tel"
+                                                            value={phoneNumber}
+                                                            onChange={(e) => {
+                                                                setPhoneNumber(e.target.value);
+                                                                setPhoneError(null);
+                                                            }}
+                                                            placeholder="Enter phone number"
+                                                            className="h-9"
+                                                            disabled={isSavingPhone}
+                                                        />
+                                                    </div>
+                                                </div>
+                                                {phoneError && (
+                                                    <p className="text-xs text-red-600">{phoneError}</p>
+                                                )}
+                                                <p className="text-xs text-gray-500">
+                                                    Enter digits only (7-15 digits)
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <div className="flex gap-2 justify-end">
+                                            <Button
+                                                size="sm"
+                                                variant="outline"
+                                                onClick={handleCancelEdit}
+                                                disabled={isSavingPhone}
+                                            >
+                                                Cancel
+                                            </Button>
+                                            <Button
+                                                size="sm"
+                                                onClick={handleSavePhone}
+                                                disabled={isSavingPhone || !phoneNumber.trim() || !phoneCountryCode}
+                                                className="bg-blue-600 hover:bg-blue-700"
+                                            >
+                                                {isSavingPhone ? 'Saving...' : 'Save'}
+                                            </Button>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    // Static display
+                                    <div className="bg-blue-50 border border-blue-200 rounded-md p-2.5">
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex-1">
+                                                <p className="text-xs font-medium text-blue-900 mb-1">Current phone:</p>
+                                                <p className="text-sm font-semibold text-blue-700">
+                                                    {countryCode ? `${countryCode} ` : ''}{userPhone}
+                                                </p>
+                                            </div>
+                                            {isOAuthUser(userPhone) && !phoneVerified && (
+                                                <Button
+                                                    size="sm"
+                                                    variant="ghost"
+                                                    onClick={() => setIsEditingPhone(true)}
+                                                    className="ml-2 h-8 w-8 p-0"
+                                                    title="Edit phone number"
+                                                >
+                                                    <Pencil className="h-4 w-4 text-blue-600" />
+                                                </Button>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
+                                {!isEditingPhone && (
+                                    <p className="text-xs text-gray-500">
+                                        {isOAuthUser(userPhone) && !phoneVerified
+                                            ? 'Click the edit icon to set your phone number'
+                                            : 'To edit your phone number, visit the Profile section'}
                                     </p>
-                                </div>
-                                <p className="text-xs text-gray-500">
-                                    To edit your phone number, visit the Profile section
-                                </p>
+                                )}
                             </div>
                         )}
                     </div>

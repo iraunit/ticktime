@@ -104,6 +104,8 @@ export const ThumbsDown = make("HandThumbDownIcon", "lni-thumbs-down", "ri-thumb
 export const Link = make("LinkIcon", "lni-link", "ri-link", "bx-link");
 export const Plus = make("PlusIcon", "lni-plus", "ri-add-line", "bx-plus");
 export const Trash2 = make("TrashIcon", "lni-trash", "ri-delete-bin-2-line", "bx-trash");
+export const Pencil = make("PencilIcon", "lni-pencil", "ri-pencil-line", "bx-edit");
+export const Edit = Pencil;
 
 // Export the HiHandRaised icon directly
 export { HiHandRaised };
