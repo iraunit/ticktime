@@ -128,7 +128,7 @@ class WhatsAppService:
         marketing templates.
         """
         try:
-            country_code = (country_code or "").strip()
+            country_code = (country_code or "+91").strip()
             if country_code and not country_code.startswith('+'):
                 country_code = f'+{country_code}'
 

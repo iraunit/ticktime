@@ -382,7 +382,7 @@ class InfluencerProfileUpdateSerializer(serializers.ModelSerializer):
         state = validated_data.pop('state', None)
         zipcode = validated_data.pop('zipcode', None)
         country = validated_data.pop('country', None)
-        country_code = validated_data.pop('country_code', None)
+        country_code = validated_data.pop('country_code', '+91')
         gender = validated_data.pop('gender', None)
 
         # Extract many-to-many fields that need special handling
@@ -420,7 +420,7 @@ class InfluencerProfileUpdateSerializer(serializers.ModelSerializer):
         # Track original values to determine verification reset
         original_email = (user.email or '').strip().lower()
         original_phone = (instance.user_profile.phone_number if instance.user_profile else '') or ''
-        original_country_code = (instance.user_profile.country_code if instance.user_profile else '') or ''
+        original_country_code = (instance.user_profile.country_code if instance.user_profile else '') or '+91'
 
         email_changed = False
         if email is not None:

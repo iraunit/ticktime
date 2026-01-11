@@ -234,8 +234,8 @@ def queue_phone_verification_reminders(
                 continue
 
             phone_number = (profile.phone_number or "").strip()
-            country_code = (profile.country_code or "").strip()
-            if not phone_number or not country_code:
+            country_code = (profile.country_code or "+91").strip()
+            if not phone_number:
                 skipped_invalid += 1
                 continue
             

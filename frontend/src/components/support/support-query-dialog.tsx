@@ -34,7 +34,7 @@ export function SupportQueryDialog({
     const defaultValues = useMemo(() => {
         const name = user?.full_name || `${user?.first_name || ""} ${user?.last_name || ""}`.trim() || user?.username || "";
         const phoneNumber = user?.phone_number
-            ? `${user?.country_code || ""} ${user.phone_number}`.trim()
+            ? `${user?.country_code || "+91"} ${user.phone_number}`.trim()
             : "";
         return {
             name,
