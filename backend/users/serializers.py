@@ -195,7 +195,7 @@ class UserUpdateSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ('first_name', 'last_name', 'phone_number', 'country_code', 'gender',
+        fields = ('first_name', 'last_name', 'username', 'phone_number', 'country_code', 'gender',
                   'country', 'state', 'city', 'zipcode', 'address_line1', 'address_line2', 'profile_image')
 
     def validate_first_name(self, value):
@@ -233,6 +233,32 @@ class UserUpdateSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError("Last name cannot be longer than 30 characters.")
 
         return value.strip() if value else value
+
+    def validate_username(self, value):
+        """Validate username is unique and follows proper format (on User model)."""
+        if not value:
+            return value
+
+        normalized = value.strip()
+
+        # Check if username is being changed
+        if self.instance and self.instance.username == normalized:
+            return normalized
+
+        existing_qs = User.objects.filter(username=normalized)
+        if self.instance and self.instance.pk:
+            existing_qs = existing_qs.exclude(pk=self.instance.pk)
+
+        if existing_qs.exists():
+            raise serializers.ValidationError("This username is already taken.")
+
+        # Username should be alphanumeric with underscores and dots allowed
+        if not re.match(r'^[a-zA-Z0-9._]+$', normalized):
+            raise serializers.ValidationError(
+                "Username can only contain letters, numbers, dots, and underscores."
+            )
+
+        return normalized
 
     def validate_phone_number(self, value):
         """Validate phone number format and uniqueness."""
@@ -273,6 +299,8 @@ class UserUpdateSerializer(serializers.ModelSerializer):
             instance.first_name = validated_data['first_name']
         if 'last_name' in validated_data:
             instance.last_name = validated_data['last_name']
+        if 'username' in validated_data:
+            instance.username = validated_data['username']
 
         instance.save()
 

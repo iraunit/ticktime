@@ -8,7 +8,7 @@ import {AlertTriangle, CheckCircle, Mail, Phone, XCircle, Pencil} from '@/lib/ic
 import {formatTimeRemaining, useEmailVerification} from '@/hooks/use-email-verification';
 import {usePhoneVerification} from '@/hooks/use-phone-verification';
 import {UnifiedCountryCodeSelect} from '@/components/ui/unified-country-code-select';
-import {profileApi} from '@/lib/api-client';
+import {profileApi, userApi} from '@/lib/api-client';
 import {useUserContext} from '@/components/providers/app-providers';
 import {toast} from '@/lib/toast';
 import Link from 'next/link';
@@ -40,7 +40,13 @@ export function VerificationWarningDialog({
     const [phoneCountryCode, setPhoneCountryCode] = useState(countryCode || '+1');
     const [isSavingPhone, setIsSavingPhone] = useState(false);
     const [phoneError, setPhoneError] = useState<string | null>(null);
-    const {refresh: refreshUserContext} = useUserContext();
+    const [password, setPassword] = useState('');
+    const [username, setUsername] = useState('');
+    const [isSavingPassword, setIsSavingPassword] = useState(false);
+    const [isSavingUsername, setIsSavingUsername] = useState(false);
+    const [passwordError, setPasswordError] = useState<string | null>(null);
+    const [usernameError, setUsernameError] = useState<string | null>(null);
+    const {user, refresh: refreshUserContext} = useUserContext();
 
     const {
         sending: sendingEmail,
@@ -69,8 +75,12 @@ export function VerificationWarningDialog({
             setPhoneNumber(userPhone || '');
             setPhoneCountryCode(countryCode || '+1');
             setPhoneError(null);
+            setPassword('');
+            setUsername(user?.username || '');
+            setPasswordError(null);
+            setUsernameError(null);
         }
-    }, [open, userPhone, countryCode]);
+    }, [open, userPhone, countryCode, user?.username]);
 
     // Don't show if both are verified
     if (emailVerified && phoneVerified) {
@@ -140,6 +150,71 @@ export function VerificationWarningDialog({
         setPhoneNumber(userPhone || '');
         setPhoneCountryCode(countryCode || '+1');
         setPhoneError(null);
+    };
+
+    const handleSavePassword = async () => {
+        setPasswordError(null);
+
+        if (!password.trim()) {
+            setPasswordError('Password is required');
+            return;
+        }
+
+        setIsSavingPassword(true);
+        try {
+            await userApi.updatePassword({
+                new_password: password,
+            });
+
+            await refreshUserContext();
+
+            toast.success('Password updated successfully');
+            setPassword('');
+        } catch (error: any) {
+            const errorMessage = error?.response?.data?.message || error?.response?.data?.error || error?.message || 'Failed to update password';
+            setPasswordError(errorMessage);
+            toast.error(errorMessage);
+        } finally {
+            setIsSavingPassword(false);
+        }
+    };
+
+    const handleSaveUsername = async () => {
+        setUsernameError(null);
+
+        if (!username.trim()) {
+            setUsernameError('Username is required');
+            return;
+        }
+
+        // Basic client-side validation
+        if (!/^[a-zA-Z0-9._]+$/.test(username.trim())) {
+            setUsernameError('Username can only contain letters, numbers, dots, and underscores');
+            return;
+        }
+
+        setIsSavingUsername(true);
+        try {
+            if (userType === 'influencer') {
+                await profileApi.updateProfile({
+                    username: username.trim(),
+                });
+            } else {
+                await userApi.updateProfile({
+                    username: username.trim(),
+                });
+            }
+
+            await refreshUserContext();
+
+            toast.success('Username updated successfully');
+        } catch (error: any) {
+            const errorMessage = error?.response?.data?.message || error?.response?.data?.error || error?.response?.data?.errors?.username?.[0] || error?.message || 'Failed to update username';
+            setUsernameError(errorMessage);
+            toast.error(errorMessage);
+        } finally {
+            setIsSavingUsername(false);
+        }
     };
 
     return (
@@ -328,6 +403,87 @@ export function VerificationWarningDialog({
                             </div>
                         )}
                     </div>
+
+                    {/* Account Setup for OAuth Users */}
+                    {isOAuthUser(userPhone) && (
+                        <div className="p-3 border rounded-lg space-y-4">
+                            <div className="flex items-center gap-2">
+                                <AlertTriangle className="h-5 w-5 text-amber-600"/>
+                                <p className="text-sm font-medium">Account Setup</p>
+                            </div>
+                            <p className="text-xs text-gray-600">
+                                Set your password and username to complete your account setup.
+                            </p>
+
+                            {/* Password Setup */}
+                            <div className="space-y-2">
+                                <label className="text-xs font-medium text-gray-700 block">
+                                    Password
+                                </label>
+                                <div className="flex gap-2">
+                                    <Input
+                                        type="password"
+                                        value={password}
+                                        onChange={(e) => {
+                                            setPassword(e.target.value);
+                                            setPasswordError(null);
+                                        }}
+                                        placeholder="Enter new password"
+                                        className="flex-1 h-9"
+                                        disabled={isSavingPassword}
+                                    />
+                                    <Button
+                                        size="sm"
+                                        onClick={handleSavePassword}
+                                        disabled={isSavingPassword || !password.trim()}
+                                        className="bg-blue-600 hover:bg-blue-700"
+                                    >
+                                        {isSavingPassword ? 'Saving...' : 'Save'}
+                                    </Button>
+                                </div>
+                                {passwordError && (
+                                    <p className="text-xs text-red-600">{passwordError}</p>
+                                )}
+                                <p className="text-xs text-gray-500">
+                                    Set a password for your account
+                                </p>
+                            </div>
+
+                            {/* Username Setup */}
+                            <div className="space-y-2">
+                                <label className="text-xs font-medium text-gray-700 block">
+                                    Username
+                                </label>
+                                <div className="flex gap-2">
+                                    <Input
+                                        type="text"
+                                        value={username}
+                                        onChange={(e) => {
+                                            setUsername(e.target.value);
+                                            setUsernameError(null);
+                                        }}
+                                        placeholder="Enter username"
+                                        className="flex-1 h-9"
+                                        disabled={isSavingUsername}
+                                    />
+                                    <Button
+                                        size="sm"
+                                        onClick={handleSaveUsername}
+                                        disabled={isSavingUsername || !username.trim()}
+                                        className="bg-blue-600 hover:bg-blue-700"
+                                    >
+                                        {isSavingUsername ? 'Saving...' : 'Save'}
+                                    </Button>
+                                </div>
+                                {usernameError && (
+                                    <p className="text-xs text-red-600">{usernameError}</p>
+                                )}
+                                <p className="text-xs text-gray-500">
+                                    Choose a unique username (letters, numbers, dots, and underscores only)
+                                </p>
+                            </div>
+                        </div>
+                    )}
 
                     <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
                         <p className="text-xs text-amber-800">

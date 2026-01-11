@@ -147,6 +147,7 @@ export const userApi = {
     updatePassword: (data: {
         new_password: string;
     }) => api.post('/users/update-password/', data),
+    updateProfile: (data: Record<string, unknown>) => api.patch('/users/profile/', data),
 };
 
 // Deals API functions
